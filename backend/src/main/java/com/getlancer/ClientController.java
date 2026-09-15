@@ -22,6 +22,9 @@ class ClientController {
   if(rows.isEmpty())throw new ApiError(404,"NOT_FOUND","Request not found.");
   return rows.get(0);
  }
+ boolean requestedBy(UUID id,Map<String,Object> user){
+  return db.queryForObject("SELECT count(*) FROM inquiries WHERE id=? AND client_email=?",Integer.class,id,user.get("email"))>0;
+ }
  @GetMapping Map<String,Object> list(HttpServletRequest request){
   var user=client(request);
   return Pages.query(db,request,"SELECT i.id,i.description,i.current_status AS status,i.moderation_status AS \"moderationStatus\",i.budget_band AS \"budgetBand\",i.timeline_band AS \"timelineBand\",i.updated_at AS \"updatedAt\",p.title AS \"projectTitle\",d.display_name AS builder,EXISTS(SELECT 1 FROM reviews r WHERE r.inquiry_id=i.id) AS \"reviewSubmitted\" FROM inquiries i JOIN products p ON p.id=i.reference_product_id JOIN developer_profiles d ON d.user_id=i.developer_user_id WHERE i.client_email=? ORDER BY i.updated_at DESC,i.id",user.get("email"));

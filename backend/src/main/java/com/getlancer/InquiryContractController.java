@@ -19,7 +19,7 @@ import static com.getlancer.Support.*;
   return clients.decision(id,body,request);
  }
  @PostMapping("/{id}/not-hired") @Transactional
- Map<String,Object> close(@PathVariable UUID id,HttpServletRequest request){var user=clients.client(request);if(clients.db.queryForObject("SELECT count(*) FROM inquiries WHERE id=? AND client_email=?",Integer.class,id,user.get("email"))>0)return clients.close(id,request);return inquiries.transition(id,"not-hired",Map.of(),request);}
+ Map<String,Object> close(@PathVariable UUID id,HttpServletRequest request){var user=clients.client(request);if(clients.requestedBy(id,user))return clients.close(id,request);return inquiries.transition(id,"not-hired",Map.of(),request);}
  @PostMapping("/{id}/review") @ResponseStatus(HttpStatus.CREATED) @Transactional
  Map<String,Object> review(@PathVariable UUID id,@RequestBody Map<String,Object> body,HttpServletRequest request){return clients.review(id,body,request);}
 }

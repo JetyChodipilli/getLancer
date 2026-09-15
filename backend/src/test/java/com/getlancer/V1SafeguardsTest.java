@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 class V1SafeguardsTest {
  @Test void administratorCannotDeleteOwnAccount(){
-  var db=mock(JdbcTemplate.class);var security=mock(Security.class);var request=new MockHttpServletRequest();UUID id=UUID.randomUUID();when(security.user(request)).thenReturn(id);when(security.role(id,"ADMIN")).thenReturn(true);
+  var db=mock(JdbcTemplate.class);var security=mock(Security.class);var request=new MockHttpServletRequest();UUID id=UUID.randomUUID();when(security.principal(request)).thenReturn(Map.of("id",id,"email","admin@example.com"));when(security.role(id,"ADMIN")).thenReturn(true);
   var auth=new AuthController(db,security,mock(Mail.class),true,"admin@example.com");var error=assertThrows(ApiError.class,()->auth.deletion(request));assertEquals("ADMIN_ACCOUNT_PROTECTED",error.code);verifyNoInteractions(db);
  }
  @Test void administratorCannotBeSuspended(){var db=mock(JdbcTemplate.class);var security=mock(Security.class);var request=new MockHttpServletRequest();UUID id=UUID.randomUUID();when(security.admin(request)).thenReturn(id);when(security.role(id,"ADMIN")).thenReturn(true);var controller=new AdminController(db,security,mock(ProductsController.class),mock(Mail.class));assertEquals("ADMIN_ACCOUNT_PROTECTED",assertThrows(ApiError.class,()->controller.accountAction(id,"suspend",Map.of("reason","Testing protection"),request)).code);verifyNoInteractions(db);}
