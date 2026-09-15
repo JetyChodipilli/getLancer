@@ -1,0 +1,11 @@
+ALTER TABLE inquiries ADD COLUMN moderation_status varchar(20) NOT NULL DEFAULT 'CLEAR' CHECK(moderation_status IN ('CLEAR','QUARANTINED','BLOCKED'));
+ALTER TABLE inquiries ADD COLUMN moderation_reason text;
+ALTER TABLE users ADD COLUMN moderation_reason text;
+ALTER TABLE product_media ADD COLUMN sort_order int NOT NULL DEFAULT 0 CHECK(sort_order>=0);
+ALTER TABLE products ADD COLUMN repository_url text;
+ALTER TABLE products ADD COLUMN pricing_note varchar(300);
+CREATE INDEX inquiry_qualification ON inquiries(developer_user_id,moderation_status,email_confirmed_at);
+CREATE INDEX moderation_history ON moderation_actions(target_type,target_id,created_at DESC);
+CREATE TABLE storage_deletions(storage_key text PRIMARY KEY,created_at timestamptz NOT NULL DEFAULT now());
+ALTER TABLE analytics_events ADD COLUMN client_event_id uuid UNIQUE;
+CREATE TABLE product_access_grants(product_id uuid REFERENCES products NOT NULL,client_email varchar(254) NOT NULL,expires_at timestamptz NOT NULL,PRIMARY KEY(product_id,client_email));

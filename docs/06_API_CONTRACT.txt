@@ -1,0 +1,315 @@
+API CONTRACT — V1
+1. Purpose
+This document defines the external REST contract for V1. An OpenAPI file may later be generated from or aligned to this contract. Endpoints are versioned under /api/v1.
+2. Conventions
+Content Type
+application/json unless uploading directly to object storage through signed URLs.
+Authentication
+Browser-first sessions use secure cookies or equivalent secure session strategy. Endpoints below mark whether authentication is required.
+IDs
+Use UUIDs internally. Public resources should prefer slugs where user-facing.
+Timestamps
+ISO-8601 UTC.
+Pagination
+Request:
+?page=0&size=20
+Response:
+{
+  "items": [],
+  "page": 0,
+  "size": 20,
+  "totalItems": 0,
+  "totalPages": 0
+}
+Cursor pagination may replace page-number pagination for high-volume feeds later.
+3. Standard Error Envelope
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "One or more fields are invalid.",
+    "fieldErrors": {
+      "email": "Invalid email address"
+    },
+    "requestId": "req_..."
+  }
+}
+Common codes:
+VALIDATION_ERROR
+UNAUTHENTICATED
+FORBIDDEN
+NOT_FOUND
+CONFLICT
+RATE_LIMITED
+SLOT_LIMIT_REACHED
+INVALID_STATE_TRANSITION
+EMAIL_NOT_VERIFIED
+PRODUCT_NOT_AVAILABLE
+DUPLICATE_INQUIRY
+REVIEW_NOT_ELIGIBLE
+UNSAFE_EXTERNAL_URL
+INTERNAL_ERROR
+4. Authentication Endpoints
+POST /api/v1/auth/signup
+Auth: Public
+Request:
+{
+  "email": "builder@example.com",
+  "password": "...",
+  "role": "DEVELOPER"
+}
+Responses:
+201 account created; verification sent
+400 validation
+409 email already registered
+429 rate limited
+POST /api/v1/auth/login
+Auth: Public
+Request:
+{
+  "email": "builder@example.com",
+  "password": "..."
+}
+Responses: 200, 401, 429.
+POST /api/v1/auth/logout
+Auth: Required
+Response: 204.
+POST /api/v1/auth/verify-email
+Auth: Public
+{"token":"..."}
+Must be idempotent after successful verification.
+POST /api/v1/auth/password-reset/request
+Auth: Public. Always return neutral success to reduce account enumeration.
+POST /api/v1/auth/password-reset/confirm
+Auth: Public; valid one-time token required.
+5. Current User
+GET /api/v1/me
+Auth: Required
+Returns account roles/status and lightweight profile references.
+DELETE /api/v1/me
+Auth: Required; may require recent re-authentication.
+Returns deletion request/status according to retention policy.
+6. Developer Profile
+GET /api/v1/builders/{slug}
+Auth: Public
+Returns only approved/public profile data.
+PUT /api/v1/developer/profile
+Auth: Developer
+Request includes:
+displayName
+headline
+bio
+availabilityStatus
+bookedUntil optional
+technology IDs
+category IDs
+public links
+POST /api/v1/developer/profile/submit
+Auth: Developer
+Transitions completed profile to review state.
+Possible 409 INVALID_STATE_TRANSITION.
+7. Product Search
+GET /api/v1/products
+Auth: Public
+Query parameters:
+q
+category
+technology
+projectType
+availability
+liveDemo
+sort=relevance|newest|updated
+pagination
+Only approved, active, public products are returned.
+GET /api/v1/products/{slug}
+Auth: Public
+Returns product proof, builder summary, CTA eligibility, verification labels, review summary.
+Private/NDA products require separate authorized flow and must not leak confidential fields.
+8. Product Management
+POST /api/v1/developer/products
+Auth: Approved Developer
+Creates DRAFT.
+PATCH /api/v1/developer/products/{id}
+Auth: Product owner
+Cannot bypass moderation-relevant re-review rules.
+POST /api/v1/developer/products/{id}/submit
+Auth: Owner
+Validates required fields and moves to pending review.
+POST /api/v1/developer/products/{id}/archive
+Auth: Owner
+Idempotent.
+POST /api/v1/developer/products/{id}/activate
+Auth: Owner
+Requirements:
+product approved;
+account approved;
+free active slot.
+Responses:
+204
+409 SLOT_LIMIT_REACHED
+409 INVALID_STATE_TRANSITION
+GET /api/v1/developer/products
+Auth: Developer
+Filters: active/draft/archived/pending.
+9. Product Media
+POST /api/v1/developer/products/{id}/media/upload-request
+Auth: Owner
+Request:
+{
+  "filename":"dashboard.png",
+  "contentType":"image/png",
+  "sizeBytes":123456
+}
+Returns signed upload details after validation.
+POST /api/v1/developer/products/{id}/media/complete
+Auth: Owner
+Records uploaded object metadata after server verification where appropriate.
+10. Saved Products
+POST /api/v1/products/{id}/save
+Auth: Client/User
+Idempotent. Response 204.
+DELETE /api/v1/products/{id}/save
+Auth: Client/User
+Idempotent. Response 204.
+GET /api/v1/me/saved-products
+Auth: Required
+Returns saved products, including unavailable state for archived/suspended historical saves.
+11. Client Inquiry
+POST /api/v1/inquiries
+Auth: Optional
+Recommended header:
+Idempotency-Key: <uuid>
+Request:
+{
+  "referenceProductId":"uuid",
+  "requestType":"SIMILAR_BUILD",
+  "description":"Need a similar solution for five locations.",
+  "budgetBand":"USD_3K_10K",
+  "timelineBand":"ONE_TO_THREE_MONTHS",
+  "clientName":"Alex",
+  "clientEmail":"alex@example.com",
+  "companyName":"Example Ltd"
+}
+Responses:
+201 inquiry stored; confirmation required
+400 validation
+404 product not found
+409 duplicate
+422 product/developer unavailable for inquiry
+429 abuse/rate limit
+Important: inquiry persistence happens before email dispatch.
+POST /api/v1/inquiries/confirm-email
+Auth: Public
+{"token":"..."}
+On success, inquiry becomes qualified and developer notification is triggered.
+12. Developer Inquiry Dashboard
+GET /api/v1/developer/inquiries
+Auth: Developer
+Developer may access only inquiries targeted to them.
+Filters:
+status
+productId
+from/to date
+GET /api/v1/developer/inquiries/{id}
+Auth: Target Developer
+Returns client contact/requirements allowed by privacy policy after qualification.
+13. Inquiry Status
+POST /api/v1/inquiries/{id}/responded
+Auth: Target Developer
+POST /api/v1/inquiries/{id}/discussion
+Auth: Target Developer
+POST /api/v1/inquiries/{id}/proposal-sent
+Auth: Target Developer
+May optionally include reported proposal value/currency.
+POST /api/v1/inquiries/{id}/request-hire-confirmation
+Auth: Target Developer
+Triggers client confirmation email.
+POST /api/v1/inquiries/{id}/confirm-hire
+Auth: client session or one-time token
+Idempotent.
+POST /api/v1/inquiries/{id}/in-progress
+Auth: Target Developer; only after confirmed hire.
+POST /api/v1/inquiries/{id}/request-completion-confirmation
+Auth: Target Developer
+POST /api/v1/inquiries/{id}/confirm-completion
+Auth: Client/token
+Creates review eligibility.
+POST /api/v1/inquiries/{id}/not-hired
+Auth: authorized participant
+14. Reviews
+POST /api/v1/inquiries/{id}/review
+Auth: Confirmed client
+Request:
+{
+  "rating":5,
+  "reviewText":"Clear communication and strong delivery."
+}
+Responses:
+201
+409 REVIEW_NOT_ELIGIBLE
+409 review already exists
+GET /api/v1/builders/{slug}/reviews
+Auth: Public
+Only published verified reviews.
+15. Reports
+POST /api/v1/reports
+Auth: Optional/Required depending on abuse policy
+Request:
+{
+  "targetType":"PRODUCT",
+  "targetId":"uuid",
+  "reason":"MALICIOUS_LINK",
+  "detail":"..."
+}
+Return 201 with report reference, not internal moderation details.
+16. Admin Product Review
+All endpoints: Admin only + audit log.
+GET /api/v1/admin/products/pending
+POST /api/v1/admin/products/{id}/approve
+POST /api/v1/admin/products/{id}/request-changes
+Requires reason.
+POST /api/v1/admin/products/{id}/reject
+Requires reason.
+POST /api/v1/admin/products/{id}/suspend
+Requires reason.
+17. Admin Reports
+GET /api/v1/admin/reports
+Filters by status/reason/severity.
+POST /api/v1/admin/reports/{id}/resolve
+Records action + reason.
+18. Categories / Technologies
+GET /api/v1/categories
+Public active categories.
+GET /api/v1/technologies
+Public active technologies.
+Admin CRUD endpoints are protected.
+19. Analytics Events
+Prefer server-authoritative events for business outcomes and client-side events for UI interactions.
+Do not expose an unrestricted public endpoint that accepts arbitrary business-success events.
+20. Rate Limits — Initial Policy
+Exact values are configuration, not code constants.
+Protect at minimum:
+login;
+password reset;
+verification resend;
+inquiry creation;
+save/remove spam;
+report submission;
+admin authentication.
+Return 429 with retry guidance where safe.
+21. Authorization Matrix
+Public product read: Public, Client, Developer, and Admin may read approved public products.
+Private draft: Only the owning developer and authorized Admin may read.
+Edit product: Only the owning developer may edit; Admin may take moderation actions but should not impersonate normal owner editing.
+Developer inquiry: Only the client participant, target developer, and explicitly authorized support/admin staff may access.
+Review creation: Only the confirmed client for an eligible completed engagement may create the review.
+Admin queue: Admin only.
+Every object-level authorization must be enforced server-side.
+22. API Compatibility
+Breaking changes require new API version or controlled compatibility strategy.
+Error codes are stable contracts.
+Additive response fields should not break clients.
+Database implementation details are never exposed as API contracts.
+
+Implementation addendum — 14 September 2026
+PUT /developer/profile accepts optional websiteUrl (public HTTPS), country (ISO alpha-2), timeZone (IANA) and languages (text, max 200). Omitting an optional field preserves its stored value; empty string clears it. These fields are included in approved public builder profiles and moderation evidence. Material edits require re-review.
+POST /inquiries/{id}/review and review-token confirmation accept visibility: ANONYMOUS (default) or NAMED. Client workspace alias shares the same validation. Public builder review responses include id and clientName; anonymous reviews return Verified client, named reviews return the inquiry's client name. Email is never returned. Replaying identical review text/rating/visibility is harmless; changing an already-submitted review returns REVIEW_EXISTS.

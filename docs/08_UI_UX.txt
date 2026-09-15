@@ -1,0 +1,406 @@
+UI / UX REQUIREMENTS
+1. UX Strategy
+The product must communicate one idea immediately:
+Find software like what you want. Hire the people who built it.
+The experience must be product-first, not profile-first.
+Clients should understand a builder's capability from:
+Product
+Demo
+Live deployment
+Contribution
+Availability
+Reviews
+Inquiry CTA
+2. Information Architecture
+Public
+├── Home
+├── Explore
+│   ├── Categories
+│   ├── Technologies
+│   └── Search
+├── Product Detail
+├── Developer Profile
+├── Sign In
+└── Policies
+
+Developer
+├── Dashboard
+│   ├── Showcases
+│   │   ├── Active
+│   │   ├── Draft
+│   │   └── Archived
+│   ├── Inquiries
+│   ├── Analytics
+│   └── Account
+├── Create Product
+└── Edit Profile
+
+Admin
+├── Review Queue
+├── Reports
+├── Users
+├── Products
+└── Categories
+3. Homepage
+Hero
+Headline:
+Find software like what you want. Hire the people who built it.
+Search:
+What do you want to build?
+Example placeholder:
+CRM, restaurant ordering app, AI support tool, inventory system...
+Primary actions:
+Search products
+Browse categories
+Secondary builder CTA:
+Showcase your work
+Sections
+Featured/curated builds
+Business categories
+Recently approved builds
+Available builders
+How it works for clients
+How it works for builders
+Trust/proof explanation
+Avoid:
+Generic social feed above the fold
+Follower counts as main credibility
+Overuse of animated marketing effects
+"Hire cheap developers" positioning
+4. Explore/Search
+Search Card
+Should show:
+Product thumbnail
+Product title
+One-line business summary
+Builder
+Availability
+Project type
+2–4 relevant tags
+Proof marker:
+Live demo
+Video
+Client case study
+Optional verification label
+Filters
+Business category
+Technology
+Project type
+Availability
+Live demo available
+Newest/recently updated
+Empty State
+Instead of:
+No results.
+Use:
+We couldn't find an exact match.
+Offer:
+Nearby categories
+Remove filters
+Future: request private matching
+5. Product Detail
+Recommended Layout
+[Title]
+[Business outcome summary]
+
+[Demo Video / Screenshot Gallery]
+
+[Open Live Demo]
+
+Built by [Developer]
+Availability: Available Now
+Response: Usually within 3 hours
+
+[Build Something Similar]  ← Primary
+[Hire Developer]           ← Secondary
+
+About this product
+Problem
+Solution
+Key features
+Builder contribution
+Tech stack
+Project type
+Pricing mode
+Verification
+Reviews
+Related builds
+Rules
+Primary CTA stays visible without aggressive sticky obstruction.
+Demo proof appears before long technical descriptions.
+"Verified" must always name what was verified.
+Do not show sensitive private project information.
+External demo opens with clear external-link behavior.
+Broken demo does not make page unusable.
+6. Build Something Similar
+UX Goal
+Convert interest into qualified intent with minimum friction.
+Form
+Step 1:
+What do you want?
+Something similar
+Customized version
+Completely new product
+Consultation
+Step 2:
+Describe the project
+Step 3:
+Budget
+Step 4:
+Timeline
+Step 5:
+Contact
+Name
+Email
+Company optional
+Rules
+Reference product is prefilled
+Do not ask client to create password before submitting
+Save inquiry before email confirmation
+Confirm email afterward
+Show clear success state
+7. Developer Profile
+Must show:
+Name
+Headline
+Bio
+Availability
+Primary skills
+Business areas
+Active showcases
+Verified reviews
+Response reliability if enough data
+External professional links
+Do not over-emphasize:
+Follower count
+Upvotes
+Generic endorsement counts
+8. Developer Dashboard
+Dashboard Summary
+Cards:
+Active Showcase Slots: 3 / 3
+New Inquiries
+Response Rate
+Product Views
+Build Similar Clicks
+Showcase Tabs
+Active
+Drafts
+Archived
+Each showcase:
+Status
+Approval
+Views
+Demo clicks
+Inquiries
+Actions
+Slot UX
+Example:
+3 of 3 active showcase slots used.
+Actions:
+Archive an existing showcase
+Future: unlock through verified success
+Future: upgrade to Pro
+Avoid manipulative dark patterns.
+9. Inquiry Dashboard
+Columns/card content:
+Client
+Reference product
+Budget
+Timeline
+Status
+Received date
+Last activity
+Statuses visually distinct, but not color-only.
+Actions:
+Mark Responded
+Move to Discussion
+Mark Proposal Sent
+Request Hire Confirmation
+Mark Not Hired
+10. Admin Review UX
+Review screen should place:
+Product media
+Description
+Live URL
+Developer profile
+Contribution
+Project type
+Category
+Technology
+Previous moderation history
+Actions:
+Approve
+Request Changes
+Reject
+Suspend
+Admin must enter reason for:
+Request Changes
+Reject
+Suspend
+11. Loading States
+Use:
+Skeletons for search cards
+Inline spinner only for small actions
+Progress state for uploads
+Disabled button after submit to prevent duplicates
+Avoid full-screen blocking loaders for simple navigation.
+12. Error States
+404
+Message:
+This page could not be found.
+Actions:
+Explore products
+Search
+Go home
+500
+Message:
+Something went wrong.
+Actions:
+Retry
+Go home
+Reference ID for support
+Network Error
+Message:
+You're offline or the connection was interrupted.
+Keep locally entered form data when safe.
+13. Demo Offline State
+Show:
+Live demo currently unavailable.
+Then still show:
+Demo video
+Screenshots
+Description
+Builder
+Inquiry CTA
+Future:
+Last checked 2 hours ago.
+14. Accessibility
+Target: WCAG 2.2 AA.
+Required:
+Keyboard navigation
+Focus visibility
+Logical tab order
+Landmark regions
+Semantic headings
+Form label associations
+Error summaries
+ARIA only where semantic HTML is insufficient
+Contrast compliance
+Reduced motion
+Touch targets
+Screen-reader-friendly status updates
+15. Branding Tokens
+Do not hard-code arbitrary colors throughout the app.
+Use design tokens.
+Typography
+Recommended:
+UI sans: Inter, Geist, or system sans stack
+Code: JetBrains Mono or system monospace
+Default recommendation:
+--font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+--font-mono: "JetBrains Mono", ui-monospace, monospace;
+Color Strategy
+Use semantic roles:
+background
+surface
+surface-muted
+text-primary
+text-secondary
+border
+brand
+success
+warning
+danger
+info
+focus
+Do not make trust/verification depend on color alone.
+Spacing
+Use a consistent 4px or 8px scale.
+Radius
+Use restrained rounded corners; avoid making every element pill-shaped.
+16. Responsive Breakpoints
+Mobile-first.
+Suggested design breakpoints:
+Small: ~640px
+Medium: ~768px
+Large: ~1024px
+XL: ~1280px
+These are design guidance, not hard business rules.
+17. Content Style
+Client-facing language:
+Plain
+Business-oriented
+Outcome-oriented
+Prefer:
+Inventory management platform for multi-location retailers.
+Over:
+Full-stack MERN application with CRUD.
+Developer-facing technical details can be deeper.
+18. Community UX — Later
+If community content is added, restrict post types:
+Shipped
+Building
+Demo
+Need Feedback
+Looking for Collaborator
+Technical Breakdown
+Client Case Study
+Avoid building an unrestricted social feed in V1.
+19. Team UX — V2
+Team profile:
+Team name
+Team summary
+Members
+Roles
+Combined projects
+Availability
+Typical project range
+Client reviews
+Hire Team CTA
+Recruitment:
+Search & Invite
+Open Role & Apply
+Client should eventually see:
+Hire Developer
+Hire Developer's Team
+20. Wireframe Guidance
+Product Card
+┌─────────────────────────────────┐
+│ [thumbnail]                     │
+│ Inventory Management SaaS       │
+│ Multi-location stock control    │
+│                                 │
+│ Rahul • Available Now           │
+│ Live Demo • Client Project      │
+│ Spring Boot • React • Postgres  │
+└─────────────────────────────────┘
+Product Detail CTA Block
+┌─────────────────────────────────┐
+│ Need something like this?       │
+│                                 │
+│ [Build Something Similar]       │
+│ [Hire Rahul]                    │
+└─────────────────────────────────┘
+Developer Slot Dashboard
+Active Showcase Slots
+3 / 3
+
+[CRM]         Active
+[Inventory]   Active
+[Restaurant]  Active
+
+[Archive a showcase]
+21. UX Anti-Patterns
+Do not:
+Force signup before browsing
+Force signup before seeing demo
+Hide fees until the last step later
+Auto-enroll users into paid plans
+Sell verification
+Rank solely by payment
+Rank solely by likes
+Expose private email
+Make demo autoplay with sound
+Use endless infinite scroll everywhere
+Make clients submit 20 fields before first inquiry

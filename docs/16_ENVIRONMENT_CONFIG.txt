@@ -1,0 +1,177 @@
+ENVIRONMENT CONFIGURATION
+1. Purpose
+Define how local, development, staging, and production environments are configured without leaking secrets or creating environment drift.
+2. Environments
+Environment | Purpose | Real Users | Real Emails | Production Data
+Local | Developer coding/tests | No | No | No
+Development | Shared engineering integration | No | Sandbox only | No
+Staging | Production-like validation | Test users only | Sandbox/test routing | No
+Production | Live marketplace | Yes | Yes | Yes
+Never point non-production services at the production database.
+3. Configuration Principles
+12-factor-style environment configuration where appropriate.
+No secret values committed to source control.
+Separate credentials for every environment.
+Configuration validated at startup.
+Fail fast for missing critical production settings.
+Document defaults; production should avoid unsafe fallback defaults.
+4. Backend Configuration Categories
+Application
+APP_ENV
+APP_BASE_URL
+API_BASE_URL
+ALLOWED_ORIGINS
+Database
+DB_URL
+DB_USERNAME
+DB_PASSWORD
+DB_POOL_MAX
+Authentication
+SESSION_SIGNING_KEY / JWT_SIGNING_KEY
+SESSION_TTL
+PASSWORD_RESET_TTL
+EMAIL_VERIFICATION_TTL
+OAuth
+GITHUB_CLIENT_ID
+GITHUB_CLIENT_SECRET
+GITHUB_REDIRECT_URI
+Object Storage
+OBJECT_STORAGE_ENDPOINT
+OBJECT_STORAGE_BUCKET
+OBJECT_STORAGE_REGION
+OBJECT_STORAGE_ACCESS_KEY
+OBJECT_STORAGE_SECRET_KEY
+PUBLIC_ASSET_BASE_URL
+Email
+EMAIL_PROVIDER
+EMAIL_API_KEY
+EMAIL_FROM_ADDRESS
+EMAIL_FROM_NAME
+Monitoring
+ERROR_TRACKING_DSN
+METRICS_ENABLED
+LOG_LEVEL
+Analytics
+ANALYTICS_ENABLED
+ANALYTICS_KEY
+Security / Abuse
+RATE_LIMIT_PROFILE
+MAX_UPLOAD_BYTES
+DEMO_URL_CHECK_ENABLED
+BOT_CHALLENGE_ENABLED
+5. Frontend Public Configuration
+Only expose variables explicitly safe for browser use.
+Examples:
+NEXT_PUBLIC_APP_URL
+NEXT_PUBLIC_ANALYTICS_ID
+NEXT_PUBLIC_FEATURE_FLAGS_SAFE
+Never expose:
+database credentials;
+email API secrets;
+OAuth client secret;
+signing keys;
+object-storage secret key.
+6. Local Development
+Recommended dependencies:
+PostgreSQL via Docker Compose
+Local/mock object storage optionally
+Email captured by sandbox/local mail tool
+Example local profile:
+APP_ENV=local
+EMAIL_PROVIDER=local
+ANALYTICS_ENABLED=false
+DEMO_URL_CHECK_ENABLED=false
+Do not use production API keys locally.
+7. Staging
+Staging should mimic production for:
+auth/session settings;
+migrations;
+object storage behavior;
+reverse proxy/TLS;
+email templates;
+security headers;
+CORS;
+monitoring.
+But use:
+separate DB;
+separate OAuth app/redirect;
+separate storage bucket;
+sandbox email.
+8. Production
+Production requirements:
+TLS enforced;
+secure cookies;
+admin MFA;
+encryption at rest;
+backups/PITR;
+strict CORS;
+production email DNS configured;
+error monitoring active;
+secrets from managed secret store/environment injection;
+debug endpoints disabled/protected.
+9. Feature Flags
+Use flags for risky/incremental features such as:
+FEATURE_SAVED_PRODUCTS
+FEATURE_DEMO_HEALTH
+FEATURE_SIMILAR_BUILDERS
+FEATURE_BUILDER_LEVELS
+FEATURE_TEAMS
+Rules:
+default-off for unfinished production features;
+flags are not authorization controls;
+remove stale flags after stable rollout.
+10. Configuration Validation
+At startup validate:
+valid URLs;
+required secrets;
+allowed origin syntax;
+session TTL range;
+upload-size range;
+DB connectivity;
+production environment not using test credentials.
+11. Secret Rotation
+Support rotation for:
+DB passwords;
+email provider key;
+OAuth secret;
+signing key;
+object storage keys.
+Document whether rotation requires restart or supports overlap.
+12. Environment-Specific Data Rules
+Never clone raw production client inquiries into local/dev.
+Use synthetic fixtures.
+If production issue reproduction requires data, sanitize/redact first.
+Production backups remain production-sensitive.
+13. Logging Levels
+Suggested:
+Local: DEBUG allowed
+Development: DEBUG/INFO
+Staging: INFO with diagnostic overrides
+Production: INFO/WARN/ERROR; avoid sensitive debug payloads
+14. Configuration Ownership
+Engineering owns technical configuration.
+Security approves sensitive production settings.
+Product owns feature-flag rollout intent.
+Ops owns deployment/environment integrity.
+In a small founding team these may be the same people, but responsibilities should remain conceptually separate.
+15. Example .env.example
+An .env.example may contain names and non-sensitive placeholders only:
+APP_ENV=local
+APP_BASE_URL=http://localhost:3000
+DB_URL=jdbc:postgresql://localhost:5432/marketplace
+DB_USERNAME=marketplace
+DB_PASSWORD=CHANGE_ME
+EMAIL_API_KEY=CHANGE_ME
+GITHUB_CLIENT_ID=CHANGE_ME
+GITHUB_CLIENT_SECRET=CHANGE_ME
+Never place real secrets in examples.
+16. CI/CD Environment Separation
+Use separate protected environments/contexts for:
+staging deploy secrets;
+production deploy secrets.
+Production secret access should require protected branch/environment controls where supported.
+17. Drift Control
+Configuration keys documented in one registry/example file.
+CI detects missing required keys where possible.
+Do not maintain undocumented server-local config edits.
+Infrastructure changes should be version-controlled when practical.

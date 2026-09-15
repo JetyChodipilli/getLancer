@@ -1,0 +1,442 @@
+ARCHITECTURE
+1. Architecture Decision
+V1 Recommendation
+Use a modular monolith:
+Next.js/React frontend
+Spring Boot backend
+PostgreSQL
+S3-compatible object storage
+External demo/video hosting
+Transactional email provider
+Docker deployment
+GitHub Actions CI/CD
+Do not start with microservices, Kafka, gRPC, or Kubernetes.
+Reason:
+The primary risk is marketplace validation, not distributed-system scale.
+2. High-Level System Diagram
+flowchart LR
+    C[Client / Visitor]
+    D[Developer]
+    A[Admin]
+
+    FE[Next.js Web App]
+    API[Spring Boot Modular Monolith]
+    DB[(PostgreSQL)]
+    OBJ[(S3-Compatible Object Storage)]
+    MAIL[Transactional Email]
+    GH[GitHub OAuth]
+    EXT[External Demo / YouTube / Loom]
+    OBS[Monitoring / Error Tracking]
+
+    C --> FE
+    D --> FE
+    A --> FE
+
+    FE --> API
+    API --> DB
+    API --> OBJ
+    API --> MAIL
+    API --> GH
+    FE --> EXT
+    API --> OBS
+    FE --> OBS
+3. Backend Module Boundaries
+com.platform
+├── auth
+├── users
+├── profiles
+├── products
+├── discovery
+├── inquiries
+├── reviews
+├── notifications
+├── moderation
+├── analytics
+├── admin
+└── shared
+auth
+Signup/login
+Email verification
+Password reset
+OAuth2/OIDC
+Sessions/tokens
+users
+Account state
+Roles
+Suspension
+Verification flags
+profiles
+Developer profile
+Client profile
+Availability
+Public links
+products
+Product showcase
+Media metadata
+Live demo link
+Visibility
+Approval
+Active/archive status
+Showcase entitlement
+discovery
+Search
+Filters
+Categories
+Technology tags
+Ranking inputs
+inquiries
+Client requirement
+Budget/timeline
+Inquiry status
+Status event history
+Client confirmations
+reviews
+Review eligibility
+Verified reviews
+Review moderation
+notifications
+Email
+In-app notifications
+Templates
+moderation
+Product review queue
+Reports
+Admin actions
+Audit trail
+analytics
+Conversion events
+Funnel aggregation
+admin
+Admin-only workflow orchestration
+Category/tag configuration
+Marketplace quality tools
+4. Request/Data Flow — Product Publishing
+sequenceDiagram
+    actor Dev as Developer
+    participant Web as Next.js
+    participant API as Spring Boot
+    participant DB as PostgreSQL
+    participant Store as Object Storage
+    actor Admin as Admin
+
+    Dev->>Web: Create product draft
+    Web->>API: POST /products
+    API->>DB: Save draft
+
+    Dev->>Web: Upload screenshots
+    Web->>API: Request upload
+    API-->>Web: Signed upload details
+    Web->>Store: Upload file
+
+    Dev->>Web: Submit for review
+    Web->>API: POST /products/{id}/submit
+    API->>DB: Validate profile + slot potential + set PENDING_REVIEW
+
+    Admin->>Web: Review queue
+    Web->>API: GET pending products
+    Admin->>Web: Approve
+    Web->>API: POST /admin/products/{id}/approve
+    API->>DB: Activate if entitlement allows
+5. Request/Data Flow — Client Inquiry
+sequenceDiagram
+    actor Client
+    participant Web
+    participant API
+    participant DB
+    participant Mail
+    actor Dev as Developer
+
+    Client->>Web: Click "Build Something Similar"
+    Web->>Client: Prefilled inquiry form
+    Client->>Web: Submit inquiry
+    Web->>API: POST /inquiries
+    API->>DB: Persist inquiry + initial event
+    API->>Mail: Send confirmation email
+    API-->>Web: Inquiry received
+
+    Client->>API: Confirm email token
+    API->>DB: Mark client email confirmed
+    API->>Mail: Notify developer
+    Mail-->>Dev: New qualified inquiry
+6. Request/Data Flow — Hire Confirmation
+sequenceDiagram
+    actor Dev as Developer
+    participant API
+    participant DB
+    participant Mail
+    actor Client
+
+    Dev->>API: Mark "Hired - request confirmation"
+    API->>DB: Add pending confirmation event
+    API->>Mail: Send confirmation request
+    Client->>API: Confirm hire
+    API->>DB: Persist confirmed Hired state
+The same pattern applies to Completed.
+7. Frontend Architecture
+Recommended:
+Next.js
+TypeScript
+Server Components / SSR where useful for public SEO pages
+Client components only for interactive sections
+Form library + schema validation
+Accessible component primitives
+Central API client
+Feature-based UI folders
+Suggested:
+src/
+├── app/
+├── features/
+│   ├── auth/
+│   ├── profiles/
+│   ├── products/
+│   ├── search/
+│   ├── inquiries/
+│   └── admin/
+├── components/
+├── lib/
+├── styles/
+└── types/
+8. API Style
+Use REST for V1.
+Examples:
+POST   /api/v1/auth/signup
+POST   /api/v1/auth/login
+POST   /api/v1/auth/verify-email
+
+GET    /api/v1/products
+POST   /api/v1/products
+GET    /api/v1/products/{slug}
+PATCH  /api/v1/products/{id}
+POST   /api/v1/products/{id}/submit
+POST   /api/v1/products/{id}/archive
+POST   /api/v1/products/{id}/activate
+
+GET    /api/v1/builders/{slug}
+
+POST   /api/v1/inquiries
+GET    /api/v1/developer/inquiries
+POST   /api/v1/inquiries/{id}/status
+POST   /api/v1/inquiries/{id}/confirm-hire
+POST   /api/v1/inquiries/{id}/confirm-completion
+
+POST   /api/v1/reviews
+
+GET    /api/v1/admin/products/pending
+POST   /api/v1/admin/products/{id}/approve
+POST   /api/v1/admin/products/{id}/request-changes
+POST   /api/v1/admin/products/{id}/reject
+9. Authentication / Session Design
+For browser-first V1:
+Spring Security
+OAuth2/OIDC where used
+Secure HttpOnly cookie-based session or signed token session
+CSRF protection where relevant
+Avoid long-lived JWT in browser localStorage
+JWT can still be used for carefully designed stateless APIs, but the requirement is secure authentication, not "JWT everywhere."
+10. PostgreSQL
+Use PostgreSQL for:
+Accounts
+Profiles
+Products
+Categories
+Tags
+Entitlements
+Inquiries
+Status history
+Reviews
+Reports
+Notifications
+Audit events
+Analytics facts/aggregates as appropriate
+Use:
+UUID/ULID or bigint IDs consistently
+Foreign keys
+Unique constraints
+Partial indexes where helpful
+JSONB only for flexible metadata, not core relational data
+Full-text/trigram search initially
+11. Object Storage
+Use S3-compatible storage for:
+Product screenshots
+Thumbnails
+Avatars
+Later: approved documents
+Do not store uploads on application container disk.
+Recommended flow:
+Frontend
+→ API requests signed upload
+→ Upload directly to object storage
+→ API records metadata
+12. External Demo Strategy
+V1:
+Developer hosts app externally
+Platform stores live URL
+Platform never runs arbitrary developer code
+Platform can validate URL safely
+Periodic reachability check added in V1.5
+Supported examples:
+Vercel
+Netlify
+Render
+Railway
+AWS
+Azure
+GCP
+Developer-owned domain
+Password-protected/private demo references
+13. Video Strategy
+V1:
+YouTube
+Loom
+Vimeo or approved equivalent
+Do not self-host/transcode video initially.
+Later, if justified:
+Mux
+Cloudflare Stream
+dedicated video pipeline
+14. Email
+Use a transactional email provider.
+Templates:
+Verify account
+Password reset
+Product review result
+New inquiry
+Hire confirmation
+Completion confirmation
+Review request
+Moderation notice
+Send asynchronously.
+15. Background Jobs
+Use a lightweight queue/job system initially.
+Jobs:
+Email
+Demo health checks
+Cleanup
+Aggregation
+Image processing
+Options:
+Database-backed job table
+Spring scheduling for low-scale periodic tasks
+Lightweight queue service later
+Kafka is not justified for V1.
+16. Search Architecture
+V1
+PostgreSQL:
+Full-text search
+pg_trgm
+Indexed filters
+Upgrade Trigger
+Consider Typesense/Meilisearch/OpenSearch only if:
+Relevance requirements exceed PostgreSQL
+Search latency degrades
+Faceting becomes complex
+Dataset becomes large
+Semantic matching is introduced
+17. Caching
+Do not add Redis by default unless needed.
+Add when measured benefit exists for:
+Hot public pages
+Rate limiting
+Session store
+Search filter metadata
+Expensive aggregates
+CDN caching of public assets/pages may provide more value earlier.
+18. Deployment Topology
+MVP
+flowchart TB
+    U[Users]
+    CDN[CDN / Edge]
+    FE[Next.js]
+    API[Spring Boot]
+    DB[(Managed PostgreSQL)]
+    S3[(Object Storage)]
+    MAIL[Email Provider]
+
+    U --> CDN
+    CDN --> FE
+    FE --> API
+    API --> DB
+    API --> S3
+    API --> MAIL
+Possible deployment:
+Frontend: Vercel / Cloudflare / container host
+Backend: Docker on managed container/VM/PaaS
+Database: managed PostgreSQL
+Object storage: S3/R2-compatible
+DNS/CDN: managed provider
+19. Environment Separation
+Local
+Development
+Staging
+Production
+Each must have:
+Separate database
+Separate secrets
+Separate OAuth callbacks
+Separate email configuration
+Separate object storage namespace/bucket
+Never point staging at production DB.
+20. Observability
+Centralized error tracking
+Structured logs
+Request IDs
+Metrics
+Health endpoints
+Alerting
+Spring Boot Actuator may expose protected health/metrics endpoints.
+Never publicly expose sensitive actuator endpoints.
+21. Microservices Roadmap
+Potential future extraction only after proven need:
+identity-service
+marketplace-service
+search-service
+notification-service
+payments-service
+media-service
+verification-service
+But extraction is a future operational decision.
+Kafka Trigger
+Use only when there is a need for:
+Large event throughput
+Multiple independent event consumers
+Replayable event streams
+Strong decoupling across services
+gRPC Trigger
+Use only when:
+Multiple internal services exist
+Strict typed internal RPC is beneficial
+REST overhead actually matters
+22. V2 Team Architecture Readiness
+V1 schema/API should be extendable for:
+organizations
+organization_members
+organization_roles
+team-owned products
+product contributors
+team inquiries
+team recruiting roles
+Avoid hard-coding every product to exactly one permanent human owner in a way that cannot evolve.
+23. V3 Payments Architecture Trigger
+Before payments:
+Legal review
+Payment provider selection
+KYC/KYB
+Refund/dispute design
+Tax treatment
+Marketplace payout model
+Webhook security
+Idempotency
+Ledger design
+Do not bolt payment logic into the V1 inquiry table.
+24. Source-Code Marketplace Trigger
+Before accepting code:
+Isolated execution
+Malware scanning
+Secret scanning
+Build manifest
+License model
+Version hashing
+Verification pipeline
+Refund/dispute support
+Secure download authorization
+This is intentionally outside V1.

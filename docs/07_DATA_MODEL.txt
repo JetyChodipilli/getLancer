@@ -1,0 +1,514 @@
+DATA MODEL
+1. Modeling Principles
+PostgreSQL is the source of truth.
+Use relational constraints for core marketplace relationships.
+Use JSONB only for non-core flexible metadata.
+Preserve historical inquiry/outcome references even if products are archived.
+Avoid hard-coding product ownership in a way that prevents future team ownership/contributors.
+Use soft delete where auditability matters.
+2. High-Level ER Diagram
+erDiagram
+    USERS ||--o| DEVELOPER_PROFILES : has
+    USERS ||--o| CLIENT_PROFILES : has
+
+    USERS ||--o{ PRODUCTS : creates
+    PRODUCTS ||--o{ PRODUCT_MEDIA : has
+    PRODUCTS ||--o{ PRODUCT_LINKS : has
+
+    PRODUCTS }o--o{ CATEGORIES : categorized_as
+    PRODUCTS }o--o{ TECHNOLOGIES : uses
+
+    USERS ||--|| SHOWCASE_ENTITLEMENTS : receives
+
+    PRODUCTS ||--o{ INQUIRIES : originates
+    USERS ||--o{ INQUIRIES : developer_target
+    USERS ||--o{ INQUIRIES : client_owner
+
+    INQUIRIES ||--o{ INQUIRY_EVENTS : history
+    INQUIRIES ||--o| REVIEWS : may_create
+
+    USERS ||--o{ NOTIFICATIONS : receives
+    USERS ||--o{ REPORTS : submits
+    PRODUCTS ||--o{ REPORTS : may_be_reported
+
+    USERS ||--o{ MODERATION_ACTIONS : subject_or_actor
+3. Core Tables
+3.1 users
+Column | Type | Notes
+id | UUID | PK
+email | CITEXT / VARCHAR | unique
+password_hash | VARCHAR | nullable for OAuth-only
+account_status | ENUM/VARCHAR | PENDING, ACTIVE, SUSPENDED, DELETED
+email_verified_at | TIMESTAMPTZ | nullable
+created_at | TIMESTAMPTZ | required
+updated_at | TIMESTAMPTZ | required
+deleted_at | TIMESTAMPTZ | nullable
+Indexes:
+unique email
+account_status
+3.2 user_roles
+Column | Type
+user_id | UUID FK
+role | VARCHAR
+Values:
+DEVELOPER
+CLIENT
+ADMIN
+Future:
+TEAM_OWNER
+TEAM_MEMBER
+Composite unique:
+(user_id, role)
+3.3 developer_profiles
+Column | Type | Notes
+user_id | UUID PK/FK | 
+slug | VARCHAR | unique
+display_name | VARCHAR | 
+headline | VARCHAR | 
+bio | TEXT | 
+country_code | CHAR(2) | nullable
+timezone | VARCHAR | nullable
+github_url | VARCHAR | nullable
+linkedin_url | VARCHAR | nullable
+personal_site_url | VARCHAR | nullable
+availability_status | VARCHAR | 
+booked_until | DATE | nullable
+approval_status | VARCHAR | 
+approved_at | TIMESTAMPTZ | nullable
+created_at | TIMESTAMPTZ | 
+updated_at | TIMESTAMPTZ | 
+Availability:
+AVAILABLE_NOW
+ONE_SLOT_LEFT
+LIMITED
+BOOKED_UNTIL
+NOT_ACCEPTING
+3.4 client_profiles
+Column | Type
+user_id | UUID PK/FK
+display_name | VARCHAR
+company_name | VARCHAR nullable
+company_website | VARCHAR nullable
+country_code | CHAR(2) nullable
+created_at | TIMESTAMPTZ
+updated_at | TIMESTAMPTZ
+A lightweight inquiry can exist before a full client profile is claimed.
+3.5 products
+Column | Type | Notes
+id | UUID | PK
+owner_user_id | UUID FK | V1 human owner
+slug | VARCHAR | unique
+title | VARCHAR | 
+summary | VARCHAR | 
+description | TEXT | 
+project_type | VARCHAR | 
+visibility | VARCHAR | 
+approval_status | VARCHAR | 
+lifecycle_status | VARCHAR | DRAFT, ACTIVE, ARCHIVED, SUSPENDED
+contribution_text | TEXT | required
+pricing_mode | VARCHAR | NONE, STARTING_FROM, RANGE, CUSTOM_QUOTE
+price_min_minor | BIGINT | nullable
+price_max_minor | BIGINT | nullable
+currency_code | CHAR(3) | nullable
+available_for_similar_work | BOOLEAN | 
+submitted_at | TIMESTAMPTZ | nullable
+approved_at | TIMESTAMPTZ | nullable
+created_at | TIMESTAMPTZ | 
+updated_at | TIMESTAMPTZ | 
+Project types:
+COMMERCIAL
+CLIENT
+SAAS
+PERSONAL
+OPEN_SOURCE
+PROTOTYPE
+HACKATHON
+LEARNING
+PRIVATE_CASE_STUDY
+NDA_CONFIDENTIAL
+Visibility:
+PUBLIC
+PRIVATE_CASE_STUDY
+NDA_SAFE
+3.6 product_media
+Column | Type
+id | UUID
+product_id | UUID FK
+media_type | VARCHAR
+storage_key | VARCHAR nullable
+external_url | VARCHAR nullable
+alt_text | VARCHAR nullable
+sort_order | INT
+created_at | TIMESTAMPTZ
+Media types:
+IMAGE
+VIDEO_EMBED
+ARCHITECTURE_IMAGE
+3.7 product_links
+Column | Type
+id | UUID
+product_id | UUID FK
+link_type | VARCHAR
+url | VARCHAR
+status | VARCHAR
+last_checked_at | TIMESTAMPTZ nullable
+created_at | TIMESTAMPTZ
+Types:
+LIVE_DEMO
+GITHUB
+DOCUMENTATION
+OTHER
+Statuses:
+UNCHECKED
+REACHABLE
+UNREACHABLE
+BLOCKED
+3.8 categories
+Column | Type
+id | UUID
+slug | VARCHAR unique
+name | VARCHAR
+active | BOOLEAN
+Examples:
+crm
+erp
+ecommerce
+booking
+inventory
+ai-automation
+dashboards
+mobile-apps
+3.9 technologies
+Column | Type
+id | UUID
+slug | VARCHAR unique
+name | VARCHAR
+active | BOOLEAN
+Examples:
+spring-boot
+react
+nextjs
+postgresql
+flutter
+aws
+3.10 saved_products
+Column | Type | Notes
+user_id | UUID FK | client/account owner
+product_id | UUID FK | saved product
+created_at | TIMESTAMPTZ | 
+Composite unique: (user_id, product_id)
+3.11 product_categories
+Composite PK:
+product_id, category_id
+3.12 product_technologies
+Composite PK:
+product_id, technology_id
+3.13 showcase_entitlements
+Column | Type | Notes
+user_id | UUID PK/FK | 
+active_slot_limit | INT | default 3
+source | VARCHAR | FREE, EARNED, PRO, ADMIN
+updated_at | TIMESTAMPTZ | 
+Do not store "slot number" on products.
+Active usage is derived from:
+count(products where owner_user_id=? and lifecycle_status='ACTIVE')
+Activation transaction must lock/check entitlement atomically.
+3.14 inquiries
+Column | Type | Notes
+id | UUID | 
+reference_product_id | UUID FK | 
+developer_user_id | UUID FK | target
+client_user_id | UUID FK nullable | lightweight lead may predate claimed account
+client_email | CITEXT | required
+client_name | VARCHAR | required
+company_name | VARCHAR nullable | 
+request_type | VARCHAR | 
+description | TEXT | 
+budget_band | VARCHAR | 
+timeline_band | VARCHAR | 
+email_confirmed_at | TIMESTAMPTZ nullable | 
+current_status | VARCHAR | 
+reported_project_value_minor | BIGINT nullable | 
+reported_currency_code | CHAR(3) nullable | 
+created_at | TIMESTAMPTZ | 
+updated_at | TIMESTAMPTZ | 
+Request types:
+SIMILAR_BUILD
+CUSTOMIZE
+NEW_BUILD
+CONSULTATION
+3.15 inquiry_events
+Append-only.
+Column | Type
+id | UUID
+inquiry_id | UUID FK
+event_type | VARCHAR
+actor_user_id | UUID nullable
+actor_type | VARCHAR
+metadata | JSONB
+created_at | TIMESTAMPTZ
+Examples:
+CREATED
+EMAIL_CONFIRMED
+DEVELOPER_RESPONDED
+DISCUSSION
+PROPOSAL_SENT
+HIRE_CONFIRMATION_REQUESTED
+HIRE_CONFIRMED
+HIRE_REJECTED
+IN_PROGRESS
+COMPLETION_CONFIRMATION_REQUESTED
+COMPLETION_CONFIRMED
+NOT_HIRED
+3.16 reviews
+Column | Type
+id | UUID
+inquiry_id | UUID FK unique
+reviewer_user_id | UUID FK nullable
+developer_user_id | UUID FK
+rating | SMALLINT
+review_text | TEXT
+visibility | VARCHAR
+moderation_status | VARCHAR
+created_at | TIMESTAMPTZ
+updated_at | TIMESTAMPTZ
+Constraint:
+rating between 1 and 5
+Review eligibility requires confirmed completion event.
+3.17 notifications
+Column | Type
+id | UUID
+user_id | UUID FK
+type | VARCHAR
+title | VARCHAR
+body | TEXT
+read_at | TIMESTAMPTZ nullable
+created_at | TIMESTAMPTZ
+3.18 reports
+Column | Type
+id | UUID
+reporter_user_id | UUID nullable
+target_type | VARCHAR
+target_id | UUID
+reason | VARCHAR
+detail | TEXT nullable
+status | VARCHAR
+created_at | TIMESTAMPTZ
+resolved_at | TIMESTAMPTZ nullable
+3.19 moderation_actions
+Column | Type
+id | UUID
+admin_user_id | UUID
+target_type | VARCHAR
+target_id | UUID
+action | VARCHAR
+reason | TEXT
+created_at | TIMESTAMPTZ
+3.20 oauth_accounts
+Column | Type | Notes
+id | UUID | PK
+user_id | UUID FK | 
+provider | VARCHAR | e.g. GITHUB, GOOGLE
+provider_user_id | VARCHAR | provider subject/id
+created_at | TIMESTAMPTZ | 
+Unique: (provider, provider_user_id)
+3.21 account_tokens
+Store only a secure hash of one-time tokens where possible.
+Column | Type | Notes
+id | UUID | PK
+user_id | UUID FK nullable | 
+email | CITEXT nullable | for lightweight client confirmation
+token_hash | VARCHAR | required
+token_type | VARCHAR | EMAIL_VERIFICATION, PASSWORD_RESET, CLIENT_INQUIRY_CONFIRMATION, HIRE_CONFIRMATION, COMPLETION_CONFIRMATION
+expires_at | TIMESTAMPTZ | required
+used_at | TIMESTAMPTZ nullable | 
+created_at | TIMESTAMPTZ | 
+3.22 legal_acceptances
+Column | Type | Notes
+id | UUID | PK
+user_id | UUID FK | 
+document_type | VARCHAR | TERMS, PRIVACY, COMMUNITY_GUIDELINES
+document_version | VARCHAR | 
+accepted_at | TIMESTAMPTZ | 
+metadata | JSONB | minimal evidence such as locale/IP hash where lawful
+3.23 consent_records
+Column | Type | Notes
+id | UUID | PK
+user_id | UUID FK nullable | 
+purpose | VARCHAR | ANALYTICS, MARKETING, etc.
+state | BOOLEAN | 
+policy_version | VARCHAR | 
+recorded_at | TIMESTAMPTZ | 
+withdrawn_at | TIMESTAMPTZ nullable | 
+3.24 notification_preferences
+Column | Type | Notes
+user_id | UUID PK/FK | 
+inquiry_email | BOOLEAN | transactional; normally true
+status_email | BOOLEAN | transactional; normally true
+product_updates_email | BOOLEAN | optional
+marketing_email | BOOLEAN | consent-controlled
+in_app_enabled | BOOLEAN | 
+updated_at | TIMESTAMPTZ | 
+4. Future Team Tables — V2
+organizations
+id
+slug
+name
+description
+status
+created_by
+created_at
+organization_members
+organization_id
+user_id
+role
+membership_type
+status
+joined_at
+Roles:
+OWNER
+BUSINESS_MANAGER
+RECRUITER
+PROJECT_MANAGER
+MEMBER
+Membership types:
+CORE
+CONTRACT
+COLLABORATOR
+product_contributors
+product_id
+user_id
+organization_id nullable
+contribution_role
+contribution_text
+confirmed_at nullable
+open_roles
+organization_id
+title
+description
+required_skills
+contract_type
+compensation_band
+status
+5. Validation Rules
+User
+Valid normalized email
+Strong password policy
+Unique slug where applicable
+Product
+Title: reasonable min/max length
+Summary: short
+Description: capped
+Contribution required
+At least one category
+Technology optional only when not meaningful
+Activation requires approved developer + approved product + free slot
+Public live URL must pass safe URL validation
+Inquiry
+Valid email
+Description required
+Budget controlled enum
+Timeline controlled enum
+Reference product must exist
+Target developer must match product owner/eligible recipient
+Rate limits per email/IP/account
+Review
+Rating 1–5
+Confirmed completed inquiry required
+One verified review per engagement
+6. Uniqueness / Constraints
+Recommended:
+unique users.email
+unique developer_profiles.slug
+unique products.slug
+unique categories.slug
+unique technologies.slug
+unique reviews.inquiry_id
+unique product_categories(product_id, category_id)
+unique product_technologies(product_id, technology_id)
+7. Indexing
+Minimum indexes:
+products(owner_user_id)
+products(approval_status, lifecycle_status)
+products(created_at)
+developer_profiles(availability_status)
+inquiries(developer_user_id, created_at)
+inquiries(client_email)
+inquiries(current_status)
+inquiry_events(inquiry_id, created_at)
+reviews(developer_user_id)
+product_links(product_id, link_type)
+reports(status, created_at)
+saved_products(user_id, created_at)
+account_tokens(token_hash)
+legal_acceptances(user_id, document_type, accepted_at)
+Search:
+GIN full-text indexes
+pg_trgm index on title/summary where useful
+8. Soft Delete
+Soft delete recommended for:
+users
+products
+reviews where legal/moderation retention applies
+Hard delete/retention policy must comply with user deletion/privacy obligations.
+Public content must disappear immediately after user-authorized deletion even if internal retention continues temporarily for legal/security reasons.
+9. Auditability
+Never overwrite important marketplace history.
+Preserve:
+Inquiry event history
+Approval decisions
+Moderation actions
+Hire confirmation
+Completion confirmation
+Review eligibility
+10. Sample Data
+Developer
+{
+  "displayName": "Rahul",
+  "headline": "Builds SaaS and business automation platforms",
+  "availability": "AVAILABLE_NOW",
+  "activeSlotLimit": 3
+}
+Product
+{
+  "title": "Restaurant Management SaaS",
+  "summary": "Ordering, inventory, POS and analytics for restaurants",
+  "projectType": "SAAS",
+  "visibility": "PUBLIC",
+  "pricingMode": "RANGE",
+  "currency": "USD",
+  "priceMin": 3000,
+  "priceMax": 8000,
+  "availableForSimilarWork": true
+}
+Inquiry
+{
+  "requestType": "SIMILAR_BUILD",
+  "budgetBand": "USD_3K_10K",
+  "timelineBand": "ONE_TO_THREE_MONTHS",
+  "description": "Need a similar system for a 5-location restaurant group."
+}
+11. Backup Strategy
+Daily automated DB backups minimum
+PITR when supported
+Object-storage durability/versioning
+Encrypted backups
+Separate backup credentials
+Document restore
+Test restore
+12. Data Recovery Priorities
+Highest priority:
+Users
+Products
+Inquiries
+Inquiry history
+Reviews
+Moderation/audit
+Analytics
+Analytics can be rebuilt more easily than marketplace history.
+13. Data Migration Rules
+Every schema change via migration tool
+No manual production schema edits
+Migrations tested on staging
+Backward compatibility preferred
+Destructive migrations require explicit plan

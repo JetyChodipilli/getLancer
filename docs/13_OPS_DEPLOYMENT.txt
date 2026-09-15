@@ -1,0 +1,312 @@
+OPERATIONS & DEPLOYMENT
+1. Operational Goals
+The deployment process must be:
+Reproducible
+Auditable
+Rollback-capable
+Environment-separated
+Observable
+Secure
+Simple enough for an early-stage team
+2. Environments
+Development
+Purpose:
+Local coding
+Unit/integration tests
+Local database
+Mock/sandbox integrations
+Staging
+Purpose:
+Production-like testing
+Database migrations
+OAuth callbacks
+Email sandbox
+End-to-end tests
+Admin moderation validation
+Production
+Purpose:
+Live marketplace
+Rules:
+Separate credentials
+Separate DB
+Separate object storage namespace/bucket
+Separate OAuth applications where practical
+Separate monitoring/alerts
+No production secrets in developer machines
+3. Containerization
+Use Docker for:
+Spring Boot backend
+Optional frontend if not using managed frontend hosting
+Local reproducible development dependencies where useful
+Do not use Docker to execute untrusted developer-submitted applications in V1.
+4. CI Pipeline
+On every pull request:
+Checkout
+Dependency install
+Compile/build
+Unit tests
+Integration tests
+Static analysis
+Formatting/lint
+Dependency vulnerability checks where available
+Build frontend
+Build backend
+Build container image where useful
+PR cannot merge if required checks fail.
+5. CD Pipeline
+Recommended:
+Merge to main
+→ Build immutable artifact/image
+→ Tag with commit SHA
+→ Deploy to staging
+→ Run smoke tests
+→ Manual/controlled production promotion
+→ Run production health checks
+Automate more only after stability is proven.
+6. Artifact Versioning
+Every deployment must be traceable to:
+Git commit SHA
+Build ID
+Container image tag/digest
+Database migration version
+Avoid mutable latest as the only production reference.
+7. Database Migrations
+Use:
+Flyway or Liquibase
+Rules:
+Migrations committed to source control
+Staging first
+Production backup/PITR ready
+Prefer backward-compatible expand/contract changes
+Avoid destructive changes in the same release that removes application compatibility
+8. Rollback
+Application
+Keep previous known-good image available.
+Rollback:
+Detect failure
+→ stop rollout
+→ redeploy prior image
+→ validate health
+Database
+Prefer forward-fix/compatible migrations.
+For destructive migration incidents:
+Restore/PITR plan
+Explicit runbook
+Never improvise recovery for the first time in production
+9. Health Checks
+Backend:
+Liveness
+Readiness
+Database connectivity
+Critical dependency status where useful
+Do not make app unavailable only because a non-critical service like analytics is down.
+10. Monitoring
+Technical
+Request rate
+Error rate
+Latency
+CPU/memory
+DB connections
+Slow queries
+Disk/storage
+Email failures
+Background job failures
+Object storage failures
+Marketplace
+Signups
+Approved developers
+Active showcases
+Product views
+Demo clicks
+Live demo clicks
+Build Similar clicks
+Inquiry conversion
+Response rate
+Hire confirmation
+Completion
+Review creation
+11. Logging
+Use structured logs.
+Include:
+Timestamp
+Level
+Service/module
+Request ID
+User ID where lawful/useful
+Error code
+Safe context
+Never log:
+Password
+Full auth token
+OAuth secret
+Private API key
+Raw payment information later
+Confidential inquiry text unless intentionally protected
+12. Alerting
+Alert on:
+Elevated 5xx
+Inquiry submission failures
+Login outage
+DB connection exhaustion
+Migration failure
+Email delivery failure spike
+Storage failures
+Excessive rate-limit events
+Suspicious admin activity
+Do not alert on every single minor warning.
+13. Error Tracking
+Use centralized error tracking for:
+Frontend exceptions
+Backend exceptions
+Release/version correlation
+User/session context with privacy limits
+14. Secrets Management
+Per environment:
+DB credentials
+Session/JWT signing keys
+OAuth secrets
+Email API keys
+Object-storage keys
+Monitoring DSNs
+Rules:
+No .env committed
+No secrets in Docker image
+Least privilege
+Rotation capability
+Separate prod/non-prod secrets
+14.1 Email Deliverability
+Because email is critical to verification and inquiry conversion, production email must include:
+SPF
+DKIM
+DMARC
+Bounce handling
+Complaint handling
+Delivery monitoring
+Separate transactional and marketing categories
+Unsubscribe handling for marketing mail
+A failed marketing system must never block transactional inquiry/verification email.
+15. Backup
+Database
+Automated daily backup minimum
+PITR where available
+Encryption
+Cross-zone/provider durability where appropriate
+Object Storage
+Versioning where practical
+Lifecycle policies
+Deletion protection for critical assets
+Restore
+Test restore before public launch.
+15.1 Encryption and Recovery Objectives
+PostgreSQL, object storage, and backups use provider-supported encryption at rest.
+Backup credentials/keys are separate from application credentials.
+Initial internal targets: RPO <= 1 hour where PITR is available and RTO <= 4 hours.
+Validate these through restore drills; do not market them as an SLA until operationally proven.
+16. Deployment Topology
+Recommended early production:
+flowchart LR
+    U[Users] --> CDN[CDN / DNS / TLS]
+    CDN --> WEB[Next.js]
+    WEB --> API[Spring Boot]
+    API --> DB[(Managed PostgreSQL)]
+    API --> OBJ[(Object Storage)]
+    API --> MAIL[Transactional Email]
+    API --> MON[Monitoring]
+17. Hosting Choices
+Use providers that reduce ops burden.
+Typical structure:
+Frontend: managed frontend platform or container
+Backend: managed container/VM/PaaS
+PostgreSQL: managed
+Object storage: managed
+DNS/CDN: managed
+Email: managed
+Do not self-manage every component purely to demonstrate DevOps skill.
+18. URL Health Worker — V1.5
+Periodic job:
+Select approved public live demo
+Resolve safely
+Reject private/internal IP destinations
+Request with timeout
+Limit redirects
+Limit response bytes
+Store status
+Update last_checked_at
+Statuses:
+Reachable
+Unreachable
+Blocked
+Unknown
+Never execute page JavaScript on production backend merely to "verify" a demo.
+19. Incident Response
+Minimum runbook:
+Detect
+Triage severity
+Protect users/data
+Roll back/disable affected feature
+Communicate if user impact is material
+Preserve evidence
+Fix
+Post-incident review
+Add prevention
+20. Security Incident Examples
+Prepare runbooks for:
+Credential leak
+Account takeover
+Malicious URL campaign
+Mass spam inquiry attack
+Stored-XSS attempt
+Data exposure
+Admin account compromise
+Object-storage misconfiguration
+21. Cost Controls
+Track:
+Database
+Object storage
+CDN
+Email
+Monitoring
+Build minutes
+Egress
+V1 rules:
+External video embeds
+External app hosting
+Image compression
+Avoid serverless/event architecture that produces unpredictable bills without need
+22. Release Strategy
+Start:
+Small releases
+Feature flags where useful
+Manual production promotion
+Fast rollback
+Later:
+Canary
+Blue/green
+Progressive delivery
+Only when scale justifies it.
+23. SLO Evolution
+Do not publish an enterprise SLA early.
+Internally track:
+Availability
+Error budget
+p95 latency
+Inquiry success rate
+Raise SLOs as the marketplace becomes business-critical.
+24. Pre-Launch Checklist
+Production DNS/TLS
+Backups enabled
+Restore tested
+Admin MFA
+Secrets separated
+CI/CD green
+Staging E2E green
+Rate limits active
+Error monitoring active
+Analytics active
+404/500 tested
+Email verification tested
+Inquiry tested end-to-end
+Product moderation tested
+URL validation tested
+Privacy/terms published
+robots/sitemap correct

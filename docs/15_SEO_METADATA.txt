@@ -1,0 +1,253 @@
+SEO & METADATA
+1. SEO Strategy
+SEO should attract clients searching for software solutions and proven builders, not only developers searching for jobs.
+Primary search intent:
+"I need someone who can build X."
+Content architecture should center on:
+Software problem/category
+Real product proof
+Builder
+Industry/use case
+Technology as secondary refinement
+2. Indexable Public Pages
+Index:
+Homepage
+Approved public product pages
+Approved public developer profiles
+Business category pages
+Selected technology pages
+Curated landing pages
+Future:
+Team/studio pages
+Client-safe case studies
+Solution comparison pages
+Do not index:
+Drafts
+Pending products
+Rejected products
+Private/NDA case studies
+Inquiry pages
+Account pages
+Admin pages
+Internal search URLs with arbitrary parameter combinations
+Email-confirmation pages
+Password-reset pages
+3. URL Structure
+Recommended:
+/
+ /explore
+ /products/{product-slug}
+ /builders/{builder-slug}
+ /solutions/{category-slug}
+ /technologies/{technology-slug}
+Future:
+/studios/{studio-slug}
+/roles/{role-slug}
+Use stable readable slugs.
+4. Title Templates
+Homepage
+Find Proven Software Developers by What They've Built | {Brand}
+Product
+{Product Name} by {Builder} — Live Demo & Similar Build | {Brand}
+Builder
+{Builder Name} — Software Projects & Availability | {Brand}
+Category
+{Category} Developers & Real Project Demos | {Brand}
+Technology
+{Technology} Developers with Real Projects | {Brand}
+Avoid keyword stuffing.
+5. Meta Description Templates
+Homepage
+Explore real software products, watch demos, and hire the developers who built them. Find proven builders for SaaS, AI, mobile, e-commerce, CRM, and more.
+Product
+See {Product Name}, built by {Builder}. Explore the demo, technology, and project details, then request a similar build.
+Builder
+Explore software built by {Builder}, view real project proof, availability, and verified client reviews.
+6. Open Graph
+Each indexable page should include:
+og:title
+og:description
+og:url
+og:type
+og:image
+og:site_name
+Product OG image should ideally include:
+Product name
+Product screenshot
+Builder name
+Brand
+Do not expose private client data in generated share cards.
+7. Twitter / X Cards
+Use:
+twitter:card=summary_large_image
+title
+description
+image
+8. Canonical URLs
+Every public page must have canonical URL.
+Examples:
+<link rel="canonical" href="https://example.com/products/restaurant-saas">
+Filtering/search pages should:
+Canonicalize intentionally
+Avoid indexing millions of low-value combinations
+9. robots.txt
+Example baseline:
+User-agent: *
+Allow: /
+
+Disallow: /admin/
+Disallow: /account/
+Disallow: /dashboard/
+Disallow: /inquiries/
+Disallow: /auth/
+Disallow: /private/
+
+Sitemap: https://example.com/sitemap.xml
+Do not rely on robots.txt to protect sensitive data. Authentication/authorization is required.
+10. Sitemap
+Generate XML sitemap for:
+Homepage
+Product pages
+Builder profiles
+Category pages
+Technology pages
+Only include:
+Approved
+Public
+Indexable
+Canonical pages
+Update after:
+Product approval
+Product archive/unpublish
+Builder status change
+11. Structured Data
+Use Schema.org only where valid.
+Potential:
+Person
+For public builder profiles.
+Organization
+For future studios.
+SoftwareApplication
+For products where representation is accurate.
+BreadcrumbList
+For navigation hierarchy.
+WebSite
+For site search metadata.
+Do not fabricate:
+AggregateRating
+Review counts
+Price
+Availability
+unless data genuinely exists and complies with search-engine structured-data requirements.
+12. Product Structured Data Example
+Use only when accurate:
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Restaurant Management SaaS",
+  "applicationCategory": "BusinessApplication",
+  "creator": {
+    "@type": "Person",
+    "name": "Rahul"
+  }
+}
+13. On-Page SEO
+Product page should naturally include:
+Product name
+Problem/use case
+Industry/category
+Major features
+Builder
+Technology
+Similar-build CTA
+Avoid repetitive keyword blocks.
+14. Content Quality Rules
+Do not allow SEO spam such as:
+best react developer react developer hire react developer cheap react developer
+Admin/content validation should flag:
+Keyword stuffing
+Duplicate product descriptions
+Thin pages
+Copied case studies
+15. Programmatic SEO — Later
+Potential high-value pages:
+/solutions/crm
+/solutions/restaurant-software
+/solutions/inventory-management
+/solutions/booking-platform
+/solutions/ai-customer-support
+Only create a page when enough real high-quality products exist.
+Do not create thousands of empty category pages.
+16. Technology SEO
+Technology pages are secondary:
+/technologies/spring-boot
+/technologies/react
+/technologies/flutter
+These pages should surface real products, not generic generated text.
+17. Core Web Vitals
+Optimize:
+LCP
+INP
+CLS
+Tactics:
+Responsive images
+Image dimensions
+Lazy loading
+Video embed deferral
+Server rendering
+Minimal client JavaScript
+Font optimization
+CDN
+Caching
+18. Social Sharing
+Every product should have a share card optimized for:
+LinkedIn
+X
+WhatsApp
+Slack/Discord previews
+Suggested message:
+I shipped {Product}. See the demo and project details on {Brand}.
+This creates developer-driven distribution.
+19. Pagination / Infinite Scroll
+Prefer crawlable paginated URLs for SEO-sensitive listing pages.
+Infinite scroll may enhance UX only if:
+content is also accessible via paginated routes
+URLs remain stable
+crawlers can discover pages
+20. Search Page Indexing
+Internal search results generally should be:
+noindex, follow
+unless intentionally curated into a stable landing page.
+21. Image SEO
+Meaningful filenames or storage metadata
+Alt text for meaningful images
+Responsive sizes
+Compressed modern format
+No huge unoptimized screenshots
+22. Duplicate Content
+Prevent duplicates from:
+Multiple filter orders
+Tracking query parameters
+Draft/public versions
+Archived duplicates
+Same product copied across team/member pages later
+Use canonical strategy.
+23. Metadata Validation
+CI or QA should check public pages for:
+Missing title
+Missing description
+Missing canonical
+Broken OG image
+Noindex mistakes
+Broken structured data
+24. SEO Analytics
+Track:
+Organic landing page
+Search query/category
+Product view
+Build Similar click
+Inquiry conversion
+Hire conversion by landing page
+SEO success is not pageviews alone.
+Best metric:
+Organic traffic that produces qualified client inquiries.

@@ -1,0 +1,1 @@
+import Link from 'next/link';export default function NotFound(){return <main id="main" className="wrap empty"><h1>That project isn’t available.</h1><p>It may be archived, private, or no longer published.</p><Link className="button primary" href="/">Explore projects</Link></main>}

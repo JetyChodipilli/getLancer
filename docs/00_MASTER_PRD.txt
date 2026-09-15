@@ -1,0 +1,530 @@
+PROJECT REQUIREMENTS DOCUMENT
+Verified Proof-of-Work Developer Marketplace
+V1 / MVP Product Specification
+Document Item | Value
+Version | 1.0
+Status | Baseline PRD for V1/MVP
+Prepared | 4 September 2026
+Product Type | Global developer showcase + qualified client lead marketplace
+Core Positioning | Find software like what you want. Hire the people who built it.
+Primary Validation Goal | Product showcase → qualified inquiry → real paid development project
+This document defines what must be built now, what must be measured, and what is deliberately postponed.
+1. Project Vision
+1.1 Purpose
+Create a global proof-of-work marketplace where developers showcase real software products and client case studies, clients discover builders through working evidence rather than resumes alone, and qualified client inquiries are routed to the relevant developer. V1 is a lead-generation and proof-of-work discovery platform; contracts and payments remain external.
+1.2 Problem Statement
+Freelance marketplaces often begin with profiles, proposals, or bidding instead of showing what a developer has actually built.
+Developer portfolio sites provide proof but usually do not create a structured client-intent and lead pipeline.
+Clients struggle to judge technical capability, relevance, availability, responsiveness, and whether a builder has solved a similar problem.
+Developers struggle to convert portfolio traffic into qualified project opportunities.
+Early marketplaces can be damaged by low-quality project spam, fake work, inactive developers, and unqualified client inquiries.
+1.3 Target Audience
+User Segment | Initial Need
+Individual developers / freelancers | Showcase strong products, receive qualified client leads, build reputation.
+Experienced engineers | Show commercial/client work, including private or NDA-safe case studies.
+Students / early-career builders | Show genuine products and build proof-of-work, subject to quality approval.
+Startups and founders | Find builders who have already built similar software.
+SMEs and local/global businesses | Discover relevant applications and request custom builds.
+Agencies / studios | Later: recruit proven developers and accept larger client projects.
+1.4 Product Principles
+Proof before pitch: product evidence is primary; profile claims are secondary.
+Client friction must stay low: basic browsing and inquiry submission remain simple.
+Trust is earned, not sold.
+Quality beats raw registration count.
+No public bidding war in V1.
+External contracts/payments are acceptable in V1; the platform still tracks the lead and outcome.
+Global product, curated launch.
+1.5 Success Criteria for V1
+Metric | Initial Validation Target
+Curated developers | 20 approved builders
+Quality active showcases | 50–60 total
+Showcases with usable proof | Majority include live deployment, demo video, or credible client case study
+Qualified client inquiries | 5–10 initial qualified inquiries
+Serious client-builder discussions | 2–5
+Paid engagements originating from platform | 1–3
+Developer response tracking | Enabled for every inquiry
+Outcome tracking | Hired / Not Hired / Completed captured
+1.6 North-Star Metric
+V1 north-star metric: Qualified Client–Builder Connections per Week.
+Later progression: Successful Client–Builder Hires per Month → Completed Marketplace GMV.
+2. Functional Requirements
+2.1 User Roles
+Role | V1 Capabilities
+Developer / Builder | Create profile, submit showcases, manage active slots, receive inquiries, update inquiry status, manage availability.
+Client / Visitor | Browse/search products, view demos, save optional, submit lightweight inquiry, confirm email, confirm hire/completion.
+Admin / Moderator | Approve developers/products, review reported content, suspend listings/users, inspect demo links, manage categories/tags.
+Studio / Team | Deferred to V2; schema should be extendable for team ownership/contributors.
+2.2 Authentication and Account Requirements
+☒ Developer signup using email/password or supported OAuth.
+☒ Login/logout.
+☒ Email verification.
+☒ Password reset.
+☒ Session revocation / logout from current device.
+☒ Client may browse without an account.
+☒ Client can submit a lightweight inquiry, then confirm email to validate the lead.
+☒ Full client account may be created/claimed after email confirmation.
+☒ Multi-factor authentication for administrators should be supported or required.
+2.3 Developer Profile
+☒ Display name and professional headline.
+☒ Short bio.
+☒ Technology/skill tags.
+☒ Business/problem-domain tags.
+☒ GitHub and LinkedIn links where supplied.
+☒ Country/time zone optional.
+☒ Availability state.
+☒ Response-rate / response-time metrics when enough data exists.
+☒ Approved product showcases.
+☒ Verified reviews after completed work.
+☒ Profile status: pending / approved / suspended.
+2.4 Product Showcase
+Field | Requirement
+Title | Required; concise and client-readable.
+Tagline / summary | Required.
+Description / case study | Required.
+Project type | Required: commercial, client, SaaS, personal, open source, prototype, learning, private/NDA.
+Business category | Required.
+Technology tags | Required where applicable.
+Screenshots | At least one proof asset unless private/NDA constraints apply.
+Demo video | YouTube/Loom/external embed URL supported.
+Live deployment | Optional but strongly encouraged for public software.
+GitHub URL | Optional; never mandatory for confidential/commercial work.
+Developer contribution | Required for team/client work.
+Availability for similar work | Required toggle/status.
+Pricing mode | Optional: Starting From / Typical Range / Custom Quote.
+Visibility | Public / private case study / NDA-safe.
+Approval status | Draft / pending / changes requested / approved / rejected / archived.
+2.5 Active Showcase Slot System
+Every approved builder receives 3 active showcase slots in V1. Archived projects do not consume active capacity.
+☒ 3 active showcase slots for a newly approved builder.
+☒ Unlimited drafts.
+☒ Archived showcases are retained in the dashboard and can be reactivated if a slot is available.
+☒ Archiving an active showcase immediately frees one active slot.
+☒ Verified marketplace success may permanently unlock additional slots in later V1.5 logic.
+☐ Pro plans may later provide more active showcase capacity.
+☒ A showcase that generated a client remains active; it is never 'consumed' by a hire.
+2.6 Product Approval Workflow
+Developer submits → Pending Review → Admin reviews → Approve / Request Changes / Reject.
+Check demo relevance and quality.
+Check external URL reachability and obvious risk.
+Check description/category/technology consistency.
+Check for obvious copying, impersonation, stolen screenshots, or misleading claims.
+Check developer contribution statement where multiple people were involved.
+Trusted-builder auto-publishing is deferred until sufficient reputation and moderation data exist.
+2.7 Search and Discovery
+Search by product title, problem/business category, technology, and builder.
+Business-problem categories appear before technology-only categories in client discovery.
+Filters: category, project type, availability, live-demo availability, technology.
+Basic sorting: relevance, newest, recently updated.
+Popularity/upvotes must not be the sole ranking mechanism.
+Search results must expose product proof and builder availability without requiring profile-first navigation.
+2.8 Client Inquiry — Build Something Similar
+This is an essential V1 conversion flow.
+Input | Requirement
+Reference product | Automatically attached when inquiry starts from a showcase.
+Request type | Similar build / customize / new product / consultation.
+Project description | Required.
+Budget band | Required.
+Timeline | Required.
+Client name | Required.
+Company | Optional initially.
+Email | Required and confirmed.
+☒ Inquiry must be stored before notifying the developer.
+☒ Developer email address should not need to be exposed publicly.
+☒ Developer receives an email notification and sees the lead in the dashboard.
+☒ Conversation may continue externally in V1.
+2.9 Inquiry Status and Outcome Tracking
+Status | Meaning
+Inquiry Received | Lead stored and developer notified.
+Responded | Developer responded to client.
+Discussion | Requirements are being discussed.
+Proposal Sent | Developer/team has sent commercial proposal externally or by email.
+Hired | Client selected developer; should be client-confirmed.
+In Progress | Work has started.
+Completed | Work completed; should be client-confirmed.
+Not Hired | Opportunity closed without hire.
+Important outcomes such as Hired and Completed should support dual confirmation by client.
+Outcome events must be auditable with timestamps.
+V1 tracks reported project value optionally; it does not process payment.
+2.10 Reviews
+Only verified completed client relationships can create a marketplace review.
+One verified review per completed engagement unless support/maintenance is intentionally treated as a separate engagement.
+Store rating, text feedback, completion date, associated product/inquiry, and moderation status.
+Admins can hide/remove abusive, fraudulent, or policy-violating reviews.
+Open unverified testimonials must not be mixed with verified marketplace reviews.
+2.11 Availability and Reliability
+Developer availability states: Available Now, 1 Slot Left, Limited Availability, Booked Until [date], Not Taking Work.
+Track inquiry response rate and median/typical response time.
+Repeatedly ignored qualified inquiries may reduce discovery priority.
+If selected developer is unavailable, V1.5 should recommend similar available builders.
+2.12 Notifications
+Email: account verification, inquiry received, inquiry status confirmation, admin review result, review request.
+In-app notification center for essential events.
+No full real-time chat required in V1.
+Notification preferences should be introduced as volume grows.
+2.13 Error Handling
+Custom 404 page.
+Custom 500 / unexpected error page.
+Friendly validation errors on forms.
+Graceful handling for failed external demo URLs.
+Rate-limit / abuse messages should be explicit.
+Offline fallback for public browsing is optional; a full offline application is not required in V1.
+2.14 Admin and Moderation
+Review pending developers and products.
+Approve, reject, or request changes.
+View reports and moderation history.
+Suspend users or unpublish products.
+Manage business categories and technology tags.
+Inspect inquiry abuse patterns.
+Audit critical moderation actions.
+2.15 Core User Stories
+Actor | User Story
+Developer | As a developer, I want to publish my strongest working products so that clients can judge my capability from evidence.
+Developer | As a developer, I want to receive qualified inquiries tied to a specific product so that I know why the client contacted me.
+Developer | As a developer, I want to archive a showcase and reuse the slot so that I can keep my active portfolio current.
+Client | As a client, I want to search by what I need to build so that I can find relevant working examples.
+Client | As a client, I want to watch a demo and open a live application before contacting a builder.
+Client | As a client, I want to request something similar without creating a complicated account first.
+Admin | As an admin, I need to approve projects and remove misleading or unsafe listings to protect marketplace trust.
+Platform | As the platform, I need to know which product generated an inquiry and whether that inquiry resulted in a hire.
+3. Non-Functional Requirements
+3.1 Performance
+Area | Target
+Public page load | Core content should become usable quickly on standard broadband/mobile connections; optimize media loading.
+Common read API p95 | Target <= 400 ms under expected V1 load; simple cached/read endpoints should aim lower.
+Search response | Target <= 1 second for V1 data volume.
+Inquiry submission | User receives confirmation immediately after durable persistence; notification delivery may be asynchronous.
+Image delivery | Responsive sizes, lazy loading, compression, CDN/object-storage delivery.
+3.2 Scalability
+V1 architecture should comfortably support the initial validation cohort without distributed-system complexity.
+Stateless application instances should allow horizontal scaling later.
+Database access must use indexing and pagination for search/listing endpoints.
+Media must not be stored in the application container filesystem.
+Design for growth to tens of thousands of accounts before considering service extraction; exact scaling decisions must follow observed load.
+3.3 Availability and Resilience
+Production application target availability should be appropriate for an early-stage SaaS marketplace.
+Use managed or automated database backups.
+Graceful degradation when third-party email, analytics, or demo URLs fail.
+No single user-submitted external demo should be able to affect platform availability.
+3.4 Security
+TLS/HTTPS for all production traffic.
+Secure password hashing if password auth is used.
+JWT/session tokens must be signed, expiring, and handled securely; prefer HttpOnly secure cookies for browser sessions where suitable.
+OAuth tokens stored only when needed and encrypted/protected.
+Role-based authorization for admin and future team roles.
+Rate limiting for authentication, inquiry submission, and reporting endpoints.
+Input validation and output encoding.
+CSRF protection where cookie-based authentication is used.
+File upload restrictions: MIME/type checks, size limits, safe naming, malware scanning where feasible.
+SSRF protections when validating developer-submitted URLs; block localhost, private IP ranges, metadata endpoints, and unsafe schemes.
+Secrets must be stored in environment/secret-management systems, never in source control.
+Audit admin actions and sensitive status changes.
+3.5 Privacy and Compliance
+GDPR-ready consent, data access, correction, and deletion workflows for global users.
+CCPA/CPRA applicability to be reviewed based on business scope and thresholds.
+Collect only data needed for marketplace operation.
+Define retention rules for inquiries, deleted profiles, logs, and moderation evidence.
+Cookie consent/configuration where non-essential tracking cookies are used.
+Accessibility target: WCAG 2.2 AA for public and core authenticated experiences.
+3.6 Accessibility
+Keyboard-accessible navigation and forms.
+Visible focus states.
+Semantic headings and landmarks.
+Form labels and error associations.
+Sufficient contrast.
+Alt text for meaningful uploaded images where required.
+Captions/transcripts encouraged for demo videos.
+No critical flow should depend only on color.
+4. System Architecture
+4.1 V1 Architecture Decision
+Use a modular monolith for V1. Do not introduce Kafka, gRPC, Kubernetes, or a microservice fleet before real scale or team boundaries justify them.
+4.2 Recommended Tech Stack
+Layer | Recommendation
+Frontend | Next.js / React + TypeScript
+Backend | Spring Boot
+Architecture | Modular monolith
+Database | PostgreSQL
+Persistence | Spring Data JPA / Hibernate with explicit query tuning where needed
+Auth | Spring Security + OAuth2; secure browser session or JWT strategy
+Object storage | S3-compatible storage for images/thumbnails
+Demo video | External YouTube/Loom links in V1; no self-hosted video pipeline
+Search | PostgreSQL full-text/trigram search initially
+Email | Transactional email provider
+Analytics | Product analytics platform or first-party event tracking
+Error monitoring | Centralized application error tracking
+Deployment | Dockerized frontend/backend; managed VM/PaaS/container service
+CI/CD | GitHub Actions or equivalent
+4.3 Backend Module Boundaries
+Module | Responsibility
+auth | Authentication, verification, password reset, OAuth.
+users | Base account state and role assignments.
+profiles | Developer/client profile data.
+products | Showcases, media metadata, categories, visibility, slots.
+search | Product/builder discovery and filters.
+inquiries | Client requirements, budget/timeline, status workflow.
+reviews | Verified post-completion reviews.
+notifications | Email and in-app notifications.
+moderation | Reports, approvals, suspensions, audit records.
+analytics | Conversion events and marketplace funnel metrics.
+admin | Administrative workflows and controlled settings.
+4.4 Deferred Architecture
+Kafka: defer until asynchronous workloads and throughput justify operational complexity.
+gRPC: defer until independently deployed services need high-performance internal RPC.
+Microservices: defer until organizational/service boundaries are proven.
+Kubernetes: defer until deployment scale and operational needs justify it.
+Dedicated search engine: defer until PostgreSQL search no longer satisfies relevance/performance requirements.
+Real-time WebSocket messaging: defer until in-platform messaging becomes a validated requirement.
+4.5 Integration Points
+Email provider for verification and inquiry notifications.
+GitHub OAuth and optional repository/profile links.
+S3-compatible storage/CDN for images.
+External video hosts such as YouTube/Loom.
+External demo URLs hosted by developers.
+Analytics/error-monitoring services.
+Payments provider is explicitly deferred.
+5. UI/UX Requirements
+5.1 Primary V1 Screens
+Screen | Purpose
+Public home | Explain proof-of-work concept; search by what client wants to build.
+Explore/Search | Browse products by business need, category, technology, availability.
+Product detail | Demo, screenshots, live link, contribution, builder, CTAs.
+Developer profile | Approved showcases, skills, availability, reviews, reliability.
+Developer dashboard | Active slots, drafts, archived products, inquiries, analytics.
+Create/Edit showcase | Structured product submission.
+Client inquiry | Lightweight Build Something Similar flow.
+Inquiry status | Simple progress and confirmation actions.
+Admin review queue | Approve/request changes/reject products.
+Report flow | Report product/user/link safely.
+Auth/account | Signup/login/verify/reset/settings.
+5.2 Product Detail UX
+Demo and proof assets appear above long technical descriptions.
+Primary CTA: Build Something Similar.
+Secondary CTA: Hire Developer.
+Show live demo state and last-check time when health monitoring exists.
+Display exact type of verification; never use vague 'verified' if only URL reachability was checked.
+Show builder availability near CTA.
+Do not expose developer email publicly by default.
+5.3 Client Search UX
+Default mental model: What do you want to build?
+Expose business categories such as CRM, SaaS, e-commerce, booking, inventory, AI automation, dashboards, mobile apps.
+Technology filters remain available as secondary refinement.
+Avoid a homepage dominated by developer resumes.
+5.4 Error and Empty States
+Empty search results should offer nearby categories or a future private matching request.
+No active showcases: explain how to create/activate one.
+No inquiries: show optimization guidance rather than a blank screen.
+Unavailable demo: show status and still allow the client to view screenshots/video and contact builder.
+Archived product: not discoverable publicly unless intentionally linked with a safe archived state.
+5.5 Responsive Design
+Mobile-first responsive layouts for browse, product detail, inquiry, and dashboard basics.
+Desktop experience optimized for richer product comparison and admin workflows.
+Native mobile applications are out of V1 scope.
+6. Data Requirements
+6.1 Core Data Entities
+Entity | Purpose
+users | Base identity, account state, roles, verification timestamps.
+developer_profiles | Builder bio, headline, links, availability, response metrics.
+client_profiles | Optional client/company details after email confirmation.
+products | Showcase content, visibility, approval, active/archive state.
+product_media | Image/video metadata and ordering.
+product_links | Live demo, GitHub, external references.
+categories | Business/problem categories.
+technologies | Technology tags.
+product_categories | Many-to-many product categorization.
+product_technologies | Many-to-many technology mapping.
+inquiries | Reference product, client, developer, budget, timeline, description, status.
+inquiry_events | Status history and confirmations.
+reviews | Verified completed-project reviews.
+notifications | In-app notification records.
+reports | User/product/link reports.
+moderation_actions | Admin decisions and audit trail.
+showcase_entitlements | Active-slot limits and earned/unlocked capacity.
+analytics_events | Key funnel events where first-party tracking is used.
+6.2 Data Validation Rules
+Normalize and validate email addresses.
+Enforce reasonable text-length limits on titles, summaries, descriptions, and inquiry fields.
+Reject unsupported URL schemes.
+Block localhost, loopback, link-local, private network ranges, and cloud metadata targets in demo URL checks.
+Validate file type and file size before upload.
+Use server-side validation even when client-side validation exists.
+Sanitize or safely render user-generated rich text; prefer restricted Markdown/plain text initially.
+Budget and timeline values must use controlled enums/bands in V1.
+Product cannot become active until approved.
+Active showcase count cannot exceed the builder's entitlement.
+6.3 Data Integrity
+Every inquiry must preserve its originating product and target developer at submission time.
+Status history must be append-only/auditable even if current status changes.
+Review must reference a confirmed completed inquiry/project relationship.
+Deleted/archived products must not silently erase historical inquiry/review references.
+Use soft deletion where auditability is required.
+6.4 Backup and Recovery
+Automated daily database backups at minimum; higher frequency as traffic/value grows.
+Object-storage versioning or equivalent recovery where practical.
+Document and test database restore procedure.
+Define retention and purge policy.
+Production credentials and backup encryption keys must be protected separately.
+7. Deployment & Operations
+7.1 Environments
+Environment | Purpose
+Development | Local engineering and automated tests.
+Staging | Production-like validation, migrations, integration tests, admin workflow checks.
+Production | Live client/developer marketplace.
+7.2 CI/CD Pipeline
+Pull request: compile/build, unit tests, static analysis, dependency/security checks where available.
+Main branch: build immutable Docker images.
+Deploy to staging automatically or via controlled promotion.
+Production deployment requires successful staging checks.
+Database migrations must be version-controlled and backward-compatible where possible.
+Deployment artifacts must be traceable to a Git commit.
+7.3 Rollback Strategy
+Keep previous application image/version available.
+Use backward-compatible database migration strategy or explicit rollback/forward-fix plan.
+Document emergency rollback steps.
+Test rollback before public launch.
+7.4 Monitoring and Alerting
+Application error rate.
+HTTP 5xx rate.
+Latency.
+Database connections/query health.
+Disk/storage/object-store failures.
+Email delivery failures.
+Inquiry submission failures.
+Admin/moderation errors.
+External demo health-check worker failures when introduced.
+7.5 Logging
+Structured logs with request/correlation IDs.
+Never log passwords, raw auth tokens, or sensitive secrets.
+Mask personal/sensitive fields where practical.
+Audit sensitive admin and outcome-confirmation actions.
+Define log retention.
+7.6 Developer Demo Deployment Model
+V1 does not host developer applications. Developers deploy externally and provide a public or private demo reference.
+Reject localhost/private-network URLs for public demos.
+Store and validate live URL.
+Periodically check reachability in V1.5.
+Never execute arbitrary developer code on the production application servers.
+Platform-hosted demos are deferred to a future paid/isolated service.
+8. Legal & Policy Requirements
+8.1 Required Public Policies
+Terms of Service.
+Privacy Policy.
+Cookie Policy / consent handling where required.
+Acceptable Use / Community Guidelines.
+Content and intellectual-property policy.
+Copyright/takedown process.
+Marketplace disclaimer for V1 external contracts/payments.
+Review and moderation policy.
+8.2 Product Ownership and Confidentiality
+Developer must confirm they have the right to showcase uploaded screenshots, videos, descriptions, logos, and code links.
+Client/NDA work must support sanitized/private case studies.
+Platform should not imply ownership of developer intellectual property.
+Third-party trademarks/logos should be used only where legally permitted.
+A takedown workflow must exist for credible ownership complaints.
+8.3 V1 Commercial Boundary
+V1 connects clients and builders and records the lead/outcome. Commercial agreements and payments occur outside the platform. Terms should clearly state that the platform is not yet acting as escrow, payment processor, or guarantor of project performance.
+8.4 Future Legal Review Triggers
+Adding on-platform payments.
+Holding or routing client funds.
+Selling source code/licenses.
+Paid verification services.
+Enterprise hiring features.
+Cross-border tax/VAT/GST obligations.
+Platform-hosted developer code.
+9. SEO & Metadata Requirements
+9.1 Public Indexable Pages
+Home.
+Product showcase pages.
+Approved public developer profiles.
+Business/problem category pages.
+Selected technology/category landing pages.
+Public studio/team pages after V2.
+9.2 Metadata
+Unique page title.
+Unique meta description.
+Open Graph metadata.
+Twitter/X card metadata.
+Canonical URL.
+Structured data where appropriate and valid.
+Social share image for product showcases.
+9.3 Technical SEO
+robots.txt.
+sitemap.xml with approved public pages only.
+Canonical handling for filters/pagination.
+Noindex for drafts, private case studies, admin pages, account pages, duplicate views, and sensitive inquiry URLs.
+Fast server-rendered/streamed public pages.
+Stable human-readable URLs.
+9.4 URL Examples
+/products/ai-restaurant-platform
+/builders/rahul
+/solutions/inventory-management
+/solutions/ai-automation
+/technologies/spring-boot
+10. V1 Acceptance Criteria
+Area | Acceptance Condition
+Developer onboarding | Developer can register, verify email, complete profile, and reach approval state.
+Product publishing | Approved developer can create draft, submit, receive admin decision, and activate within slot limit.
+Showcase slots | 3 active limit is enforced; archiving frees a slot.
+Public discovery | Client can browse/search approved active products without logging in.
+Product proof | Product page shows screenshots/video/live link where provided and contribution details.
+Inquiry | Client can submit requirement tied to a product; inquiry persists before developer notification.
+Email confirmation | Client email is confirmed before lead is treated as fully verified.
+Developer dashboard | Developer can view lead and update allowed statuses.
+Outcome confirmation | Hired/completed support client confirmation.
+Review | Only completed confirmed engagement can create verified review.
+Admin moderation | Admin can approve/reject/request changes and suspend problematic content.
+Security | Unauthorized users cannot access admin or other users' private data; demo URL validation blocks private-network targets.
+Observability | Critical failures and inquiry errors are logged/monitored.
+11. Explicitly Deferred Features
+The following are intentionally out of V1. They should not delay marketplace validation:
+Feature | Planned Phase / Trigger
+Advanced verification / GitHub ownership | V1.5 after initial trust data.
+Demo uptime health monitoring | V1.5.
+Similar Builder Backup | V1.5 after enough supply exists.
+Builder levels / earned slot unlocks | V1.5 after outcome tracking is reliable.
+Teams / Studios | V2.
+Search & Invite developer recruitment | V2.
+Open Role & Apply | V2.
+Project-based temporary team staffing | V2/V2.5.
+Lead CRM advanced features | V2.
+Business accounts / concierge matching | V2.5.
+AI/semantic matching | After enough quality product/inquiry data.
+Proposals and platform contracts | V3.
+Milestones and on-platform payments | V3.
+Transaction fees | Only after recurring marketplace transactions.
+Verified source-code marketplace | V3.5 after verification/licensing/refund systems.
+Platform-hosted demos / one-click deploy | V4 or later; requires strong isolation and cost model.
+Maintenance/support subscriptions | V4 when repeat client work exists.
+Native mobile apps | Only after strong repeat usage demonstrates need.
+Microservices / Kafka / gRPC / Kubernetes | Only when scale/team boundaries justify them.
+12. Revenue Hooks Preserved by V1 Design
+V1 does not need to charge transaction fees to create a viable monetization path. The design preserves multiple future revenue options.
+Revenue Stream | How V1 Enables It
+Founder freelance revenue | Founder can publish own products as Developer #1 and receive client inquiries immediately.
+Developer Pro | Active showcase capacity, analytics, lead CRM, private case studies, custom portfolio/domain.
+Studio Pro | Future team pages, recruitment, shared inbox, permissions, applicant tracking.
+Business Pro | Future advanced search, verified-only filters, private matching, hiring workspace.
+Transaction fees | Inquiry/outcome tracking establishes the funnel before payments are brought on-platform.
+Maintenance / rehire | Completed relationship and reviews support repeat client engagement later.
+Verified source-code sales | Product/version concepts can later extend into verified runnable software commerce.
+Hosted demo/deployment | External-deployment model can later evolve into a paid isolated hosting service.
+13. Required Analytics Events
+Event | Why It Matters
+home_view | Top-of-funnel traffic.
+search_performed | What clients want to build.
+product_impression | Discovery exposure.
+product_view | Interest.
+demo_video_click | Proof engagement.
+live_demo_click | High-intent proof interaction.
+builder_profile_view | Transition from product to person.
+build_similar_click | Core commercial intent.
+inquiry_started | Form friction analysis.
+inquiry_submitted | Qualified lead creation.
+inquiry_email_confirmed | Lead verification.
+developer_responded | Supply reliability.
+proposal_reported | Commercial progression.
+hire_confirmed | Core marketplace success.
+project_completed | Outcome.
+review_submitted | Trust/reputation loop.
+product_archived/activated | Showcase-slot behaviour.
+14. Final V1 Scope Statement
+V1 is successful if it proves that a client can discover a real software showcase, understand the builder's contribution, submit a qualified request, reach the developer, and generate a real paid development engagement.
+Everything else—teams, payments, source-code sales, hosted demos, AI matching, microservices, and advanced marketplace infrastructure—must remain secondary until this core loop is repeatedly validated.

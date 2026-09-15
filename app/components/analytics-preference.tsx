@@ -1,0 +1,4 @@
+'use client';
+import {useState,useEffect} from 'react';
+import {analyticsConsent} from '@/lib/analytics';
+export default function AnalyticsPreference(){const [enabled,setEnabled]=useState(false);useEffect(()=>setEnabled(analyticsConsent()),[]);return <details className="wrap" style={{paddingBlock:16}}><summary>Privacy preferences</summary><p>Optional first-party analytics help us understand which searches lead to useful connections. We do not include inquiry text or email addresses. Essential account and engagement records are kept separately.</p><label><input type="checkbox" checked={enabled} onChange={e=>{const value=e.target.checked;try{localStorage.setItem('getlancer.analytics',value?'yes':'no');if(!value){sessionStorage.removeItem('getlancer.analytics-session');sessionStorage.removeItem('getlancer.source')}setEnabled(value)}catch{}}}/> Allow optional usage analytics</label></details>}

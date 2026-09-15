@@ -1,0 +1,362 @@
+NON-FUNCTIONAL REQUIREMENTS
+1. Goals
+The platform should be:
+Fast enough for product discovery and inquiry conversion
+Secure against common web and marketplace abuse
+Easy to scale horizontally without premature microservices
+Observable and recoverable
+Accessible to global users
+Privacy-conscious
+Resilient when external developer demos fail
+2. Performance
+NFR-PERF-001 — API Latency
+Under expected V1 production load:
+Typical simple read endpoints: target p95 ≤ 400 ms
+Cached/reference endpoints: target p95 ≤ 200 ms where reasonable
+Search: target p95 ≤ 1 second for V1 dataset
+Inquiry submission: durable persistence before success response
+Do not create a universal "<200 ms for all APIs" requirement because uploads, search, moderation, and external integrations have different performance characteristics.
+NFR-PERF-002 — Public Web Performance
+Server-render important public content
+Lazy-load non-critical media
+Responsive images
+CDN/object-storage delivery
+Avoid rendering-blocking third-party scripts
+Defer video embeds until interaction where possible
+NFR-PERF-003 — Database
+Paginate all collection APIs
+Index foreign keys and common search/filter fields
+Avoid N+1 query patterns
+Track slow queries
+Use query plans before adding caches
+3. Scalability
+NFR-SCALE-001
+V1 should support growth from a curated beta to tens of thousands of accounts using:
+Stateless application instances
+PostgreSQL
+Object storage
+CDN
+Background jobs
+Horizontal app scaling
+NFR-SCALE-002
+Do not introduce:
+Kafka
+gRPC
+Kubernetes
+distributed microservices
+until there is measured need such as:
+Independent deployment boundaries
+Sustained asynchronous throughput
+Multiple engineering teams with domain ownership
+Search/notification workload exceeding simple queue/background-job patterns
+Clear operational benefit exceeding complexity cost
+NFR-SCALE-003
+Use asynchronous jobs for:
+Email delivery
+Demo URL health checks
+Thumbnail processing
+Analytics fan-out
+Periodic cleanup
+A database-backed queue or lightweight task queue is sufficient initially.
+4. Reliability
+NFR-REL-001
+A failed external developer demo must not break:
+Product page
+Search
+Inquiry
+Developer profile
+NFR-REL-002
+Transactional operations must be idempotent where duplicate submissions are plausible:
+Email verification
+Inquiry submission
+Status confirmation
+Review creation
+NFR-REL-003
+Important writes require transaction boundaries:
+Inquiry + initial event
+Product activation + slot usage
+Hire confirmation + engagement state
+Completion confirmation + review eligibility
+5. Availability
+For early production:
+Define a realistic service objective rather than overpromise enterprise SLA
+Use managed database or robust backup/restore
+Keep deployments reproducible
+Use health checks
+Alert on elevated 5xx and failed inquiry submission
+Third-party failures should degrade gracefully.
+6. Security
+6.1 Authentication
+Strong password hashing using an accepted modern algorithm
+Email verification
+OAuth2/OIDC where used
+Admin MFA
+Token/session expiration
+Secure logout
+Session revocation on credential reset where practical
+6.2 Session Strategy
+For a browser-first web application, prefer secure server-managed or securely signed sessions in:
+HttpOnly
+Secure
+SameSite
+cookies.
+If JWTs are used:
+Short-lived access tokens
+Safe refresh strategy
+Signing key rotation
+No long-lived browser tokens in localStorage
+6.3 Authorization
+Enforce server-side authorization for:
+Product ownership
+Profile editing
+Inquiry access
+Review eligibility
+Admin workflows
+Future team roles
+Never rely only on frontend hiding.
+6.4 Transport
+HTTPS only in production
+HSTS after deployment is proven
+Secure modern TLS configuration
+6.5 Input Safety
+Server-side validation
+Output encoding
+Restricted Markdown or plain text initially
+No arbitrary HTML from users
+SQL parameterization via ORM/query binding
+CSRF defenses where cookie auth is used
+6.6 File Upload Security
+Allow only approved image formats
+MIME sniffing + extension checks
+Max file size
+Randomized storage keys
+No executable uploads
+Malware scanning as volume/risk grows
+Strip dangerous metadata where appropriate
+6.7 External URL / SSRF Protection
+Any server-side URL check must:
+Accept only https:// and intentionally supported http://
+Resolve DNS safely
+Block loopback
+Block private networks
+Block link-local networks
+Block cloud metadata endpoints
+Re-check redirects
+Limit redirect count
+Restrict response size
+Use short timeouts
+Never attach internal credentials
+Never allow external URLs to access internal services
+6.8 Rate Limiting
+Protect:
+Login
+Password reset
+Email verification requests
+Inquiry creation
+Reports
+Search abuse
+URL validation
+6.9 Secrets
+Never commit secrets
+Separate per environment
+Use cloud/environment secret management
+Rotate compromised credentials
+Limit secret access by service identity
+6.10 Audit
+Audit:
+Admin moderation
+User suspension
+Product unpublishing
+Slot entitlement changes
+Hire/completion confirmation
+Review removal
+Security-sensitive account actions
+6.11 Security Headers
+Production responses should define a reviewed baseline for:
+Content-Security-Policy (including frame-ancestors)
+Strict-Transport-Security after HTTPS rollout is proven
+X-Content-Type-Options
+Referrer-Policy
+Permissions-Policy
+Explicit CORS allow-list for authenticated APIs
+Do not use wildcard CORS for credentialed endpoints.
+6.12 Encryption at Rest and Key Handling
+Use provider-supported encryption at rest for PostgreSQL, backups, and object storage.
+Keep encryption/secret-management keys separate from application source code.
+Support credential and signing-key rotation.
+Backups containing personal data must remain encrypted.
+6.13 Bot and Abuse Resistance
+Use progressive controls rather than forcing CAPTCHA on every visitor:
+IP/account/email rate limits
+Duplicate inquiry detection
+Per-client open-inquiry limits
+Disposable-email and reputation signals where justified
+Bot challenge only when risk signals are elevated
+Abuse reporting and administrative throttling
+7. Privacy
+NFR-PRIV-001
+Collect only data necessary for:
+Accounts
+Public profiles
+Product discovery
+Qualified inquiries
+Trust/outcome tracking
+Moderation
+Analytics
+NFR-PRIV-002
+Developer email is not public by default.
+NFR-PRIV-003
+Private client project details must never become public accidentally.
+NFR-PRIV-004
+Define:
+Data access/export
+Data correction
+Account deletion
+Retention
+Moderation evidence retention
+Backup retention
+NFR-PRIV-005
+Analytics must not record passwords, raw tokens, private inquiry content, or confidential project text unless explicitly designed for that purpose.
+8. Compliance
+Target readiness for:
+GDPR principles for global users
+CCPA/CPRA applicability review
+WCAG 2.2 AA
+Cookie/ePrivacy requirements where applicable
+Copyright/takedown process
+Platform terms distinguishing V1 lead-generation from payment/escrow services
+Legal counsel should review jurisdiction-specific obligations before public scale or payment handling.
+9. Accessibility
+Target: WCAG 2.2 AA
+Required:
+Keyboard navigation
+Visible focus
+Semantic HTML
+Proper labels
+Associated error messages
+Sufficient color contrast
+Reduced-motion respect
+Screen-reader-friendly structure
+Alt text where meaningful
+Captions/transcripts encouraged for demo videos
+No color-only state communication
+Touch targets suitable for mobile
+10. Maintainability
+Modular monolith boundaries
+Consistent API conventions
+Central error handling
+Database migrations in version control
+Automated tests
+Static analysis
+Dependency management
+ADRs for major architecture decisions
+API documentation generated from code/schema
+11. Testability
+Minimum automated testing:
+Unit tests for business rules
+Integration tests for repositories
+Security/authorization tests
+API tests for critical flows
+End-to-end tests for:
+signup
+product submission
+admin approval
+client inquiry
+hire confirmation
+completion/review
+Migration test in CI/staging
+11.1 Load and Performance Testing
+Before public beta, test representative scenarios such as:
+100 concurrent product browsers
+25 concurrent searches
+10 concurrent inquiry submissions
+simultaneous developer dashboard and admin-review traffic
+Record p50/p95/p99 latency, database pool usage, CPU, memory, and error rate. Increase test load using real traffic observations rather than arbitrary vanity numbers.
+12. Observability
+Metrics
+Request rate
+p50/p95/p99 latency
+4xx/5xx
+Login failures
+Inquiry submission failures
+Email failures
+Database pool health
+Slow queries
+Background job failures
+Object storage errors
+Business Metrics
+Product impressions
+Product views
+Demo clicks
+Live demo clicks
+Build Similar clicks
+Inquiry started
+Inquiry submitted
+Email confirmed
+Developer responded
+Proposal reported
+Hire confirmed
+Project completed
+Review submitted
+Logging
+Structured JSON where practical
+Correlation/request IDs
+No passwords/tokens
+PII minimization
+Error stack traces only in protected systems
+13. Backup / Recovery
+Daily automated database backups minimum
+More frequent PITR when business value justifies it
+Object storage durability/versioning where available
+Encrypted backups
+Documented restore steps
+Restore drills before public launch and periodically thereafter
+Define:
+RPO: initially business-defined; target should reflect inquiry/data value
+RTO: initially business-defined; test rather than guess
+13.1 Recovery Targets
+Before public launch, set and test internal recovery objectives. Initial engineering targets may be:
+RPO: <= 1 hour where managed PostgreSQL/PITR economically supports it
+RTO: <= 4 hours for core marketplace recovery
+These are internal targets, not a public SLA, and must be validated through restore drills.
+14. Browser / Device Support
+Support current major versions of:
+Chrome
+Edge
+Firefox
+Safari
+Responsive:
+Mobile
+Tablet
+Desktop
+No native mobile requirement in V1.
+15. Internationalization Readiness
+V1 language may be English, but design should:
+Store UTF-8 text
+Avoid hard-coded country assumptions
+Use ISO country/currency identifiers
+Store timestamps in UTC
+Render local time zones
+Avoid hard-coded INR/USD only
+Keep translation-ready UI strings
+16. Data Retention
+Define configurable policies for:
+Unverified accounts
+Rejected products
+Archived products
+Inquiries
+Audit events
+Logs
+Analytics
+Deleted accounts
+Do not permanently retain everything "just in case."
+17. Security Review Triggers
+Mandatory architecture/security review before adding:
+On-platform payments
+Source-code uploads/sales
+Arbitrary developer code execution
+Hosted demos
+Enterprise private projects
+File attachments to inquiries
+Team financial splitting
+Escrow-like features

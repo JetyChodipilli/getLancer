@@ -1,0 +1,227 @@
+VISION
+1. Product Name
+Working name: Verified Proof-of-Work Developer Marketplace
+Primary positioning:
+Find software like what you want. Hire the people who built it.
+Developer positioning:
+Build. Show. Get hired.
+2. Purpose
+Build a global marketplace where developers showcase real software products, demos, deployments, and client-safe case studies; clients discover relevant builders through proof-of-work; and qualified project inquiries are routed to individual developers or, later, teams/studios.
+The product is not a generic social network and is not an Upwork-style bidding marketplace.
+The V1 business loop is:
+Developer publishes proof
+→ Client discovers a relevant product
+→ Client watches/opens the demo
+→ Client submits "Build Something Similar"
+→ Developer responds
+→ External discussion / proposal / contract
+→ Client confirms hire
+→ Project completes
+→ Verified review
+→ More trust and discovery
+3. Product Principles
+Proof before pitch — working products and verified contribution matter more than self-written skill claims.
+Business-problem-first discovery — clients search for CRM, SaaS, e-commerce, booking, inventory, AI automation, dashboards, etc.; technology filters are secondary.
+Low client friction — browsing is public; inquiry is lightweight; account creation is not forced before a client sees value.
+Trust is earned, not bought — verification, reviews, response reliability, and marketplace outcomes cannot be directly purchased.
+Quality beats volume — curated builders and strong showcases are more important than registration count.
+No bidding race-to-the-bottom — clients discover evidence and choose builders; the product avoids mass proposal spam.
+External contracts/payments in V1 — the platform proves lead generation first.
+Global destination, curated launch — any geography and software category may eventually participate, but initial content is manually approved.
+Monetize value, not access — clients browse and inquire freely; paid tiers later sell business tools, capacity, analytics, recruiting, and workflow.
+Build only what validates the marketplace — teams, payments, source-code sales, AI matching, and hosted demos come later.
+4. Target Audience
+4.1 Supply Side
+Freelance software developers
+Full-stack developers
+Frontend/backend developers
+Mobile developers
+AI/ML application developers
+DevOps/cloud engineers with demonstrable products
+Early-career developers and students with genuine high-quality projects
+Experienced engineers with public or client-safe private case studies
+Later: studios, agencies, and temporary project teams
+4.2 Demand Side
+Startup founders
+Small and medium businesses
+SaaS companies
+Digital/product agencies
+Companies outsourcing product development
+Founders seeking MVP development
+Organizations seeking contractors or complete teams
+Global clients seeking proven builders
+5. Product Scope
+5.1 In Scope — V1
+Developer authentication and profiles
+Email verification
+Manual developer/project approval
+Product showcases
+Demo video links
+Screenshots
+External live deployment URLs
+Optional GitHub links
+Project types including public, client, private/NDA-safe
+Business categories and technology tags
+Search and filters
+Developer availability
+Active Showcase Slot system
+"Build Something Similar"
+"Hire Developer"
+Lightweight client inquiry
+Email confirmation
+Developer lead inbox
+Deal-status tracking
+Client-confirmed hire/completion
+Verified reviews
+Basic analytics
+Reporting/moderation
+Admin review queue
+SEO-friendly public product/profile pages
+5.2 Out of Scope — V1
+Source-code sales
+Escrow
+On-platform contracts
+Payment processing
+In-platform real-time chat
+Mass bidding/proposals
+Full team/studio operations
+AI semantic matching
+Native app hosting
+One-click deployment
+Native mobile apps
+Microservices
+Kafka
+gRPC
+Kubernetes
+Complex recommendation engines
+6. Showcase Slot Model
+Every newly approved developer receives:
+3 active showcase slots
+Unlimited drafts
+Unlimited archived showcases
+Archiving frees a slot
+A successful showcase is never consumed by a hire
+Later, verified marketplace success can unlock more capacity
+Later, Pro plans can increase active capacity
+This mechanism exists to:
+Reduce project spam
+Improve average showcase quality
+Encourage developers to keep portfolios current
+Create a fair free tier
+Preserve future subscription monetization
+7. Trust Model
+V1 uses accurate, narrow verification labels.
+Possible states:
+Email Verified
+Profile Approved
+Product Reviewed
+Live Demo Reachable
+Verified Hire
+Verified Completion
+Verified Review
+Later:
+Identity Verified
+GitHub/Repository Verified
+Client Verified
+Contribution Verified
+Trusted Builder
+Build Verified
+Runtime Verified
+Never use a generic "Verified" badge when only one narrow fact has been checked.
+8. Revenue Vision
+Phase 0 — Founder Revenue
+Founder operates as Developer #1 and uses the platform as a freelance portfolio and lead-generation engine.
+Phase 1 — Marketplace Validation
+Platform fee: none required.
+Goal: prove that showcases generate qualified paid work.
+Phase 2 — Developer Pro
+Potential paid value:
+More active showcases
+Advanced analytics
+Lead CRM
+Private case studies
+Custom portfolio
+Custom domain
+Availability controls
+External lead tracking
+Phase 3 — Studio Pro
+Potential paid value:
+Team profiles
+More members
+Shared lead inbox
+Recruiting tools
+Open roles
+Applicant tracking
+Lead assignment
+Permissions
+Team analytics
+Phase 4 — Business Pro
+Potential paid value:
+Advanced search
+Verified-only filters
+Team discovery
+Saved talent lists
+Private project requests
+Multiple hiring managers
+Concierge matching
+Phase 5 — Marketplace Transactions
+Only after recurring project activity:
+Proposals
+Contracts
+Milestones
+Payments
+Platform fee / flat fee / hybrid pricing
+Phase 6+ — Software Commerce
+Later:
+Verified source-code sales
+Deployment services
+Maintenance plans
+Support
+Verification processing
+Enterprise sourcing
+9. Success Criteria
+9.1 V1 Validation Targets
+20 manually curated developers
+50–60 approved high-quality showcases
+Majority of showcases include a live demo, demo video, or credible client-safe case study
+5–10 qualified client inquiries
+2–5 serious developer/client discussions
+1–3 paid engagements originating from the platform
+Inquiry → response tracking enabled
+Hire/completion outcome capture enabled
+9.2 North-Star Metric
+V1: Qualified Client–Builder Connections per Week
+Later:
+Successful Client–Builder Hires per Month
+Completed Marketplace GMV
+Repeat/maintenance project volume
+10. Anti-Goals
+The product must not become:
+A generic LinkedIn-style posting network
+A follower/like popularity contest
+A cheap-freelancer bidding site
+A dumping ground for tutorial clones
+A pay-to-win search directory
+A source-code marketplace before verification infrastructure exists
+A distributed-systems architecture showcase before product-market fit
+11. Phase Roadmap
+V0
+Founder publishes 3–5 excellent applications.
+V1
+Proof-of-work + discovery + inquiry + outcome tracking.
+V1.5
+Better verification, availability, response reliability, demo health, similar-builder fallback.
+V2
+Teams/studios, recruitment, open roles, temporary project staffing, advanced lead CRM.
+V2.5
+Business accounts, client request matching, concierge sourcing.
+V3
+Proposals, contracts, milestones, payments.
+V3.5
+Verified source-code marketplace.
+V4
+Hosted demos, deployment, maintenance, recurring support.
+12. Final Product Rule
+The platform is successful only when both are repeatedly true:
+Developer: "I got paid work because I showed my work here."
+Client: "I found the right builder faster because I could see what they had already built."

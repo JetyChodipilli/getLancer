@@ -1,0 +1,263 @@
+TESTING & QA
+1. Goal
+Testing must prove both technical correctness and marketplace-business correctness. A green build is insufficient if a coding change lets a developer exceed showcase slots, lets an unauthorized user read inquiries, or creates unverified reviews.
+2. Test Pyramid
+Unit Tests
+Target pure business logic:
+slot entitlement;
+state transitions;
+review eligibility;
+availability logic;
+ranking signals;
+token expiry;
+validation.
+Integration Tests
+Target:
+repositories;
+PostgreSQL constraints;
+transactions;
+migration compatibility;
+email/job orchestration using test doubles;
+object storage integration through sandbox/local emulator where appropriate.
+API Tests
+Target request/response/error contracts.
+End-to-End Tests
+Target critical user journeys in a browser.
+3. Critical E2E Journeys
+E2E-01 Developer Onboarding
+signup
+→ verify email
+→ create profile
+→ submit profile
+→ admin approves
+→ developer dashboard available
+E2E-02 Product Publication
+create draft
+→ upload screenshot
+→ add live URL
+→ submit review
+→ admin approves
+→ activate
+→ appears in public search
+E2E-03 Showcase Slot Limit
+3 active products
+→ attempt 4th activation
+→ blocked with SLOT_LIMIT_REACHED
+→ archive one
+→ activate 4th successfully
+E2E-04 Client Conversion
+public search
+→ product detail
+→ demo click
+→ Build Something Similar
+→ inquiry submit
+→ email confirmation
+→ developer notification
+E2E-05 Marketplace Outcome
+developer marks responded
+→ discussion
+→ proposal
+→ requests hire confirmation
+→ client confirms
+→ in progress
+→ requests completion
+→ client confirms
+→ review eligible
+→ client submits review
+E2E-06 Moderation
+report product
+→ admin triages
+→ product suspended
+→ removed from discovery
+→ owner sees enforcement reason
+4. Authorization Test Matrix
+Automate at minimum:
+anonymous cannot edit profile/product;
+developer cannot edit another developer's product;
+developer cannot read another developer's inquiry;
+client cannot create review without completed engagement;
+normal user cannot access admin routes;
+suspended account cannot publish/activate;
+private/NDA content is not exposed by public API.
+5. State-Machine Tests
+For every state machine, test:
+every allowed transition;
+every forbidden transition;
+repeated/idempotent transition;
+concurrency where relevant;
+admin override.
+Example:
+DRAFT -> COMPLETED must never be possible for inquiry/product workflows.
+6. Concurrency Tests
+Critical case: showcase slots.
+Simulate two simultaneous activation requests when only one slot remains.
+Expected:
+exactly one succeeds;
+exactly one fails with slot limit;
+database ends with valid active count.
+Also test duplicate inquiry requests with same idempotency key.
+7. Validation Tests
+Cover boundaries for:
+email;
+slugs;
+title/summary/description lengths;
+budget/timeline enums;
+URL scheme;
+file type/size;
+review rating;
+availability + bookedUntil dependency.
+8. External URL Security Tests
+Test rejection of:
+localhost;
+127.0.0.1;
+::1;
+private IPv4 ranges;
+link-local;
+cloud metadata hosts;
+file://;
+javascript:;
+redirect to internal IP;
+excessive redirect chain;
+slow response/timeouts.
+9. UI Tests
+Verify:
+loading skeletons;
+disabled double-submit buttons;
+validation messages;
+404;
+500;
+demo offline state;
+empty search;
+slot-limit UX;
+responsive navigation;
+inquiry data retained on recoverable validation failure.
+10. Accessibility QA
+Automated + manual.
+Automated:
+axe or equivalent;
+obvious contrast/label issues.
+Manual:
+keyboard-only critical journeys;
+focus order;
+screen-reader spot checks;
+zoom/reflow;
+error announcements;
+modal focus trapping;
+reduced motion.
+Target: WCAG 2.2 AA.
+11. Cross-Browser
+Test current supported versions of:
+Chrome
+Edge
+Firefox
+Safari
+Critical flows on mobile and desktop.
+12. Performance Testing
+Initial scenarios:
+100 concurrent product browsers;
+25 concurrent searches;
+10 concurrent inquiry submissions;
+developer dashboard traffic;
+admin review traffic.
+Measure:
+p50/p95/p99 latency;
+throughput;
+error rate;
+CPU/memory;
+DB pool;
+slow queries.
+Do not optimize against synthetic numbers alone; update using real usage.
+13. SEO QA
+Automate checks for public pages:
+title;
+description;
+canonical;
+OG image;
+robots directives;
+sitemap inclusion/exclusion;
+structured data validity;
+noindex on private/auth pages.
+14. Email QA
+Test:
+verification;
+reset;
+inquiry notification;
+hire confirmation;
+completion confirmation;
+review request;
+bounce/error handling;
+no confidential detail in subject;
+links expire correctly.
+15. Data Migration QA
+Every migration:
+runs on empty DB;
+runs from previous supported schema;
+preserves required data;
+staging verified;
+rollback/forward-fix strategy documented.
+16. Backup/Restore QA
+Before public launch:
+create backup;
+restore to isolated environment;
+verify users/products/inquiries/reviews;
+verify object storage references;
+document actual restore duration.
+17. Regression Suite
+Release-blocking regression:
+auth;
+profile approval;
+product approval;
+slot enforcement;
+public product access;
+inquiry;
+status confirmation;
+review;
+admin moderation;
+authorization;
+SSRF prevention.
+18. Test Data
+Use synthetic data only.
+Seed:
+approved developer;
+pending developer;
+suspended developer;
+3 active products;
+archived product;
+public/private product;
+verified client;
+inquiry in every major state;
+completed review-eligible engagement.
+Never copy production private inquiry data into development environments.
+19. Defect Severity
+P0 Critical
+Security/data loss/marketplace unusable.
+P1 High
+Core conversion or authorization broken.
+P2 Medium
+Important feature degraded with workaround.
+P3 Low
+Cosmetic/minor usability.
+Public release blocked by open P0/P1 unless explicitly risk-accepted by product/security owners.
+20. Definition of Done
+A feature is done only when:
+requirements accepted;
+authorization defined;
+unit/integration tests pass;
+API contract updated;
+analytics events implemented if applicable;
+errors/empty states handled;
+accessibility reviewed;
+monitoring/logging considered;
+documentation updated;
+staging verified.
+21. Pre-Launch QA Gate
+all critical E2E pass;
+no open critical/high security issue without accepted mitigation;
+backup restore tested;
+admin MFA tested;
+legal pages reachable;
+SEO noindex rules verified;
+production email verified;
+monitoring alerts tested;
+rate limits tested;
+slot-concurrency test passes.

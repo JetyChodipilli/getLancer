@@ -1,0 +1,243 @@
+TRUST, SAFETY & MODERATION
+1. Purpose
+Trust is a product feature. This document governs user-generated product claims, external links, client inquiries, reviews, IP complaints, fraud, spam, and enforcement.
+2. Safety Principles
+Restrict high-risk content quickly when credible harm is possible.
+Preserve evidence and audit actions.
+Give users understandable reasons for enforcement.
+Trust labels must be precise.
+Do not sell trust or positive reviews.
+Protect both developers from fake clients and clients from fake developers.
+Provide an appeal path for meaningful enforcement.
+3. Content Categories
+Allowed
+genuine products;
+client-safe case studies;
+open-source work;
+learning projects clearly labeled;
+private/NDA-safe descriptions with permission.
+Restricted/Prohibited
+stolen work;
+impersonation;
+malicious/phishing links;
+malware distribution;
+confidential client data without permission;
+fraudulent testimonials;
+spam;
+harassment/abuse;
+illegal services/content;
+manipulated reviews;
+deceptive verification claims.
+4. Product Review Checklist
+Admin checks:
+product description consistency;
+proof relevance;
+live URL safety/reachability;
+contributor claim;
+business category;
+technology tags;
+obvious IP misuse;
+confidential data exposure;
+project-type honesty;
+quality threshold.
+Learning/tutorial projects may be allowed but must be labeled and should not outrank strong commercial proof solely through engagement.
+5. Report Reasons
+FAKE_PRODUCT
+STOLEN_WORK
+IMPERSONATION
+MALICIOUS_LINK
+PHISHING
+SPAM
+HARASSMENT
+COPYRIGHT_IP
+CONFIDENTIAL_DATA
+MISLEADING_CLAIM
+FAKE_REVIEW
+CLIENT_SPAM
+OTHER
+6. Severity Levels
+Critical
+Examples:
+active phishing/malware;
+credential theft;
+severe privacy exposure.
+Action:
+immediate restriction;
+security investigation;
+account suspension where justified.
+High
+Examples:
+credible stolen commercial work;
+impersonation;
+repeated fake client leads.
+Medium
+Examples:
+misleading project labeling;
+repeated low-quality spam.
+Low
+Examples:
+minor metadata/category problems.
+7. Enforcement Actions
+No Action
+Request Changes
+Warning
+Remove Link
+Unpublish Product
+Temporary Restriction
+Suspend Account
+Permanent Ban
+Reason is mandatory for meaningful enforcement.
+8. Moderation Workflow
+Report/Detection
+→ Open
+→ Triage
+→ Evidence Review
+→ No Action / Warning / Restriction / Suspension
+→ Notify affected user where appropriate
+→ Appeal opportunity
+→ Resolve/Close
+Critical safety events may be restricted before full review.
+9. Appeals
+Users may appeal:
+product rejection;
+suspension;
+review removal;
+IP enforcement where appropriate.
+Appeal must be reviewed by someone other than the original moderator when team size permits.
+Store:
+original decision;
+evidence;
+appeal statement;
+appeal result.
+10. Intellectual Property / Copyright
+Maintain a formal takedown process.
+Evidence may include:
+ownership URL;
+repository history;
+client authorization;
+original files;
+legal notice.
+Do not require public disclosure of confidential source code merely to resolve a claim.
+11. Client Confidentiality
+If a product exposes:
+private credentials;
+personal data;
+confidential company information;
+internal admin URLs;
+the platform may immediately unpublish while investigating.
+12. Malicious External Links
+Controls:
+safe URL validation;
+domain/reputation checks where available;
+user reports;
+periodic reachability checks later;
+remove/disable unsafe link without necessarily deleting entire case study.
+A malicious-link finding may trigger account-level review.
+13. Fake Developer Prevention
+Initial controls:
+email verification;
+manual profile/product review;
+contribution requirement;
+external proof;
+duplicate/stolen-content reports.
+Later:
+identity verification;
+GitHub contribution verification;
+client confirmation;
+domain ownership verification.
+14. Fake Client / Inquiry Abuse
+Signals:
+unverified email;
+mass identical inquiries;
+suspicious domains;
+repeated no-response behavior;
+abusive content;
+impossible budget/promises;
+developer reports.
+Controls:
+confirmation;
+throttling;
+quarantine;
+block;
+client reputation later.
+Spam leads are excluded from developer response metrics.
+15. Review Integrity
+Rules:
+verified completion required;
+no review purchase;
+no reciprocal fake-review rings;
+no self-review;
+one review per engagement;
+platform may remove confidential/abusive text while preserving legitimate rating/outcome where policy permits.
+16. Trust Labels
+Good
+Email Verified
+Product Reviewed
+Live Demo Reachable
+Client Confirmed Hire
+Verified Review
+Misleading / Forbidden
+Fully Verified
+Guaranteed Developer
+100% Secure
+Guaranteed Delivery
+unless the specific claim is actually substantiated.
+17. Ranking Safety
+Do not let:
+paid plan;
+upvotes;
+friend traffic;
+spam saves
+alone determine ranking.
+Apply fraud detection and minimum quality gates before using engagement signals.
+18. New Builder Fairness
+Reserve reasonable discovery opportunities for:
+newly approved;
+high-quality;
+relevant;
+available
+builders.
+This is not random exposure; quality/relevance remain required.
+19. Team/Studio Safety — V2
+Team creation limited to approved builders.
+Role/member changes are audited.
+Contributions are explicit.
+Leaving a team does not erase historical contribution.
+Team cannot misrepresent temporary contractors as permanent employees.
+20. Moderation SLAs
+Do not publish unrealistic promises initially.
+Internal priorities:
+Critical safety: immediate/urgent triage
+High: same business day where feasible
+Medium: queue-based
+Low: normal review queue
+Adjust with staffing and legal obligations.
+21. Transparency
+Maintain internal metrics:
+reports received;
+report categories;
+action rate;
+appeals;
+reversal rate;
+malicious-link incidents;
+IP complaints.
+Public transparency reporting may be added as scale/legal requirements justify it.
+22. Moderator Access
+Moderators see only information needed for their task.
+Sensitive/private inquiry access should be limited, logged, and justified.
+23. Evidence Retention
+Define retention for:
+abuse reports;
+IP claims;
+moderation decisions;
+security incidents.
+Retention must balance legal defense, safety, and privacy minimization.
+24. Launch Gate
+Before public launch:
+report button works;
+moderation queue works;
+suspend/unpublish works;
+malicious URL escalation works;
+copyright contact/process exists;
+reasons/appeals are documented;
+admin actions are audited.

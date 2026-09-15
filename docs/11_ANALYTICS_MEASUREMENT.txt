@@ -1,0 +1,250 @@
+ANALYTICS & MEASUREMENT
+1. Purpose
+Analytics exists to answer whether proof-of-work creates qualified commercial outcomes. Vanity engagement is secondary.
+2. North-Star Metrics
+V1
+Qualified Client-Builder Connections per Week
+Later
+Confirmed Hires per Month
+Completed Marketplace GMV
+Repeat/Rehire Volume
+3. Funnel
+Public Visit
+→ Search
+→ Product Impression
+→ Product View
+→ Demo/Live Demo Interaction
+→ Builder Profile View
+→ Build Similar Click
+→ Inquiry Started
+→ Inquiry Submitted
+→ Email Confirmed
+→ Developer Responded
+→ Discussion
+→ Proposal Reported
+→ Hire Confirmed
+→ Completion Confirmed
+→ Verified Review
+4. Event Envelope
+Every analytics event should support:
+{
+  "eventId":"uuid",
+  "eventName":"product_view",
+  "occurredAt":"2026-09-04T10:00:00Z",
+  "anonymousId":"anon_...",
+  "userId":null,
+  "sessionId":"sess_...",
+  "source":"web",
+  "properties":{}
+}
+Do not place confidential inquiry text, passwords, tokens, private case-study contents, or raw sensitive identifiers in analytics properties.
+5. Core Events
+home_view
+Properties:
+landingVariant
+referrerCategory
+locale
+search_performed
+Properties:
+normalizedQuery
+categoryFilters
+technologyFilters
+availabilityFilter
+resultCount
+Do not retain sensitive free-text if query could contain personal/confidential information; use appropriate minimization/redaction policy.
+product_impression
+Properties:
+productId
+developerId
+rankPosition
+searchContext
+product_view
+Properties:
+productId
+developerId
+categoryIds
+sourcePage
+demo_video_click
+Properties:
+productId
+provider
+live_demo_click
+Properties:
+productId
+demoStatus
+builder_profile_view
+Properties:
+builderId
+sourceProductId optional
+build_similar_click
+Properties:
+productId
+developerId
+inquiry_started
+Properties:
+productId
+developerId
+requestType if already selected
+inquiry_submitted
+Server-authoritative.
+Properties:
+inquiryId
+productId
+developerId
+budgetBand
+timelineBand
+inquiry_email_confirmed
+Server-authoritative.
+developer_responded
+Server-authoritative.
+proposal_reported
+Server-authoritative.
+Properties may include currency/value band, not necessarily exact confidential proposal detail.
+hire_confirmed
+Server-authoritative and client-confirmed.
+project_completed
+Server-authoritative and client-confirmed.
+review_submitted
+Server-authoritative.
+product_activated / product_archived
+Tracks slot behavior.
+product_saved / product_unsaved
+Tracks client consideration intent.
+6. Conversion Definitions
+Product View → Build Similar CTR
+unique build_similar_click users/sessions
+----------------------------------------
+unique product_view users/sessions
+Inquiry Completion Rate
+confirmed inquiries
+-------------------
+inquiry_started
+Developer Response Rate
+qualified inquiries responded
+-----------------------------
+qualified inquiries received
+Exclude confirmed spam/quarantined abuse.
+Inquiry → Hire Rate
+confirmed hires
+---------------
+qualified inquiries
+Hire → Completion Rate
+confirmed completions
+---------------------
+confirmed hires
+7. Marketplace Metrics
+Track:
+approved developers;
+active developers;
+active showcases;
+average active showcases per builder;
+% products with live demo;
+% products with video;
+qualified inquiries;
+median response time;
+confirmed hires;
+confirmed completions;
+verified reviews;
+reported project value;
+repeat clients;
+developers receiving at least one qualified lead.
+8. Marketplace Liquidity Indicators
+Important:
+% client searches that produce >=3 relevant active products;
+% qualified inquiries that receive response;
+time to first developer response;
+% unavailable-builder pages with viable fallback candidates later;
+concentration of inquiries among top 10% of developers.
+High concentration may indicate ranking/new-builder discovery problems.
+9. Showcase Slot Analytics
+Measure:
+active slot utilization;
+archive/reactivate frequency;
+time to first 3 active showcases;
+developers blocked by slot limit;
+conversion difference between 1/2/3 active showcase users;
+later, earned unlock vs paid upgrade behavior.
+Do not optimize slot policy only for paid conversion; preserve marketplace quality.
+10. Acquisition Attribution
+Track first-touch and last meaningful touch where practical:
+organic search;
+LinkedIn/social;
+referral;
+direct;
+developer-shared product;
+founder outreach;
+agency referral;
+paid acquisition later.
+The key acquisition metric is not visitor volume but qualified inquiry and confirmed hire by source.
+11. SEO Metrics
+organic landing sessions;
+product pages indexed;
+category pages indexed;
+organic product view;
+organic Build Similar click;
+organic qualified inquiry;
+organic hire confirmation.
+12. Privacy Rules
+Respect consent for non-essential analytics where required.
+Pseudonymize anonymous IDs.
+Avoid sending client project descriptions to third-party analytics.
+Avoid developer/client email in analytics payloads.
+Define retention.
+Provide deletion handling where required.
+13. Experimentation
+Do not launch large A/B infrastructure initially.
+When needed, experiments must define:
+hypothesis;
+primary metric;
+guardrail metrics;
+duration/sample rationale;
+assignment key;
+success threshold.
+Never experiment on security, legal consent, or trust labels in misleading ways.
+14. Dashboard Set
+Founder Dashboard
+weekly qualified inquiries;
+confirmed hires;
+active builders;
+active showcases;
+inquiry-to-hire conversion;
+top acquisition sources;
+reported project value.
+Developer Dashboard
+product views;
+demo clicks;
+saves;
+Build Similar clicks;
+qualified inquiries;
+response rate;
+confirmed hires.
+Admin Quality Dashboard
+pending reviews;
+approval/rejection rate;
+reports;
+malicious-link flags;
+spam inquiries;
+suspended accounts.
+15. Data Quality Rules
+Server-authoritative events for business outcomes.
+Deduplicate by event ID/idempotency key.
+UTC timestamps.
+Document event versioning.
+Monitor event drop/spike anomalies.
+Do not silently rename events without migration/dashboard update.
+16. Early Validation Scorecard
+Target cohort:
+20 curated builders;
+~50–60 active high-quality showcases;
+5–10 qualified inquiries;
+2–5 serious discussions;
+1–3 paid engagements.
+These are validation targets, not permanent growth benchmarks.
+17. What Not to Optimize
+Do not make primary success metrics:
+raw registrations;
+follower counts;
+comments;
+likes/upvotes;
+pageviews without client intent.
+The product must remain commercially outcome-oriented.

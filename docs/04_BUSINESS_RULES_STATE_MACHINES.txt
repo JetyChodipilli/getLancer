@@ -1,0 +1,258 @@
+BUSINESS RULES & STATE MACHINES
+1. Purpose
+This document defines the rules coding agents must not invent independently. It is the authoritative source for allowed state transitions, actor permissions, slot behavior, inquiry outcomes, reviews, and future team behavior.
+2. Global Rules
+Public discovery contains only approved, active, public products from non-suspended accounts.
+A product being technically reachable does not mean the platform verified every feature.
+Trust labels must describe the exact fact checked.
+A developer cannot exceed their active showcase entitlement.
+Archived products do not consume active slots.
+A hire never consumes/removes the showcase that generated it.
+Only confirmed completed marketplace engagements are eligible for verified reviews.
+External contracts/payments remain outside V1.
+Important state changes are auditable and append-only in event history.
+Admin enforcement can override normal user transitions.
+3. Developer Account State Machine
+stateDiagram-v2
+    [*] --> REGISTERED
+    REGISTERED --> EMAIL_VERIFIED
+    EMAIL_VERIFIED --> PROFILE_PENDING
+    PROFILE_PENDING --> APPROVED
+    PROFILE_PENDING --> CHANGES_REQUESTED
+    CHANGES_REQUESTED --> PROFILE_PENDING
+    APPROVED --> SUSPENDED
+    SUSPENDED --> APPROVED
+    APPROVED --> DELETED
+    SUSPENDED --> DELETED
+Rules
+From | To | Actor | Rule
+REGISTERED | EMAIL_VERIFIED | User/System | Valid verification token
+EMAIL_VERIFIED | PROFILE_PENDING | Developer | Required profile fields complete
+PROFILE_PENDING | APPROVED | Admin | Manual approval
+PROFILE_PENDING | CHANGES_REQUESTED | Admin | Reason required
+CHANGES_REQUESTED | PROFILE_PENDING | Developer | Requested corrections submitted
+APPROVED | SUSPENDED | Admin | Moderation/security reason required
+SUSPENDED | APPROVED | Admin | Suspension resolved
+APPROVED/SUSPENDED | DELETED | User/Admin | Privacy/legal retention rules apply
+A suspended developer:
+cannot activate new products;
+is removed from new public discovery;
+cannot receive new platform inquiries;
+retains historical inquiry/review records where legally required.
+4. Product State Machine
+Separate approval status from lifecycle status.
+Approval
+stateDiagram-v2
+    [*] --> DRAFT
+    DRAFT --> PENDING_REVIEW
+    PENDING_REVIEW --> APPROVED
+    PENDING_REVIEW --> CHANGES_REQUESTED
+    PENDING_REVIEW --> REJECTED
+    CHANGES_REQUESTED --> PENDING_REVIEW
+    APPROVED --> SUSPENDED
+Lifecycle
+stateDiagram-v2
+    [*] --> DRAFT
+    DRAFT --> ACTIVE: after approval + slot available
+    ACTIVE --> ARCHIVED
+    ARCHIVED --> ACTIVE: approval valid + slot available
+    ACTIVE --> SUSPENDED: admin
+    ARCHIVED --> SUSPENDED: admin
+Product Rules
+Submission requires an approved developer profile.
+Activation requires approval_status = APPROVED.
+Activation must atomically verify active-slot capacity.
+If approval occurs while all slots are occupied, product remains approved but inactive until a slot is available.
+Re-editing material claims after approval may require re-review according to moderation policy.
+An archived product remains referenced by historical inquiries/reviews.
+Suspended products cannot be publicly opened except by authorized owner/admin views.
+5. Showcase Entitlement Rules
+Free Builder
+Default active limit: 3.
+Slot Calculation
+active_usage = count(products where owner = developer and lifecycle_status = ACTIVE)
+can_activate = active_usage < active_slot_limit
+Atomic Activation Rule
+The backend must perform entitlement check and activation inside one transaction/lock to prevent concurrent requests from exceeding capacity.
+Future Unlocks
+V1.5 may add permanent earned capacity only from verified outcomes, e.g.:
+confirmed hire;
+confirmed completion;
+trusted-builder milestone.
+Paid plans can increase capacity but cannot directly buy trust or verified outcomes.
+6. Client Inquiry State Machine
+stateDiagram-v2
+    [*] --> CREATED_UNVERIFIED
+    CREATED_UNVERIFIED --> INQUIRY_RECEIVED: email confirmed
+    CREATED_UNVERIFIED --> EXPIRED
+    INQUIRY_RECEIVED --> RESPONDED
+    RESPONDED --> DISCUSSION
+    DISCUSSION --> PROPOSAL_SENT
+    PROPOSAL_SENT --> HIRE_PENDING_CONFIRMATION
+    HIRE_PENDING_CONFIRMATION --> HIRED
+    HIRE_PENDING_CONFIRMATION --> DISCUSSION: client rejects
+    HIRED --> IN_PROGRESS
+    IN_PROGRESS --> COMPLETION_PENDING_CONFIRMATION
+    COMPLETION_PENDING_CONFIRMATION --> COMPLETED
+    COMPLETION_PENDING_CONFIRMATION --> IN_PROGRESS: client rejects
+    INQUIRY_RECEIVED --> NOT_HIRED
+    RESPONDED --> NOT_HIRED
+    DISCUSSION --> NOT_HIRED
+    PROPOSAL_SENT --> NOT_HIRED
+Rules
+Unverified inquiries are persisted but are not counted as qualified leads.
+Developer notification occurs after email confirmation, unless product policy intentionally allows a low-trust preview.
+HIRED requires client confirmation.
+COMPLETED requires client confirmation.
+NOT_HIRED may be set by developer or client; reason is optional/controlled.
+Status history must never be rewritten.
+Current status is a projection of event history for efficient reads.
+7. Inquiry Qualification
+A qualified inquiry requires:
+confirmed client email;
+valid reference product;
+valid target developer;
+required description;
+budget band;
+timeline band;
+no active abuse/suspension flag.
+Potentially low-quality or suspicious inquiries may be quarantined for review and excluded from developer response metrics.
+8. Duplicate Inquiry Rule
+The system should detect near-identical repeated submissions from the same verified email/account to the same developer/product in a short window.
+Behavior:
+prevent exact duplicate retries through idempotency key;
+merge or warn on repeated intentional inquiries;
+rate-limit mass outreach;
+do not silently create dozens of duplicated leads.
+9. Availability Rules
+States:
+AVAILABLE_NOW
+ONE_SLOT_LEFT
+LIMITED
+BOOKED_UNTIL
+NOT_ACCEPTING
+Rules:
+BOOKED_UNTIL requires a date.
+NOT_ACCEPTING prevents new direct inquiry CTA or shows alternatives, depending on product UX.
+Availability does not alter historical inquiry access.
+V1.5 similar-builder fallback should prioritize available builders.
+10. Review State Machine
+stateDiagram-v2
+    [*] --> INELIGIBLE
+    INELIGIBLE --> ELIGIBLE: completion confirmed
+    ELIGIBLE --> SUBMITTED
+    SUBMITTED --> PUBLISHED
+    SUBMITTED --> HELD_FOR_REVIEW
+    PUBLISHED --> HIDDEN: moderation
+    HELD_FOR_REVIEW --> PUBLISHED
+    HELD_FOR_REVIEW --> REMOVED
+Rules:
+One verified review per completed engagement.
+Review eligibility is created only by confirmed completion.
+A review may be moderated for abuse, confidential information, impersonation, or manipulation.
+Developer cannot delete an unfavorable legitimate review.
+Client may request removal of personal information while preserving legitimate marketplace record where appropriate.
+11. Saved Product Rules
+Authenticated client can save/remove an approved public product.
+Unique (user_id, product_id).
+Saving does not consume developer capacity.
+Saving does not notify developer by default.
+Archived/suspended product remains in saved list with unavailable state but is not publicly discoverable.
+12. Moderation State Machine
+stateDiagram-v2
+    [*] --> OPEN
+    OPEN --> TRIAGED
+    TRIAGED --> NO_ACTION
+    TRIAGED --> WARNING
+    TRIAGED --> CONTENT_RESTRICTED
+    TRIAGED --> ACCOUNT_SUSPENDED
+    CONTENT_RESTRICTED --> RESOLVED
+    ACCOUNT_SUSPENDED --> RESOLVED
+    NO_ACTION --> CLOSED
+    RESOLVED --> CLOSED
+Serious malware/phishing or credible IP abuse may skip intermediate steps for immediate restriction.
+13. Trust Label Rules
+Allowed V1 examples:
+Email Verified
+Profile Approved
+Product Reviewed
+Live Demo Reachable
+Client Confirmed Hire
+Client Confirmed Completion
+Verified Review
+Forbidden unless substantiated:
+100% Verified Developer
+Secure Code
+Guaranteed Expert
+Guaranteed Delivery
+Malware-Free Forever
+14. Search/Ranking Guardrails
+Ranking may consider:
+query/category relevance;
+approval and proof completeness;
+availability;
+freshness;
+response reliability;
+verified marketplace outcomes;
+legitimate client saves/inquiries.
+Ranking must not use only:
+paid plan;
+likes/upvotes;
+follower count.
+Sponsored placement, if introduced, must be clearly labeled and must not replace core organic relevance.
+15. Team/Studio Rules — V2
+Creation
+Only an approved builder with at least one approved product may create a team/studio.
+Membership
+Developer may remain independent.
+Developer may join multiple teams unless a team contract says otherwise externally.
+Platform does not imply employment relationship merely from team membership.
+Roles
+OWNER
+BUSINESS_MANAGER
+RECRUITER
+PROJECT_MANAGER
+MEMBER
+Only Owner/Business Manager can accept commercial project interest or issue platform proposals later.
+Recruitment
+Both supported:
+Search & Invite
+Open Role & Apply
+A project-specific contract member can be temporary and expire after the project.
+16. Client → Team Rules — V2
+Flow:
+Client request
+→ team reviews
+→ Interested / Need More Information / Decline
+→ internal capacity check
+→ recruit missing skills if needed
+→ proposal
+→ client acceptance
+Interested never means a legally binding acceptance.
+17. External Contract Boundary — V1
+Platform records lead and reported outcome.
+Client/developer create their own contract.
+Platform does not hold funds.
+Platform does not guarantee external payment.
+Reported project value is analytics/marketplace evidence, not accounting truth unless later verified through platform payments.
+18. Idempotency Rules
+Idempotency required for at least:
+inquiry creation;
+email confirmation;
+hire confirmation;
+completion confirmation;
+review submission;
+product activation/archive operations when retried by clients/network.
+19. Time Rules
+Store timestamps in UTC.
+Display in user locale/time zone.
+Confirmation tokens expire.
+BOOKED_UNTIL respects developer-local date in UX but is stored unambiguously.
+20. Rule Precedence
+When rules conflict:
+Legal/security enforcement
+Admin moderation restriction
+Business state-machine constraints
+Plan/entitlement rules
+User preference
+Coding agents must not bypass higher-priority rules for convenience.

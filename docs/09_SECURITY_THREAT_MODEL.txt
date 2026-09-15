@@ -1,0 +1,297 @@
+SECURITY THREAT MODEL
+1. Scope
+V1 threat model covers:
+Next.js public web application
+Spring Boot API
+PostgreSQL
+Object storage
+Authentication/OAuth
+Transactional email
+Developer-uploaded images
+Developer-submitted external URLs
+Client inquiries
+Admin/moderation tools
+V1 does not execute developer source code or handle payments.
+2. Security Objectives
+Prevent unauthorized access to private inquiries, drafts, admin tools, and account data.
+Prevent external demo validation from reaching internal networks.
+Prevent user-generated content from becoming an XSS/malware delivery mechanism.
+Prevent fake/spam inquiry abuse from destroying developer trust.
+Protect account/session credentials.
+Preserve auditability of moderation and marketplace outcomes.
+Minimize impact of compromised third-party services.
+3. Trust Boundaries
+flowchart LR
+    Internet --> Edge[CDN/WAF/TLS]
+    Edge --> Web[Next.js]
+    Web --> API[Spring Boot]
+    API --> DB[(PostgreSQL)]
+    API --> Store[(Object Storage)]
+    API --> Email[Email Provider]
+    API --> OAuth[OAuth Provider]
+    API --> External[Developer Demo URLs]
+    Admin[Admin Browser] --> Web
+Untrusted inputs include:
+browser requests;
+product descriptions;
+screenshots;
+external URLs;
+inquiry text;
+review text;
+OAuth assertions until validated;
+email tokens;
+report details.
+4. Threat Categories and Controls
+4.1 Broken Object-Level Authorization
+Threat:
+A developer changes an ID and reads another developer's inquiry or draft.
+Controls:
+server-side ownership checks on every object;
+repository queries scoped by authenticated principal;
+authorization tests for every sensitive endpoint;
+UUIDs are not a substitute for authorization.
+Severity: Critical.
+4.2 Broken Authentication / Account Takeover
+Threats:
+credential stuffing;
+session theft;
+reset-token theft;
+OAuth account confusion;
+admin compromise.
+Controls:
+modern password hashing;
+rate limiting;
+secure HttpOnly cookies;
+session expiration;
+neutral password-reset response;
+token hashing/expiry/single use;
+admin MFA;
+OAuth state/nonce/redirect validation;
+re-authentication for destructive actions.
+4.3 SSRF Through Demo Validation
+Threat:
+Attacker submits URL targeting:
+127.0.0.1;
+RFC1918 addresses;
+cloud metadata;
+internal admin services;
+DNS rebinding.
+Controls:
+scheme allow-list;
+DNS/IP resolution validation;
+block private/link-local/loopback/metadata ranges;
+validate every redirect destination;
+short timeouts;
+response byte limits;
+no internal credentials;
+isolated egress network when possible;
+no arbitrary browser execution.
+Severity: Critical.
+4.4 Stored XSS
+Threat:
+Malicious product/review/inquiry text executes JavaScript in another user's browser.
+Controls:
+plain text or restricted Markdown;
+output encoding;
+no arbitrary HTML;
+Content-Security-Policy;
+sanitize generated link attributes;
+security regression tests.
+4.5 File Upload Abuse
+Threats:
+polyglot files;
+malicious SVG/script;
+oversized decompression payload;
+executable upload;
+sensitive EXIF leakage.
+Controls:
+allow-list safe image formats;
+reject active SVG initially or sanitize strictly;
+MIME + magic-byte checks;
+file-size limits;
+random object keys;
+image re-encoding where practical;
+malware scanning as risk/volume grows;
+never execute upload contents.
+4.6 CSRF
+If cookie-based auth is used:
+SameSite cookies;
+CSRF token for state-changing actions where required;
+Origin/Referer validation as defense-in-depth.
+4.7 CORS Misconfiguration
+Controls:
+explicit origin allow-list;
+no wildcard origin with credentials;
+separate public vs authenticated endpoint behavior;
+automated configuration test.
+4.8 Clickjacking
+Controls:
+CSP frame-ancestors;
+only permit embedding where explicitly intended;
+sensitive/admin pages must not be frameable by arbitrary origins.
+4.9 Security Headers
+Baseline:
+Content-Security-Policy
+Strict-Transport-Security
+X-Content-Type-Options: nosniff
+Referrer-Policy
+Permissions-Policy
+secure cookie flags
+Review headers in staging before rollout.
+4.10 Mass Inquiry Spam / Business-Flow Abuse
+Threat:
+One client blasts hundreds of developers or bots submit fake leads.
+Controls:
+email confirmation;
+IP/account rate limits;
+duplicate detection;
+concurrent/open inquiry limits;
+progressive bot challenge;
+reputation signals;
+developer report/block workflow;
+exclude suspicious leads from response-rate metrics.
+4.11 Fake Developer / Portfolio Fraud
+Threats:
+impersonation;
+stolen screenshots;
+copied projects;
+false client claims.
+Controls:
+manual approval;
+contribution statement;
+external link evidence;
+reporting/takedown;
+repeat-abuse suspension;
+later identity/GitHub/client verification.
+4.12 Review Manipulation
+Controls:
+confirmed-completion eligibility;
+one review per engagement;
+abuse detection;
+no purchased review badges;
+moderation/audit history.
+4.13 Resource Exhaustion
+Threats:
+expensive search queries;
+huge uploads;
+repeated URL checks;
+email abuse.
+Controls:
+pagination;
+query constraints;
+upload limits;
+timeouts;
+rate limits;
+background-job quotas;
+database connection limits.
+4.14 Injection
+Controls:
+parameterized SQL/JPA binding;
+no shell construction from user input;
+strict URL parser;
+no arbitrary template evaluation;
+schema validation.
+4.15 Sensitive Data Exposure
+Protect:
+password hashes;
+tokens;
+OAuth credentials;
+client inquiry details;
+private case studies;
+admin notes;
+security logs.
+Controls:
+least privilege;
+encryption at rest;
+TLS;
+log redaction;
+no public object-storage buckets for private assets;
+signed/private object access where required.
+4.16 Admin Abuse / Privilege Escalation
+Controls:
+admin MFA;
+separate roles where team grows;
+audit all admin actions;
+reason required for enforcement;
+protect admin endpoints from public indexing;
+short session lifetime/re-auth for critical actions.
+4.17 Third-Party Dependency / Supply Chain
+Controls:
+lock dependencies;
+automated vulnerability scanning;
+minimal third-party SDKs;
+SBOM/license inventory where practical;
+patch process;
+secret scanning in source repository.
+4.18 Email Security
+Controls:
+SPF;
+DKIM;
+DMARC;
+signed/unguessable expiring links;
+no sensitive project detail in email subject;
+avoid exposing whether arbitrary email has an account.
+5. Data Classification
+Class | Examples | Controls
+Public | approved profile/product | normal CDN/public access
+Internal | analytics aggregates | staff/system access
+Confidential | client inquiry, private case study | authenticated/authorized only
+Restricted | password hashes, tokens, admin secrets | least privilege, encryption, no logs
+6. Threat Severity
+Use:
+Critical
+High
+Medium
+Low
+Prioritize by:
+data exposure;
+privilege level;
+exploitability;
+marketplace trust impact;
+blast radius.
+7. Security Test Cases
+Mandatory before public beta:
+developer A cannot read developer B inquiry;
+client cannot access admin endpoint;
+archived/private product cannot be accessed through guessed ID;
+SSRF to localhost/private IP is blocked;
+redirect from public URL to private IP is blocked;
+malicious Markdown/HTML cannot execute;
+oversized upload rejected;
+duplicate review blocked;
+expired token rejected;
+reused confirmation token is safe/idempotent;
+login brute force throttled;
+wildcard CORS not enabled on authenticated routes.
+8. Security Review Triggers
+Perform new threat modeling before adding:
+source-code uploads;
+code execution;
+hosted demos;
+payment webhooks;
+team financial splitting;
+file attachments in inquiries;
+enterprise SSO;
+public APIs;
+third-party plugins/integrations.
+9. Incident Response Minimum
+Detect
+Contain
+Preserve evidence
+Rotate compromised credentials
+Restore safe service
+Assess notification obligations
+Communicate appropriately
+Root-cause analysis
+Prevent recurrence
+10. Security Acceptance Gate
+V1 cannot launch publicly until:
+admin MFA works;
+core authorization tests pass;
+SSRF controls pass;
+rate limits active;
+secure headers reviewed;
+secrets separated;
+backups encrypted;
+security/error monitoring active;
+critical/high findings have mitigation or explicit risk acceptance.

@@ -1,0 +1,1 @@
+'use client';export default function ErrorPage({error,reset}:{error:Error & {digest?:string};reset:()=>void}){return <main className="wrap empty" id="main"><h1>We couldn’t load this page.</h1><p>Please try again in a moment.</p>{error.digest&&<p>Support reference: {error.digest}</p>}<button className="button primary" onClick={reset}>Try again</button></main>}

@@ -1,0 +1,314 @@
+LEGAL & COMPLIANCE
+Important: This document is product/legal-requirements guidance, not legal advice. Obtain qualified legal review before public launch, international expansion, payments, source-code sales, or enterprise contracts.
+1. V1 Legal Position
+V1 is primarily:
+A proof-of-work publishing platform
+A developer discovery service
+A lead-generation marketplace
+V1 is not yet:
+An escrow provider
+A payment processor
+A guarantor of project completion
+A source-code reseller
+An employer of listed developers
+A party to every external freelance contract
+Terms must reflect the actual product.
+2. Required Public Documents
+Before public launch:
+Terms of Service
+Privacy Policy
+Cookie Policy / Consent Notice where applicable
+Acceptable Use Policy / Community Guidelines
+Copyright / IP Complaint Policy
+Content Moderation Policy
+Marketplace Disclaimer
+Review Policy
+3. Terms of Service Requirements
+Terms should cover:
+Accounts
+Eligibility
+Accurate information
+Account security
+Suspension/termination
+Prohibited impersonation
+Developer Content
+Developer retains ownership
+Developer grants platform limited license to host/display/promote submitted content
+Developer confirms rights to upload/show content
+Developer responsible for confidential/client permissions
+Platform may remove infringing or unsafe content
+Marketplace
+Platform introduces parties
+External contracts are between client and developer in V1
+Platform does not guarantee skills, project outcome, price, or payment
+Platform may provide verification labels only for facts actually checked
+Reviews
+Verified-review eligibility
+No manipulation
+No retaliation
+Moderation rights
+Abuse
+Prohibit:
+Fraud
+Fake portfolios
+Stolen work
+Malicious URLs
+Spam
+Harassment
+Scraping beyond allowed use
+Credential theft
+Malware
+Illegal content
+4. Intellectual Property
+Developer Obligations
+Developer must confirm they can lawfully display:
+Screenshots
+Videos
+Logos
+Client names
+Case studies
+Repository links
+Designs
+Code excerpts where applicable
+NDA / Client Projects
+Support:
+Anonymous client
+Sanitized screenshots
+Hidden company
+No live link
+Private demo on request
+Never encourage NDA violation for the sake of verification.
+5. Copyright / Takedown
+Provide a documented process:
+Rights holder submits complaint
+Identify allegedly infringing content
+Provide contact information and ownership basis
+Platform reviews
+Temporarily restrict if credible/high risk
+Notify uploader
+Resolve/reinstate/remove according to policy and law
+Keep internal records.
+6. Privacy Policy Requirements
+Disclose:
+Data Collected
+Account details
+Public profile
+Product data
+Inquiry data
+Verification events
+Reviews
+Usage analytics
+Logs
+Moderation/report data
+Cookies/device information where applicable
+Purpose
+Operate accounts
+Publish showcases
+Match clients/builders
+Send notifications
+Prevent abuse
+Improve product
+Meet legal obligations
+Sharing
+Public profile/product data
+Client inquiry sent to selected developer
+Service providers/processors
+Legal/security disclosure when required
+Retention
+Document categories and retention logic.
+User Rights
+Support rights where applicable:
+Access
+Correction
+Deletion
+Portability
+Objection/opt-out
+Consent withdrawal
+7. GDPR Readiness
+For EEA/UK users, assess:
+Lawful bases
+Controller/processor roles
+Processor agreements
+International transfers
+DPA/SCC requirements
+Data subject requests
+Cookie consent
+Data minimization
+Privacy by design
+Breach response
+DPO requirement if thresholds/activities require it
+Do not claim "GDPR compliant" solely because a privacy policy exists.
+8. CCPA / CPRA Readiness
+Assess applicability based on:
+Business thresholds
+California consumer data
+Sale/share definitions
+Advertising practices
+If applicable, support:
+Notice at collection
+Access/deletion/correction
+Opt-out of sale/share where relevant
+Sensitive personal information rights where relevant
+8.1 Additional Global Marketplace Review
+Because the platform hosts user-generated profiles, product media, and external links, obtain jurisdiction-specific legal review for at least:
+European Union: Digital Services Act obligations that may apply to hosting/online-platform services, including notice-and-action and transparency duties.
+United States: DMCA safe-harbor requirements, including designated-agent and notice/takedown procedures where applicable.
+India: Digital Personal Data Protection Act and Digital Personal Data Protection Rules 2025 for personal-data processing.
+India: Information Technology (Intermediary Guidelines and Digital Media Ethics Code) Rules, as amended, for intermediary/user-generated-content obligations where applicable.
+Do not treat this list as exhaustive; launch jurisdictions and business model determine actual obligations.
+9. Cookies / Tracking
+Classify:
+Essential
+Authentication/session
+Security
+Basic preferences
+Non-Essential
+Analytics
+Advertising
+Retargeting
+Social tracking
+Where legally required, collect consent before non-essential cookies.
+Avoid unnecessary ad trackers in V1.
+10. Reviews and Reputation
+Rules:
+Verified reviews only after confirmed completion
+No paid positive reviews
+No review swapping
+No fake client accounts
+Moderation for abuse/confidentiality
+Allow dispute/report mechanism
+11. Verification Labels
+Verification wording must be precise.
+Allowed examples:
+Email Verified
+Product Reviewed
+Demo Reachable
+Client Confirmed Hire
+Client Confirmed Completion
+Avoid:
+"100% Verified Developer"
+"Guaranteed Safe"
+"Guaranteed Expert"
+"Secure Code"
+unless the platform truly performs and can substantiate those checks.
+12. External Demo Links
+Terms should clarify:
+External sites are controlled by third parties/developers
+Platform may scan/check links but cannot guarantee external content
+Users should not submit malicious/phishing sites
+Platform may disable unsafe links
+13. Client Inquiry Privacy
+Inquiry content is not public.
+Only share with:
+Intended developer/team
+Authorized platform staff for moderation/support
+Required processors
+Do not index inquiry pages.
+14. Marketing Communications
+Separate:
+Transactional email
+Marketing email
+Marketing requires appropriate consent/opt-out handling.
+15. Accessibility
+Target WCAG 2.2 AA.
+Public accessibility statement may be added when mature.
+16. Licensing of Dependencies
+Engineering must:
+Maintain dependency inventory
+Review licenses
+Avoid incompatible/forbidden commercial licenses
+Preserve required notices
+Review fonts/icons/images
+Avoid copying proprietary templates/code without permission
+17. Open-Source Policy
+Track:
+Package
+Version
+License
+Source URL
+Notice requirement
+Modification obligations
+Automate dependency license reporting where practical.
+18. Future Team / Recruitment Legal Review
+Before V2 recruiting features, review:
+Whether features constitute recruitment/placement services in target jurisdictions
+Job-posting obligations
+Anti-discrimination requirements
+Contractor classification issues
+Agency/studio representations
+19. Future Payments Legal Review
+Before V3:
+Payment provider terms
+Marketplace KYC/KYB
+Tax/GST/VAT/sales tax
+Refunds
+Chargebacks
+Disputes
+Payout timing
+Sanctions
+AML where applicable
+Merchant-of-record implications
+Cross-border settlement
+20. Future Source-Code Sales Legal Review
+Before V3.5:
+Source-code license templates
+Commercial-use rights
+Resale restrictions
+Third-party dependency licenses
+Refund policy
+Support obligations
+Malware/security disclaimers
+IP warranties
+Export controls where relevant
+21. Age / Eligibility
+Decide launch policy.
+Recommended early marketplace rule:
+Users must be legally able to enter agreements in their jurisdiction.
+If minors are allowed to showcase learning projects, commercial hiring/payment must have explicit compliant handling.
+Simplest V1 approach: adult/contract-capable accounts only for commercial features.
+22. Content Moderation
+Maintain policy categories:
+Fraud
+IP infringement
+Malware/phishing
+Harassment
+Hate/abuse
+Sexual content
+Illegal services
+Spam
+Misleading claims
+Confidential-data exposure
+Provide appeal mechanism for meaningful enforcement.
+23. Security / Breach Response
+Maintain:
+Incident owner
+Evidence preservation
+User notification assessment
+Regulatory notification assessment
+Credential rotation
+Post-incident review
+24. Data Processing Vendors
+Maintain vendor list:
+Hosting
+Database
+Object storage
+Email
+Analytics
+Monitoring
+OAuth providers
+For each:
+Data types
+Region
+DPA
+Subprocessors
+Security posture
+25. Legal Launch Gates
+Do not launch publicly until:
+Terms published
+Privacy published
+Community/AUP published
+Copyright complaint contact/process exists
+Inquiry privacy explained
+External-contract boundary explained
+Admin moderation process operational
+Data deletion process documented

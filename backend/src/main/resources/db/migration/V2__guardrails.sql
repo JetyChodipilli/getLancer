@@ -1,0 +1,15 @@
+ALTER TABLE users ADD CONSTRAINT users_state CHECK(account_status IN ('ACTIVE','SUSPENDED','DELETED'));
+ALTER TABLE developer_profiles ADD CONSTRAINT profile_approval CHECK(approval_status IN ('DRAFT','PROFILE_PENDING','APPROVED','CHANGES_REQUESTED','SUSPENDED'));
+ALTER TABLE developer_profiles ADD CONSTRAINT profile_availability CHECK(availability_status IN ('AVAILABLE_NOW','ONE_SLOT_LEFT','LIMITED','BOOKED_UNTIL','NOT_ACCEPTING'));
+ALTER TABLE developer_profiles ADD CONSTRAINT booked_date_required CHECK(availability_status <> 'BOOKED_UNTIL' OR booked_until IS NOT NULL);
+ALTER TABLE products ADD CONSTRAINT product_approval CHECK(approval_status IN ('DRAFT','PENDING_REVIEW','APPROVED','CHANGES_REQUESTED','REJECTED','SUSPENDED'));
+ALTER TABLE products ADD CONSTRAINT product_lifecycle CHECK(lifecycle_status IN ('DRAFT','ACTIVE','ARCHIVED','SUSPENDED'));
+ALTER TABLE products ADD CONSTRAINT active_requires_approval CHECK(lifecycle_status <> 'ACTIVE' OR approval_status = 'APPROVED');
+ALTER TABLE products ADD CONSTRAINT product_visibility CHECK(visibility IN ('PUBLIC','PRIVATE_CASE_STUDY','NDA_SAFE'));
+ALTER TABLE inquiries ADD CONSTRAINT inquiry_status CHECK(current_status IN ('CREATED_UNVERIFIED','EXPIRED','INQUIRY_RECEIVED','RESPONDED','DISCUSSION','PROPOSAL_SENT','HIRE_PENDING_CONFIRMATION','HIRED','IN_PROGRESS','COMPLETION_PENDING_CONFIRMATION','COMPLETED','NOT_HIRED'));
+ALTER TABLE inquiries ADD CONSTRAINT qualified_requires_email CHECK(current_status IN ('CREATED_UNVERIFIED','EXPIRED') OR email_confirmed_at IS NOT NULL);
+CREATE INDEX inquiry_events_history ON inquiry_events(inquiry_id,created_at);
+CREATE INDEX account_tokens_expiry ON account_tokens(expires_at) WHERE used_at IS NULL;
+CREATE INDEX sessions_expiry ON sessions(expires_at);
+CREATE INDEX saved_products_date ON saved_products(user_id,created_at DESC);
+CREATE INDEX products_builder_date ON products(owner_user_id,updated_at DESC);

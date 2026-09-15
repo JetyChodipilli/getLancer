@@ -1,0 +1,9 @@
+'use client';
+import {useState,useEffect} from 'react';
+import {api} from '@/lib/api';
+export default function PrivateAccess({product}:{product:any}){
+ const [grants,setGrants]=useState<any[]>([]),[error,setError]=useState(''),[busy,setBusy]=useState(false),[path,setPath]=useState('');
+ async function load(){try{setGrants((await api('/developer/products/'+product.id+'/access')).items)}catch(e){setError((e as Error).message)}}
+ useEffect(()=>{load()},[product.id]);
+ return <section className="panel form"><h3>Private client access</h3><p>Access lasts seven days and requires the client to verify this email. Only approved, active private projects can be previewed.</p><form className="form" onSubmit={async e=>{e.preventDefault();setBusy(true);setError('');try{const result=await api('/developer/products/'+product.id+'/access',{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(e.currentTarget)))});setPath(result.path);await load()}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}><label htmlFor="private-email">Client email</label><input id="private-email" name="email" type="email" required/><button className="button" disabled={busy}>Grant access for seven days</button></form>{path&&<p role="status">Share this preview link with your client: <a href={path}>{typeof location==='undefined'?path:location.origin+path}</a></p>}{grants.map(g=><div className="row" key={g.client_email}><p>{g.client_email} · expires {new Date(g.expires_at).toLocaleDateString()}</p><button type="button" className="button" disabled={busy} onClick={async()=>{setBusy(true);try{await api('/developer/products/'+product.id+'/access',{method:'DELETE',body:JSON.stringify({email:g.client_email})});await load()}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}>Revoke access</button></div>)}{error&&<p className="error" role="alert">{error}</p>}</section>;
+}

@@ -1,0 +1,36 @@
+name: V1 validation
+on: [push, pull_request]
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: getlancer_test
+          POSTGRES_USER: getlancer
+          POSTGRES_PASSWORD: ci-only
+        ports: ['5432:5432']
+        options: --health-cmd 'pg_isready -U getlancer' --health-interval 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17', cache: maven}
+      - run: mvn -B -f backend/pom.xml verify
+        env:
+          TEST_DATABASE_RESET: 'true'
+          TEST_DB_URL: jdbc:postgresql://localhost:5432/getlancer_test
+          TEST_DB_USERNAME: getlancer
+          TEST_DB_PASSWORD: ci-only
+          APP_BASE_URL: http://localhost:3000
+          SECURE_COOKIES: 'false'
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run build
+      - run: node --test tests/*.test.mjs

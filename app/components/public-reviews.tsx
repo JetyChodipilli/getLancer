@@ -1,0 +1,4 @@
+'use client';
+import {useState} from 'react';
+import MoreRecords from './more-records';
+export default function PublicReviews({slug,initial}:{slug:string;initial:any[]}){const [reviews,setReviews]=useState(initial);return <section style={{marginTop:40}}><h2>Client reviews</h2><p className="muted">Reviews follow client-confirmed completed engagements.</p>{reviews.map((review,index)=><article className="panel" key={review.id||index}><strong>{review.rating} / 5 · Verified engagement review</strong><p>{review.reviewText}</p><p className="muted">{review.clientName||'Verified client'}</p><time dateTime={review.createdAt}>{new Date(review.createdAt).toLocaleDateString()}</time></article>)}{!reviews.length&&<p>No published engagement reviews yet.</p>}<MoreRecords path={'/builders/'+encodeURIComponent(slug)+'/reviews'} onItems={rows=>setReviews(old=>[...old,...rows])}/></section>;}

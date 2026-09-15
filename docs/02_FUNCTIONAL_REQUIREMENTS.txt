@@ -1,0 +1,457 @@
+FUNCTIONAL REQUIREMENTS
+1. Roles
+1.1 Developer / Builder
+Can:
+Register and verify email
+Create/edit profile
+Submit products
+Manage 3 active showcase slots
+Archive/reactivate showcases
+Manage availability
+Receive client inquiries
+Update inquiry status
+View basic product/inquiry analytics
+Receive verified reviews after completed engagements
+Report abusive client activity
+1.2 Client / Visitor
+Can:
+Browse public products without login
+Search/filter
+View developer profiles
+Watch demo videos
+Open live demos
+Save products if authenticated
+Submit lightweight inquiry
+Confirm email
+Confirm hire/completion
+Leave verified review after confirmed completion
+Report products/users
+1.3 Admin / Moderator
+Can:
+Review developer accounts
+Review products
+Approve/reject/request changes
+Suspend/unpublish
+Review reports
+Manage categories/tags
+Inspect moderation history
+Review suspicious links
+Audit important marketplace status changes
+1.4 Team / Studio
+Deferred to V2, but the V1 data model must not prevent:
+Team ownership of products
+Multiple contributors
+Team roles
+Team recruitment
+Client hiring of teams
+2. Authentication
+FR-AUTH-001
+Users can sign up with email/password.
+FR-AUTH-002
+System sends email verification.
+FR-AUTH-003
+Unverified developer accounts cannot publish active showcases.
+FR-AUTH-004
+Users can log in/out.
+FR-AUTH-005
+Users can reset forgotten passwords.
+FR-AUTH-006
+Admins must use stronger authentication; MFA should be required or supported.
+FR-AUTH-007
+Clients may browse without registration.
+FR-AUTH-008
+A lightweight client inquiry may be submitted before full account completion, but email confirmation is required before the lead is treated as verified.
+3. Developer Profile
+Required fields:
+Display name
+Professional headline
+Short bio
+Primary skills/technologies
+Primary business/project categories
+Availability
+Optional:
+GitHub
+LinkedIn
+Personal site
+Country
+Time zone
+Languages
+Profile states:
+Draft
+Pending Approval
+Approved
+Suspended
+Developer profile must display:
+Approved active showcases
+Availability
+Verification labels
+Verified reviews
+Response metrics when statistically meaningful
+4. Product Showcase
+4.1 Required Fields
+Title
+Short summary
+Detailed description/case study
+Project type
+Business category
+Technology tags where applicable
+Developer contribution
+Availability for similar work
+Visibility
+4.2 Optional Proof
+Screenshots
+Demo video URL
+Live deployment URL
+GitHub/repository URL
+Architecture image
+Client-approved result summary
+4.3 Project Types
+Commercial Product
+Client Project
+SaaS
+Personal Product
+Open Source
+Prototype
+Hackathon
+Learning Project
+Private Case Study
+NDA / Confidential Project
+4.4 Visibility
+Public
+Private case study
+NDA-safe case study
+Draft
+Archived
+4.5 Approval States
+Draft
+Pending Review
+Changes Requested
+Approved
+Rejected
+Archived
+Suspended
+5. Active Showcase Slots
+FR-SLOT-001
+Each approved developer starts with 3 active showcase slots.
+FR-SLOT-002
+Drafts do not consume active slots.
+FR-SLOT-003
+Archived products do not consume active slots.
+FR-SLOT-004
+Archiving an active product immediately frees one slot.
+FR-SLOT-005
+A developer cannot activate more products than their entitlement.
+FR-SLOT-006
+An active product remains active after generating a hire.
+FR-SLOT-007
+Slot capacity must be represented as an entitlement rather than hard-coded into product rows.
+FR-SLOT-008
+V1.5 may add earned capacity from verified marketplace outcomes.
+6. Product Review / Moderation
+Developer Flow
+Draft
+→ Submit
+→ Pending Review
+→ Approved
+   OR Changes Requested
+   OR Rejected
+Admin review checklist:
+Description matches evidence
+Category and technology are reasonable
+Screenshots are relevant
+Live URL is not localhost/private network
+No obvious phishing/malware behavior
+No obvious copied/stolen work
+Contributor role is stated
+Confidential/client information is not improperly exposed
+Project quality meets platform standard
+Trusted-builder auto-publish is deferred.
+7. Search and Discovery
+FR-SEARCH-001
+Search by:
+Product title
+Product description
+Business category
+Technology
+Developer name
+FR-SEARCH-002
+Business categories must be first-class filters.
+Examples:
+CRM
+ERP
+SaaS
+E-commerce
+Booking
+Inventory
+Education
+Healthcare
+FinTech
+AI Automation
+Dashboards
+Mobile Apps
+APIs / Integrations
+Developer Tools
+FR-SEARCH-003
+Filters:
+Category
+Project type
+Availability
+Technology
+Live demo availability
+Newest/recently updated
+FR-SEARCH-004
+Search must not default to popularity only.
+FR-SEARCH-005
+New, approved, high-quality developers must receive some discovery opportunity.
+8. Product Detail Page
+Must contain:
+Product title
+Summary
+Proof assets
+Demo video
+Live demo link
+Builder identity
+Builder contribution
+Project type
+Technologies
+Business categories
+Availability
+Optional pricing range
+Verification labels
+Reviews if applicable
+Primary CTA:
+Build Something Similar
+Secondary CTA:
+Hire Developer
+Future CTA:
+Hire Developer's Team
+8.1 Saved Products
+FR-SAVE-001
+Authenticated clients can save an approved public product for later review.
+FR-SAVE-002
+A client can remove a saved product.
+FR-SAVE-003
+The same client/product pair can exist only once.
+FR-SAVE-004
+Saving a product does not notify the developer by default.
+FR-SAVE-005
+If a product is archived or suspended, historical saves remain in the client account but the product is clearly marked unavailable and is removed from public discovery.
+9. Client Inquiry
+9.1 Required Inquiry Data
+Reference product
+Target developer
+Request type
+Project description
+Budget range
+Timeline
+Client name
+Client email
+Optional:
+Company
+Website
+Country
+Attachments later
+9.2 Request Types
+Build something similar
+Customize an existing concept
+Build something new
+Consultation
+9.3 Budget Bands
+Example configurable values:
+Under $1K
+3K
+10K
+25K
+$25K+
+Need help estimating
+9.4 Inquiry Flow
+Client clicks CTA
+→ Form opens with reference product
+→ Client completes required fields
+→ System persists inquiry
+→ Confirmation email sent
+→ Client confirms
+→ Developer notified
+→ Developer sees lead in dashboard
+Developer email should not be public by default.
+10. Inquiry Status Workflow
+Statuses:
+Inquiry Received
+Responded
+Discussion
+Proposal Sent
+Hired
+In Progress
+Completed
+Not Hired
+Confirmation Rules
+Hired: developer may request status; client confirms.
+Completed: developer may request status; client confirms.
+Every status change stores timestamp and actor.
+Status history is append-only.
+11. Reviews
+FR-REV-001
+Only a confirmed completed engagement can create a verified review.
+FR-REV-002
+Review contains:
+Rating
+Text
+Client identity visibility preference
+Associated inquiry/engagement
+Created timestamp
+Moderation state
+FR-REV-003
+Unverified testimonials must be visually separate from verified reviews if ever supported.
+FR-REV-004
+Review abuse can be reported and moderated.
+12. Availability
+Developer availability values:
+Available Now
+1 Project Slot Left
+Limited Availability
+Booked Until [date]
+Not Taking Work
+Availability must appear on:
+Developer profile
+Product detail
+Search cards where useful
+Future behavior:
+If unavailable, show similar available builders.
+13. Response Reliability
+Track:
+Qualified inquiries received
+Responded inquiries
+Response timestamp
+Median/typical response time
+Business rules:
+Ignore spam/unverified leads from response-rate calculation.
+Avoid public reliability scoring until enough data exists.
+Repeatedly ignored qualified inquiries may reduce discovery priority.
+14. Notifications
+Email
+Verify email
+Reset password
+Product approved
+Changes requested
+Product rejected
+New inquiry
+Client confirmed hire
+Client confirmed completion
+Review request
+Account moderation action
+In-App
+Product review result
+New inquiry
+Inquiry status change
+Review received
+Report status where appropriate
+Real-time chat is deferred.
+15. Reporting / Abuse
+Users can report:
+Fake product
+Stolen screenshots
+Impersonation
+Malicious link
+Spam
+Harassment
+Copyright concern
+Misleading client case study
+Other
+Admin can:
+Dismiss
+Warn
+Request changes
+Unpublish
+Suspend
+Ban
+16. Error Handling
+404
+Friendly custom page with:
+Search
+Explore products
+Go home
+500
+Custom error page:
+Retry
+Report issue
+Correlation/reference ID
+External Demo Failure
+Do not crash product page.
+Show:
+Demo currently unavailable.
+Keep:
+Screenshots
+Video
+Developer contact CTA
+Form Failures
+Preserve client input where safe and show field-level validation.
+Offline
+Full offline mode is not required in V1.
+Public shell may use browser caching, but transactional actions must clearly indicate connectivity failure.
+17. Edge Cases
+Product / Slot Edge Cases
+User archives product while review is pending
+Product is approved but slot capacity is full
+User reduces plan capacity later
+Product is suspended by admin
+Same external live URL used by multiple accounts
+Private project has no screenshot due to NDA
+Product has contributors but contributor account does not exist
+Inquiry Edge Cases
+Client never verifies email
+Client submits duplicate inquiry
+Developer account becomes suspended after inquiry
+Product is archived after inquiry
+Developer changes availability after inquiry
+Client mistypes company/site
+Client attempts to spam many developers
+Developer marks Hired but client rejects confirmation
+Review Edge Cases
+Client disappears after completion
+Client and developer disagree about completion
+Review contains abuse or confidential information
+Client wants review identity hidden
+URL Edge Cases
+Reject or quarantine:
+localhost
+127.0.0.1
+::1
+RFC1918/private networks
+link-local IPs
+cloud instance metadata destinations
+file://
+javascript:
+data: where not explicitly supported
+18. V2 Functional Extensions
+Teams / Studios
+Only approved builders can create.
+Roles:
+Owner
+Business Manager
+Recruiter
+Project Manager
+Member
+Developer may belong to multiple teams and still freelance independently.
+Recruitment
+Both:
+Search & Invite
+Open Role & Apply
+Project-Based Staffing
+A team can identify missing skills for a client project and invite a temporary contract member.
+Client → Team
+Client can:
+Hire developer
+Hire developer's team
+Build something similar with the team
+19. Acceptance Criteria Summary
+V1 is acceptable when:
+Approved developer can publish within slot limit
+Client can browse without login
+Client can submit a product-linked inquiry
+Developer receives and sees inquiry
+Hire/completion can be confirmed
+Verified review requires confirmed completion
+Admin can moderate content
+Unsafe demo URL patterns are blocked
+Search supports business-problem discovery
+Core events are tracked for conversion analysis
