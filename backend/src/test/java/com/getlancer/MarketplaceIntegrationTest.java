@@ -82,6 +82,24 @@ import org.junit.jupiter.api.*;import org.springframework.boot.test.context.Spri
   assertEquals(0,db.queryForObject("SELECT count(*) FROM users WHERE email='jetychodipilli@gmail.com'",Integer.class));
  }
  @Test void privateAndArchivedNeverPublic()throws Exception{UUID privateId=product(owner,"ACTIVE","PRIVATE_CASE_STUDY"),archived=product(owner,"ARCHIVED","PUBLIC");mvc.perform(get("/api/v1/products/"+privateId)).andExpect(status().isNotFound());mvc.perform(get("/api/v1/products/"+archived)).andExpect(status().isNotFound());mvc.perform(get("/api/v1/products")).andExpect(status().isOk()).andExpect(jsonPath("$.totalItems").value(1));}
+ @Test void publicProductShowsOnlyPublishedEligibleReviewSummaryAndHidesModerationNotes()throws Exception{
+  db.update("UPDATE products SET moderation_reason='Private moderation evidence' WHERE id=?",product);
+  UUID published=inquiry("COMPLETED"),second=inquiry("COMPLETED"),held=inquiry("COMPLETED"),restricted=inquiry("COMPLETED");
+  for(UUID id:List.of(published,second,held,restricted))db.update("INSERT INTO reviews(id,inquiry_id,developer_user_id,rating,review_text,moderation_status) VALUES(?,?,?,?,?,?)",UUID.randomUUID(),id,owner,id.equals(published)?5:id.equals(second)?3:1,"The agreed delivery was completed.",id.equals(held)?"HELD_FOR_REVIEW":"PUBLISHED");
+  db.update("UPDATE inquiries SET moderation_status='QUARANTINED' WHERE id=?",restricted);
+  mvc.perform(get("/api/v1/products/"+product)).andExpect(status().isOk()).andExpect(jsonPath("$.reviewSummary.reviewCount").value(2)).andExpect(jsonPath("$.reviewSummary.averageRating").value(4.0)).andExpect(jsonPath("$.moderationReason").doesNotExist());
+  mvc.perform(get("/api/v1/products")).andExpect(jsonPath("$.items[0].moderationReason").doesNotExist());
+  mvc.perform(get("/api/v1/developer/products").cookie(new Cookie("gl_session",session))).andExpect(jsonPath("$.items[0].moderationReason").value("Private moderation evidence"));
+  db.update("UPDATE reviews SET moderation_status='HIDDEN' WHERE inquiry_id IN (?,?)",published,second);
+  mvc.perform(get("/api/v1/products/"+product)).andExpect(jsonPath("$.reviewSummary.reviewCount").value(0)).andExpect(jsonPath("$.reviewSummary.averageRating").isEmpty());
+ }
+ @Test void inquiryKeyIsOptionalButDuplicateAndMalformedRequestsRemainRejected()throws Exception{
+  String body="{\"referenceProductId\":\""+product+"\",\"clientName\":\"Alex\",\"clientEmail\":\"alex@example.com\",\"description\":\"I need inventory software for five stores.\",\"budgetBand\":\"USD_3K_10K\",\"timelineBand\":\"ONE_TO_THREE_MONTHS\",\"requestType\":\"SIMILAR_BUILD\"}";
+  mvc.perform(postJson("/api/v1/inquiries",body,"")).andExpect(status().isCreated());
+  mvc.perform(postJson("/api/v1/inquiries",body,"")).andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("DUPLICATE_INQUIRY"));
+  mvc.perform(postJson("/api/v1/inquiries",body,"").header("Idempotency-Key","invalid")).andExpect(status().isBadRequest());
+  assertEquals(1,db.queryForObject("SELECT count(*) FROM inquiries",Integer.class));
+ }
  @Test void normalUserCannotModerate()throws Exception{mvc.perform(get("/api/v1/admin/products/pending").cookie(new Cookie("gl_session",session))).andExpect(status().isForbidden());}
  @Test void cannotEditOthersProduct()throws Exception{UUID p=product(other,"DRAFT","PUBLIC");mvc.perform(post("/api/v1/developer/products/"+p+"/archive").cookie(new Cookie("gl_session",session)).header("Origin","http://localhost:3000").header("X-Requested-With","getlancer")).andExpect(status().isNotFound());}
  @Test void csrfMutationRejected()throws Exception{mvc.perform(post("/api/v1/developer/products/"+product+"/archive").cookie(new Cookie("gl_session",session))).andExpect(status().isForbidden());}

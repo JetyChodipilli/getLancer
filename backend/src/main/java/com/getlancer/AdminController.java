@@ -2,7 +2,7 @@ package com.getlancer;
 import java.util.*;import jakarta.servlet.http.HttpServletRequest;import org.springframework.web.bind.annotation.*;import org.springframework.jdbc.core.JdbcTemplate;import org.springframework.transaction.annotation.Transactional;import static com.getlancer.Support.*;
 @RestController @RequestMapping("/api/v1/admin") class AdminController{
  final JdbcTemplate db;final Security security;final ProductsController products;final Mail mail;AdminController(JdbcTemplate db,Security security,ProductsController products,Mail mail){this.db=db;this.security=security;this.products=products;this.mail=mail;}
- @GetMapping("/products/pending") Map<String,Object> pending(HttpServletRequest r){security.admin(r);var result=Pages.query(db,r,ProductsController.SELECT+" WHERE p.approval_status IN ('PENDING_REVIEW','SUSPENDED') ORDER BY p.updated_at,p.id");result.put("items",products.dtos(Pages.items(result)));return result;}
+ @GetMapping("/products/pending") Map<String,Object> pending(HttpServletRequest r){security.admin(r);var result=Pages.query(db,r,ProductsController.SELECT+" WHERE p.approval_status IN ('PENDING_REVIEW','SUSPENDED') ORDER BY p.updated_at,p.id");result.put("items",products.managementDtos(Pages.items(result)));return result;}
  @GetMapping("/profiles/pending") Map<String,Object> profiles(HttpServletRequest r){security.admin(r);return Pages.query(db,r,"SELECT user_id AS id,display_name AS \"displayName\",headline,bio,technology,category,github_url,linkedin_url,website_url,country,time_zone,languages,approval_status FROM developer_profiles WHERE approval_status IN ('PROFILE_PENDING','SUSPENDED') ORDER BY updated_at,user_id");}
  @GetMapping("/reports") Map<String,Object> reports(HttpServletRequest r){security.admin(r);String sql="SELECT * FROM reports WHERE 1=1";List<Object> values=new ArrayList<>();
   for(String key:List.of("status","reason","severity")){String value=r.getParameter(key);if(value!=null&&!value.isBlank()){if(value.length()>40)throw new ApiError(400,"VALIDATION_ERROR","Filter is too long.");sql+=" AND "+key+"=?";values.add(value);}}
@@ -16,7 +16,7 @@ import java.util.*;import jakarta.servlet.http.HttpServletRequest;import org.spr
   if(rows.isEmpty())throw new ApiError(404,"NOT_FOUND","Report not found.");
   var report=rows.get(0);if(report.get("target_type").equals("INQUIRY"))audit(actor,"REPORT",id,"VIEW_EVIDENCE","Inquiry evidence accessed for report investigation");List<Map<String,Object>> targets;
   switch((String)report.get("target_type")){
-   case "PRODUCT"->{targets=db.queryForList(ProductsController.SELECT+" WHERE p.id=?",report.get("target_id"));if(!targets.isEmpty())targets=List.of(products.dto(targets.get(0)));}
+   case "PRODUCT"->{targets=db.queryForList(ProductsController.SELECT+" WHERE p.id=?",report.get("target_id"));if(!targets.isEmpty())targets=List.of(products.managementDto(targets.get(0)));}
    case "USER"->targets=db.queryForList("SELECT display_name,headline,bio,approval_status FROM developer_profiles WHERE user_id=?",report.get("target_id"));
    case "REVIEW"->targets=db.queryForList("SELECT rating,review_text,moderation_status FROM reviews WHERE id=?",report.get("target_id"));
    case "INQUIRY"->targets=db.queryForList("SELECT description,current_status FROM inquiries WHERE id=?",report.get("target_id"));
