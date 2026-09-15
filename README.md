@@ -7,9 +7,9 @@ A proof-of-work marketplace connecting clients with the builders behind working 
 
 Read [the phased implementation status](docs/V1_IMPLEMENTATION.md) for the document analysis, code delivered, actual validation evidence and remaining release gates.
 
-Current implementation and verification: [V1 release checkpoint](docs/V1_RELEASE_CHECKPOINT.md).
+Current implementation and verification: [15 September V1 verification](docs/V1_VERIFICATION_2026-09-15.md). **106 backend tests (38 PostgreSQL scenarios) and 19 frontend checks pass.** The core code is present; connected cloud operation and public-launch acceptance still require the backend/provider setup and staging gates in that report.
 
-The historical [8 September completeness audit](docs/V1_COMPLETENESS_AUDIT.md) compares all 17 requirements documents with the code. **V1 is partial and not ready for public launch**; it identifies missing functionality and privacy/enforcement fixes as well as outstanding integration and operational work.
+The historical [8 September completeness audit](docs/V1_COMPLETENESS_AUDIT.md) records the original gaps. Use the current verification report for repaired defects and remaining work. All 17 original document baselines were verified against the repository text.
 
 ## Structure
 
@@ -50,7 +50,7 @@ The integration tests clear their configured database. The Compose test profile 
 
 If running Maven directly, configure `TEST_DB_URL`, `TEST_DB_USERNAME`, `TEST_DB_PASSWORD`, and `TEST_DATABASE_RESET=true` for an empty `getlancer_test` database before `mvn -B -f backend/pom.xml verify`. The suite refuses other database names before migrations and never uses the application DB_URL.
 
-The Docker image build packages without database tests; promotion requires the separate CI test job to pass. Full backend tests were not executed in the authoring workspace. Actual results and limitations are in the implementation status.
+The Docker image build packages without database tests; promotion requires the separate CI test job to pass. The full backend suite now passes against PostgreSQL 16 in GitHub Actions. Actual results and limitations are in the current verification report.
 
 ## Hosting
 
@@ -85,7 +85,7 @@ Without a backend, six fictional projects and a labelled workspace preview are a
 
 Execute all staging, browser, security, performance, email/storage and backup/restore gates in the source QA document. Configure per-client proxy throttling, delivery monitoring and alerts; preserve the previous application image for rollback. Approve operator details, legal policies, retention periods and staffed privacy/appeal handling before onboarding real users.
 
-Account closure hides public content immediately and creates a retention-review request. Final purge periods and staff processing remain an operational release gate.
+Account closure requires a new email confirmation. Confirming the 15-minute link hides public content, revokes sessions and creates a retention-review request. Final purge periods and staff processing remain an operational release gate.
 
 ## Slate Atelier refinement
 
@@ -96,4 +96,4 @@ The navigation stays visible in a compact frosted-glass header. Once the hero se
 The supplied administrator password was placed in ignored local backend configuration only. It is not part of the source or the private Site build. Backend hosting must receive its own bootstrap secret and authenticator configuration before real admin sign-in works.
 
 ## V1 repair checkpoint
-See [V1 fixes and release gates](docs/V1_FIXES_AND_RELEASE_GATES.md) for implemented audit fixes, verification and remaining release blockers. This checkpoint is not a public-launch certification.
+See [current V1 verification](docs/V1_VERIFICATION_2026-09-15.md) for implemented audit fixes, executed checks and remaining release blockers. This checkpoint is not a public-launch certification.

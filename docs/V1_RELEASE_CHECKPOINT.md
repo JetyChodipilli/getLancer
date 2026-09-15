@@ -1,3 +1,5 @@
+> Historical checkpoint. Current status: [15 September V1 verification](V1_VERIFICATION_2026-09-15.md). PostgreSQL is the selected database; earlier Supabase references and unexecuted-test counts below are superseded.
+
 # Current follow-up — 14 September 2026
 
 Local PostgreSQL is the selected database; Supabase is not a requirement. See `ops/LOCAL_POSTGRESQL.md` for the executable startup path. The 9 September results below remain historical evidence.

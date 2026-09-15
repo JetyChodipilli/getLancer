@@ -1,3 +1,5 @@
+> Historical checkpoint. Current status: [15 September V1 verification](V1_VERIFICATION_2026-09-15.md). PostgreSQL is the selected database; earlier Supabase references and unexecuted-test counts below are superseded.
+
 # V1 implementation and release status
 
 Current follow-up: [9 September release checkpoint](V1_RELEASE_CHECKPOINT.md) documents the latest code changes, executed checks and credential-dependent launch gates.
