@@ -10,7 +10,7 @@ export default function Header({preview=false}:{preview?:boolean}) {
  const path=usePathname();
  const [me,setMe]=useState<any>(null);
  const bar=useRef<HTMLDivElement>(null);
- useEffect(()=>{let cancelled=false;api('/me').then(user=>{if(!cancelled)setMe(user)}).catch(()=>{if(!cancelled)setMe(null)});return()=>{cancelled=true}},[path]);
+ useEffect(()=>{let cancelled=false;if(path.startsWith('/preview/workspace')){setMe(null);return;}api('/me').then(user=>{if(!cancelled)setMe(user)}).catch(()=>{if(!cancelled)setMe(null)});return()=>{cancelled=true}},[path]);
  useEffect(()=>{
   const element=bar.current;if(!element)return;
   const resize=new ResizeObserver(()=>document.documentElement.style.setProperty('--nav-height',`${element.getBoundingClientRect().height}px`));
@@ -18,7 +18,7 @@ export default function Header({preview=false}:{preview?:boolean}) {
  },[]);
  const authPage=path==='/login'||path==='/signup';
  if(authPage)return <a href="#main" className="skip">Skip to content</a>;
- const links=[{href:'/',label:'Explore projects',active:path==='/'},{href:'/saved',label:'Saved',active:path==='/saved'},{href:preview?'/preview/workspace':'/workspace',label:preview?'Preview workspace':'My workspace',active:path.startsWith('/workspace')||path.startsWith('/preview/workspace')}];
+ const links=[{href:'/',label:'Explore projects',active:path==='/'},{href:'/saved',label:'Saved',active:path==='/saved'},{href:preview?'/preview/workspace':'/workspace',label:preview?'Try demo':'My workspace',active:path.startsWith('/workspace')||path.startsWith('/preview/workspace')}];
  return <><a href="#main" className="skip">Skip to content</a><header className="site-header"><div className="topbar" ref={bar}>
   <Link className="brand" href="/"><img className="brand-logo" src="/brand/getlancer-transparent.png" alt="getLancer — Methods for Freelance Success" width={767} height={325} fetchPriority="high"/></Link>
   <div id="discovery-nav-slot" className="discovery-nav-slot"/>

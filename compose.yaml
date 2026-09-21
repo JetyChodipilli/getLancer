@@ -2,18 +2,20 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: getlancer
-      POSTGRES_USER: getlancer
+      POSTGRES_DB: getLancer
+      POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD}
-    ports: ['127.0.0.1:5432:5432']
-    volumes: [database:/var/lib/postgresql/data]
+    ports: ['127.0.0.1:5433:5432']
+    # Separate volume preserves any existing database from older Compose setups.
+    volumes: [docker-database:/var/lib/postgresql/data]
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U getlancer']
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d getLancer']
       interval: 5s
+      timeout: 5s
       retries: 10
   mail:
     image: axllent/mailpit:v1.27
-    ports: ['127.0.0.1:8025:8025']
+    ports: ['127.0.0.1:1025:1025', '127.0.0.1:8025:8025']
   storage:
     image: minio/minio:RELEASE.2025-04-22T22-12-26Z
     command: server /data --console-address ':9001'
@@ -22,20 +24,45 @@ services:
       MINIO_ROOT_PASSWORD: ${OBJECT_STORAGE_SECRET_KEY:?Set OBJECT_STORAGE_SECRET_KEY}
     ports: ['127.0.0.1:9000:9000', '127.0.0.1:9001:9001']
     volumes: [objects:/data]
+  storage-init:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    depends_on: [storage]
+    environment:
+      MINIO_ROOT_USER: ${OBJECT_STORAGE_ACCESS_KEY:?Run npm run setup:docker}
+      MINIO_ROOT_PASSWORD: ${OBJECT_STORAGE_SECRET_KEY:?Run npm run setup:docker}
+      BUCKET: ${OBJECT_STORAGE_BUCKET:-getlancer}
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        attempts=0
+        until mc alias set local http://storage:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" --quiet; do
+          attempts=$$((attempts+1))
+          [ "$$attempts" -lt 20 ] || exit 1
+          sleep 2
+        done
+        mc mb --ignore-existing "local/$$BUCKET" && mc anonymous set none "local/$$BUCKET"
   api:
     build: ./backend
     env_file: .env
     environment:
-      DB_URL: jdbc:postgresql://db:5432/getlancer
-      DB_USERNAME: getlancer
+      APP_ENV: local
+      DB_URL: jdbc:postgresql://db:5432/getLancer
+      DB_USERNAME: postgres
       SMTP_HOST: mail
       SMTP_PORT: 1025
       OBJECT_STORAGE_ENDPOINT: http://storage:9000
+      OBJECT_STORAGE_UPLOAD_ENDPOINT: http://localhost:9000
     ports: ['127.0.0.1:8080:8080']
     depends_on:
       db: {condition: service_healthy}
       mail: {condition: service_started}
-      storage: {condition: service_started}
+      storage-init: {condition: service_completed_successfully}
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://localhost:8080/actuator/health/readiness']
+      start_period: 60s
+      interval: 10s
+      timeout: 5s
+      retries: 12
   test-db:
     profiles: [test]
     image: postgres:16-alpine
@@ -64,5 +91,5 @@ services:
     depends_on:
       test-db: {condition: service_healthy}
 volumes:
-  database:
+  docker-database:
   objects:

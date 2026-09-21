@@ -22,17 +22,16 @@ The historical [8 September completeness audit](docs/V1_COMPLETENESS_AUDIT.md) r
 
 ## Local setup
 
-Use your existing local PostgreSQL database `getLancer`. The complete [local PostgreSQL guide](ops/LOCAL_POSTGRESQL.md) covers Windows/macOS/Linux startup, environment values, local email/storage, and administrator MFA.
+The current local setup uses [Docker PostgreSQL](ops/DOCKER_LOCAL.md), database `getLancer`, with the API, local email and private storage. For cloud flow testing without services, open `/preview/workspace`; the [interactive UAT guide](docs/UAT_DEMO.md) lists supported journeys and simulation boundaries.
 
 ```sh
 npm ci
-npm run setup:local
-npm run services:local
-npm run doctor:local
-npm run backend:local
+npm run setup:docker
+npm run services:docker
+npm run dev:local
 ```
 
-Keep the backend running and use `npm run dev:local` in a second terminal. Open `http://localhost:3000`. First configure the actual database password and import the private admin authenticator key as described in the guide. Startup creates the admin in the database only after a successful connection and migration.
+Open `http://localhost:3000`. First configure the actual database password and import the private admin authenticator key as described in the guide. Docker starts Spring Boot after PostgreSQL is healthy and the private bucket exists. Startup creates the admin only after a successful connection and migration. The [native PostgreSQL guide](ops/LOCAL_POSTGRESQL.md) remains an alternative.
 
 The same person can browse, commission work and publish showcases without switching accounts.
 

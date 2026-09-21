@@ -29,4 +29,9 @@ test('setup generates missing service keys once without changing existing creden
   assert.match(values.ADMIN_TOTP_SECRET,/^[A-Z2-7]{32}$/);assert.ok(values.OBJECT_STORAGE_SECRET_KEY.length>=32);
   for(const key of ['DB_PASSWORD','ADMIN_BOOTSTRAP_PASSWORD','ADMIN_TOTP_SECRET','OBJECT_STORAGE_SECRET_KEY'])assert.ok(!first.stdout.includes(values[key]));
   const before=readFileSync(file,'utf8');assert.equal(run().status,0);assert.equal(readFileSync(file,'utf8'),before);
+  const docker=spawnSync(process.execPath,[join(dir,'scripts/setup-local.mjs'),'--docker'],{encoding:'utf8'});
+  assert.equal(docker.status,0,docker.stderr);const container=readEnvironment(file);
+  assert.deepEqual(localDatabase(container),{host:'localhost',port:5433,database:'getLancer'});
+  for(const key of ['DB_PASSWORD','ADMIN_BOOTSTRAP_PASSWORD','ADMIN_TOTP_SECRET','OBJECT_STORAGE_SECRET_KEY'])assert.equal(container[key],values[key]);
+  assert.equal(container.DB_USERNAME,'postgres');assert.equal(container.BACKEND_URL,'http://localhost:8080');
 });

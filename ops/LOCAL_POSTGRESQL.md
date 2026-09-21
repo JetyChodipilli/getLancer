@@ -1,6 +1,6 @@
 # Run getLancer V1 with your local PostgreSQL
 
-This is the active setup for this project. Supabase is not required. Run the commands on the same computer as PostgreSQL, from the getLancer checkout root, in PowerShell, Terminal or a shell. The cloud preview cannot reach your computer through `localhost`.
+This is the alternative for PostgreSQL installed directly on your computer. The current preferred setup is [Docker PostgreSQL](DOCKER_LOCAL.md). Supabase is not required. Run these commands from the getLancer checkout root on the same computer as PostgreSQL. The cloud preview cannot reach your computer through `localhost`.
 
 ## 1. Prerequisites
 

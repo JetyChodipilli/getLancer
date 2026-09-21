@@ -38,3 +38,29 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm run build
       - run: node --test tests/*.test.mjs
+  docker-startup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      COMPOSE_PROJECT_NAME: getlancer-ci-${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Prepare synthetic local credentials
+        run: |
+          node scripts/setup-local.mjs --docker
+          node --input-type=module <<'JS'
+          import {readFileSync,writeFileSync} from 'node:fs';
+          let value=readFileSync('.env','utf8').replace(/^ADMIN_EMAIL=.*$/m,'ADMIN_EMAIL=ci-admin@example.test');
+          writeFileSync('.env',value);
+          JS
+      - run: docker compose config --quiet
+      - run: docker compose up -d --build --wait --wait-timeout 240
+      - run: node scripts/smoke-docker.mjs
+      - name: Show startup diagnostics on failure
+        if: failure()
+        run: docker compose logs --tail=80 api db storage-init
+      - name: Remove disposable CI containers and volumes
+        if: always()
+        run: docker compose down --volumes
