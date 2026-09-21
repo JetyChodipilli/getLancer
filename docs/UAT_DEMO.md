@@ -23,6 +23,12 @@ Template purchases, subscriptions and source-code downloads remain outside V1. N
 
 ## Verification
 
+Browser verification on 21 September 2026 completed the inquiry → email-confirmation simulation → proposal → client-confirmed hire → client-confirmed completion → anonymous review → administrator publication loop. The published review was visible in the project preview. A separate publishing journey verified sample proof attachment, administrator approval, rejection of a fourth active showcase, archiving an existing showcase and successful activation. A saved project remained saved after page refresh.
+
+The frontend suite now has 24 passing tests; the backend suite remains 106 passing tests. These results and the browser demo are separate evidence: simulated UAT does not certify connected email, uploads or production operation. Component/simulator tests use separate Vite caches to avoid invalidating the running development preview.
+
+[Validation run 35584778473](https://github.com/JetyChodipilli/getLancer/actions/runs/35584778473) passed the backend, frontend and Docker startup jobs for commit `f1a25dbf65d73200969f004e8b25374a1c70e87d`. The disposable Docker stack verified database `getLancer`, all ten SQL migrations, one synthetic administrator, password plus MFA login, protected administrator access and a private storage bucket. It did not access or seed the owner's computer.
+
 `tests/demo-flow.test.mjs` exercises the complete inquiry/review loop, rejection paths, ownership checks, proof/review/three-slot gates, automatic activation, profile approval, report removal, dual-use accounts and independent saved state. The network is disabled during the core simulator test. Existing rendered-route tests ensure the real API still returns `BACKEND_NOT_CONFIGURED` when disconnected.
 
 Run `npm test` for the built frontend checks. Use the actual Spring/PostgreSQL environment and all six journeys in `10_TESTING_QA.txt` before approving connected V1 operation.
