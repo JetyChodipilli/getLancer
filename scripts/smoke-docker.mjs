@@ -9,7 +9,7 @@ assert.equal(env.ADMIN_EMAIL,'ci-admin@example.test','Use the synthetic CI admin
 const query=sql=>execFileSync('docker',['compose','exec','-T','db','psql','-U','postgres','-d','getLancer','-Atc',sql],{encoding:'utf8'}).trim();
 assert.equal(query('SELECT current_database()'),'getLancer');
 assert.equal(query("SELECT count(*) FROM getlancer.user_roles WHERE role='ADMIN'"),'1');
-assert.equal(query('SELECT count(*) FROM getlancer.flyway_schema_history WHERE success'), '10');
+assert.equal(query("SELECT count(*) FROM getlancer.flyway_schema_history WHERE success AND type='SQL'"), '10');
 const cookies=new Map();
 async function api(path,body){
  const response=await fetch('http://localhost:8080'+path,{method:body?'POST':'GET',headers:{Origin:'http://localhost:3000','X-Requested-With':'getlancer','Content-Type':'application/json',Cookie:[...cookies].map(([k,v])=>k+'='+v).join('; ')},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(10000)});

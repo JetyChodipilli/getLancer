@@ -1,7 +1,7 @@
 import test,{after} from 'node:test';
 import assert from 'node:assert/strict';
 import {createServer} from 'vite';
-const vite=await createServer({appType:'custom',configFile:false,server:{middlewareMode:true}});
+const vite=await createServer({appType:'custom',configFile:false,cacheDir:'node_modules/.vite-test-demo',server:{middlewareMode:true,hmr:false}});
 after(()=>vite.close());
 const {createDemoState,applyDemoAction:act,publicDemoProjects}=await vite.ssrLoadModule('/lib/demo-state.ts');
 const brief={type:'inquire',productId:'stockroom',description:'Manage stock transfers between our five regional stores.',budgetBand:'USD_3K_10K',timelineBand:'ONE_TO_THREE_MONTHS'};

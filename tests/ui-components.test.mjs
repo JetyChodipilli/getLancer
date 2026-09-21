@@ -13,8 +13,9 @@ const vite = await createServer({
   appType: "custom",
   configFile: false,
   root,
+  cacheDir: "node_modules/.vite-test-ui",
   resolve: { alias: { "@": root } },
-  server: { middlewareMode: true },
+  server: { middlewareMode: true, hmr: false },
 });
 
 after(async () => {
