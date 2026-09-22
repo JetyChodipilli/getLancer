@@ -56,9 +56,15 @@ jobs:
           writeFileSync('.env',value);
           JS
       - run: docker compose config --quiet
+      - name: Validate standalone staging manifest
+        run: |
+          cp .env .env.staging
+          BACKEND_IMAGE=getlancer-api:ci-validation DB_CA_FILE=/tmp/ci-postgres-ca.crt docker compose --env-file .env -f compose.staging.yaml config --quiet
       - run: docker compose up -d --build --wait --wait-timeout 240
       - name: Verify connected V1 journeys and database recovery
         run: node scripts/smoke-docker.mjs
+      - name: Rehearse encrypted database restore in disposable CI
+        run: node scripts/verify-restore-ci.mjs
       - name: Show startup diagnostics on failure
         if: failure()
         run: docker compose logs --tail=80 api db storage-init

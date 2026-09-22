@@ -1,6 +1,6 @@
 # V1 service connection and release steps
 
-The active choice is **local PostgreSQL**. Follow [Local PostgreSQL setup](LOCAL_POSTGRESQL.md) for the working configuration, service startup, administrator seeding and diagnostics. Supabase is not required. The hosted-provider notes below are an optional future deployment reference. Do not point integration tests at production or a shared database: they truncate test fixtures. The current private Site is a frontend preview; Spring requires a separate Java/container host.
+The active choice is **Docker PostgreSQL**. Follow [Docker setup](DOCKER_LOCAL.md) for the working configuration, service startup, administrator seeding and diagnostics. Supabase is not required. See [hosted staging preparation](STAGING.md) when a backend host and external services are available. Native PostgreSQL remains an alternative in [Local PostgreSQL setup](LOCAL_POSTGRESQL.md). Do not point integration tests at production or a shared database: they truncate test fixtures. The current private Site is a frontend preview; Spring requires a separate Java/container host.
 
 ## Fill the private environment file
 
@@ -21,15 +21,13 @@ Copy `.env.example` to `.env` if absent. The existing local file is preserved. S
 
 The frontend only needs `BACKEND_URL`, `BACKEND_PROXY_SECRET`, `APP_BASE_URL`, and `INDEX_PUBLIC_PAGES=false` during staging. Never copy database, S3, SMTP, administrator, or OAuth secrets into frontend public variables. Supabase Auth keys/anon keys are **not** needed for the existing Spring session system.
 
-For JDBC use `jdbc:postgresql://HOST:5432/postgres?sslmode=verify-full&sslrootcert=/run/secrets/supabase-ca.crt`. Copy the exact host and username from **Connect → Direct** (if IPv6 is supported) or **Session pooler** (IPv4). Download the provider CA certificate and mount it read-only in the backend container. Do not assume a region or project reference. Avoid transaction mode for this persistent Spring/Hikari/Flyway setup.
-
-Sources checked 9 September 2026: [Supabase database connection modes](https://supabase.com/docs/guides/database/connecting-to-postgres), [TLS verification](https://supabase.com/docs/guides/database/psql), [server-only S3 credentials](https://supabase.com/docs/guides/storage/s3/authentication).
+For hosted JDBC use `jdbc:postgresql://YOUR_HOST:5432/getLancer?sslmode=verify-full&sslrootcert=/run/secrets/postgres-ca.crt`. Use the actual PostgreSQL host, database and username from your provider or database administrator. Mount its CA certificate read-only in the backend container. Use a direct connection or a session pooler compatible with persistent Spring/Hikari/Flyway sessions.
 
 ## Private schema and storage
 
-Flyway creates the schema in `DB_SCHEMA` and applies migrations. The database connection must own that dedicated schema and its tables; existing V1 instances must keep their existing schema/history and plan any schema move separately. Do not expose the schema in Supabase Data API settings. Migration V9 enables RLS and revokes browser-role grants only on explicitly named application tables. Run `ops/verify-private-schema.sql` in the application schema and also verify exposed-schema settings in Supabase.
+Flyway creates the schema in `DB_SCHEMA` and applies migrations. The database connection must own that dedicated schema and its tables; existing V1 instances must keep their existing schema/history and plan any schema move separately. Do not expose the application schema through any browser-accessible database API. Migration V9 enables RLS and revokes browser-role grants only on explicitly named application tables. Run `ops/verify-private-schema.sql` in the application schema and also verify provider-specific schema exposure settings, if applicable.
 
-Create a **private** bucket. Copy its S3 endpoint and region from Supabase Storage settings. The upload endpoint must be reachable by browsers and ordinarily equals the S3 endpoint. Local Compose instead uses `http://storage:9000` internally and `http://localhost:9000` for browser signatures. Configure/verify storage CORS for the exact frontend origin, `PUT`, and signed content headers. Test it with the real browser/provider before release.
+Create a **private** bucket. Copy its S3 endpoint and region from your storage provider. The upload endpoint must be reachable by browsers and ordinarily equals the S3 endpoint. Local Compose instead uses `http://storage:9000` internally and `http://localhost:9000` for browser signatures. Configure/verify storage CORS for the exact frontend origin, `PUT`, and signed content headers. Test it with the real browser/provider before release.
 
 Uploads use a 10-minute signed PUT to a random `pending/` key. Completion verifies length, decodes PNG/JPEG, bounds pixels, strips metadata, and stores an immutable clean copy plus a 640px thumbnail. Replay cannot overwrite the verified copy. Expired temporary objects enter the deletion queue after a five-minute margin. Add a bucket lifecycle rule for abandoned `pending/` objects as defense in depth. All proof reads, including thumbnails, recheck current visibility/access and use `private, no-store`.
 
@@ -42,7 +40,7 @@ Register the exact frontend callback URLs:
 
 The browser calls the same-origin API proxy; the backend exchanges codes and issues HttpOnly cookies. The registered callback host must be the frontend host. Provider keys enable the respective buttons; disabled buttons do not imply failed account registration.
 
-The one-time bootstrap creates the sole administrator only if absent and never resets it on restart. Test password plus authenticator challenge, then remove the bootstrap password from host settings. Preserve a protected recovery procedure for the authenticator secret. The source contains no administrator password.
+The one-time bootstrap creates the sole administrator only if absent and never resets it on restart. Test password plus authenticator challenge, then remove the bootstrap password and TOTP seed from host settings. Use `--existing-admin` with the environment checker after this one-time setup. Preserve a protected recovery procedure for the authenticator secret. The source contains no administrator password.
 
 ## Validation and promotion
 

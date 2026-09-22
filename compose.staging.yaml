@@ -1,0 +1,29 @@
+# Standalone hosted API; requires externally provisioned PostgreSQL, SMTP and S3.
+services:
+  api:
+    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE to the reviewed image digest or commit tag}
+    env_file: .env.staging
+    environment:
+      APP_ENV: staging
+      SECURE_COOKIES: 'true'
+    ports: ['127.0.0.1:8080:8080']
+    volumes:
+      - type: bind
+        source: ${DB_CA_FILE:?Set DB_CA_FILE to your PostgreSQL provider CA file}
+        target: /run/secrets/postgres-ca.crt
+        read_only: true
+        bind:
+          create_host_path: false
+    read_only: true
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=128m']
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 35s
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://localhost:8080/actuator/health/readiness']
+      start_period: 60s
+      interval: 15s
+      timeout: 5s
+      retries: 3
