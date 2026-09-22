@@ -35,3 +35,15 @@ test('setup generates missing service keys once without changing existing creden
   for(const key of ['DB_PASSWORD','ADMIN_BOOTSTRAP_PASSWORD','ADMIN_TOTP_SECRET','OBJECT_STORAGE_SECRET_KEY'])assert.equal(container[key],values[key]);
   assert.equal(container.DB_USERNAME,'postgres');assert.equal(container.BACKEND_URL,'http://localhost:8080');
 });
+
+test('environment checker permits retired bootstrap secrets only with explicit existing-admin mode',t=>{
+ const dir=mkdtempSync(join(tmpdir(),'getlancer-check-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));
+ const file=join(dir,'.env');
+ const values={APP_ENV:'local',APP_BASE_URL:'http://localhost:3000',BACKEND_URL:'http://localhost:8080',DB_URL:'jdbc:postgresql://localhost:5433/getLancer',DB_USERNAME:'postgres',DB_PASSWORD:'private-test@value#only',OBJECT_STORAGE_ENDPOINT:'http://localhost:9000',OBJECT_STORAGE_UPLOAD_ENDPOINT:'http://localhost:9000',OBJECT_STORAGE_BUCKET:'getlancer',OBJECT_STORAGE_REGION:'us-east-1',OBJECT_STORAGE_ACCESS_KEY:'test-access',OBJECT_STORAGE_SECRET_KEY:'test-secret',SMTP_HOST:'localhost',SMTP_PORT:'1025',EMAIL_FROM_ADDRESS:'test@example.test'};
+ const save=extra=>writeFileSync(file,Object.entries({...values,...extra}).map(([k,v])=>`${k}=${v}`).join('\n')+'\n');
+ const run=(...args)=>spawnSync(process.execPath,[new URL('../scripts/check-environment.mjs',import.meta.url).pathname,file,...args],{encoding:'utf8'});
+ save({});assert.equal(run().status,1);assert.equal(run('--existing-admin').status,0);
+ save({APP_ENV:'prod'});assert.equal(run('--existing-admin').status,1);
+ save({DB_PASSWORD:'"quoted-secret"'});const invalid=run('--existing-admin');assert.equal(invalid.status,1);assert.ok(!invalid.stderr.includes('quoted-secret'));
+ save({});writeFileSync(file,readFileSync(file,'utf8')+'DB_PASSWORD=duplicate-secret\n');const duplicate=run('--existing-admin');assert.equal(duplicate.status,1);assert.match(duplicate.stderr,/Duplicate environment key/);assert.ok(!duplicate.stderr.includes('duplicate-secret'));
+});

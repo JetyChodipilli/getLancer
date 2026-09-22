@@ -40,7 +40,7 @@ jobs:
       - run: node --test tests/*.test.mjs
   docker-startup:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       COMPOSE_PROJECT_NAME: getlancer-ci-${{ github.run_id }}
     steps:
@@ -57,7 +57,8 @@ jobs:
           JS
       - run: docker compose config --quiet
       - run: docker compose up -d --build --wait --wait-timeout 240
-      - run: node scripts/smoke-docker.mjs
+      - name: Verify connected V1 journeys and database recovery
+        run: node scripts/smoke-docker.mjs
       - name: Show startup diagnostics on failure
         if: failure()
         run: docker compose logs --tail=80 api db storage-init

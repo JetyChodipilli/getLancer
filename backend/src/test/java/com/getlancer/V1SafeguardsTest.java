@@ -20,6 +20,7 @@ class V1SafeguardsTest {
  @Test void invalidTransitionsUseConflictStatus(){var response=new Errors().invalid(new IllegalArgumentException("INVALID_STATE_TRANSITION"));assertEquals(409,response.getStatusCode().value());}
  @Test void validationIdentifiesField(){var error=assertThrows(ApiError.class,()->Support.text(Map.of("title",""),"title",3,120));assertTrue(error.fieldErrors.containsKey("title"));}
  @Test void productionCannotUsePreviewDefaults(){var env=new MockEnvironment().withProperty("app.environment","production");assertThrows(IllegalStateException.class,()->new ProductionConfiguration(env).run(null));}
+ @Test void unknownEnvironmentCannotBypassHostedChecks(){assertThrows(IllegalStateException.class,()->new ProductionConfiguration(new MockEnvironment().withProperty("app.environment","prod")).run(null));}
  @Test void localConfigurationStillWorks(){assertDoesNotThrow(()->new ProductionConfiguration(new MockEnvironment()).run(null));}
  @Test void badCapacityConfigurationFailsEarly(){assertThrows(IllegalStateException.class,()->new ProductionConfiguration(new MockEnvironment().withProperty("app.rate-limit","0")).run(null));}
 }

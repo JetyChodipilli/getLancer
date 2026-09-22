@@ -12,7 +12,7 @@ import org.springframework.core.env.Environment;
   int retention=env.getProperty("app.analytics-retention-days",Integer.class,90),sample=env.getProperty("app.reliability-min-sample",Integer.class,10);
   if(retention<1||retention>365||sample<0||sample>10000)throw new IllegalStateException("Invalid analytics retention or reliability threshold");
   String schema=env.getProperty("spring.flyway.default-schema","public");if(!schema.matches("[a-z][a-z0-9_]{0,62}"))throw new IllegalStateException("DB_SCHEMA must be a safe lowercase schema name");
-  String stage=env.getProperty("app.environment","local");boolean hosted=java.util.Set.of("staging","production").contains(stage);
+  String stage=env.getProperty("app.environment","local");if(!java.util.Set.of("local","staging","production").contains(stage))throw new IllegalStateException("APP_ENV must be local, staging or production");boolean hosted=java.util.Set.of("staging","production").contains(stage);
   if(!hosted)return;
   if(schema.equals("public"))throw new IllegalStateException("Use a private application schema for staging/production");
   if(!env.getProperty("app.secure-cookie",Boolean.class,true)||!required("app.origin").startsWith("https://"))throw new IllegalStateException("Hosted environments require HTTPS and secure cookies");
