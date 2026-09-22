@@ -1,6 +1,6 @@
 # getLancer working context
 
-Updated 21 September 2026. Core status: [V1 verification](docs/V1_VERIFICATION_2026-09-15.md). The later [interactive UAT demo](docs/UAT_DEMO.md) and [Docker setup](ops/DOCKER_LOCAL.md) supplement that baseline. Earlier dated reports are historical.
+Updated 22 September 2026. Core status: [V1 verification](docs/V1_VERIFICATION_2026-09-15.md). The later [interactive UAT demo](docs/UAT_DEMO.md) and [Docker setup](ops/DOCKER_LOCAL.md) supplement that baseline. [Service/release follow-up](docs/V1_SERVICE_VERIFICATION_2026-09-22.md) records the latest work. Earlier dated reports are historical.
 
 - Preserve the existing repository history. Deliver changes through the repository without an external ZIP.
 - Stack: React/TypeScript with Vinext for the frontend; Java 17/Spring Boot, PostgreSQL and Flyway for the API; S3 proof storage and transactional email. Do not substitute Supabase or Neon: the user now selected Docker PostgreSQL, database getLancer, exposed locally on port 5433.
@@ -8,7 +8,7 @@ Updated 21 September 2026. Core status: [V1 verification](docs/V1_VERIFICATION_2
 - The private frontend is separate from the Java API. No hosted `BACKEND_URL` is configured. The user explicitly authorized an isolated interactive demo at `/preview/workspace` for UAT. Sample people, records and actions live only in browser session storage and are labeled simulations. Never make real login or API routes silently fall back to demo success. OAuth and real service setup remain deferred.
 - The source baseline is all 17 numbered requirements documents in `docs/`; provenance is recorded in `SOURCE_DOCUMENT_VERIFICATION.json`. V1 is project discovery and client-confirmed work, with three active builder showcases. One account may act as both builder and client.
 - Preserve the exact transparent logo, Slate Atelier navigation/discovery and Icy Wind auth design. The user's later request removed the motion button; retain system reduced-motion support and automatic art behavior. Login/signup are real routes. Admin MFA appears only after valid administrator password verification.
-- Source code passes 106 backend tests (38 database scenarios), 19 frontend checks, TypeScript and production build. CI run 34981803941 verifies the functional patch; see the current report for scope and browser limitations.
-- Tests reset only the explicitly authorized disposable `getlancer_test` database through TEST_DB variables and the guard. Never use application DB_URL for tests.
+- Source code passes 107 backend tests (38 database scenarios), 25 frontend checks, TypeScript and production build. CI run 35689544744 also passes connected Docker service journeys, database outage recovery and a synthetic encrypted restore. The current service report distinguishes this HTTP acceptance from browser/provider certification.
+- JUnit resets only the explicitly authorized disposable `getlancer_test` database through TEST_DB variables and the guard. Docker acceptance uses a separate guarded `getlancer-ci-<run_id>` Compose project with synthetic credentials, and cleans only its own containers, volumes and restore target. Never point tests at an owner or shared database.
 - Remaining release work is connected hosting/provider configuration and the documented staging/browser/operational acceptance gates. Do not claim full public-launch readiness from a passing build.
 - Teams/recruitment, platform payments, source-code commerce and hosted demos belong to later roadmap versions. Do not add them while closing V1 defects.
