@@ -5,5 +5,8 @@ export async function generateMetadata({searchParams}:{searchParams:Promise<Reco
 export default async function Home({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const params = new URLSearchParams();
   Object.entries(await searchParams).forEach(([k, v]) => { if (typeof v === 'string') params.set(k, v); });
-  return <Explore {...await getCatalog(parseFilters(params))} />;
+  const filters=parseFilters(params);
+  const catalog=await getCatalog(filters);
+  const featured=params.size?(await getCatalog()).items:catalog.items;
+  return <Explore {...catalog} featured={featured.slice(0,3)} />;
 }

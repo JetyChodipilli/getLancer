@@ -33,3 +33,12 @@ test('design preview is excluded from search indexing',async()=>{
  const robots=await page('/robots.txt');assert.match(robots.html,/Disallow: \//);
  const sitemap=await page('/sitemap.xml');assert.doesNotMatch(sitemap.html,/<url>/);
 });
+
+test('featured project stack remains available when collection filters have no matches',async()=>{
+ const {html}=await page('/?q=nonexistentquantumservice');
+ assert.equal((html.match(/class="stack-card stack-card-/g)||[]).length,3);
+ assert.match(html,/Featured project demos/);
+ assert.match(html,/href="#project-collection"/);
+ assert.match(html,/No|We couldn’t find an exact match/);
+ assert.match(html,/Remove Search: nonexistentquantumservice/);
+});

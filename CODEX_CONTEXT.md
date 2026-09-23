@@ -20,3 +20,10 @@ Updated 22 September 2026. Core status: [V1 verification](docs/V1_VERIFICATION_2
 - Search stays mounted and crossfades in a reserved header cell, with inert hidden controls and reduced-motion support. Filtering no longer collapses the hero.
 - Shared responsive footer uses real project, workspace, guidance, and policy routes.
 - Demo account switching and sticky navigation manually checked in the managed browser; dock search returned the expected Inventory result. No hosted backend/OAuth activation is implied by this visual release.
+
+## Quiet Craft refinement — 2026-09-23
+- Latest user-directed theme replaces Linear as primary: Cursor Quiet Craft atmosphere; Airbnb marketplace search; Figma Community/Canva-inspired hero framing. DESIGN.md contains references and adaptations. Exact logo, blue actions and Icy Wind auth artwork retained.
+- Native sticky project stack replaces the rotating homepage spotlight, with progressive scroll-timeline animation, mobile snap strip, reduced-motion fallback and a direct collection anchor. These are original illustrative getLancer demos; no inaccessible Figma Community asset is claimed as imported.
+- Shared BrowseToolbar supplies staged filter dialog/mobile sheet, removable chips, sorting, accessible counts and recovery actions. Four-column preview cards have restrained metadata. Demo account switching lives in its own submenu; real account settings and profile have separate actions. Pending inquiry/draft next steps appear before metrics.
+- Browser checks passed desktop stacking, four-column layout, filter Apply/removal, no-match recovery, sticky tabs above search and keyboard account switching. Browser preview uses HTTP where Vinext Web Crypto navigation is unavailable; public filtering falls back to anchored navigation. Hosted HTTPS uses client transitions. Mobile CSS and reduced-motion implementation inspected; no mobile browser certification claimed.
+- Frontend-only refinement. Hosted backend, OAuth and launch gates remain as above.
