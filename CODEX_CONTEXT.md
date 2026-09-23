@@ -12,3 +12,11 @@ Updated 22 September 2026. Core status: [V1 verification](docs/V1_VERIFICATION_2
 - JUnit resets only the explicitly authorized disposable `getlancer_test` database through TEST_DB variables and the guard. Docker acceptance uses a separate guarded `getlancer-ci-<run_id>` Compose project with synthetic credentials, and cleans only its own containers, volumes and restore target. Never point tests at an owner or shared database.
 - Remaining release work is connected hosting/provider configuration and the documented staging/browser/operational acceptance gates. Do not claim full public-launch readiness from a passing build.
 - Teams/recruitment, platform payments, source-code commerce and hosted demos belong to later roadmap versions. Do not add them while closing V1 defects.
+
+## UI refinement — 2026-09-23
+- Selected Awesome Design MD's Linear reference and documented getLancer's deliberate light/blue adaptation in DESIGN.md.
+- Shared account menu with avatar identity, role, workspace/profile actions, and explicit demo-only account switching.
+- Workspace navigation is horizontal and sticky above the filters. Four columns at desktop; two at tablet and one on narrow phones. Active showcase entitlement remains three.
+- Search stays mounted and crossfades in a reserved header cell, with inert hidden controls and reduced-motion support. Filtering no longer collapses the hero.
+- Shared responsive footer uses real project, workspace, guidance, and policy routes.
+- Demo account switching and sticky navigation manually checked in the managed browser; dock search returned the expected Inventory result. No hosted backend/OAuth activation is implied by this visual release.

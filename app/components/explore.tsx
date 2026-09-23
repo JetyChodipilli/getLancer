@@ -44,9 +44,9 @@ export default function Explore({ items, preview, totalItems, totalPages, filter
   }
   return <main id="main" className="wrap">
     <DiscoveryDock anchor={heroSearch} q={q} setQ={setQ} filters={filters} pending={pending} update={update} reset={reset}/>
-    <section className={'discovery-hero'+(hasFilters?' is-filtered':'')}>
+    <section className="discovery-hero">
       <div className="hero-copy"><span className="eyebrow">Independent minds. Remarkable builds.</span><h1>Great software.<br/><span>Greater possibilities.</span></h1><p>Find software for your business. Explore real projects and meet the people who built them.</p><form ref={heroSearch} className="search" onSubmit={e => { e.preventDefault(); update({ q }); }}><Search size={21} aria-hidden="true"/><input aria-label="Search projects" maxLength={200} value={q} onChange={e => setQ(e.target.value)} placeholder="What do you want to build? Try inventory, booking, or CRM…"/><button className="button primary" disabled={pending}>Search</button></form><div className="hero-suggestions"><span>Explore a possibility</span>{['Inventory','Booking','CRM'].map(c=><button key={c} onClick={()=>update({category:c})}>{c}<ArrowUpRight size={13}/></button>)}</div></div>
-      {!hasFilters&&<ProductSpotlight products={items.slice(0,6)}/>}
+      <ProductSpotlight products={items.slice(0,6)}/>
     </section>
     <div className="discovery-heading"><div><span className="eyebrow">The discovery collection</span><h2>Real work. Ready to inspire.</h2></div><p>Find the right builder through what they’ve built.</p></div>
     <nav className="categoryrow" aria-label="Business categories"><button className={!filters.category ? 'selected' : ''} aria-pressed={!filters.category} onClick={() => update({ category: '' })}>All projects</button>{categories.slice(0, 7).map(c => <button key={c} className={filters.category === c ? 'selected' : ''} aria-pressed={filters.category === c} onClick={() => update({ category: c })}>{c}</button>)}</nav>

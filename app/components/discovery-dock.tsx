@@ -32,8 +32,10 @@ export default function DiscoveryDock({anchor,q,setQ,filters,pending,update,rese
   return()=>{resize.disconnect();observer?.disconnect()};
  },[anchor]);
  const count=[filters.category,filters.technology,filters.projectType,filters.availability,filters.liveDemo].filter(Boolean).length;
- if(!target||(!passed&&!focused&&!open))return null;
- return createPortal(<div className="scroll-discovery" onFocusCapture={()=>setFocused(true)} onBlurCapture={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))setFocused(false)}}>
+ const visible=passed||focused||open;
+ useEffect(()=>{if(target){target.dataset.visible=String(visible);return()=>{delete target.dataset.visible}}},[target,visible]);
+ if(!target)return null;
+ return createPortal(<div className="scroll-discovery" data-visible={visible} inert={!visible} aria-hidden={!visible} onFocusCapture={()=>setFocused(true)} onBlurCapture={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))setFocused(false)}}>
   <form className="dock-search" role="search" aria-label="Browse projects" onSubmit={e=>{e.preventDefault();update({q})}}>
    <Search size={17} aria-hidden="true"/>
    <input aria-label="Search projects while browsing" placeholder="Search projects…" value={q} maxLength={200} onChange={e=>setQ(e.target.value)}/>
