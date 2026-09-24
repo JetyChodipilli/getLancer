@@ -6,6 +6,31 @@ import org.junit.jupiter.api.*;import org.springframework.boot.test.context.Spri
  @BeforeEach void prepare(){db.execute("TRUNCATE users CASCADE");db.execute("TRUNCATE rate_buckets");owner=user("owner@example.com");other=user("other@example.com");product=product(owner,"ACTIVE","PUBLIC");session="integration-session";db.update("INSERT INTO sessions(token_hash,user_id,expires_at) VALUES(?,?,now()+interval '1 hour')",Support.hash(session),owner);}
  UUID user(String email){UUID u=UUID.randomUUID();db.update("INSERT INTO users(id,email,password_hash,email_verified_at) VALUES(?,?,'unused',now())",u,email);db.update("INSERT INTO user_roles(user_id,role) VALUES(?,'DEVELOPER')",u);db.update("INSERT INTO developer_profiles(user_id,slug,display_name,approval_status,availability_status) VALUES(?,?,?,'APPROVED','AVAILABLE_NOW')",u,u.toString(),email.split("@")[0]);db.update("INSERT INTO showcase_entitlements(user_id) VALUES(?)",u);return u;}
  UUID product(UUID owner,String lifecycle,String visibility){UUID p=UUID.randomUUID();db.update("INSERT INTO products(id,owner_user_id,slug,title,summary,description,project_type,category,technology,contribution_text,approval_status,lifecycle_status,visibility) VALUES(?,?,?,'Inventory','Inventory product','Inventory project description','SAAS','Inventory','React','Built everything','APPROVED',?,?)",p,owner,p.toString(),lifecycle,visibility);return p;}
+ @Test void v15AvailabilityAndSimilarBuildersRespectPublicScope()throws Exception{
+  mvc.perform(put("/api/v1/developer/availability").cookie(new Cookie("gl_session",session)).header("Origin","http://localhost:3000").header("X-Requested-With","getlancer").contentType("application/json").content("{\"status\":\"LIMITED\"}")).andExpect(status().isOk());
+  assertEquals("APPROVED",db.queryForObject("SELECT approval_status FROM developer_profiles WHERE user_id=?",String.class,owner));
+  assertNotNull(db.queryForObject("SELECT availability_confirmed_at FROM developer_profiles WHERE user_id=?",java.sql.Timestamp.class,owner));
+  UUID candidate=product(other,"ACTIVE","PUBLIC");product(other,"ACTIVE","PUBLIC");
+  mvc.perform(get("/api/v1/products/"+product+"/similar-builders")).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1));
+  db.update("UPDATE developer_profiles SET availability_status='NOT_ACCEPTING' WHERE user_id=?",other);
+  mvc.perform(get("/api/v1/products/"+product+"/similar-builders")).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
+ }
+ @Test void v15RepositoryProofIsScopedAndEarnedAwardsAreIdempotent()throws Exception{
+  db.update("UPDATE products SET repository_url='https://github.com/example/project' WHERE id=?",product);
+  mvc.perform(postJson("/api/v1/developer/products/"+product+"/verification","{}",session)).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("PENDING"));
+  String challenge=db.queryForObject("SELECT challenge FROM repository_verifications WHERE product_id=?",String.class,product);
+  mvc.perform(postJson("/api/v1/developer/products/"+product+"/verification","{}",session)).andExpect(status().isOk()).andExpect(jsonPath("$.challenge").value(challenge));
+  db.update("UPDATE repository_verifications SET status='VERIFIED' WHERE product_id=?",product);
+  db.update("UPDATE products SET repository_url='https://github.com/example/different' WHERE id=?",product);
+  mvc.perform(get("/api/v1/products/"+product)).andExpect(status().isOk()).andExpect(jsonPath("$.repositoryVerified").value(false));
+  UUID completed=inquiry("COMPLETED");db.update("UPDATE inquiries SET client_email='other@example.com' WHERE id=?",completed);
+  db.update("INSERT INTO inquiry_events(id,inquiry_id,event_type,actor_type) VALUES(?,?,'COMPLETED','CLIENT_TOKEN')",UUID.randomUUID(),completed);
+  db.update("INSERT INTO user_roles(user_id,role) VALUES(?,'ADMIN')",other);
+  db.update("INSERT INTO sessions(token_hash,user_id,expires_at,mfa_verified) VALUES(?,?,now()+interval '1 hour',true)",Support.hash("trust-admin"),other);
+  for(int n=0;n<2;n++)mvc.perform(postJson("/api/v1/admin/earned-capacity/"+completed,"{\"reason\":\"Reviewed verified completion evidence\"}","trust-admin")).andExpect(status().isOk());
+  assertEquals(4,db.queryForObject("SELECT active_slot_limit FROM showcase_entitlements WHERE user_id=?",Integer.class,owner));
+  assertEquals(1,db.queryForObject("SELECT count(*) FROM earned_capacity_awards WHERE inquiry_id=?",Integer.class,completed));
+ }
  @Test void publicReportsAcceptAnonymousExpiredRevokedAndSuspendedSessions()throws Exception{
   String body="{\"targetType\":\"PRODUCT\",\"targetId\":\""+product+"\",\"reason\":\"APPEAL\",\"detail\":\"Please review this moderation decision.\"}";
   mvc.perform(postJson("/api/v1/reports",body,"")).andExpect(status().isCreated());

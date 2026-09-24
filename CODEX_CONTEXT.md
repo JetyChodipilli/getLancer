@@ -30,3 +30,6 @@ Updated 22 September 2026. Core status: [V1 verification](docs/V1_VERIFICATION_2
 
 ## Quiet Craft compact motion revision — 2026-09-24
 Replaced the tall sticky hero sequence with one bounded overlapping window scene. Original demos tilt -5/4/-2 degrees with gentle CSS floating motion; pause control, hover/focus pause and reduced-motion static fallback. Shared warm semantic tokens now cover dialogs/forms/account chrome; blue getLancer actions and supplied logo retained. Collection remains four columns on desktop, three-active showcase rule unchanged. No backend configuration changed.
+
+## V1.5 — trust and reliability
+Implementation contract: docs/V1_5_IMPLEMENTATION.md. Migration V11 adds scoped repository evidence, demo health timestamps, availability confirmation and audited earned-capacity awards. New /workspace/trust and /preview/trust separate real authenticated workflows from in-memory UAT simulation. Similar-builder recommendations respect public approval and availability. Repository review is manual evidence review, not identity/code-security certification. Demo HEAD worker is opt-in (DEMO_HEALTH_ENABLED); never enable against an unrestricted internal network without the outbound policy. Preserve client and CLIENT_TOKEN completion actors when checking outcome eligibility.
