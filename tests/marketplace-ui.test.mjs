@@ -8,7 +8,7 @@ async function page(path){const response=await worker.fetch(new Request('https:/
 
 test('project discovery renders six clearly illustrative projects',async()=>{
  const {response,html}=await page('/');assert.equal(response.status,200);
- assert.match(html,/Find software for your business/);assert.match(html,/Projects are illustrative/);
+ assert.match(html,/Explore working software/);assert.match(html,/Projects are illustrative/);
  assert.equal((html.match(/<article[^>]*class="project"/g)||[]).length,6);
  assert.equal(response.headers.get('referrer-policy'),'no-referrer');
 });
