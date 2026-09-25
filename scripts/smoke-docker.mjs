@@ -1,5 +1,6 @@
 // Ephemeral CI stack only; never use the owner's database or credentials here.
 import assert from 'node:assert/strict';
+import {readdirSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {createHmac,randomBytes} from 'node:crypto';
 import {setTimeout as delay} from 'node:timers/promises';
@@ -11,7 +12,10 @@ assert.equal(env.ADMIN_EMAIL,'ci-admin@example.test','Use the synthetic CI admin
 const query=sql=>execFileSync('docker',['compose','exec','-T','db','psql','-U','postgres','-d','getLancer','-Atc',sql],{encoding:'utf8'}).trim();
 assert.equal(query('SELECT current_database()'),'getLancer');
 assert.equal(query("SELECT count(*) FROM getlancer.user_roles WHERE role='ADMIN'"),'1');
-assert.equal(query("SELECT count(*) FROM getlancer.flyway_schema_history WHERE success AND type='SQL'"), '10');
+const migrationFiles=readdirSync(new URL('../backend/src/main/resources/db/migration/',import.meta.url)).filter(name=>/^V[^_]+__.*\.sql$/.test(name)).sort();
+const appliedFiles=query("SELECT script FROM getlancer.flyway_schema_history WHERE success AND type='SQL' ORDER BY script").split('\n').sort();
+assert.deepEqual(appliedFiles,migrationFiles,'Every versioned migration must be applied exactly once.');
+assert.equal(query("SELECT count(*) FROM getlancer.flyway_schema_history WHERE NOT success"),'0');
 function session(){
  const cookies=new Map();
  return async function request(path,body,method=body?'POST':'GET',expected){
@@ -38,7 +42,7 @@ assert.deepEqual((await api('/api/v1/admin/products/pending')).items,[]);
 
 const storage=await fetch('http://localhost:9000/getlancer',{signal:AbortSignal.timeout(10000)});
 assert.equal(storage.status,403,'Proof bucket must not allow anonymous listing.');
-console.log('Docker smoke passed: exact database, ten migrations, one admin, password + MFA, protected admin API, private bucket.');
+console.log('Docker smoke passed: exact database, all versioned migrations, one admin, password + MFA, protected admin API, private bucket.');
 
 // Read actual delivered SMTP messages, never account_tokens or the outbox body.
 const seenMail=new Set();
@@ -79,7 +83,7 @@ const products=[];let mediaId;
 // Valid PNG fixture; bytes go through signed S3 PUT and backend image decoding.
 const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEElEQVR4nGNQSjsDRAwQCgAilgVRqmC7UQAAAABJRU5ErkJggg==','base64');
 for(let index=0;index<4;index++){
- const {id}=await builder('/api/v1/developer/products',{title:'CI Inventory '+index,summary:'Track stock and orders for independent shops.',description:'A working inventory showcase with stock tracking, product search and order history.',projectType:'SAAS',category:'Inventory',technology:'React',visibility:'PUBLIC',contribution:'Designed the schema and implemented stock tracking.',liveUrl:index?'https://example.com/demo':'',videoUrl:'',repositoryUrl:'',pricingNote:'',availableForSimilarWork:true,rightsConfirmed:true},'POST',201);
+ const {id}=await builder('/api/v1/developer/products',{title:'CI Inventory '+index,summary:'Track stock and orders for independent shops.',description:'A working inventory showcase with stock tracking, product search and order history.',projectType:'SAAS',category:'Inventory',technology:'React',visibility:'PUBLIC',contribution:'Designed the schema and implemented stock tracking.',liveUrl:index?'https://example.com/demo':'',videoUrl:'',repositoryUrl:'https://github.com/example/ci-inventory-'+index,pricingNote:'',availableForSimilarWork:true,rightsConfirmed:true},'POST',201);
  products.push(id);
  if(index===0){
   const upload=await builder(`/api/v1/developer/products/${id}/media/upload-request`,{filename:'proof.png',contentType:'image/png',sizeBytes:png.length});
@@ -130,6 +134,23 @@ await api(`/api/v1/admin/reviews/${review.id}/publish`,{reason:'CI verified comp
 const reviews=await visitor(`/api/v1/builders/${project.builderSlug}/reviews`);
 assert.equal(reviews.totalItems,1);assert.equal(reviews.items[0].clientName,'Verified client');assert.ok(!JSON.stringify(reviews).includes(clientEmail));
 console.log('Connected inquiry passed: delivered confirmation links, builder follow-up, client-confirmed hire/completion and moderated anonymous review.');
+
+// V1.5 exercises the real HTTP permission boundary and persisted state.
+await builder('/api/v1/developer/availability',{status:'LIMITED'},'PUT');
+assert.equal((await builder('/api/v1/developer/trust')).profile.availability_status,'LIMITED');
+await client('/api/v1/admin/trust',undefined,'GET',403);
+await builder(`/api/v1/developer/products/${project.id}/verification`,{});
+const proof=(await api('/api/v1/admin/trust')).verifications.find(v=>v.product_id===project.id);
+assert.ok(proof?.challenge,'Repository request must reach the administrator queue');
+await api(`/api/v1/admin/verifications/${project.id}/approve`,{reason:'Disposable CI fixture simulates a manual evidence review.'});
+assert.equal((await visitor('/api/v1/products/'+project.slug)).repositoryVerified,true);
+await api(`/api/v1/admin/verifications/${project.id}/revoke`,{reason:'Disposable CI fixture checks removal of repository evidence.'});
+assert.equal((await visitor('/api/v1/products/'+project.slug)).repositoryVerified,false);
+assert.equal((await api(`/api/v1/admin/earned-capacity/${inquiry.id}`,{reason:'Client-confirmed CI completion reviewed for capacity.'})).awarded,true);
+assert.equal((await api(`/api/v1/admin/earned-capacity/${inquiry.id}`,{reason:'Duplicate CI award must leave entitlement unchanged.'})).awarded,false);
+assert.equal((await builder('/api/v1/developer/trust')).activeSlotLimit,4);
+assert.equal((await visitor('/api/v1/products/'+project.slug)).demoHealth,'UNKNOWN');
+console.log('Connected V1.5 passed: availability, admin isolation, repository review/revocation, unknown health and idempotent earned capacity.');
 
 const report=await client('/api/v1/reports',{targetType:'PRODUCT',targetId:project.id,reason:'MISLEADING_CLAIM',detail:'CI moderation scenario: proof requires correction.'},'POST',201);
 await api(`/api/v1/admin/reports/${report.reference}/resolve`,{targetAction:'SUSPEND',reason:'Proof requires correction before this showcase can be restored.'});

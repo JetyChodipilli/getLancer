@@ -9,3 +9,8 @@ Source: 01_VISION section 11, MASTER_PRD deferred items, business rules section 
 - Earned capacity: documents supply no automated threshold. Administrator may grant one audited slot per distinct client-confirmed completed engagement, with a required reason; the same engagement cannot be awarded twice. No automatic awards, no purchase mechanism, no trust badge from capacity.
 - Existing 3-slot defaults remain; atomic activation reads the existing entitlement.
 - Hosted frontend remains isolated demo until a hosted Java backend is configured. Local PostgreSQL is not remotely reachable from the frontend.
+
+## Verification and operational boundaries
+The Docker smoke journey compares the exact applied Flyway scripts with the repository migrations (not a fixed count). It exercises V1.5 availability, admin isolation, evidence approval/revocation, unknown demo health and an idempotent capacity award through HTTP.
+
+Remaining activation work: deploy the Java API/PostgreSQL and configure the hosted frontend BACKEND_URL; configure email and optional OAuth providers. Demo monitoring is off by default (DEMO_HEALTH_ENABLED=false). Enable it only with restricted public outbound HTTPS and operational DNS timeouts; it performs bounded HEAD reads, but system DNS resolution depends on the host resolver. The current administrator screen lists pending evidence; revocation is available through the protected API. This is manual repository evidence review, not automated GitHub ownership verification.
