@@ -329,3 +329,26 @@ body{font-family:Inter,system-ui,-apple-system,'Segoe UI',sans-serif;background:
 @media(max-width:640px){.project-media .product-demo{min-height:300px}.project-media .product-demo-side>b{font-size:11px}.project-media .product-demo-side>span{font-size:7px;padding:8px 4px}.project-media .product-demo-body{padding:12px}.project-media .product-demo-title h3{font-size:17px!important}.project-media .product-demo-table>div{font-size:6px;padding:10px 0}.project-media .product-demo-metrics small{font-size:6px}.project-media .product-demo-metrics b{font-size:15px}.project-media .product-demo-calendar>div{height:52px}.project-media .product-demo-calendar>div>span,.project-media .product-demo-calendar span b{font-size:5px}.project-media .product-demo-calendar>strong{font-size:6px}.project-media .floor-table{width:42px;height:42px}.project-media .floor-demo{padding:20px;gap:20px}}
 .marketplace-hero .project-stack .stack-card{animation-play-state:running;opacity:1}.marketplace .discovery-heading{border-top:0}.marketplace-hero .stack-card{right:auto}
 .marketplace-hero .stack-card:hover,.marketplace-hero .stack-card:focus-within{z-index:1}.marketplace-hero .stack-card-1:hover,.marketplace-hero .stack-card-1:focus-within{z-index:2}
+
+/* Mixed-format masonry: media proportions drive height, never a fixed row. */
+.marketplace>.demo-gallery{display:block;columns:3;column-gap:24px;}
+.marketplace>.demo-gallery>.project{display:inline-block;vertical-align:top;width:100%;break-inside:avoid;margin:0 0 28px;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;transform:none;}
+.marketplace>.demo-gallery>.project:hover{transform:none;box-shadow:none;}
+.marketplace .demo-gallery .thumbnail{height:auto;min-height:0;aspect-ratio:auto;padding:20px 16px;display:block;overflow:hidden;}
+.marketplace .demo-gallery .thumbnail:has(>img){padding:0;}
+.marketplace .demo-gallery .thumbnail>img{width:100%;height:auto!important;object-fit:contain!important;display:block;}
+.marketplace .demo-gallery .product-demo{height:auto;min-height:240px;aspect-ratio:4/3;transform:none;}
+.marketplace .demo-gallery .miniapp{height:auto;min-height:230px;aspect-ratio:3/2;transform:none;}
+.marketplace .demo-gallery .thumbnail:hover .miniapp{transform:none;}
+.marketplace .demo-gallery .tone-education{padding:24px 26px;}
+.portrait-demo{width:100%;}.phone-demo{background:#fff;border:5px solid #262337;border-radius:30px;padding:14px 17px 0;box-shadow:0 15px 35px #39296618;color:#272237;overflow:hidden;}
+.phone-status,.phone-top,.phone-section,.phone-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;}.phone-status{font-size:9px;font-weight:650;margin-bottom:22px}.phone-top{font-size:15px}.phone-top>span{font-size:10px;padding:9px;border-radius:50%;background:#eee8fa}.phone-eyebrow{font-size:8px;letter-spacing:1.2px;margin:24px 0 10px;color:#746780}.phone-demo h3{font-size:25px;line-height:1.12;letter-spacing:-1px;margin:0}.phone-intro{font-size:11px;color:#786e85;margin:10px 0 20px}.phone-course{background:#e9e2f5;border-radius:15px;padding:16px}.phone-course>span{font-size:8px;letter-spacing:1px}.phone-art{display:flex;align-items:center;justify-content:space-between;font-size:62px;font-family:Georgia,serif;color:#685083;margin:12px 0}.phone-art>span{font-size:45px;color:#9b7db8}.phone-course h4{font-size:22px;line-height:1.15;margin:0}.phone-course p{font-size:10px;color:#746780}.phone-progress{height:4px;background:#fff;border-radius:4px;margin-top:16px}.phone-progress i{display:block;width:60%;height:100%;background:#7b619e;border-radius:4px}.phone-section{font-size:10px;margin:24px 0 12px}.phone-section>span{font-size:8px;color:#786e85}.phone-lesson{display:flex;gap:10px;align-items:center;padding:13px 0;border-bottom:1px solid #eee9f3;font-size:9px}.phone-lesson>span:first-child{padding:9px;background:#f3eff8;border-radius:8px}.phone-lesson>span:last-child{margin-left:auto}.phone-lesson small{display:block;font-size:8px;color:#847990;margin-top:4px}.phone-nav{padding:18px 0;font-size:8px;color:#786e85}.phone-nav>span:first-child{color:#52346f;font-weight:700}
+@media(min-width:1600px){.marketplace>.demo-gallery{columns:4}}
+@media(max-width:1000px){.marketplace>.demo-gallery{columns:2;column-gap:20px}}
+@media(max-width:640px){.marketplace>.demo-gallery{columns:1}.marketplace .demo-gallery .tone-education{padding:24px 38px}}
+
+.marketplace>.demo-gallery[data-layout=masonry]{display:grid;columns:auto;grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:8px;column-gap:24px;row-gap:0;align-items:start;}
+.marketplace>.demo-gallery[data-layout=masonry]>.project{margin:0;}
+@media(min-width:1600px){.marketplace>.demo-gallery[data-layout=masonry]{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:1000px){.marketplace>.demo-gallery[data-layout=masonry]{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:20px}}
+@media(max-width:640px){.marketplace>.demo-gallery[data-layout=masonry]{display:block}.marketplace>.demo-gallery[data-layout=masonry]>.project{margin-bottom:28px}}

@@ -17,6 +17,19 @@ import type { Catalog } from '@/lib/server';
 export default function Explore({ items, preview, totalItems, totalPages, filters, featured }: Catalog & {featured:Catalog['items']}) {
  const {categories,technologies}=useTaxonomy();
   const router = useRouter();
+  useEffect(()=>{
+    const root=gallery.current;
+    if(!root)return;
+    const cards=Array.from(root.querySelectorAll<HTMLElement>(':scope > .project'));
+    // Size rows from rendered media, including images that finish loading later.
+    root.dataset.layout='masonry';
+    const resize=()=>cards.forEach(card=>{card.style.gridRowEnd=`span ${Math.ceil((card.getBoundingClientRect().height+28)/8)}`;});
+    const observer=new ResizeObserver(resize);
+    cards.forEach(card=>observer.observe(card));resize();
+    return()=>observer.disconnect();
+  },[items]);
+
+  const gallery = useRef<HTMLDivElement>(null);
   const heroSearch = useRef<HTMLFormElement>(null);
   const [q, setQ] = useState(filters.q);
   const [category,setCategory]=useState(filters.category),[technology,setTechnology]=useState(filters.technology);
@@ -63,8 +76,8 @@ export default function Explore({ items, preview, totalItems, totalPages, filter
     </div>
     <div className="discovery-heading"><div><h2>Explore independent work</h2><p>Real projects, ready to explore.</p></div>{preview&&<p className="market-sample">Projects are illustrative. <Link href="/preview/workspace">Try the workspace →</Link></p>}</div>
     {error && <p role="alert" className="error">{error}</p>}
-    <div className="grid" aria-busy={pending}>{items.map((p, i) => <article className="project" key={p.id}>
-      <div className="project-media"><Link href={'/products/'+p.slug} className={'thumbnail tone-'+p.category.toLowerCase()}><Preview product={p}/></Link><button className="iconbutton project-save" disabled={saving===p.id||!savedReady} aria-label={(saved.includes(p.id)?'Unsave ':'Save ')+p.title} aria-pressed={saved.includes(p.id)} onClick={()=>save(p.id)}><Bookmark size={18} fill={saved.includes(p.id)?'currentColor':'none'}/></button></div>
+    <div ref={gallery} className="demo-gallery" aria-label="Project demos" aria-busy={pending}>{items.map((p) => <article className="project" key={p.id}>
+      <div className="project-media"><Link href={'/products/'+p.slug} className={'thumbnail tone-'+p.category.toLowerCase()}><Preview product={p} naturalAspect/></Link><button className="iconbutton project-save" disabled={saving===p.id||!savedReady} aria-label={(saved.includes(p.id)?'Unsave ':'Save ')+p.title} aria-pressed={saved.includes(p.id)} onClick={()=>save(p.id)}><Bookmark size={18} fill={saved.includes(p.id)?'currentColor':'none'}/></button></div>
       <div className="cardtitle"><h2><Link href={'/products/'+p.slug}>{p.title}</Link></h2></div>
       <p className="project-meta">{p.category} · {p.technology.split(',')[0]}</p>
       <div className="byline"><span className="avatar" aria-hidden="true">{p.builder.split(' ').map(x=>x[0]).join('')}</span><Link href={'/builders/'+p.builderSlug}>{p.builder}</Link><Link className="project-view" href={'/products/'+p.slug}>View project <ArrowUpRight size={13}/></Link></div>
