@@ -36,7 +36,8 @@ test('design preview is excluded from search indexing',async()=>{
 
 test('featured project stack remains available when collection filters have no matches',async()=>{
  const {html}=await page('/?q=nonexistentquantumservice');
- assert.equal((html.match(/class="stack-card stack-card-/g)||[]).length,3);
+ assert.equal((html.match(/class="stack-card stack-card-/g)||[]).length,2);
+ assert.doesNotMatch(html,/Pause animation|Play animation/);
  assert.match(html,/Featured project demos/);
  assert.match(html,/href="#project-collection"/);
  assert.match(html,/No|We couldn’t find an exact match/);
