@@ -144,8 +144,11 @@ const proof=(await api('/api/v1/admin/trust')).verifications.find(v=>v.product_i
 assert.ok(proof?.challenge,'Repository request must reach the administrator queue');
 await api(`/api/v1/admin/verifications/${project.id}/approve`,{reason:'Disposable CI fixture simulates a manual evidence review.'});
 assert.equal((await visitor('/api/v1/products/'+project.slug)).repositoryVerified,true);
+assert.ok((await api('/api/v1/admin/trust')).verified.some(v=>v.product_id===project.id),'Verified evidence must be discoverable for revocation');
 await api(`/api/v1/admin/verifications/${project.id}/revoke`,{reason:'Disposable CI fixture checks removal of repository evidence.'});
 assert.equal((await visitor('/api/v1/products/'+project.slug)).repositoryVerified,false);
+assert.ok(!(await api('/api/v1/admin/trust')).verified.some(v=>v.product_id===project.id));
+await api(`/api/v1/admin/verifications/${project.id}/revoke`,{reason:'Repeated revocation must be rejected.'},'POST',409);
 assert.equal((await api(`/api/v1/admin/earned-capacity/${inquiry.id}`,{reason:'Client-confirmed CI completion reviewed for capacity.'})).awarded,true);
 assert.equal((await api(`/api/v1/admin/earned-capacity/${inquiry.id}`,{reason:'Duplicate CI award must leave entitlement unchanged.'})).awarded,false);
 assert.equal((await builder('/api/v1/developer/trust')).activeSlotLimit,4);

@@ -4,6 +4,8 @@ import java.net.*;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.concurrent.*;
+import jakarta.annotation.PreDestroy;
 import javax.net.ssl.*;
 import org.springframework.stereotype.Component;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,6 +15,16 @@ import org.springframework.jdbc.core.JdbcTemplate;
 /** HEAD-only probe. Connects to a validated address, with TLS bound to the original hostname. */
 @Component class DemoHealth {
  final JdbcTemplate db;
+ final ThreadPoolExecutor dns=new ThreadPoolExecutor(0,1,30,TimeUnit.SECONDS,new SynchronousQueue<>(),task->{Thread t=new Thread(task,"demo-health-dns");t.setDaemon(true);return t;},new ThreadPoolExecutor.AbortPolicy());
+ @PreDestroy void close(){dns.shutdownNow();}
+ static InetAddress[] resolve(ThreadPoolExecutor executor,Callable<InetAddress[]> lookup,long timeoutMillis)throws IOException{
+  Future<InetAddress[]> task;
+  try{task=executor.submit(lookup);}catch(RejectedExecutionException e){throw new IOException("DNS resolver busy",e);}
+  try{return task.get(timeoutMillis,TimeUnit.MILLISECONDS);}
+  catch(InterruptedException e){Thread.currentThread().interrupt();throw new IOException("DNS interrupted",e);}
+  catch(ExecutionException|TimeoutException e){throw new IOException("DNS failed or timed out",e);}
+  finally{task.cancel(true);}
+ }
  @Value("${app.demo-health-enabled:false}") boolean enabled;
  DemoHealth(JdbcTemplate db){this.db=db;}
  static URI target(String raw){
@@ -22,7 +34,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
  static String classify(int status){if(status>=200&&status<400)return "REACHABLE";if(Set.of(401,403,405,429).contains(status))return "BLOCKED";return "UNREACHABLE";}
  String probe(String raw){
   try{URI u=target(raw);for(int hop=0;hop<3;hop++){
-   var addresses=InetAddress.getAllByName(u.getHost());validateAddresses(addresses);
+   String host=u.getHost();var addresses=resolve(dns,()->InetAddress.getAllByName(host),3000);validateAddresses(addresses);
    try(Socket tcp=new Socket()){
     tcp.connect(new InetSocketAddress(addresses[0],443),3000);tcp.setSoTimeout(3000);
     try(SSLSocket ssl=(SSLSocket)((SSLSocketFactory)SSLSocketFactory.getDefault()).createSocket(tcp,u.getHost(),443,true)){

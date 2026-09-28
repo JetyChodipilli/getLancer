@@ -6,6 +6,17 @@ import java.net.*;import java.io.*;import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 class TrustTest {
+ @Test void dnsLookupIsBoundedAndDoesNotQueueStuckResolvers()throws Exception{
+  var worker=new DemoHealth(mock(JdbcTemplate.class));var started=new java.util.concurrent.CountDownLatch(1);var release=new java.util.concurrent.CountDownLatch(1);
+  try{
+   assertThrows(IOException.class,()->DemoHealth.resolve(worker.dns,()->{started.countDown();while(release.getCount()>0){try{release.await();}catch(InterruptedException ignored){}}return new InetAddress[0];},1000));
+   assertEquals(0,started.getCount());
+   assertThrows(IOException.class,()->DemoHealth.resolve(worker.dns,()->new InetAddress[0],30));
+   assertEquals(1,worker.dns.getPoolSize());assertEquals(0,worker.dns.getQueue().size());
+  }finally{release.countDown();worker.close();}
+  var healthy=new DemoHealth(mock(JdbcTemplate.class));try{assertEquals(1,DemoHealth.resolve(healthy.dns,()->new InetAddress[]{InetAddress.getByAddress(new byte[]{8,8,8,8})},1000).length);}finally{healthy.close();}
+ }
+
  @Test void githubEvidenceRequiresExactRepositoryOrigin(){for(String u:List.of("https://github.com.evil.test/a/b","https://github.com@evil.test/a/b","http://github.com/a/b","https://github.com/a/b/tree/main","https://github.com/a/b?token=x"))assertFalse(TrustController.githubRepository(u));assertTrue(TrustController.githubRepository("https://github.com/team/project"));}
  @Test void demoTargetsRejectCredentialsPrivateSchemesAndPorts(){for(String u:List.of("http://example.com","https://localhost","https://127.0.0.1","https://[::1]","https://foo.internal","https://user:pass@example.com","https://example.com:8443"))assertThrows(IllegalArgumentException.class,()->DemoHealth.target(u));assertEquals("example.com",DemoHealth.target("https://example.com/demo").getHost());}
  @Test void mixedDnsResponsesAreRejected()throws Exception{assertThrows(IllegalArgumentException.class,()->DemoHealth.validateAddresses(new InetAddress[]{InetAddress.getByAddress(new byte[]{8,8,8,8}),InetAddress.getByAddress(new byte[]{127,0,0,1})}));}
