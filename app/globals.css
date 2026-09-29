@@ -347,8 +347,8 @@ body{font-family:Inter,system-ui,-apple-system,'Segoe UI',sans-serif;background:
 @media(max-width:1000px){.marketplace>.demo-gallery{columns:2;column-gap:20px}}
 @media(max-width:640px){.marketplace>.demo-gallery{columns:1}.marketplace .demo-gallery .tone-education{padding:24px 38px}}
 
-.marketplace>.demo-gallery[data-layout=masonry]{display:grid;columns:auto;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:8px;column-gap:24px;row-gap:0;align-items:start;}
-.marketplace>.demo-gallery[data-layout=masonry]>.project{margin:0;}
-@media(min-width:1600px){.marketplace>.demo-gallery[data-layout=masonry]{grid-template-columns:repeat(4,minmax(0,1fr))}}
-@media(max-width:1000px){.marketplace>.demo-gallery[data-layout=masonry]{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:20px}}
-@media(max-width:640px){.marketplace>.demo-gallery[data-layout=masonry]{display:block}.marketplace>.demo-gallery[data-layout=masonry]>.project{margin-bottom:28px}}
+.marketplace>.demo-gallery{--demo-columns:4;position:relative;}
+.marketplace>.demo-gallery[data-layout=masonry]{display:block;columns:auto;}
+.marketplace>.demo-gallery[data-layout=masonry]>.project{position:absolute;margin:0;}
+@media(max-width:1000px){.marketplace>.demo-gallery{--demo-columns:2;}}
+@media(max-width:640px){.marketplace>.demo-gallery{--demo-columns:1;}}

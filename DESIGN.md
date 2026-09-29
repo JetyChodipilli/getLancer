@@ -20,3 +20,6 @@ Remove the visible hero pause/play UI and perpetual cycling. Two hero cards ente
 
 ## Gallery update — mixed-format demos
 Reference: https://godly.design/ (observed 28 September 2026). Equal-width masonry columns, variable-height media, compact metadata. Gallery only: existing brand, hero, search and navigation stay unchanged. Four columns on desktop, two on tablet and one on mobile. Source screenshots render at their native aspect ratio without cropping; portrait source images remain vertical. Illustrative Learnspace demonstrates a mobile interface. Measured masonry row spans preserve DOM/source order and adapt after images load. CSS columns provide the no-JavaScript fallback. Filtering/sorting retain their existing result order. No third-party demo assets copied.
+
+### Staggered placement correction
+Four independent desktop columns begin at offsets 0/64/24/96px, then each next card occupies the shortest column. Cards use measured content height rather than equal rows. The unfiltered illustrative collection places its mobile preview second so the format mix is visible immediately. Real results and explicit filters/sorts retain source order. ResizeObserver handles width changes and late image loads; mobile becomes one unshifted column.

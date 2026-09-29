@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Search, Bookmark, ArrowUpRight, ArrowRight, X, Grid2X2, Layers, Users, MessageCircle } from 'lucide-react';
@@ -17,17 +17,40 @@ import type { Catalog } from '@/lib/server';
 export default function Explore({ items, preview, totalItems, totalPages, filters, featured }: Catalog & {featured:Catalog['items']}) {
  const {categories,technologies}=useTaxonomy();
   const router = useRouter();
+  // Curate the unfiltered sample collection; real search/sort order stays intact.
+  const galleryItems=useMemo(()=>{
+    if(!preview||filters.q||filters.category||filters.technology||filters.sort!=='relevance')return items;
+    const portrait=items.find(p=>p.previewFormat==='portrait');
+    if(!portrait)return items;
+    const rest=items.filter(p=>p.id!==portrait.id);
+    return [...rest.slice(0,1),portrait,...rest.slice(1)];
+  },[items,preview,filters.q,filters.category,filters.technology,filters.sort]);
   useEffect(()=>{
     const root=gallery.current;
     if(!root)return;
     const cards=Array.from(root.querySelectorAll<HTMLElement>(':scope > .project'));
-    // Size rows from rendered media, including images that finish loading later.
-    root.dataset.layout='masonry';
-    const resize=()=>cards.forEach(card=>{card.style.gridRowEnd=`span ${Math.ceil((card.getBoundingClientRect().height+28)/8)}`;});
-    const observer=new ResizeObserver(resize);
-    cards.forEach(card=>observer.observe(card));resize();
-    return()=>observer.disconnect();
-  },[items]);
+    let frame=0,lastWidth=-1;
+    const layout=()=>{
+      const columns=Number(getComputedStyle(root).getPropertyValue('--demo-columns'))||4;
+      const gap=24,width=(root.clientWidth-gap*(columns-1))/columns;
+      const heights=columns===1?[0]:columns===2?[0,48]:[0,64,24,96];
+      root.dataset.layout='masonry';
+      cards.forEach(card=>{card.style.width=`${width}px`;});
+      cards.forEach(card=>{
+        const column=heights.indexOf(Math.min(...heights));
+        card.style.left=`${column*(width+gap)}px`;
+        card.style.top=`${heights[column]}px`;
+        heights[column]+=card.getBoundingClientRect().height+28;
+      });
+      root.style.height=`${cards.length?Math.max(...heights)-28:0}px`;
+    };
+    const schedule=()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(layout);};
+    const observer=new ResizeObserver(entries=>{
+      if(entries.some(e=>e.target!==root||e.contentRect.width!==lastWidth)){lastWidth=root.clientWidth;schedule();}
+    });
+    observer.observe(root);cards.forEach(card=>observer.observe(card));layout();
+    return()=>{observer.disconnect();cancelAnimationFrame(frame);};
+  },[galleryItems]);
 
   const gallery = useRef<HTMLDivElement>(null);
   const heroSearch = useRef<HTMLFormElement>(null);
@@ -76,7 +99,7 @@ export default function Explore({ items, preview, totalItems, totalPages, filter
     </div>
     <div className="discovery-heading"><div><h2>Explore independent work</h2><p>Real projects, ready to explore.</p></div>{preview&&<p className="market-sample">Projects are illustrative. <Link href="/preview/workspace">Try the workspace →</Link></p>}</div>
     {error && <p role="alert" className="error">{error}</p>}
-    <div ref={gallery} className="demo-gallery" aria-label="Project demos" aria-busy={pending}>{items.map((p) => <article className="project" key={p.id}>
+    <div ref={gallery} className="demo-gallery" aria-label="Project demos" aria-busy={pending}>{galleryItems.map((p) => <article className="project" key={p.id}>
       <div className="project-media"><Link href={'/products/'+p.slug} className={'thumbnail tone-'+p.category.toLowerCase()}><Preview product={p} naturalAspect/></Link><button className="iconbutton project-save" disabled={saving===p.id||!savedReady} aria-label={(saved.includes(p.id)?'Unsave ':'Save ')+p.title} aria-pressed={saved.includes(p.id)} onClick={()=>save(p.id)}><Bookmark size={18} fill={saved.includes(p.id)?'currentColor':'none'}/></button></div>
       <div className="cardtitle"><h2><Link href={'/products/'+p.slug}>{p.title}</Link></h2></div>
       <p className="project-meta">{p.category} · {p.technology.split(',')[0]}</p>
