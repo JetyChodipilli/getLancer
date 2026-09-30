@@ -8,6 +8,7 @@ The API is a Java 17 / Spring Boot modular monolith with PostgreSQL and Flyway. 
 | `admin` | Protected administrative review, taxonomy, account and inquiry actions |
 | `analytics` | Event intake, context validation and reporting |
 | `auth` | Signup/login, verification/reset, MFA, sessions and OAuth providers |
+| `business` | Business membership, private briefs, talent lists, evidence matching and opted-in concierge sourcing |
 | `config` | Environment validation and sole-administrator bootstrap |
 | `inquiries` | Builder/client requests, shared outcomes, reviews and confirmation contracts |
 | `jobs` | Scheduled expiry and retention tasks |
@@ -25,7 +26,7 @@ HTTP controllers own route/parameter/status annotations and delegate to applicat
 
 Controllers never inject another controller or JdbcTemplate. Cross-feature calls use explicit service or policy methods. Tests follow their owning feature; PostgreSQL scenarios live in `integration`, database reset guards in `testing`, and boundary/route checks in `architecture`.
 
-Run `mvn -B -f backend/pom.xml verify` with the guarded disposable `getlancer_test` configuration described in the root README. BackendArchitectureTest checks feature placement, controller/service boundaries and the preserved 121-route HTTP contract. Flyway migrations and request/response schemas are unchanged by this structural refactor.
+Run `mvn -B -f backend/pom.xml verify` with the guarded disposable `getlancer_test` configuration described in the root README. BackendArchitectureTest checks feature placement, controller/service boundaries and the 145-route HTTP contract (121 existing routes plus 24 V2.5 routes). V13 adds private business hiring tables without changing existing V1–V2 routes.
 
 The cloud Site publishes the demo frontend with `DEMO_MODE=true` while BACKEND_URL is absent. The real frontend, this Java service, migrations, tests and container manifests are maintained together in GitHub. Configuring BACKEND_URL always selects the real frontend and disables the sample workspace routes; use `DEMO_MODE=false` to also reject a missing backend URL.
 
