@@ -161,7 +161,8 @@ public class TeamService {
   public Map<String, Object> create(Map<String, Object> b, HttpServletRequest r) {
     UUID u = security.developer(r, true);
     if (db.queryForObject(
-            "SELECT count(*) FROM products WHERE owner_user_id=? AND approval_status='APPROVED'",
+            "SELECT count(*) FROM products WHERE owner_user_id=? AND approval_status='APPROVED' AND"
+                + " lifecycle_status<>'SUSPENDED'",
             Integer.class,
             u)
         == 0)

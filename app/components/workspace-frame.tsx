@@ -4,7 +4,7 @@ import { ArrowUpRight, BriefcaseBusiness, ChevronDown, Compass, FlaskConical, La
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
-type Section = 'personal' | 'trust' | 'teams';
+type Section = 'personal' | 'trust' | 'teams' | 'business';
 
 export function WorkspaceFrame({ children, title, description, section, preview = false, actions, className }: {
   children: ReactNode; title: string; description: string; section: Section;
@@ -15,6 +15,7 @@ export function WorkspaceFrame({ children, title, description, section, preview 
     { section: 'personal', title: 'Personal workspace', href: preview ? root + '/workspace' : root, Icon: BriefcaseBusiness },
     { section: 'trust', title: 'Trust & reliability', href: root + '/trust', Icon: ShieldCheck },
     { section: 'teams', title: 'Teams & studios', href: root + '/teams', Icon: Users },
+    { section: 'business', title: 'Business hiring', href: root + '/business', Icon: BriefcaseBusiness },
   ];
   return <main id="main" className={cn('studio-shell', className)}>
     <aside className="studio-rail" aria-label="Workspace navigation">
@@ -24,7 +25,7 @@ export function WorkspaceFrame({ children, title, description, section, preview 
       <div className="studio-rail-foot"><LifeBuoy size={18} aria-hidden="true" /><div><strong>A little guidance?</strong><Link href="/how-it-works">See how getLancer works <ArrowUpRight size={12} aria-hidden="true" /></Link></div></div>
     </aside>
     <div className="studio-body">
-      <header className="studio-page-head"><div><p className="studio-breadcrumb">Workspace <span>/</span> {section === 'personal' ? 'Personal' : section === 'trust' ? 'Trust & reliability' : 'Teams & studios'}</p><h1>{title}</h1><p className="studio-description">{description}</p></div>{actions && <div className="studio-head-actions">{actions}</div>}</header>
+      <header className="studio-page-head"><div><p className="studio-breadcrumb">Workspace <span>/</span> {section === 'personal' ? 'Personal' : section === 'trust' ? 'Trust & reliability' : section === 'business' ? 'Business hiring' : 'Teams & studios'}</p><h1>{title}</h1><p className="studio-description">{description}</p></div>{actions && <div className="studio-head-actions">{actions}</div>}</header>
       {children}
     </div>
   </main>;

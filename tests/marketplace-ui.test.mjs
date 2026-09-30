@@ -54,3 +54,8 @@ test('V2 routes expose teams, workspace and isolated preview entry points',async
  const preview=await page('/preview/teams');assert.equal(preview.response.status,200);assert.match(preview.html,/Interactive team preview/);assert.match(preview.html,/No real accounts/);assert.match(preview.html,/Preview actor/);
  const workspace=await page('/workspace/teams');assert.equal(workspace.response.status,200);assert.match(workspace.html,/Better work, together/);
 });
+
+test('V2.5 real and sample business routes remain distinct and private',async()=>{
+ const preview=await page('/preview/business');assert.equal(preview.response.status,200);assert.match(preview.html,/Interactive business preview/);assert.match(preview.html,/Sample data only/);
+ const real=await page('/workspace/business');assert.equal(real.response.status,200);assert.doesNotMatch(real.html,/Interactive business preview|Meridian Labs|Customer approval portal/);assert.match(real.html,/Loading business workspace/);assert.match(real.html,/noindex/);
+});
