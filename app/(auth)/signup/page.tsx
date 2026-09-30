@@ -1,2 +1,3 @@
 import {AuthForm} from '../../components/auth-form';
-export default function Page(){return <AuthForm signup/>}
+import {backendOrigin} from '@/lib/server';
+export default async function Page(){return <AuthForm signup preview={!(await backendOrigin())}/>}

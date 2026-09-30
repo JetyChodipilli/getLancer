@@ -1,2 +1,4 @@
 import TeamWorkspace from '@/app/components/team-workspace';
-export default function TeamsPreviewPage(){return <TeamWorkspace demo/>}
+import {backendOrigin} from '@/lib/server';
+import {redirect} from 'next/navigation';
+export default async function TeamsPreviewPage(){if(await backendOrigin())redirect('/workspace/teams');return <TeamWorkspace demo/>}

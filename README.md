@@ -60,13 +60,15 @@ Configure these server-only frontend settings when connecting the backend:
 | Variable | Purpose |
 |---|---|
 | `BACKEND_URL` | HTTPS origin of the Spring API |
-| `DEMO_MODE` | `true` for the cloud demo; `false` for a connected frontend. Demo mode ignores BACKEND_URL. |
+| `DEMO_MODE` | `true` permits the frontend-only preview when BACKEND_URL is absent. A configured BACKEND_URL always selects real services, even with this flag still true. `false` requires BACKEND_URL and fails if it is missing. |
 | `APP_BASE_URL` | Exact frontend origin; must also match the backend setting |
 | `INDEX_PUBLIC_PAGES` | Keep `false` until public-release gates pass |
 
 The browser uses same-origin `/api/v1` requests. Database, email and storage secrets never enter client code. A configured but unavailable API returns an error rather than substituting sample listings.
 
-Without a backend, six fictional projects and a labelled workspace preview are available for design review. Account/inquiry actions are unavailable. The fictional workspace route is disabled when a backend is configured.
+Without a backend, six fictional projects and labelled workspace previews are available for design review. Account/inquiry actions are unavailable. When BACKEND_URL is configured, all three `/preview/*` routes redirect to their real `/workspace/*` counterparts. API failures and empty databases never trigger sample data or demo invitations. Clear BACKEND_URL only when intentionally returning to the frontend-only preview.
+
+The Java runtime has no demo mode, sample users, sample projects, fake sessions or in-memory marketplace adapter. Flyway inserts supported taxonomy values only. Bootstrap creates the configured real administrator with a BCrypt password and TOTP; it does not seed listings or teams. Test fixtures and Mockito are confined to `src/test` and are excluded from the production JAR. `DemoHealth` is the real outbound reachability check for builders' live project URLs.
 
 ## Core invariants
 

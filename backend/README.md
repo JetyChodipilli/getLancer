@@ -27,4 +27,6 @@ Controllers never inject another controller or JdbcTemplate. Cross-feature calls
 
 Run `mvn -B -f backend/pom.xml verify` with the guarded disposable `getlancer_test` configuration described in the root README. BackendArchitectureTest checks feature placement, controller/service boundaries and the preserved 121-route HTTP contract. Flyway migrations and request/response schemas are unchanged by this structural refactor.
 
-The cloud Site publishes the demo frontend with `DEMO_MODE=true`. The real frontend, this Java service, migrations, tests and container manifests are maintained together in GitHub. Set `DEMO_MODE=false` and configure BACKEND_URL for a connected frontend deployment.
+The cloud Site publishes the demo frontend with `DEMO_MODE=true` while BACKEND_URL is absent. The real frontend, this Java service, migrations, tests and container manifests are maintained together in GitHub. Configuring BACKEND_URL always selects the real frontend and disables the sample workspace routes; use `DEMO_MODE=false` to also reject a missing backend URL.
+
+Java has no demo mode or fake data adapter. Its runtime reads and writes PostgreSQL, delivers mail through SMTP and stores proof files through S3. Test fixtures and mocks live only under `src/test` and test dependencies do not enter the production JAR. Fresh deployments contain taxonomy values and the configured administrator only, with no fabricated users, products, teams or reviews. `DemoHealth` monitors actual builders' live project URLs.

@@ -12,6 +12,9 @@ assert.equal(env.ADMIN_EMAIL,'ci-admin@example.test','Use the synthetic CI admin
 const query=sql=>execFileSync('docker',['compose','exec','-T','db','psql','-U','postgres','-d','getLancer','-Atc',sql],{encoding:'utf8'}).trim();
 assert.equal(query('SELECT current_database()'),'getLancer');
 assert.equal(query("SELECT count(*) FROM getlancer.user_roles WHERE role='ADMIN'"),'1');
+assert.equal(query('SELECT count(*) FROM getlancer.users'),'1','Startup creates only the configured administrator, never sample accounts.');
+assert.equal(query('SELECT count(*) FROM getlancer.products'),'0','Startup must not seed sample projects.');
+assert.equal(query('SELECT count(*) FROM getlancer.teams'),'0','Startup must not seed sample teams.');
 const migrationFiles=readdirSync(new URL('../backend/src/main/resources/db/migration/',import.meta.url)).filter(name=>/^V[^_]+__.*\.sql$/.test(name)).sort();
 const appliedFiles=query("SELECT script FROM getlancer.flyway_schema_history WHERE success AND type='SQL' ORDER BY script").split('\n').sort();
 assert.deepEqual(appliedFiles,migrationFiles,'Every versioned migration must be applied exactly once.');
@@ -29,6 +32,9 @@ function session(){
 const api=session(),builder=session(),client=session(),visitor=session();
 assert.equal((await api('/actuator/health/readiness')).status,'UP');
 assert.equal((await api('/api/v1/auth/providers')).google,false);
+assert.deepEqual((await visitor('/api/v1/products')).items,[],'A real empty database returns no sample listings.');
+assert.deepEqual((await visitor('/api/v1/teams')).items,[],'A real empty database returns no sample teams.');
+await visitor('/api/v1/me',undefined,'GET',401);
 assert.equal((await api('/api/v1/auth/login',{email:env.ADMIN_EMAIL,password:env.ADMIN_BOOTSTRAP_PASSWORD})).mfaRequired,true);
 // RFC 6238, matching the backend's SHA-1 / six digit / 30 second authenticator.
 const bits=[...env.ADMIN_TOTP_SECRET].map(c=>'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'.indexOf(c).toString(2).padStart(5,'0')).join('');

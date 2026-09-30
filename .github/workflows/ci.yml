@@ -28,6 +28,18 @@ jobs:
           TEST_DB_PASSWORD: ci-only
           APP_BASE_URL: http://localhost:3000
           SECURE_COOKIES: 'false'
+      - name: Verify production JAR excludes test mocks and frontend simulations
+        run: |
+          python3 - <<'PY'
+          from zipfile import ZipFile
+          with ZipFile('backend/target/getlancer-api-1.0.0-SNAPSHOT.jar') as jar:
+              entries = jar.namelist()
+          assert 'BOOT-INF/classes/com/getlancer/Application.class' in entries
+          assert not any(name.startswith('BOOT-INF/lib/') and any(tag in name for tag in ('mockito', 'junit', 'spring-boot-test', 'spring-test')) for name in entries), 'Test dependencies leaked into the runtime JAR'
+          assert not any(name.startswith('BOOT-INF/classes/com/getlancer/') and ('Test.class' in name or '/testing/' in name or '/integration/' in name or '/architecture/' in name) for name in entries), 'Test fixtures leaked into runtime classes'
+          assert not any(tag in name for name in entries for tag in ('demo-state', 'team-demo', 'workspace-preview')), 'Frontend simulations leaked into the Java artifact'
+          print('Production Java artifact contains application code and runtime dependencies only.')
+          PY
   frontend:
     runs-on: ubuntu-latest
     steps:
@@ -38,7 +50,14 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm run build
       - run: node --experimental-strip-types --test tests/*.test.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-server-${{ github.sha }}
+          path: dist/server
+          if-no-files-found: error
+          retention-days: 1
   docker-startup:
+    needs: frontend
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -47,6 +66,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: {node-version: '22'}
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-server-${{ github.sha }}
+          path: dist/server
       - name: Prepare synthetic local credentials
         run: |
           node scripts/setup-local.mjs --docker
@@ -61,8 +84,12 @@ jobs:
           cp .env .env.staging
           BACKEND_IMAGE=getlancer-api:ci-validation DB_CA_FILE=/tmp/ci-postgres-ca.crt docker compose --env-file .env -f compose.staging.yaml config --quiet
       - run: docker compose up -d --build --wait --wait-timeout 240
+      - name: Verify connected production frontend against the empty Java database
+        run: node scripts/verify-connected-frontend.mjs
       - name: Verify connected V1 journeys and database recovery
         run: node scripts/smoke-docker.mjs
+      - name: Verify connected frontend after real service journeys
+        run: node scripts/verify-connected-frontend.mjs
       - name: Rehearse encrypted database restore in disposable CI
         run: node scripts/verify-restore-ci.mjs
       - name: Show startup diagnostics on failure
