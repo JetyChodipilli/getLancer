@@ -229,7 +229,7 @@ class BusinessIntegrationTest {
     UUID r = request("OPEN");
     String path = root() + "/requests/" + r + "/matches";
     mvc.perform(as(get(path), "owner")).andExpect(jsonPath("$.items.length()").value(2));
-    db.update("UPDATE products SET visibility='PRIVATE' WHERE id=?", product);
+    db.update("UPDATE products SET visibility='PRIVATE_CASE_STUDY' WHERE id=?", product);
     mvc.perform(as(get(path), "owner")).andExpect(jsonPath("$.items.length()").value(0));
     db.update("UPDATE products SET visibility='PUBLIC' WHERE id=?", product);
     db.update("UPDATE developer_profiles SET approval_status='SUSPENDED' WHERE user_id=?", builder);
@@ -312,7 +312,7 @@ class BusinessIntegrationTest {
         .andExpect(status().isOk());
     mvc.perform(json(post(path + "/shortlist"), "admin", candidate())).andExpect(status().isOk());
     assertEquals(1, db.queryForObject("SELECT count(*) FROM request_shortlist", Integer.class));
-    db.update("UPDATE products SET visibility='PRIVATE' WHERE id=?", product);
+    db.update("UPDATE products SET visibility='PRIVATE_CASE_STUDY' WHERE id=?", product);
     mvc.perform(json(patch(path), "admin", "{\"status\":\"FULFILLED\"}"))
         .andExpect(status().isConflict());
     db.update("UPDATE products SET visibility='PUBLIC' WHERE id=?", product);

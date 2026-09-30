@@ -37,7 +37,7 @@ jobs:
           assert 'BOOT-INF/classes/com/getlancer/Application.class' in entries
           assert not any(name.startswith('BOOT-INF/lib/') and any(tag in name for tag in ('mockito', 'junit', 'spring-boot-test', 'spring-test')) for name in entries), 'Test dependencies leaked into the runtime JAR'
           assert not any(name.startswith('BOOT-INF/classes/com/getlancer/') and ('Test.class' in name or '/testing/' in name or '/integration/' in name or '/architecture/' in name) for name in entries), 'Test fixtures leaked into runtime classes'
-          assert not any(tag in name for name in entries for tag in ('demo-state', 'team-demo', 'workspace-preview')), 'Frontend simulations leaked into the Java artifact'
+          assert not any(tag in name for name in entries for tag in ('demo-state', 'team-demo', 'business-demo', 'workspace-preview')), 'Frontend simulations leaked into the Java artifact'
           print('Production Java artifact contains application code and runtime dependencies only.')
           PY
   frontend:
