@@ -52,6 +52,33 @@ class MarketplaceIntegrationTest {
   UUID owner, other, product;
   String session;
 
+  @Test
+  void configuredAdministratorDoesNotSeedDemoMarketplaceRecords() throws Exception {
+    db.execute("TRUNCATE users CASCADE");
+    new TransactionTemplate(tm)
+        .executeWithoutResult(
+            tx ->
+                new Bootstrap(
+                        db,
+                        "operator@example.test",
+                        "test-only-strong-password-123",
+                        "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567",
+                        "production",
+                        "https://getlancer.example.test",
+                        true)
+                    .run(null));
+    assertEquals(1, db.queryForObject("SELECT count(*) FROM users", Integer.class));
+    assertEquals(0, db.queryForObject("SELECT count(*) FROM products", Integer.class));
+    assertEquals(0, db.queryForObject("SELECT count(*) FROM teams", Integer.class));
+    mvc.perform(get("/api/v1/products"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items").isEmpty());
+    mvc.perform(get("/api/v1/teams"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items").isEmpty());
+    mvc.perform(get("/api/v1/me")).andExpect(status().isUnauthorized());
+  }
+
   @BeforeEach
   void prepare() {
     db.execute("TRUNCATE users CASCADE");
