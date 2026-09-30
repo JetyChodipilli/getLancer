@@ -1,5 +1,5 @@
 'use client';
-import {FormEvent,ReactNode,useEffect,useRef,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import Link from 'next/link';
 import {api} from '@/lib/api';
 import {createTeamDemo} from '@/lib/team-demo';
@@ -9,10 +9,10 @@ import './teams.css';
 import {WorkspaceFrame,PreviewControls,WorkspaceMetrics} from './workspace-frame';
 import {Tabs,TabsList,TabsTrigger,TabsContent} from '@/components/ui/tabs';
 import {Users,BriefcaseBusiness,Layers,Activity,ArrowUpRight} from 'lucide-react';
+import {Field,TeamForm} from './workspace-form';
+export {Field,TeamForm} from './workspace-form';
 export type TeamRequest=(path:string,init?:RequestInit)=>Promise<any>;
 export const human=(s:string='')=>s.toLowerCase().replaceAll('_',' ').replace(/^./,c=>c.toUpperCase());
-export function Field({name,label,value='',type='text',options,required=true}:{name:string,label:string,value?:any,type?:string,options?:{value:string,label:string}[],required?:boolean}){return <label className="team-field">{label}{options?<select name={name} defaultValue={value} required={required}>{options.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select>:type==='textarea'?<textarea name={name} defaultValue={value||''} required={required} maxLength={4000}/>:<input name={name} type={type} defaultValue={value||''} required={required} maxLength={type==='text'?500:undefined}/>}</label>}
-export function TeamForm({children,onSave,label='Save changes',busy=false}:{children:ReactNode,onSave:(data:any)=>Promise<boolean|void>,label?:string,busy?:boolean}){const [error,setError]=useState(''),[pending,setPending]=useState(false);return <form className="team-form" onSubmit={async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();const form=e.currentTarget;setError('');setPending(true);try{await onSave(Object.fromEntries(new FormData(form)))}catch(e){setError((e as Error).message)}finally{setPending(false)}}}><fieldset disabled={pending||busy}>{children}<div>{error&&<p role="alert" className="team-error">{error}</p>}<button className="button primary" disabled={pending||busy}>{pending?'Saving…':label}</button></div></fieldset></form>}
 const opts=(values:string[])=>values.map(value=>({value,label:human(value)}));
 const roles=['MEMBER','BUSINESS_MANAGER','RECRUITER','PROJECT_MANAGER'];
 const blank={items:[],invitations:[],applications:[],requests:[]};
@@ -25,7 +25,7 @@ export default function TeamWorkspace({demo=false}:{demo?:boolean}){
  async function mutate(path:string,body:any={},method='POST'){setBusy(true);setError('');setMessage('');try{const result=await request(path,{method,body:JSON.stringify(body)});setMessage('Changes saved.');await load(path==='/teams'?result.id:selected);return true}catch(e){setError((e as Error).message);throw e}finally{setBusy(false)}}
  const act=(path:string,body:any={},method='POST')=>{void mutate(path,body,method).catch(()=>{})};
  const role=workspace?.myRole;const owner=role==='OWNER';const recruit=owner||role==='RECRUITER';const commercial=owner||role==='BUSINESS_MANAGER';const staffing=owner||role==='PROJECT_MANAGER';const base='/teams/'+selected;
- const active=workspace?.team.status==='ACTIVE';const canCreate=me?.emailVerified&&me?.profile?.approval_status==='APPROVED'&&products.some(p=>p.approvalStatus==='APPROVED');
+ const active=workspace?.team.status==='ACTIVE';const canCreate=!!(index as any).canCreate;
  const tabs=['Overview','Members','Recruitment',...(commercial?['Leads']:[]),'Projects',...(staffing?['Staffing']:[]),'Activity'];
  return <WorkspaceFrame section="teams" preview={demo} className="teams-page" title="Better work, together." description="A shared home for your studio, your people and the opportunities you build together." actions={<Link href="/teams" className="button">Explore teams <ArrowUpRight size={16} aria-hidden="true"/></Link>}>
  {demo&&<PreviewControls title="Interactive team preview" note="Changes stay in this preview. No real accounts, invitations, email or client requests are created."><label className="team-field">Preview actor<select value={actor} disabled={busy} onChange={e=>{adapter!.setActor(e.target.value);setActor(e.target.value);setTab('Overview');setWorkspace(null);setCandidates([]);setMe(null);setMessage('');setView('workspace')}}>{adapter!.actors.map(a=><option key={a.id} value={a.id}>{a.name} · {human(a.role)}</option>)}</select></label><button className="button" disabled={busy} onClick={()=>{adapter!.reset();adapter!.setActor(actor);setMessage('Sample data reset.');load('')}}>Reset sample data</button><button className="button" onClick={()=>{setView(view==='public'?'workspace':'public');setPublicId('')}}>{view==='public'?'Open team workspace':'Explore sample teams'}</button></PreviewControls>}

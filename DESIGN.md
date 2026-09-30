@@ -23,6 +23,11 @@ Spacing 4/8/12/16/20/24/32/48px. Controls 8px radius, cards 12px, dialogs 16px. 
 ### Verification
 Check personal, trust, team and public profile screens; open long forms and switch roles/tabs. Check keyboard focus, empty/error/loading states, desktop/tablet/mobile density and no document overflow. Run typecheck, production build and existing frontend/connected-mode tests before release. Configuring BACKEND_URL must continue to disable every preview route and sample fallback.
 
+### Business hiring — V2.5
+Add Business hiring to the same workspace rail. The page has one primary action, a business switcher, four metrics derived from workspace data and four sections: Requests, Saved talent, Hiring team and Activity. Requests use a compact brief chooser beside the selected private brief; evidence and shortlist follow in reading order. At 900px the chooser moves above the brief; at 640px all fields and request cards become one column. Candidate cards show actual evidence reasons and availability wording, with distinct shortlist and named-list actions. No synthetic score, growth chart or implied hiring outcome.
+
+Private-brief forms use labelled 44px controls, bounded scrolling dialogs and native validation. Owners see settings and access management; hiring managers see collaboration actions. Closed briefs are read-only. Unavailable saved candidates display a withdrawal notice and retain their removal action. Concierge is a separate opted-in administrator section, with a required client-visible recommendation reason. Browser acceptance checks device viewport width, rather than an overflow-expanded `window.innerWidth`. Mobile header rules cover both discovery states so CSS selector minification cannot restore desktop navigation on phones.
+
 ## Semantic tokens
 Canvas/surface #FFFFFF; subtle #F6F8FB; ink #18212B; display #101828; muted #657080; border #E1E6EE; primary #175CD3; hover #124AA9; on-primary #FFFFFF; focus #175CD3; success #17634D; warning #805300; danger #B42318. Decorative miniature plates: mint #E0F1EB, peach #FAE9DF, lavender #E4E5FA, sage #DEEBDE. Opaque readable controls; shadows only on search, overlays and hero miniatures. Body text targets 4.5:1 contrast.
 

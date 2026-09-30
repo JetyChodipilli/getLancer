@@ -110,3 +110,11 @@ See [current V1 verification](docs/V1_VERIFICATION_2026-09-15.md) for implemente
 - Client proposal acknowledgment records a reported outcome; terms, payment and contracts remain external.
 
 Start the connected stack with the existing Docker instructions. OAuth is optional and requires provider credentials. A frontend-only preview does not host the Java API or PostgreSQL.
+
+## V2.5 business hiring
+
+`/workspace/business` uses the Java API for business ownership, consent-based hiring-manager invitations, private project requests, shared talent lists and shortlists. Matching reads current approved public builder/team evidence from PostgreSQL. Concierge sourcing requires an explicit request and the existing MFA administrator; it never contacts or hires candidates automatically.
+
+`/preview/business` is a frontend-only in-memory demonstration. Configuring `BACKEND_URL` redirects it to the real workspace and disables every sample fallback, including when Java is unavailable or has no records. Flyway `V13__business_hiring.sql` creates private business tables; it seeds no business or talent records.
+
+See the [V2.5 contract](docs/V2_5_CONTRACT.md) and [acceptance and review record](docs/V2_5_ACCEPTANCE.md). The CI workflow verifies Java/PostgreSQL, connected Docker service journeys, recovery and Chromium layouts at desktop, phone and tablet widths. Backend production deployment remains outside this frontend-only cloud release.

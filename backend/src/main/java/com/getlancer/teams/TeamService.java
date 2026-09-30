@@ -161,7 +161,8 @@ public class TeamService {
   public Map<String, Object> create(Map<String, Object> b, HttpServletRequest r) {
     UUID u = security.developer(r, true);
     if (db.queryForObject(
-            "SELECT count(*) FROM products WHERE owner_user_id=? AND approval_status='APPROVED'",
+            "SELECT count(*) FROM products WHERE owner_user_id=? AND approval_status='APPROVED' AND"
+                + " lifecycle_status<>'SUSPENDED'",
             Integer.class,
             u)
         == 0)
@@ -217,6 +218,8 @@ public class TeamService {
   public Map<String, Object> mine(HttpServletRequest r) {
     UUID u = security.user(r);
     return Map.of(
+        "canCreate",
+        db.queryForObject("SELECT EXISTS(SELECT 1 FROM users u JOIN developer_profiles d ON d.user_id=u.id WHERE u.id=? AND u.email_verified_at IS NOT NULL AND d.approval_status='APPROVED' AND EXISTS(SELECT 1 FROM user_roles ur WHERE ur.user_id=u.id AND ur.role='DEVELOPER') AND EXISTS(SELECT 1 FROM products p WHERE p.owner_user_id=u.id AND p.approval_status='APPROVED' AND p.lifecycle_status<>'SUSPENDED'))", Boolean.class, u),
         "items",
         db
             .queryForList(

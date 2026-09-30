@@ -1,4 +1,4 @@
-name: getLancer validation (V1-V2)
+name: getLancer validation (V1-V2.5)
 on: [push, pull_request]
 jobs:
   backend:
@@ -37,7 +37,7 @@ jobs:
           assert 'BOOT-INF/classes/com/getlancer/Application.class' in entries
           assert not any(name.startswith('BOOT-INF/lib/') and any(tag in name for tag in ('mockito', 'junit', 'spring-boot-test', 'spring-test')) for name in entries), 'Test dependencies leaked into the runtime JAR'
           assert not any(name.startswith('BOOT-INF/classes/com/getlancer/') and ('Test.class' in name or '/testing/' in name or '/integration/' in name or '/architecture/' in name) for name in entries), 'Test fixtures leaked into runtime classes'
-          assert not any(tag in name for name in entries for tag in ('demo-state', 'team-demo', 'workspace-preview')), 'Frontend simulations leaked into the Java artifact'
+          assert not any(tag in name for name in entries for tag in ('demo-state', 'team-demo', 'business-demo', 'workspace-preview')), 'Frontend simulations leaked into the Java artifact'
           print('Production Java artifact contains application code and runtime dependencies only.')
           PY
   frontend:
@@ -50,6 +50,16 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm run build
       - run: node --experimental-strip-types --test tests/*.test.mjs
+      - name: Install Chromium for responsive workspace acceptance
+        run: npx playwright install --with-deps chromium
+      - name: Verify desktop, phone and tablet workspace journeys
+        run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: workspace-browser-evidence-${{ github.sha }}
+          path: test-results
+          retention-days: 7
       - uses: actions/upload-artifact@v4
         with:
           name: frontend-server-${{ github.sha }}
@@ -86,7 +96,7 @@ jobs:
       - run: docker compose up -d --build --wait --wait-timeout 240
       - name: Verify connected production frontend against the empty Java database
         run: node scripts/verify-connected-frontend.mjs
-      - name: Verify connected V1 journeys and database recovery
+      - name: Verify connected V1 through V2.5 journeys and database recovery
         run: node scripts/smoke-docker.mjs
       - name: Verify connected frontend after real service journeys
         run: node scripts/verify-connected-frontend.mjs
