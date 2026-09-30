@@ -14,7 +14,7 @@ The historical [8 September completeness audit](docs/V1_COMPLETENESS_AUDIT.md) r
 ## Structure
 
 - `app/`: discovery, project details, builder profiles, accounts, workspace, client requests and moderation.
-- `backend/`: Java 17 / Spring Boot, PostgreSQL / Flyway, transactional email and S3.
+- `backend/`: Java 17 / Spring Boot, PostgreSQL / Flyway, transactional email and S3, organized into [feature packages with controller/service boundaries](backend/README.md).
 - `lib/`: shared search state, server API configuration, analytics and SEO.
 - `tests/`: frontend route/component checks. `backend/src/test/`: rule and database integration tests.
 - `docs/`: all 17 source specifications and implementation status.
@@ -60,6 +60,7 @@ Configure these server-only frontend settings when connecting the backend:
 | Variable | Purpose |
 |---|---|
 | `BACKEND_URL` | HTTPS origin of the Spring API |
+| `DEMO_MODE` | `true` for the cloud demo; `false` for a connected frontend. Demo mode ignores BACKEND_URL. |
 | `APP_BASE_URL` | Exact frontend origin; must also match the backend setting |
 | `INDEX_PUBLIC_PAGES` | Keep `false` until public-release gates pass |
 

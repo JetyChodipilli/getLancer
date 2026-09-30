@@ -1,0 +1,381 @@
+package com.getlancer.inquiries;
+
+import static com.getlancer.shared.Support.*;
+
+import com.getlancer.analytics.AnalyticsService;
+import com.getlancer.notifications.Mail;
+import com.getlancer.products.ProductRepository;
+import com.getlancer.security.Security;
+import com.getlancer.shared.ApiError;
+import com.getlancer.shared.Pages;
+import com.getlancer.shared.Rules;
+import com.getlancer.shared.Support;
+import jakarta.servlet.http.HttpServletRequest;
+import java.util.*;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.annotation.Transactional;
+
+@org.springframework.stereotype.Service
+public class InquiryService {
+  final JdbcTemplate db;
+  final Security security;
+  final Mail mail;
+
+  public InquiryService(JdbcTemplate db, Security security, Mail mail) {
+    this.db = db;
+    this.security = security;
+    this.mail = mail;
+  }
+
+  @Transactional
+  public Map<String, Object> create(Map<String, Object> b, String key) {
+    UUID product = uuid(b.get("referenceProductId")), idem = key == null ? id() : uuid(key);
+    String e = email(b, "clientEmail"),
+        name = text(b, "clientName", 2, 100),
+        description = text(b, "description", 20, 5000),
+        budget = text(b, "budgetBand", 1, 40),
+        timeline = text(b, "timelineBand", 1, 40),
+        type = text(b, "requestType", 1, 30),
+        company = text(b, "companyName", 0, 150);
+    if (!text(b, "website", 0, 1000).isEmpty())
+      throw new ApiError(429, "RATE_LIMITED", "Unable to submit this request.");
+    if (!Set.of(
+                "UNDER_1K",
+                "USD_1K_3K",
+                "USD_3K_10K",
+                "USD_10K_25K",
+                "USD_25K_PLUS",
+                "NEED_ESTIMATE")
+            .contains(budget)
+        || !Set.of("WITHIN_MONTH", "ONE_TO_THREE_MONTHS", "THREE_TO_SIX_MONTHS", "FLEXIBLE")
+            .contains(timeline)
+        || !Set.of("SIMILAR_BUILD", "CUSTOMIZE", "NEW_BUILD", "CONSULTATION").contains(type))
+      throw new ApiError(
+          400, "VALIDATION_ERROR", "Select valid request, budget and timeline values.");
+    InquiryPolicy.requireSender(db, e);
+    String fingerprint =
+        hash(
+            String.join(
+                "|", product.toString(), e, name, description, budget, timeline, type, company));
+    db.queryForObject(
+        "SELECT pg_advisory_xact_lock(hashtextextended(?,0))", Object.class, idem.toString());
+    var old =
+        db.queryForList("SELECT id,request_hash FROM inquiries WHERE idempotency_key=?", idem);
+    if (!old.isEmpty()) {
+      if (!old.get(0).get("request_hash").equals(fingerprint))
+        throw new ApiError(409, "DUPLICATE_INQUIRY", "This request key was already used.");
+      return Map.of("id", old.get(0).get("id"), "confirmationRequired", true);
+    }
+    db.queryForObject("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", Object.class, e);
+    if (db.queryForObject(
+            "SELECT count(*) FROM inquiries WHERE client_email=? AND created_at>now()-interval '1"
+                + " hour'",
+            Integer.class,
+            e)
+        >= 5)
+      throw new ApiError(429, "RATE_LIMITED", "Please wait before sending another inquiry.");
+    var rows =
+        db.queryForList(
+            ProductRepository.SELECT
+                + " WHERE p.id=? AND "
+                + ProductRepository.PUBLIC
+                + " FOR SHARE OF p,u,d",
+            product);
+    if (rows.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Project unavailable.");
+    var p = rows.get(0);
+    UUID target = (UUID) p.get("owner_user_id");
+    String targetEmail =
+        db.queryForObject("SELECT email FROM users WHERE id=?", String.class, target);
+    if (e.equals(targetEmail))
+      throw new ApiError(409, "CONFLICT", "You cannot send an inquiry to yourself.");
+    if (!Boolean.TRUE.equals(p.get("available_for_similar_work"))
+        || p.get("availability").equals("NOT_ACCEPTING"))
+      throw new ApiError(422, "PRODUCT_NOT_AVAILABLE", "This builder is not accepting inquiries.");
+    if (db.queryForObject(
+            "SELECT count(*) FROM inquiries WHERE reference_product_id=? AND client_email=? AND"
+                + " description=? AND created_at>now()-interval '1 hour'",
+            Integer.class,
+            product,
+            e,
+            description)
+        > 0)
+      throw new ApiError(409, "DUPLICATE_INQUIRY", "A similar inquiry has already been saved.");
+    UUID i = id();
+    db.update(
+        "INSERT INTO"
+            + " inquiries(id,reference_product_id,developer_user_id,client_email,client_name,company_name,request_type,description,budget_band,timeline_band,idempotency_key,request_hash)"
+            + " VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+        i,
+        product,
+        target,
+        e,
+        name,
+        company,
+        type,
+        description,
+        budget,
+        timeline,
+        idem,
+        fingerprint);
+    String source = Objects.toString(b.get("acquisitionSource"), "");
+    if (AnalyticsService.CHANNELS.contains(source))
+      db.update("UPDATE inquiries SET acquisition_source=? WHERE id=?", source, i);
+    db.update(
+        "INSERT INTO inquiry_events(id,inquiry_id,event_type,actor_type)"
+            + " VALUES(?,?,'CREATED','CLIENT')",
+        id(),
+        i);
+    mail.token("CLIENT_INQUIRY_CONFIRMATION", null, i, e);
+    db.update(
+        "INSERT INTO analytics_events(id,event_name,entity_id) VALUES(?,'inquiry_submitted',?)",
+        id(),
+        i);
+    return Map.of("id", i, "confirmationRequired", true);
+  }
+
+  public Map<String, Object> list(HttpServletRequest r) {
+    UUID u = security.developer(r, false);
+    String sql =
+        "SELECT i.id,i.client_name AS \"clientName\",i.client_email AS"
+            + " \"clientEmail\",i.description,i.budget_band AS \"budgetBand\",i.timeline_band AS"
+            + " \"timelineBand\",i.current_status AS status,p.title AS"
+            + " \"projectTitle\",i.updated_at AS \"updatedAt\" FROM inquiries i JOIN products p ON"
+            + " p.id=i.reference_product_id WHERE i.developer_user_id=? AND i.email_confirmed_at IS"
+            + " NOT NULL AND i.moderation_status='CLEAR'";
+    List<Object> args = new ArrayList<>();
+    args.add(u);
+    String status = Objects.toString(r.getParameter("status"), "");
+    if (!status.isBlank()) {
+      if (!Set.of(
+              "INQUIRY_RECEIVED",
+              "RESPONDED",
+              "DISCUSSION",
+              "PROPOSAL_SENT",
+              "HIRE_PENDING_CONFIRMATION",
+              "HIRED",
+              "IN_PROGRESS",
+              "COMPLETION_PENDING_CONFIRMATION",
+              "COMPLETED",
+              "NOT_HIRED")
+          .contains(status))
+        throw new ApiError(400, "VALIDATION_ERROR", "Choose a valid inquiry status.");
+      sql += " AND i.current_status=?";
+      args.add(status);
+    }
+    String product = Objects.toString(r.getParameter("productId"), "");
+    if (!product.isBlank()) {
+      sql += " AND i.reference_product_id=?";
+      args.add(uuid(product));
+    }
+    for (String dateKey : List.of("from", "to")) {
+      String value = Objects.toString(r.getParameter(dateKey), "");
+      if (!value.isBlank()) {
+        try {
+          var date = java.time.LocalDate.parse(value);
+          sql += " AND i.created_at" + (dateKey.equals("from") ? ">=" : "<") + "?";
+          args.add(
+              java.sql.Timestamp.valueOf(
+                  (dateKey.equals("to") ? date.plusDays(1) : date).atStartOfDay()));
+        } catch (java.time.DateTimeException e) {
+          throw new ApiError(400, "VALIDATION_ERROR", "Choose a valid date.");
+        }
+      }
+    }
+    return Pages.query(db, r, sql + " ORDER BY i.updated_at DESC,i.id", args.toArray());
+  }
+
+  public Map<String, Object> detail(UUID id, HttpServletRequest r) {
+    UUID u = security.developer(r, false);
+    var rows =
+        db.queryForList(
+            "SELECT * FROM inquiries WHERE id=? AND developer_user_id=? AND email_confirmed_at IS"
+                + " NOT NULL AND moderation_status='CLEAR'",
+            id,
+            u);
+    if (rows.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Inquiry not found.");
+    var out = new LinkedHashMap<>(rows.get(0));
+    out.remove("idempotency_key");
+    out.remove("request_hash");
+    out.put(
+        "events",
+        db.queryForList(
+            "SELECT event_type,actor_type,created_at FROM inquiry_events WHERE inquiry_id=? ORDER"
+                + " BY created_at,id",
+            id));
+    return out;
+  }
+
+  @Transactional
+  public Map<String, Object> transition(
+      UUID id, String action, Map<String, Object> body, HttpServletRequest r) {
+    UUID u = security.developer(r, false);
+    var rows =
+        db.queryForList(
+            "SELECT * FROM inquiries WHERE id=? AND developer_user_id=? AND email_confirmed_at IS"
+                + " NOT NULL AND moderation_status='CLEAR' FOR UPDATE",
+            id,
+            u);
+    if (rows.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Inquiry not found.");
+    var p = rows.get(0);
+    String next = Rules.transition((String) p.get("current_status"), action);
+    if (action.equals("proposal-sent")
+        && body != null
+        && (body.containsKey("reportedValue") || body.containsKey("currency"))) {
+      var value = proposalValue(body);
+      String currency = text(body, "currency", 3, 3).toUpperCase(Locale.ROOT);
+      try {
+        java.util.Currency.getInstance(currency);
+      } catch (IllegalArgumentException e) {
+        throw new ApiError(400, "VALIDATION_ERROR", "Choose an ISO currency code.");
+      }
+      db.update(
+          "UPDATE inquiries SET reported_value=?,reported_currency=? WHERE id=?",
+          value,
+          currency,
+          id);
+    }
+    db.update("UPDATE inquiries SET current_status=?,updated_at=now() WHERE id=?", next, id);
+    db.update(
+        "INSERT INTO inquiry_events(id,inquiry_id,event_type,actor_id,actor_type)"
+            + " VALUES(?,?,?,?,'DEVELOPER')",
+        Support.id(),
+        id,
+        next,
+        u);
+    if (next.equals("HIRE_PENDING_CONFIRMATION"))
+      mail.token("HIRE_CONFIRMATION", null, id, (String) p.get("client_email"));
+    if (next.equals("COMPLETION_PENDING_CONFIRMATION"))
+      mail.token("COMPLETION_CONFIRMATION", null, id, (String) p.get("client_email"));
+    if (next.equals("RESPONDED") || next.equals("PROPOSAL_SENT"))
+      db.update(
+          "INSERT INTO analytics_events(id,event_name,entity_id) VALUES(?,?,?)",
+          Support.id(),
+          next.equals("RESPONDED") ? "developer_responded" : "proposal_reported",
+          id);
+    mail.notifyClient(
+        (String) p.get("client_email"),
+        "Your builder updated the request to " + next + ". Open My requests to review it.");
+    return Map.of("status", next);
+  }
+
+  @Transactional
+  public Map<String, Object> report(Map<String, Object> b, HttpServletRequest request) {
+    String reason = text(b, "reason", 1, 40), type = text(b, "targetType", 1, 30);
+    if (!Set.of("PRODUCT", "USER", "REVIEW", "INQUIRY").contains(type)
+        || !Set.of(
+                "FAKE_PRODUCT",
+                "STOLEN_WORK",
+                "IMPERSONATION",
+                "MALICIOUS_LINK",
+                "PHISHING",
+                "SPAM",
+                "HARASSMENT",
+                "COPYRIGHT_IP",
+                "CONFIDENTIAL_DATA",
+                "MISLEADING_CLAIM",
+                "FAKE_REVIEW",
+                "CLIENT_SPAM",
+                "APPEAL",
+                "OTHER")
+            .contains(reason))
+      throw new ApiError(400, "VALIDATION_ERROR", "Select a valid report reason.");
+    UUID reporter = security.optionalUser(request);
+    UUID id = id();
+    String severity =
+        Set.of("MALICIOUS_LINK", "PHISHING", "CONFIDENTIAL_DATA").contains(reason)
+            ? "CRITICAL"
+            : Set.of("STOLEN_WORK", "IMPERSONATION", "COPYRIGHT_IP").contains(reason)
+                ? "HIGH"
+                : "MEDIUM";
+    db.update(
+        "INSERT INTO reports(id,target_type,target_id,reason,detail,reporter_id,severity)"
+            + " VALUES(?,?,?,?,?,?,?)",
+        id,
+        type,
+        uuid(b.get("targetId")),
+        reason,
+        text(b, "detail", 10, 3000),
+        reporter,
+        severity);
+    return Map.of("reference", id);
+  }
+
+  public Map<String, Object> analytics(HttpServletRequest r) {
+    UUID u = security.developer(r, false);
+    var result = new LinkedHashMap<String, Object>();
+    result.put(
+        "qualifiedInquiries",
+        db.queryForObject(
+            "SELECT count(*) FROM inquiries WHERE developer_user_id=? AND email_confirmed_at IS NOT"
+                + " NULL AND moderation_status='CLEAR'",
+            Integer.class,
+            u));
+    result.put(
+        "confirmedHires",
+        db.queryForObject(
+            "SELECT count(DISTINCT i.id) FROM inquiries i JOIN inquiry_events e ON"
+                + " e.inquiry_id=i.id WHERE i.developer_user_id=? AND i.moderation_status='CLEAR'"
+                + " AND e.event_type='HIRED'",
+            Integer.class,
+            u));
+    result.put(
+        "completed",
+        db.queryForObject(
+            "SELECT count(*) FROM inquiries WHERE developer_user_id=? AND moderation_status='CLEAR'"
+                + " AND current_status='COMPLETED'",
+            Integer.class,
+            u));
+    var events =
+        db.queryForList(
+            "SELECT e.event_name,count(*) AS total FROM analytics_events e JOIN products p ON"
+                + " p.id=e.entity_id WHERE p.owner_user_id=? GROUP BY e.event_name",
+            u);
+    for (var event : events) result.put((String) event.get("event_name"), event.get("total"));
+    result.put(
+        "savedCount",
+        db.queryForObject(
+            "SELECT count(*) FROM saved_products s JOIN products p ON p.id=s.product_id WHERE"
+                + " p.owner_user_id=?",
+            Integer.class,
+            u));
+    var response =
+        db.queryForMap(
+            "SELECT count(*) AS sample,count(first_response) AS responded,avg(extract(epoch FROM"
+                + " (first_response-email_confirmed_at))/3600) AS hours FROM (SELECT"
+                + " i.email_confirmed_at,(SELECT min(e.created_at) FROM inquiry_events e WHERE"
+                + " e.inquiry_id=i.id AND e.event_type='RESPONDED') AS first_response FROM"
+                + " inquiries i WHERE i.developer_user_id=? AND i.moderation_status='CLEAR' AND"
+                + " i.email_confirmed_at IS NOT NULL AND i.email_confirmed_at<now()-interval '48"
+                + " hours') q",
+            u);
+    long sample = ((Number) response.get("sample")).longValue();
+    result.put("responseSample", sample);
+    result.put(
+        "responseRate",
+        sample == 0 ? null : 100.0 * ((Number) response.get("responded")).longValue() / sample);
+    result.put("averageResponseHours", response.get("hours"));
+    return result;
+  }
+
+  public static java.math.BigDecimal proposalValue(Map<String, Object> body) {
+    try {
+      var value =
+          new java.math.BigDecimal(Objects.toString(body.get("reportedValue"), ""))
+              .setScale(2, java.math.RoundingMode.UNNECESSARY);
+      if (value.signum() < 0 || value.precision() > 14) throw new NumberFormatException();
+      return value;
+    } catch (ArithmeticException | NumberFormatException e) {
+      throw new ApiError(
+          400, "VALIDATION_ERROR", "Use a non-negative amount with at most two decimal places.");
+    }
+  }
+
+  public Map<String, Object> notifications(HttpServletRequest r) {
+    return Pages.query(
+        db,
+        r,
+        "SELECT id,title,read_at,created_at FROM notifications WHERE user_id=? ORDER BY created_at"
+            + " DESC,id",
+        security.user(r));
+  }
+}

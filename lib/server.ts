@@ -1,9 +1,15 @@
 import { examples, type Product } from './catalog';
 import { emptyFilters, filterExamples, filterParams, type Filters } from './discovery';
+import { resolveBackendOrigin, type DeploymentMode } from './deployment-mode';
 export async function backendOrigin() {
-  let url = process.env.BACKEND_URL;
-  try { const { env } = await import('cloudflare:workers'); url = (env as { BACKEND_URL?: string }).BACKEND_URL || url; } catch {}
-  return url?.replace(/\/$/, '');
+  const config: DeploymentMode = { BACKEND_URL: process.env.BACKEND_URL, DEMO_MODE: process.env.DEMO_MODE };
+  try {
+    const { env } = await import('cloudflare:workers');
+    const runtime = env as DeploymentMode;
+    config.BACKEND_URL = runtime.BACKEND_URL || config.BACKEND_URL;
+    config.DEMO_MODE = runtime.DEMO_MODE ?? config.DEMO_MODE;
+  } catch {}
+  return resolveBackendOrigin(config);
 }
 export type Catalog = { items: Product[]; preview: boolean; totalItems: number; totalPages: number; filters: Filters };
 export async function getCatalog(filters: Filters = emptyFilters, builder = ''): Promise<Catalog> {
