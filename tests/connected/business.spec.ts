@@ -131,5 +131,5 @@ test('real hiring journey persists consent, matching, talent, MFA concierge and 
   await expect(page.getByRole('button',{name:'Edit brief',exact:true})).toHaveCount(0);
   expect((await call(page,briefRoot+'/matches')).status()).toBe(409);
   expect(errors).toEqual([]);
- }finally{await Promise.all(contexts.map(c=>c.close()));}
+ }finally{await Promise.allSettled(contexts.map(c=>c.close()));}
 });
