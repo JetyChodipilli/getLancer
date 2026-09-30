@@ -6,8 +6,8 @@ Release scope: business workspaces, hiring-manager consent, private project requ
 
 | Gate | Evidence maintained in the repository |
 |---|---|
-| Real Java/PostgreSQL | Maven verify runs 155 tests against guarded disposable PostgreSQL; seven business integration scenarios exercise actual HTTP controllers and persistence. |
-| V2 gaps | All non-owner team roles are checked for commercial, recruitment, staffing and owner-only permissions. Suspended project proof cannot satisfy team creation. Account exports include the user's team/business data and exclude private team CRM notes. |
+| Real Java/PostgreSQL | Maven verify includes 157 tests against guarded disposable PostgreSQL; eight business integration scenarios exercise actual HTTP controllers and persistence. |
+| V2 gaps | All non-owner team roles are checked for commercial, recruitment, staffing and owner-only permissions. Server-provided creation eligibility accepts archived approved work and rejects suspended proof. Forms enforce contract limits, identify field errors and focus the invalid field or error summary. Account exports include the user's trust, capacity, staffing and team/business records, excluding verification challenges and private team CRM notes. |
 | Consent and isolation | Invitations grant no access before recipient acceptance; other recipients, expired invitations, removed members, suspended and unverified accounts are rejected. Other businesses cannot read briefs, saved lists or shortlists. |
 | Matching | Approved active public proof, approved verified active builders, active consented team membership, matching category/technology and optional availability/repository filters. Reads immediately reflect visibility, approval, expiry and repository URL changes. |
 | Concierge | An opted-in open brief, MFA administrator, explicit sourcing transition and eligible recommendation with a visible reason are required. Already-shortlisted candidates can receive concierge reasons; withdrawn proof cannot fulfil sourcing. No inquiry or hiring event is fabricated. |
