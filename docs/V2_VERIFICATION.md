@@ -20,4 +20,14 @@ The cloud site hosts the interactive isolated preview. Real account/database flo
 
 ## Checks
 
-Verification results are recorded after the final build and GitHub CI. PostgreSQL tests use only the guarded disposable getlancer_test database; normal application data is never reset by test fixtures.
+Verified 2026-09-30:
+- TypeScript and Cloudflare-compatible frontend build passed.
+- 44 frontend tests passed, including 16 isolated team-flow tests and V2 route rendering.
+- 99 backend unit tests passed locally.
+- GitHub CI passed 141 backend tests, including guarded PostgreSQL integration.
+- GitHub frontend and Docker startup/recovery jobs passed.
+- CI run: https://github.com/JetyChodipilli/getLancer/actions/runs/36685919485
+- Successful private site publication: https://getlancer-v1.jety124050.chatgpt.site
+- Direct team preview: https://getlancer-v1.jety124050.chatgpt.site/preview/teams
+
+Browser visual QA was not performed in this release; route rendering and interaction state were tested programmatically. Real PostgreSQL verification ran in CI. PostgreSQL tests use only the guarded disposable getlancer_test database; normal application data is never reset by test fixtures.
