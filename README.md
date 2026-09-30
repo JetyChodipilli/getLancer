@@ -100,7 +100,7 @@ The Java runtime has no demo mode, sample users, sample projects, fake sessions 
 - Private inquiries, emails and NDA-safe content are excluded from public APIs.
 - One-time tokens are hashed and expiring; new email links keep the token in a URL fragment.
 - Images are checked and re-encoded; external URLs must resolve to public HTTPS destinations.
-- Contracts and payments remain external. There is no template checkout, paid ranking or arbitrary developer-code execution.
+- Legacy inquiry reports describe work arranged externally. V3 Delivery records consented agreements and supports enabled Razorpay milestone payments. There is no template checkout, paid ranking or arbitrary developer-code execution.
 
 ## Release preparation
 
@@ -126,7 +126,7 @@ See [historical V1 verification](docs/V1_VERIFICATION_2026-09-15.md) for the aud
 - `/preview/teams`: isolated sample workspace with role switching and reset; no live account, email or database writes.
 - Flyway `V12__teams.sql` creates the team tables when the connected API starts. Existing V1 rules remain enforced.
 - Only owner/business manager can manage commercial leads. Recruitment and staffing have separate roles. Applicants and invitees must consent before joining.
-- Client proposal acknowledgment records a reported outcome; terms, payment and contracts remain external.
+- Team lead acknowledgment records an externally arranged outcome. Use V3 Delivery for a recorded milestone agreement and enabled Razorpay checkout.
 
 Start the connected stack with the existing Docker instructions. OAuth is optional and requires provider credentials. A frontend-only preview does not host the Java API or PostgreSQL.
 

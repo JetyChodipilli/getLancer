@@ -20,7 +20,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 
 @org.springframework.test.context.ContextConfiguration(initializers = TestDatabaseGuard.class)
 @SpringBootTest(properties = {
-    "app.environment=local", "app.jobs-enabled=false", "app.admin-password=", "app.admin-totp=", "spring.config.import=",
+    "app.environment=local", "app.jobs-enabled=false", "app.admin-email=admin@example.test", "app.admin-password=", "app.admin-totp=", "spring.config.import=",
     "spring.datasource.url=${TEST_DB_URL:jdbc:postgresql://localhost:5432/getlancer_test}",
     "spring.datasource.username=${TEST_DB_USERNAME:postgres}", "spring.datasource.password=${TEST_DB_PASSWORD:}",
     "spring.datasource.hikari.schema=getlancer_test", "spring.flyway.default-schema=getlancer_test", "spring.flyway.schemas=getlancer_test",
@@ -112,9 +112,9 @@ class DeliveryIntegrationTest {
   void qualifiedSourcesRequireTheActualPartiesAndDeduplicate() throws Exception {
     mvc.perform(body(post("/api/v1/engagements"), "outsider", Map.of("inquiryId", inquiry))).andExpect(status().isNotFound());
     mvc.perform(body(post("/api/v1/engagements"), "buyer", Map.of("inquiryId", inquiry, "businessRequestId", brief))).andExpect(status().isBadRequest());
-    db.update("UPDATE inquiries SET email_confirmed_at=null WHERE id=?", inquiry);
+    db.update("UPDATE inquiries SET current_status='CREATED_UNVERIFIED',email_confirmed_at=null WHERE id=?", inquiry);
     mvc.perform(body(post("/api/v1/engagements"), "seller", Map.of("inquiryId", inquiry))).andExpect(status().isNotFound());
-    db.update("UPDATE inquiries SET email_confirmed_at=now() WHERE id=?", inquiry);
+    db.update("UPDATE inquiries SET current_status='DISCUSSION',email_confirmed_at=now() WHERE id=?", inquiry);
     UUID engagement = createInquiry("seller");
     assertEquals(engagement, createInquiry("buyer"));
     assertEquals(1, db.queryForObject("SELECT count(*) FROM delivery_engagements", Integer.class));
