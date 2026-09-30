@@ -48,3 +48,10 @@ Reference: https://godly.design/ (observed 28 September 2026). Equal-width mason
 
 ### Staggered placement correction
 Four independent desktop columns begin at offsets 0/64/24/96px, then each next card occupies the shortest column. Cards use measured content height rather than equal rows. The unfiltered illustrative collection places its mobile preview second so the format mix is visible immediately. Real results and explicit filters/sorts retain source order. ResizeObserver handles width changes and late image loads; mobile becomes one unshifted column.
+
+
+## V3 delivery and payments
+
+The V3 workspace extends Slate Atelier with Quiet Craft principles from the Cursor reference: calm editorial hierarchy, compact readable rows, restrained hairlines and consistent four-pixel spacing. Keep the existing white canvas, blue actions and self-hosted Inter; the reference does not replace brand tokens. Reuse the shared rail and shadcn/Radix primitives.
+
+Use one engagement list and one focused detail panel. Show agreement consent, milestone progression, payable amount and provider-confirmed payment status in the order a party needs them. Avoid decorative charts and duplicated status cards. On phones, list and detail stack with natural scrolling; tables that need horizontal scroll have labelled regions. Errors and pending actions use text with icon cues, never colour alone. Preview simulation and real payment state remain visibly distinct. Razorpay opens only from an enabled accepted milestone's explicit Pay action. Do not show a wallet, escrow balance or settled badge from payment capture alone.

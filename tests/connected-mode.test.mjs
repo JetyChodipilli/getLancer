@@ -58,13 +58,13 @@ test('configured backend failures produce errors, never demo listings or fake ac
   }finally{failure=false;}
 });
 
-test('all V1 through V2 sample routes redirect to real workspaces when connected',async()=>{
-  for(const [path,target] of [['/preview/workspace','/workspace'],['/preview/trust','/workspace/trust'],['/preview/teams','/workspace/teams'],['/preview/business','/workspace/business']]){
+test('all V1 through V3 sample routes redirect to real workspaces when connected',async()=>{
+  for(const [path,target] of [['/preview/workspace','/workspace'],['/preview/trust','/workspace/trust'],['/preview/teams','/workspace/teams'],['/preview/business','/workspace/business'],['/preview/delivery','/workspace/delivery']]){
     const {r,html}=await page(path);assert.equal(r.status,307,path);assert.equal(new URL(r.headers.get('location'),'https://app.example.test').pathname,target);noDemo(html);
   }
 });
 
 test('real login and team pages do not offer a sample-mode escape on API errors',async()=>{
-  for(const path of ['/login','/signup','/teams','/workspace/teams','/workspace/business']){const {r,html}=await page(path);assert.equal(r.status,200,path);noDemo(html);assert.doesNotMatch(html,/Try the sample workspace|Try the interactive team preview|Interactive business preview|Meridian Labs/);}
+  for(const path of ['/login','/signup','/teams','/workspace/teams','/workspace/business','/workspace/delivery']){const {r,html}=await page(path);assert.equal(r.status,200,path);noDemo(html);assert.doesNotMatch(html,/Try the sample workspace|Try the interactive team preview|Interactive business preview|Meridian Labs|Inventory approval delivery|Sample delivery/);}
   const auth=await page('/api/v1/auth/providers');assert.equal(auth.r.status,200);assert.deepEqual(JSON.parse(auth.html),{google:false,github:false});
 });

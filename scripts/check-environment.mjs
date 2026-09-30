@@ -14,4 +14,13 @@ for(const name of ['GOOGLE','GITHUB']){const id=!!values[name+'_CLIENT_ID'],secr
 if(!existingAdmin&&(!values.ADMIN_BOOTSTRAP_PASSWORD||!values.ADMIN_TOTP_SECRET))problems.push('First-time administrator seeding needs ADMIN_BOOTSTRAP_PASSWORD and ADMIN_TOTP_SECRET; use --existing-admin only after verifying the administrator already exists');
 if(values.ANALYTICS_ENABLED==='true'&&(values.ANALYTICS_HASH_SALT||'').length<32)missing.push('ANALYTICS_HASH_SALT');
 
+if(values.PAYMENTS_ENABLED==='true'){
+ if(!['test','live'].includes(values.RAZORPAY_MODE))problems.push('RAZORPAY_MODE must be test or live');
+ for(const key of ['RAZORPAY_KEY_ID','RAZORPAY_KEY_SECRET','RAZORPAY_WEBHOOK_SECRET'])if(!values[key]||/REPLACE_|YOUR_|CHANGE_ME/.test(values[key]))missing.push(key);
+ for(const key of ['RAZORPAY_KEY_SECRET','RAZORPAY_WEBHOOK_SECRET'])if((values[key]||'').length<16)problems.push(key+' must contain at least 16 characters');
+ if(values.RAZORPAY_ROUTE_APPROVED!=='true')problems.push('Payments require approved Razorpay Route and seller onboarding');
+ if(values.POLICIES_APPROVED!=='true')problems.push('Payments require approved commercial policies');
+ if(values.RAZORPAY_MODE==='live'&&!values.RAZORPAY_KEY_ID?.startsWith('rzp_live_'))problems.push('Live mode requires live Razorpay keys');
+ if(values.RAZORPAY_MODE==='test'&&!values.RAZORPAY_KEY_ID?.startsWith('rzp_test_'))problems.push('Test mode requires test Razorpay keys');
+}
 console.log('Configuration check (values are never printed)');for(const key of missing)console.log('Missing: '+key);for(const p of problems)console.log('Check: '+p);if(!missing.length&&!problems.length)console.log('Configuration is structurally ready. Connectivity and provider flows still need verification.');process.exitCode=missing.length||problems.length?1:0;
