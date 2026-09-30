@@ -30,8 +30,9 @@ public class ProjectRequestService {
     access(b, r);
     return Map.of(
         "items",
-        repo.db.queryForList(
-            REQUEST + "WHERE r.business_id=? ORDER BY r.created_at DESC,r.id LIMIT 100", b));
+        repo.jdbc()
+            .queryForList(
+                REQUEST + "WHERE r.business_id=? ORDER BY r.created_at DESC,r.id LIMIT 100", b));
   }
 
   private Object[] fields(Map<String, Object> b) {
@@ -62,11 +63,12 @@ public class ProjectRequestService {
       throw new ApiError(400, "VALIDATION_ERROR", "Create a draft or open request.");
     var args = new ArrayList<Object>(List.of(request, business, u));
     args.addAll(Arrays.asList(fields));
-    repo.db.update(
-        "INSERT INTO"
-            + " business_requests(id,business_id,created_by,title,description,category,technology,budget,timeline,available_only,repository_verified_only,status)"
-            + " VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
-        args.toArray());
+    repo.jdbc()
+        .update(
+            "INSERT INTO"
+                + " business_requests(id,business_id,created_by,title,description,category,technology,budget,timeline,available_only,repository_verified_only,status)"
+                + " VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+            args.toArray());
     repo.audit(business, u, "REQUEST_CREATED", "Private project request created");
     return repo.request(business, request);
   }
@@ -85,16 +87,18 @@ public class ProjectRequestService {
     var args = new ArrayList<Object>(Arrays.asList(fields));
     args.add(request);
     args.add(business);
-    repo.db.update(
-        "UPDATE business_requests SET"
-            + " title=?,description=?,category=?,technology=?,budget=?,timeline=?,available_only=?,repository_verified_only=?,status=?,updated_at=now()"
-            + " WHERE id=? AND business_id=?",
-        args.toArray());
+    repo.jdbc()
+        .update(
+            "UPDATE business_requests SET"
+                + " title=?,description=?,category=?,technology=?,budget=?,timeline=?,available_only=?,repository_verified_only=?,status=?,updated_at=now()"
+                + " WHERE id=? AND business_id=?",
+            args.toArray());
     if (fields[8].equals("CLOSED"))
-      repo.db.update(
-          "UPDATE concierge_requests SET status='CANCELLED',updated_at=now() WHERE request_id=? AND"
-              + " status IN ('REQUESTED','IN_PROGRESS')",
-          request);
+      repo.jdbc()
+          .update(
+              "UPDATE concierge_requests SET status='CANCELLED',updated_at=now() WHERE request_id=?"
+                  + " AND status IN ('REQUESTED','IN_PROGRESS')",
+              request);
     repo.audit(business, u, "REQUEST_UPDATED", "Private request updated to " + fields[8]);
     return repo.request(business, request);
   }
@@ -128,7 +132,8 @@ public class ProjectRequestService {
   public Map<String, Object> remove(UUID business, UUID request, UUID entry, HttpServletRequest r) {
     UUID u = access(business, r);
     repo.open(repo.request(business, request));
-    if (repo.db.update("DELETE FROM request_shortlist WHERE id=? AND request_id=?", entry, request)
+    if (repo.jdbc()
+            .update("DELETE FROM request_shortlist WHERE id=? AND request_id=?", entry, request)
         == 0) throw new ApiError(404, "NOT_FOUND", "Shortlist entry not found.");
     repo.audit(business, u, "SHORTLIST_REMOVED", "Shortlist entry removed");
     return Map.of("ok", true);
@@ -138,12 +143,13 @@ public class ProjectRequestService {
   public Map<String, Object> concierge(UUID business, UUID request, HttpServletRequest r) {
     UUID u = access(business, r);
     repo.open(repo.request(business, request));
-    repo.db.update(
-        "INSERT INTO concierge_requests(id,request_id,requested_by) VALUES(?,?,?) ON"
-            + " CONFLICT(request_id) DO NOTHING",
-        id(),
-        request,
-        u);
+    repo.jdbc()
+        .update(
+            "INSERT INTO concierge_requests(id,request_id,requested_by) VALUES(?,?,?) ON"
+                + " CONFLICT(request_id) DO NOTHING",
+            id(),
+            request,
+            u);
     repo.audit(
         business,
         u,

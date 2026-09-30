@@ -235,7 +235,10 @@ class BusinessIntegrationTest {
     db.update("UPDATE developer_profiles SET approval_status='SUSPENDED' WHERE user_id=?", builder);
     mvc.perform(as(get(path), "owner")).andExpect(jsonPath("$.items.length()").value(0));
     db.update("UPDATE developer_profiles SET approval_status='APPROVED' WHERE user_id=?", builder);
-    db.update("UPDATE team_members SET role='MEMBER',membership_type='CONTRACT',expires_at=now()-interval '1 day' WHERE user_id=?", builder);
+    db.update(
+        "UPDATE team_members SET role='MEMBER',membership_type='CONTRACT',expires_at=now()-interval"
+            + " '1 day' WHERE user_id=?",
+        builder);
     mvc.perform(as(get(path), "owner")).andExpect(jsonPath("$.items.length()").value(1));
     db.update("UPDATE business_requests SET repository_verified_only=true WHERE id=?", r);
     mvc.perform(as(get(path), "owner")).andExpect(jsonPath("$.items.length()").value(0));
@@ -305,7 +308,14 @@ class BusinessIntegrationTest {
                 "admin",
                 candidate().replace("Approved CRM and React evidence", "")))
         .andExpect(status().isBadRequest());
+    mvc.perform(json(post(request + "/shortlist"), "owner", candidate()))
+        .andExpect(status().isOk());
     mvc.perform(json(post(path + "/shortlist"), "admin", candidate())).andExpect(status().isOk());
+    assertEquals(1, db.queryForObject("SELECT count(*) FROM request_shortlist", Integer.class));
+    db.update("UPDATE products SET visibility='PRIVATE' WHERE id=?", product);
+    mvc.perform(json(patch(path), "admin", "{\"status\":\"FULFILLED\"}"))
+        .andExpect(status().isConflict());
+    db.update("UPDATE products SET visibility='PUBLIC' WHERE id=?", product);
     mvc.perform(json(patch(path), "admin", "{\"status\":\"FULFILLED\"}"))
         .andExpect(status().isOk());
     mvc.perform(as(get(request + "/shortlist"), "owner"))

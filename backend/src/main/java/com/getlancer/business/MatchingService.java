@@ -24,12 +24,12 @@ public class MatchingService {
         teams
             ? "t.id AS \"targetId\",t.name,t.summary,'/teams/'||t.id AS url,t.availability"
             : "u.id AS \"targetId\",d.display_name AS name,d.headline AS"
-                  + " summary,'/builders/'||d.slug AS url,d.availability_status AS availability";
+                + " summary,'/builders/'||d.slug AS url,d.availability_status AS availability";
     String join =
         teams
             ? " JOIN team_projects tp ON tp.product_id=p.id AND tp.consented_by=p.owner_user_id"
-                  + " JOIN teams t ON t.id=tp.team_id JOIN team_members m ON m.team_id=t.id AND"
-                  + " m.user_id=p.owner_user_id AND (m.expires_at IS NULL OR m.expires_at>now()) "
+                + " JOIN teams t ON t.id=tp.team_id JOIN team_members m ON m.team_id=t.id AND"
+                + " m.user_id=p.owner_user_id AND (m.expires_at IS NULL OR m.expires_at>now()) "
             : " ";
     return "SELECT "
         + projection
@@ -76,7 +76,7 @@ public class MatchingService {
             + " LIMIT 30";
     args.add(category);
     args.add(technology);
-    var result = repo.db.queryForList(query, args.toArray());
+    var result = repo.jdbc().queryForList(query, args.toArray());
     for (var c : result) {
       var reasons = new ArrayList<String>();
       if (Boolean.TRUE.equals(c.remove("categoryMatch")))
@@ -115,15 +115,16 @@ public class MatchingService {
 
   List<Map<String, Object>> entries(String table, String foreignKey, UUID id) {
     var rows =
-        repo.db.queryForList(
-            "SELECT id,kind,coalesce(builder_id,team_id) AS \"targetId\""
-                + (table.equals("request_shortlist") ? ",reason,source" : "")
-                + " FROM "
-                + table
-                + " WHERE "
-                + foreignKey
-                + "=? ORDER BY created_at DESC,id LIMIT 100",
-            id);
+        repo.jdbc()
+            .queryForList(
+                "SELECT id,kind,coalesce(builder_id,team_id) AS \"targetId\""
+                    + (table.equals("request_shortlist") ? ",reason,source" : "")
+                    + " FROM "
+                    + table
+                    + " WHERE "
+                    + foreignKey
+                    + "=? ORDER BY created_at DESC,id LIMIT 100",
+                id);
     var result = new ArrayList<Map<String, Object>>();
     for (var entry : rows) {
       try {
@@ -132,7 +133,7 @@ public class MatchingService {
         result.add(entry);
       } catch (ApiError e) {
         if (e.status != 404) throw e;
-        entry.put("unavailable",true);
+        entry.put("unavailable", true);
         result.add(entry);
       }
     }
@@ -165,17 +166,23 @@ public class MatchingService {
       args.add(reason);
       args.add(source);
     }
-    repo.db.update(
-        "INSERT INTO "
-            + table
-            + "(id,"
-            + foreignKey
-            + ",kind,builder_id,team_id,created_by"
-            + extra
-            + ") VALUES(?,?,?,?,?,?"
-            + placeholders
-            + ") ON CONFLICT"
-            + (source.equals("CONCIERGE") ? "(request_id,"+(kind.equals("BUILDER")?"builder_id":"team_id")+") DO UPDATE SET reason=excluded.reason,source=excluded.source,created_by=excluded.created_by" : " DO NOTHING"),
-        args.toArray());
+    repo.jdbc()
+        .update(
+            "INSERT INTO "
+                + table
+                + "(id,"
+                + foreignKey
+                + ",kind,builder_id,team_id,created_by"
+                + extra
+                + ") VALUES(?,?,?,?,?,?"
+                + placeholders
+                + ") ON CONFLICT"
+                + (source.equals("CONCIERGE")
+                    ? "(request_id,"
+                        + (kind.equals("BUILDER") ? "builder_id" : "team_id")
+                        + ") DO UPDATE SET"
+                        + " reason=excluded.reason,source=excluded.source,created_by=excluded.created_by"
+                    : " DO NOTHING"),
+            args.toArray());
   }
 }

@@ -11,8 +11,8 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public class BusinessRepository {
-  final JdbcTemplate db;
-  final Security security;
+  private final JdbcTemplate db;
+  private final Security security;
   static final String BUSINESS =
       "SELECT b.id,b.name,b.summary,b.owner_id AS \"ownerId\",b.created_at AS \"createdAt\" FROM"
           + " businesses b ";
@@ -30,6 +30,14 @@ public class BusinessRepository {
   public BusinessRepository(JdbcTemplate db, Security security) {
     this.db = db;
     this.security = security;
+  }
+
+  JdbcTemplate jdbc() {
+    return db;
+  }
+
+  UUID admin(HttpServletRequest r) {
+    return security.admin(r);
   }
 
   Map<String, Object> one(String sql, Object... args) {

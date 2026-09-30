@@ -33,21 +33,23 @@ public class TalentListService {
     access(business, r);
     return Map.of(
         "items",
-        repo.db.queryForList(
-            "SELECT id,name FROM talent_lists WHERE business_id=? ORDER BY created_at DESC,id LIMIT"
-                + " 100",
-            business));
+        repo.jdbc()
+            .queryForList(
+                "SELECT id,name FROM talent_lists WHERE business_id=? ORDER BY created_at DESC,id"
+                    + " LIMIT 100",
+                business));
   }
 
   @Transactional
   public Map<String, Object> create(UUID business, Map<String, Object> b, HttpServletRequest r) {
     UUID u = access(business, r), list = id();
-    repo.db.update(
-        "INSERT INTO talent_lists(id,business_id,name,created_by) VALUES(?,?,?,?)",
-        list,
-        business,
-        text(b, "name", 2, 120),
-        u);
+    repo.jdbc()
+        .update(
+            "INSERT INTO talent_lists(id,business_id,name,created_by) VALUES(?,?,?,?)",
+            list,
+            business,
+            text(b, "name", 2, 120),
+            u);
     repo.audit(business, u, "TALENT_LIST_CREATED", "Shared talent list created");
     return Map.of("id", list, "name", text(b, "name", 2, 120));
   }
@@ -73,7 +75,7 @@ public class TalentListService {
   public Map<String, Object> remove(UUID business, UUID list, UUID entry, HttpServletRequest r) {
     UUID u = access(business, r);
     list(business, list);
-    if (repo.db.update("DELETE FROM talent_entries WHERE list_id=? AND id=?", list, entry) == 0)
+    if (repo.jdbc().update("DELETE FROM talent_entries WHERE list_id=? AND id=?", list, entry) == 0)
       throw new ApiError(404, "NOT_FOUND", "Talent entry not found.");
     repo.audit(business, u, "TALENT_REMOVED", "Talent entry removed");
     return Map.of("ok", true);

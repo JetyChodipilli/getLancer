@@ -2,7 +2,7 @@ import {test,expect,type Page} from '@playwright/test';
 
 async function noOverflow(page:Page){await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);}
 test('all workspace previews reflow and retain their core controls',async({page},info)=>{
- for(const [path,role,ready]of [['workspace','tab','Showcases'],['trust','button','Confirm availability'],['teams','heading','Northstar Studio'],['business','heading','Customer approval portal']]){
+ for(const [path,role,ready]of [['workspace','tab','Showcases'],['trust','button','Confirm availability'],['teams','heading','Northstar Studio'],['business','heading','Customer approval portal']] as const){
   await page.goto('/preview/'+path);await expect(page.getByRole(role,{name:ready,exact:true})).toBeVisible();await noOverflow(page);
   await page.screenshot({path:info.outputPath(path+'.png'),fullPage:true});
  }
