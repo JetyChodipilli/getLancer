@@ -17,7 +17,8 @@ function origin(value){
 export async function verifyStaging(config,request=fetch){
  const frontend=origin(config.APP_BASE_URL),backend=origin(config.BACKEND_URL);
  async function get(base,path){
-  const response=await request(base+path,{redirect:'manual',signal:AbortSignal.timeout(10000)});
+  const headers=base===frontend&&config.FRONTEND_SITE_ACCESS_TOKEN?{'OAI-Sites-Authorization':'Bearer '+config.FRONTEND_SITE_ACCESS_TOKEN}:{};
+  const response=await request(base+path,{headers,redirect:'manual',signal:AbortSignal.timeout(10000)});
   return response;
  }
  for(const path of ['/actuator/health/readiness','/actuator/health/liveness']){
@@ -52,7 +53,7 @@ if(process.argv[1]&&fileURLToPath(import.meta.url)===process.argv[1]){
   const file=process.argv[2]||'.env.staging';
   assert.ok(process.argv.length<=4&&(!process.argv[3]||process.argv[3]==='--existing-admin'),'Use [file] [--existing-admin].');
   execFileSync(process.execPath,[fileURLToPath(new URL('./check-environment.mjs',import.meta.url)),file,...process.argv.slice(3)],{stdio:'inherit'});
-  const result=await verifyStaging(readEnvironment(file));
+  const result=await verifyStaging({...readEnvironment(file),FRONTEND_SITE_ACCESS_TOKEN:process.env.FRONTEND_SITE_ACCESS_TOKEN});
   console.log('Hosted read-only acceptance passed: '+JSON.stringify(result));
  }catch{console.error('Hosted acceptance failed. Check HTTPS configuration, health, proxy responses and connected redirects. No credentials are printed.');process.exitCode=1;}
 }

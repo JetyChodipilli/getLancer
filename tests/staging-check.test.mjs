@@ -30,3 +30,12 @@ test('hosted acceptance rejects HTTP and credential-bearing origins before makin
   let calls=0;await assert.rejects(()=>verifyStaging({...config,APP_BASE_URL},async()=>{calls++;throw Error('Should not request.')}));assert.equal(calls,0);
  }
 });
+test('private Site access is sent only to the configured frontend origin',async()=>{
+ const request=service();let frontend=0,backend=0;
+ await verifyStaging({...config,FRONTEND_SITE_ACCESS_TOKEN:'synthetic-test-token'},async(address,options)=>{
+  if(new URL(address).origin===config.APP_BASE_URL){frontend++;assert.equal(options.headers['OAI-Sites-Authorization'],'Bearer synthetic-test-token');}
+  else{backend++;assert.deepEqual(options.headers,{});}
+  return request(address,options);
+ });
+ assert.equal(frontend,14);assert.equal(backend,3);
+});

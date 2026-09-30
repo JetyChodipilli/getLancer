@@ -7,17 +7,15 @@ Scope: close connected browser and deployment-verification gaps while retaining 
 - [x] G1: frontend types and production bundle are valid
   CHECK: npx tsc --noEmit && npm run build
   EXPECT: built in
-  EVIDENCE: automatic-evidence=v1; definition-sha256=9205bbf8d859cf86692f3049bd81b99d1f281b18a73b6681b9829a0781466773; exit=0; EXPECT=matched; output-sha256=5f6f6877250b541aaf2fde669c6125c8f51d6c2e0cc2955784448b4371c93be0; output-bytes=2342; shell=/bin/sh; cwd=/workspace/scratch/70ced75f2e62/.sites-checkout; path=88718e024ae0/13 entries
+  EVIDENCE: automatic-evidence=v1; definition-sha256=9205bbf8d859cf86692f3049bd81b99d1f281b18a73b6681b9829a0781466773; exit=0; EXPECT=matched; output-sha256=d78928d7c87d0f30509800f3a97abd061f4e7a0fbe63a9e5b84c7266c7734433; output-bytes=2342; shell=/bin/sh; cwd=/workspace/scratch/70ced75f2e62/.sites-checkout; path=88718e024ae0/13 entries
 
 - [x] G2: frontend regressions and staging-check controls pass
   CHECK: node --experimental-strip-types --test tests/*.test.mjs
   EXPECT: fail 0
-  EVIDENCE: automatic-evidence=v1; definition-sha256=eb49e8610746070f4f7e3d9c3bb4a2e9f8fd7603a362fa92f1d1fcffcd2882c2; exit=0; EXPECT=matched; output-sha256=30e38b931c8a8dde7cb53a2f26fa2714834c347c5d03380cf97be5c4b10795f3; output-bytes=5826; shell=/bin/sh; cwd=/workspace/scratch/70ced75f2e62/.sites-checkout; path=88718e024ae0/13 entries
+  EVIDENCE: automatic-evidence=v1; definition-sha256=eb49e8610746070f4f7e3d9c3bb4a2e9f8fd7603a362fa92f1d1fcffcd2882c2; exit=0; EXPECT=matched; output-sha256=34d1c888bcfefd5ad4e3e4059c232fdf44c0846cc2f9a7febcc3f03b929b86ab; output-bytes=5920; shell=/bin/sh; cwd=/workspace/scratch/70ced75f2e62/.sites-checkout; path=88718e024ae0/13 entries
 
 - [ ] G3: responsive preview interactions pass with zero failures
-  CHECK: npx playwright test
-  EXPECT: /\d+ passed \(/
-  EVIDENCE: pending
+  EVIDENCE: External CI review: commit 7c5d1e3f2e7e5c6cb67e0fd8180ea52cf9de7f28, run 36750782936, frontend job 110008554780, 15 Chromium tests passed on desktop/phone/tablet. The local CHECK could not run because the browser download was unavailable; this gate is explicitly reviewed from GitHub logs/artifacts, not claimed as local automatic evidence. Re-verification pending after explicit dropdown names.
 
 - [ ] G4: connected browser journeys exercise persisted V2.5 behavior and negative permissions through the real frontend proxy
   EVIDENCE: pending; requires disposable Docker CI, not the owner's database
@@ -26,7 +24,7 @@ Scope: close connected browser and deployment-verification gaps while retaining 
   EVIDENCE: pending
 
 - [ ] G6: changes are reviewed with gstack/Ponytail and the frontend-only release is available
-  EVIDENCE: pending
+  EVIDENCE: Reviewed CI guards, synthetic credential isolation, negative authorization, persistence/reload checks, proxy boundary, HTTPS validation and bounded read-only measurements. Existing libraries/stdlib only; no runtime package changes. Preview desktop/phone screenshots inspected. Site version 32 is active at https://getlancer-v1.jety124050.chatgpt.site, owner-private; frontend publication of the accessible dropdown names is pending.
 
 - [ ] G7: the owner's hosted Java/database/email/storage providers pass production acceptance
   EVIDENCE: pending; no backend hosting target or production provider credentials configured; existing authorization deploys only the frontend demo

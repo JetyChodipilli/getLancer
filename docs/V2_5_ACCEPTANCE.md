@@ -1,6 +1,6 @@
 # V2.5 acceptance and review record
 
-Release scope: business workspaces, hiring-manager consent, private project requests, shared talent lists, current-evidence matching and manual concierge sourcing. The Java API is real PostgreSQL-backed application code. The cloud release is exclusively the frontend preview. Current branch/checks: [PR #4](https://github.com/JetyChodipilli/getLancer/pull/4).
+Release scope: business workspaces, hiring-manager consent, private project requests, shared talent lists, current-evidence matching and manual concierge sourcing. The Java API is real PostgreSQL-backed application code. The cloud release is exclusively the frontend preview. V2.5 is merged through [PR #4](https://github.com/JetyChodipilli/getLancer/pull/4); the connected acceptance follow-up is [PR #5](https://github.com/JetyChodipilli/getLancer/pull/5).
 
 ## Acceptance contract
 
@@ -42,9 +42,9 @@ The audit also checked Java interfaces/factories, wrappers, frontend package usa
 
 ## Connected acceptance follow-up — 30 September 2026
 
-The follow-up adds a second browser suite using the production frontend server connected to disposable Java/PostgreSQL. Accounts are verified through real SMTP in the existing service smoke; its separate browser businesses and invitations are created through HTTP. Ignored, mode-0600 synthetic credentials stay within that CI job. The suite uses real login and administrator MFA, then exercises business consent, owner-only controls, a failed category/technology validation with focus recovery, persisted brief creation, builder/team matching, saved lists, shortlisting, opt-in concierge, membership revocation and closed requests. It checks Java permission responses through the frontend proxy, responsive width, page errors and records screenshots/traces. No browser network interception or mock backend is used. Results remain pending until the exact follow-up commit's CI completes.
+The follow-up adds a second browser suite using the production frontend server connected to disposable Java/PostgreSQL. Accounts are verified through real SMTP in the existing service smoke; its separate browser businesses and invitations are created through HTTP. Ignored, mode-0600 synthetic credentials stay within that CI job. The suite uses real login and administrator MFA, then exercises business consent, owner-only controls, a failed category/technology validation with focus recovery, persisted brief creation, builder/team matching, saved lists, shortlisting, opt-in concierge, membership revocation and closed requests. It checks Java permission responses through the frontend proxy, responsive width, page errors and records screenshots/traces. Workspace and talent-list selectors have explicit accessible names that remain stable as their options change. No new dependency is added. CI transfers the complete production build, including browser assets. No browser network interception or mock backend is used. Results remain pending until the exact follow-up commit's CI completes.
 
-`scripts/verify-staging.mjs` adds read-only HTTPS health, proxy, anonymous-authentication and preview-redirect checks for a later configured host. It reports a bounded catalog-latency sample without declaring production capacity. The production-provider gate remains unmet until the owner supplies a deployment target and provider configuration. The cloud Site remains the isolated frontend preview.
+`scripts/verify-staging.mjs` adds read-only HTTPS health, proxy, anonymous-authentication and preview-redirect checks with optional private Site access restricted to the frontend origin for a later configured host. It reports a bounded catalog-latency sample without declaring production capacity. The production-provider gate remains unmet until the owner supplies a deployment target and provider configuration. The cloud Site remains the isolated frontend preview.
 
 ## Production limits
 

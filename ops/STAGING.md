@@ -36,6 +36,8 @@ node scripts/verify-staging.mjs .env.staging
 
 It verifies HTTPS origins, Java readiness/liveness, exact frontend-to-Java provider responses, anonymous rejection and redirects for all four preview workspaces. It measures eight catalog reads at concurrency two and reports observed p95 latency. This small availability measurement is not a capacity/load certification; set the launch traffic target and measure that load separately against staging. The script never creates accounts, sends messages, uploads files, resets data or prints credentials. Use `--existing-admin` only with the verified administrator precondition described below.
 
+For the owner-private Site, provide its short-lived Sites access token as `FRONTEND_SITE_ACCESS_TOKEN` in the checker's process environment through your secure credential workflow. The checker sends `OAI-Sites-Authorization` only to the configured frontend origin, never to a separate Java origin. Keep this token out of Git and the backend's `.env.staging`; the site's audience stays private. Without authorized Site access, the check should fail at the access wall.
+
 V2.5 provider acceptance must also record these browser results with owner-controlled staging accounts:
 
 | Journey | Required evidence |
