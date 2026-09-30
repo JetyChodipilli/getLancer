@@ -1,7 +1,27 @@
 # getLancer — Open Marketplace
 
 ## Source and visual target
-Primary system: Awesome Design MD `airbnb.md`, read in full; MIT VoltAgent collection. Implement the user-approved white/cobalt reference (530f504b-3193-4dab-a56c-a7a02beb7488.png). Adapt its marketplace spacing, image-led cards and segmented search, not Airbnb identity. Use the original getLancer logo without redrawing it. Generated reference miniature screenshots are interpreted as original HTML illustrations, not represented as real customer products.
+Primary system: Awesome Design MD `cursor.md`, read in full; MIT VoltAgent collection. Use its restrained hierarchy, hairline surfaces and deliberate spacing with getLancer's own white/cobalt identity and self-hosted Inter. Deliberate deviations: white rather than cream canvas, cobalt rather than orange actions, and 600-weight workspace headings for scanability. Preserve the approved marketplace gallery and original logo. Airbnb remains the secondary influence for discovery search and image-led marketplace spacing. Original miniature interfaces are illustrations, never represented as customer products.
+
+## Workspace redesign — 30 September 2026
+The UI/UX Pro Max component guidance and Shadcn Dashboard Free/Template layout conventions inform a single workspace system. Adapt the existing Next-compatible React components; retain the real Java API and the isolated frontend preview adapters. Do not import template mock APIs, route engines or configuration. The local template asset snapshot is unavailable; its upstream layout documentation is used as a reference, with original implementation using the existing shadcn primitives.
+
+### Page anatomy
+Desktop: a 216px workspace rail and a flexible content area capped at 1180px. The rail links Personal workspace, Trust & reliability and Teams & studios. Public discovery remains in the global header. A compact page header contains breadcrumb, one H1, description and one main action. Preview disclosure sits below it, with actor/reset controls in an expandable panel. Related sections use shadcn Tabs with keyboard navigation. Metrics, section heading and records each occupy a distinct row. Never repeat the page title in an oversized second hero.
+
+At 1000px the rail becomes a horizontal navigation strip. At 640px the strip and section tabs scroll within their own bounds; forms and split sections become one column. Desktop gutters 32px, tablet 24px, mobile 16px. Containers, grids, forms and flex children use min-width:0. No horizontal document scrolling.
+
+### Components
+Metric cards: 16–20px padding, label 13/20, value 28/34 at 600, explanatory note 12/18, one muted icon. Values must come from the current API response or explicitly disclosed preview state. No invented growth deltas, charts or online indicators. Overview uses a main record list plus contextual aside, not a wall of interchangeable cards.
+Record lists: clear header, 16px row padding, 1px separators, consistent avatar/thumbnail, text block, status badge and trailing action. Empty states explain the next useful action. Project library cards separate proof media, title/status, description and actions; never stack arbitrary panels inside panels.
+Forms: grouped fieldsets with a short heading and helper copy, label above control, 44px controls, 16px gaps. Short related fields share two columns; descriptions and primary actions span the full width. Dialogs use a bounded scrolling body, sticky action where useful, 24px desktop/18px mobile padding. Progressive disclosure hides optional management forms until requested. Keep validation, submission feedback, disabled states and authorization intact.
+Status colors: success #17634D on #EAF6EF, warning #805300 on #FFF6E6, danger #B42318 on #FFF1F0, neutral #526174 on #F2F5F9. Status must include readable text. Focus is 3px cobalt with 3px offset. Border #E1E6EE; controls #D5DDE8; canvas #F6F8FB; cards #FFFFFF; ink #18212B; muted #526174; primary #175CD3.
+
+### Geometry and motion
+Spacing 4/8/12/16/20/24/32/48px. Controls 8px radius, cards 12px, dialogs 16px. Shadows only for overlays. Heading 32/40, section title 20/28, body 15/24, form labels 14/20. Transitions 160ms for color/border; no floating dashboard panels or automatic chart motion. Respect reduced-motion settings.
+
+### Verification
+Check personal, trust, team and public profile screens; open long forms and switch roles/tabs. Check keyboard focus, empty/error/loading states, desktop/tablet/mobile density and no document overflow. Run typecheck, production build and existing frontend/connected-mode tests before release. Configuring BACKEND_URL must continue to disable every preview route and sample fallback.
 
 ## Semantic tokens
 Canvas/surface #FFFFFF; subtle #F6F8FB; ink #18212B; display #101828; muted #657080; border #E1E6EE; primary #175CD3; hover #124AA9; on-primary #FFFFFF; focus #175CD3; success #17634D; warning #805300; danger #B42318. Decorative miniature plates: mint #E0F1EB, peach #FAE9DF, lavender #E4E5FA, sage #DEEBDE. Opaque readable controls; shadows only on search, overlays and hero miniatures. Body text targets 4.5:1 contrast.
