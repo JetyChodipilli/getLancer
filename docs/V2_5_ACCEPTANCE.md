@@ -40,6 +40,12 @@ net: -6088 lines, -0 deps possible.
 
 The audit also checked Java interfaces/factories, wrappers, frontend package usage and preview/config boundaries. No speculative Java abstraction was identified. Dependency removals need a separate dependency/import pass; none is claimed here. The unused starter modules are pre-existing and are not removed by this report-only audit.
 
+## Connected acceptance follow-up — 30 September 2026
+
+The follow-up adds a second browser suite using the production frontend server connected to disposable Java/PostgreSQL. Accounts are verified through real SMTP in the existing service smoke; its separate browser businesses and invitations are created through HTTP. Ignored, mode-0600 synthetic credentials stay within that CI job. The suite uses real login and administrator MFA, then exercises business consent, owner-only controls, a failed category/technology validation with focus recovery, persisted brief creation, builder/team matching, saved lists, shortlisting, opt-in concierge, membership revocation and closed requests. It checks Java permission responses through the frontend proxy, responsive width, page errors and records screenshots/traces. No browser network interception or mock backend is used. Results remain pending until the exact follow-up commit's CI completes.
+
+`scripts/verify-staging.mjs` adds read-only HTTPS health, proxy, anonymous-authentication and preview-redirect checks for a later configured host. It reports a bounded catalog-latency sample without declaring production capacity. The production-provider gate remains unmet until the owner supplies a deployment target and provider configuration. The cloud Site remains the isolated frontend preview.
+
 ## Production limits
 
 CI service acceptance uses disposable real Java/PostgreSQL/SMTP/object-storage services. It does not establish acceptance of the user's eventual production providers or deployment environment. Java/PostgreSQL deployment, real SMTP/object-storage credentials, optional OAuth, operational monitoring, load testing and public-launch acceptance remain pending. No Java backend is deployed to the cloud Site. Mobile checks use Chromium emulation; physical devices and a full screen-reader/WCAG audit remain separate.

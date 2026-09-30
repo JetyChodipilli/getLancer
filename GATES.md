@@ -1,16 +1,32 @@
-# Gates: Reference marketplace design
-OWNS: DESIGN.md, GATES.md, app/globals.css, app/components/explore.tsx, app/components/project-stack.tsx, app/components/preview.tsx, app/components/header.tsx, app/components/footer.tsx, app/components/browse-toolbar.tsx, public/fonts, tests/marketplace-ui.test.mjs
-Scope: implement the supplied white/blue marketplace reference while preserving existing account and project flows.
+# Gates: V2.5 connected acceptance
 
-- [x] G1: Frontend type checking succeeds.
-  CHECK: npx tsc --noEmit && node -e "console.log('TYPECHECK_COMPLETE')"
-  EXPECT: TYPECHECK_COMPLETE
-  EVIDENCE: automatic-evidence=v1; definition-sha256=0e4f122b58c6a386b10f565f641e210b8928f6f2a481a0bb59db706b263fd76a; exit=0; EXPECT=matched; output-sha256=65e99d73e5e1e0b5856b1d44f518de639d94647c6ca46979c302a789bda8dd29; output-bytes=119; shell=/bin/sh; cwd=/workspace/sites/getlancer; path=ef3568d3b391/13 entries
-- [x] G2: Existing frontend behavior passes regression checks.
-  CHECK: node /root/.codex/plugins/cache/openai-curated-remote/sites/0.1.71/scripts/build-site.mjs && node --test tests/*.test.mjs
+OWNS: GATES.md, .github/workflows/ci.yml, .gitignore, playwright.connected.config.ts, scripts/smoke-docker.mjs, scripts/verify-staging.mjs, tests/connected/**, tests/staging-check.test.mjs, app/components/business-workspace.tsx, app/components/business.css, docs/V2_5_ACCEPTANCE.md, ops/STAGING.md
+
+Scope: close connected browser and deployment-verification gaps while retaining real Java services and the frontend-only cloud release.
+
+- [x] G1: frontend types and production bundle are valid
+  CHECK: npx tsc --noEmit && npm run build
+  EXPECT: built in
+  EVIDENCE: automatic-evidence=v1; definition-sha256=9205bbf8d859cf86692f3049bd81b99d1f281b18a73b6681b9829a0781466773; exit=0; EXPECT=matched; output-sha256=5f6f6877250b541aaf2fde669c6125c8f51d6c2e0cc2955784448b4371c93be0; output-bytes=2342; shell=/bin/sh; cwd=/workspace/scratch/70ced75f2e62/.sites-checkout; path=88718e024ae0/13 entries
+
+- [x] G2: frontend regressions and staging-check controls pass
+  CHECK: node --experimental-strip-types --test tests/*.test.mjs
   EXPECT: fail 0
-  EVIDENCE: automatic-evidence=v1; definition-sha256=850624211b403bd5bb32fc6d2f7747836590ac031dcb8f916f89fa4c2fa1273f; exit=0; EXPECT=matched; output-sha256=cfe9665e87bddd69a459449e1c582214df34d5a25f954e21b8d3b971224f7baf; output-bytes=4606; shell=/bin/sh; cwd=/workspace/sites/getlancer; path=ef3568d3b391/13 entries
-- [x] G3: Browser review confirms the reference layout, four desktop columns, functional search/filter controls, responsive layout and no hero pause button.
-  EVIDENCE: Desktop browser review: four 298px columns, Inter font, no horizontal overflow; Inventory + React search returns Stockroom; filters open; sticky header stays at top and search dock appears on scroll. Static rendered-DOM layout at 390px: one column and no overflow (mobile interaction not tested). No hero pause/play control.
-- [x] G4: Reviewed code is pushed to GitHub and the updated cloud site deploys successfully.
-  EVIDENCE: GitHub main updated without force to 8f76c2f68c857a9980f9ea1f065c93db39c7c495. Sites deployment appgdep_6aba87e18fdc81919dbdac424f8f1cc1 succeeded for implementation commit bed3320177c80353464da4a86e0f99afabc7b2d5. URL: https://getlancer-v1.jety124050.chatgpt.site. Account/database services remain demo-only.
+  EVIDENCE: automatic-evidence=v1; definition-sha256=eb49e8610746070f4f7e3d9c3bb4a2e9f8fd7603a362fa92f1d1fcffcd2882c2; exit=0; EXPECT=matched; output-sha256=30e38b931c8a8dde7cb53a2f26fa2714834c347c5d03380cf97be5c4b10795f3; output-bytes=5826; shell=/bin/sh; cwd=/workspace/scratch/70ced75f2e62/.sites-checkout; path=88718e024ae0/13 entries
+
+- [ ] G3: responsive preview interactions pass with zero failures
+  CHECK: npx playwright test
+  EXPECT: /\d+ passed \(/
+  EVIDENCE: pending
+
+- [ ] G4: connected browser journeys exercise persisted V2.5 behavior and negative permissions through the real frontend proxy
+  EVIDENCE: pending; requires disposable Docker CI, not the owner's database
+
+- [ ] G5: reviewed branch passes Java/PostgreSQL, connected services and database recovery in GitHub Actions
+  EVIDENCE: pending
+
+- [ ] G6: changes are reviewed with gstack/Ponytail and the frontend-only release is available
+  EVIDENCE: pending
+
+- [ ] G7: the owner's hosted Java/database/email/storage providers pass production acceptance
+  EVIDENCE: pending; no backend hosting target or production provider credentials configured; existing authorization deploys only the frontend demo
