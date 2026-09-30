@@ -1,23 +1,40 @@
-# getLancer V1 — Slate Atelier
+# getLancer V2.5 — Slate Atelier
+
+A proof-of-work marketplace connecting clients with the builders behind working software, with team workspaces and private business hiring.
+
+## Current implementation status
+
+All delivered phase code through **V2.5** is merged into `main`, including the connected acceptance follow-up in [PR #5](https://github.com/JetyChodipilli/getLancer/pull/5). Code and automated acceptance are verified; **hosted production-provider and public-launch acceptance remain pending**. The cloud Site continues to publish only the private frontend preview.
+
+| Phase | Implemented scope | Source and evidence |
+|---|---|---|
+| V1 | Accounts, approved project discovery, publishing, inquiries, client-confirmed outcomes and moderation | `app/workspace`, `backend/src/main/java/com/getlancer/{auth,products,inquiries,moderation}`; [historical V1 verification](docs/V1_VERIFICATION_2026-09-15.md) |
+| V1.5 | Trust evidence, availability, link health and earned showcase capacity | `backend/src/main/java/com/getlancer/trust`; [V1.5 implementation](docs/V1_5_IMPLEMENTATION.md) |
+| V2 | Teams/studios, membership consent, recruitment, commercial leads and temporary staffing | `app/workspace/teams`, `backend/src/main/java/com/getlancer/teams`, migration `V12__teams.sql`; [V2 contract](docs/V2_CONTRACT.md) |
+| V2.5 | Business workspaces, hiring-manager consent, private briefs, shared talent lists, evidence matching and opted-in concierge | `app/workspace/business`, `backend/src/main/java/com/getlancer/business`, migration `V13__business_hiring.sql`; [V2.5 acceptance](docs/V2_5_ACCEPTANCE.md) |
+
+[Main CI run 36756252636](https://github.com/JetyChodipilli/getLancer/actions/runs/36756252636) passed on merged commit `31f027f4e9f3603a78b1fa302bb9009c7d0a6771`: **157 backend tests, 66 frontend tests, 15 preview browser checks and 3 connected browser journeys**, plus real service journeys and encrypted database recovery. Connected browser journeys use the production frontend against disposable Java/PostgreSQL/SMTP/object-storage services at desktop, phone and tablet widths. They do not certify the eventual production providers.
+
+For current acceptance details use [V2.5 acceptance](docs/V2_5_ACCEPTANCE.md) and [hosted staging preparation](ops/STAGING.md). The V1 implementation and verification documents below preserve earlier checkpoints.
+
+### Why some files still say V1
+
+GitHub's folder listing shows the last commit that changed each folder. An unchanged folder can still show `Import getLancer V1 implementation...` while `main` contains V2.5. These historical commit messages do not identify the current product phase.
+
+`/api/v1` is the stable HTTP contract namespace used by V1, V2 and V2.5. Flyway's `V1__...` through `V13__...` identify ordered database migrations. Package and JAR versions are separate build coordinates. None of these is a feature switch or a reason to rewrite migration history.
 
 Authentication redesign and Google activation steps: [AUTHENTICATION.md](docs/AUTHENTICATION.md). Login now asks for an administrator authenticator code only after the administrator password is verified. Google sign-in requires its backend credentials; it is unavailable in the disconnected preview.
 
 
-A proof-of-work marketplace connecting clients with the builders behind working software.
-
-Read [the phased implementation status](docs/V1_IMPLEMENTATION.md) for the document analysis, code delivered, actual validation evidence and remaining release gates.
-
-Current implementation and verification: [15 September V1 verification](docs/V1_VERIFICATION_2026-09-15.md). **106 backend tests (38 PostgreSQL scenarios) and 19 frontend checks pass.** The core code is present; connected cloud operation and public-launch acceptance still require the backend/provider setup and staging gates in that report.
-
-The historical [8 September completeness audit](docs/V1_COMPLETENESS_AUDIT.md) records the original gaps. Use the current verification report for repaired defects and remaining work. All 17 original document baselines were verified against the repository text.
+Historical V1 checkpoints: [implementation status](docs/V1_IMPLEMENTATION.md), [15 September verification](docs/V1_VERIFICATION_2026-09-15.md) and [8 September completeness audit](docs/V1_COMPLETENESS_AUDIT.md). These record earlier evidence and gaps; use the V2.5 acceptance record for the current delivered scope. All 17 original document baselines were verified against the repository text.
 
 ## Structure
 
-- `app/`: discovery, project details, builder profiles, accounts, workspace, client requests and moderation.
+- `app/`: discovery, project details, builder profiles, accounts, builder/team/business workspaces, client requests and moderation.
 - `backend/`: Java 17 / Spring Boot, PostgreSQL / Flyway, transactional email and S3, organized into [feature packages with controller/service boundaries](backend/README.md).
 - `lib/`: shared search state, server API configuration, analytics and SEO.
-- `tests/`: frontend route/component checks. `backend/src/test/`: rule and database integration tests.
-- `docs/`: all 17 source specifications and implementation status.
+- `tests/`: frontend route/component checks; `tests/browser` and `tests/connected`: preview and connected browser journeys. `backend/src/test/`: rule and database integration tests.
+- `docs/`: all 17 source specifications, phase contracts and acceptance records.
 - `design-system/SLATE_ATELIER.md`: the selected visual direction, overriding generic skill recommendations.
 
 ## Local setup
@@ -98,7 +115,7 @@ The navigation stays visible in a compact frosted-glass header. Once the hero se
 The supplied administrator password was placed in ignored local backend configuration only. It is not part of the source or the private Site build. Backend hosting must receive its own bootstrap secret and authenticator configuration before real admin sign-in works.
 
 ## V1 repair checkpoint
-See [current V1 verification](docs/V1_VERIFICATION_2026-09-15.md) for implemented audit fixes, executed checks and remaining release blockers. This checkpoint is not a public-launch certification.
+See [historical V1 verification](docs/V1_VERIFICATION_2026-09-15.md) for the audit fixes and checks recorded at that checkpoint. Current delivered scope and remaining provider gates are in [V2.5 acceptance](docs/V2_5_ACCEPTANCE.md).
 
 ## V2 teams and studios
 
