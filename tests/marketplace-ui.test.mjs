@@ -48,3 +48,9 @@ test('featured project stack remains available when collection filters have no m
  const {response,html}=await page('/preview/trust');assert.equal(response.status,200);assert.match(html,/Interactive V1.5 simulation/);assert.match(html,/Confirm availability/);assert.match(html,/Project evidence/);assert.match(html,/Earned capacity/);assert.doesNotMatch(html,/Repository: Verified/);
  const real=await page('/workspace/trust');assert.match(real.html,/Loading trust details/);assert.doesNotMatch(real.html,/Stockroom/);
  });
+
+test('V2 routes expose teams, workspace and isolated preview entry points',async()=>{
+ const directory=await page('/teams');assert.equal(directory.response.status,200);assert.match(directory.html,/Find your next team/);assert.match(directory.html,/Search teams/);
+ const preview=await page('/preview/teams');assert.equal(preview.response.status,200);assert.match(preview.html,/Interactive team preview/);assert.match(preview.html,/No real accounts/);assert.match(preview.html,/Preview actor/);
+ const workspace=await page('/workspace/teams');assert.equal(workspace.response.status,200);assert.match(workspace.html,/Better work, together/);
+});

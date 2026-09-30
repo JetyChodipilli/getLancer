@@ -44,3 +44,6 @@ next-env.d.ts
 /backend/target/
 *.class
 *.tsbuildinfo
+
+# Local verification coordination
+/.unlazy/

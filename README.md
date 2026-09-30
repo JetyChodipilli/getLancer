@@ -96,3 +96,14 @@ The supplied administrator password was placed in ignored local backend configur
 
 ## V1 repair checkpoint
 See [current V1 verification](docs/V1_VERIFICATION_2026-09-15.md) for implemented audit fixes, executed checks and remaining release blockers. This checkpoint is not a public-launch certification.
+
+## V2 teams and studios
+
+- `/teams`: public studio discovery, shared products, attributed member reviews, open roles and project interest.
+- `/workspace/teams`: authenticated memberships, invitations, recruitment, shared leads and temporary staffing.
+- `/preview/teams`: isolated sample workspace with role switching and reset; no live account, email or database writes.
+- Flyway `V12__teams.sql` creates the team tables when the connected API starts. Existing V1 rules remain enforced.
+- Only owner/business manager can manage commercial leads. Recruitment and staffing have separate roles. Applicants and invitees must consent before joining.
+- Client proposal acknowledgment records a reported outcome; terms, payment and contracts remain external.
+
+Start the connected stack with the existing Docker instructions. OAuth is optional and requires provider credentials. A frontend-only preview does not host the Java API or PostgreSQL.

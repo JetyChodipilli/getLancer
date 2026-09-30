@@ -37,7 +37,7 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npm run build
-      - run: node --test tests/*.test.mjs
+      - run: node --experimental-strip-types --test tests/*.test.mjs
   docker-startup:
     runs-on: ubuntu-latest
     timeout-minutes: 20

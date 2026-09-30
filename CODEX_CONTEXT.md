@@ -33,3 +33,6 @@ Replaced the tall sticky hero sequence with one bounded overlapping window scene
 
 ## V1.5 — trust and reliability
 Implementation contract: docs/V1_5_IMPLEMENTATION.md. Migration V11 adds scoped repository evidence, demo health timestamps, availability confirmation and audited earned-capacity awards. New /workspace/trust and /preview/trust separate real authenticated workflows from in-memory UAT simulation. Similar-builder recommendations respect public approval and availability. Repository review is manual evidence review, not identity/code-security certification. Demo HEAD worker is opt-in (DEMO_HEALTH_ENABLED); never enable against an unrestricted internal network without the outbound policy. Preserve client and CLIENT_TOKEN completion actors when checking outcome eligibility.
+
+## V2 implementation
+Team API and DTO contract: docs/V2_CONTRACT.md. Public `/teams`, private `/workspace/teams`, isolated `/preview/teams`. V12 migration; TeamPolicy limits commercial/recruitment/staffing capabilities. Original owners consent to team product aggregation. Contract expiry removes access at query time. Proposal client acknowledgment is a reported external outcome, never verified completion. Keep the existing four-column staggered project gallery. Cloud frontend demo remains independent of live Java/PostgreSQL.
