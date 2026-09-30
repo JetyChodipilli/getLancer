@@ -55,6 +55,15 @@ public class AccountService {
         db.queryForList(
             "SELECT document_version,accepted_at FROM legal_acceptances WHERE user_id=?", id));
     result.put(
+        "repositoryVerifications",
+        db.queryForList("SELECT v.product_id,v.repository_url,v.status,v.requested_at,v.expires_at,v.reviewed_at,v.reason FROM repository_verifications v JOIN products p ON p.id=v.product_id WHERE p.owner_user_id=?", id));
+    result.put(
+        "earnedCapacityAwards",
+        db.queryForList("SELECT inquiry_id,reason,created_at FROM earned_capacity_awards WHERE user_id=?", id));
+    result.put(
+        "teamStaffing",
+        db.queryForList("SELECT id,team_id,project_label,skills,ends_at,status,created_at FROM team_staffing WHERE user_id=?", id));
+    result.put(
         "teamMemberships",
         db.queryForList(
             "SELECT m.team_id,m.role,m.membership_type,m.expires_at,m.project_label,t.name FROM"

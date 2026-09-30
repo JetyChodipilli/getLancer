@@ -212,6 +212,18 @@ class TeamsIntegrationTest {
   }
 
   @Test
+  void archivedApprovedProofKeepsCreationEligibilityButSuspendedProofDoesNot() throws Exception {
+    db.update("UPDATE products SET lifecycle_status='ARCHIVED' WHERE id=?", product);
+    mvc.perform(get("/api/v1/me/teams").cookie(new Cookie("gl_session", "owner")))
+        .andExpect(jsonPath("$.canCreate").value(true));
+    mvc.perform(json(post("/api/v1/teams"), "owner", "{\"name\":\"Archive team\",\"summary\":\"Team using approved archived work\",\"availability\":\"AVAILABLE_NOW\",\"projectRange\":\"5k\"}"))
+        .andExpect(status().isOk());
+    db.update("UPDATE products SET lifecycle_status='SUSPENDED' WHERE id=?", product);
+    mvc.perform(get("/api/v1/me/teams").cookie(new Cookie("gl_session", "owner")))
+        .andExpect(jsonPath("$.canCreate").value(false));
+  }
+
+  @Test
   void everyTeamRoleHasServerEnforcedPrivateCapabilities() throws Exception {
     String base = "/api/v1/teams/" + team;
     mvc.perform(

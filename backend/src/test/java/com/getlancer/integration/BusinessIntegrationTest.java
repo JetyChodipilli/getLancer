@@ -342,4 +342,18 @@ class BusinessIntegrationTest {
         .andExpect(jsonPath("$.businessRequests.length()").value(0))
         .andExpect(jsonPath("$.businessMemberships.length()").value(0));
   }
+
+  @Test
+  void exportIncludesTrustAndStaffingWithoutChallengesOrOtherUsersData() throws Exception {
+    db.update("INSERT INTO repository_verifications(product_id,repository_url,challenge) VALUES(?,?,'private-challenge')", product, "https://github.com/example/proof");
+    db.update("INSERT INTO team_staffing(id,team_id,user_id,project_label,skills,ends_at) VALUES(?,?,?,'Internal project','Java',now()+interval '1 day')", UUID.randomUUID(), team, builder);
+    mvc.perform(as(get("/api/v1/me/export"), "builder"))
+        .andExpect(jsonPath("$.repositoryVerifications.length()").value(1))
+        .andExpect(jsonPath("$.teamStaffing.length()").value(1))
+        .andExpect(jsonPath("$.earnedCapacityAwards").isArray())
+        .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("private-challenge"))));
+    mvc.perform(as(get("/api/v1/me/export"), "outsider"))
+        .andExpect(jsonPath("$.repositoryVerifications.length()").value(0))
+        .andExpect(jsonPath("$.teamStaffing.length()").value(0));
+  }
 }
