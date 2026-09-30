@@ -62,8 +62,8 @@ jobs:
           retention-days: 7
       - uses: actions/upload-artifact@v4
         with:
-          name: frontend-server-${{ github.sha }}
-          path: dist/server
+          name: frontend-build-${{ github.sha }}
+          path: dist
           if-no-files-found: error
           retention-days: 1
   docker-startup:
@@ -78,8 +78,8 @@ jobs:
         with: {node-version: '22'}
       - uses: actions/download-artifact@v4
         with:
-          name: frontend-server-${{ github.sha }}
-          path: dist/server
+          name: frontend-build-${{ github.sha }}
+          path: dist
       - name: Prepare synthetic local credentials
         run: |
           node scripts/setup-local.mjs --docker
