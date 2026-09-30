@@ -1,10 +1,10 @@
-# Connect the private frontend to a hosted V1 API
+# Connect the private frontend to the V2.5 Java API
 
 The existing private Site hosts the React frontend. It cannot run the Java API or access PostgreSQL on your laptop. This procedure prepares a separate Docker-capable Linux host with HTTPS ingress. No host, domain, database or paid service is provisioned by these files.
 
 ## Prepare a reviewed release
 
-1. Choose a commit whose three `getLancer validation (V1-V2)` jobs have passed. Record the full SHA. Build `backend/Dockerfile` from that checkout and tag it with that SHA: `docker build -t getlancer-api:FULL_COMMIT_SHA backend`. Set `BACKEND_IMAGE` to that exact tag if building on the host, or push to your chosen registry and use its immutable digest. Keep the preceding image for application rollback.
+1. Choose a commit whose three `getLancer validation (V1-V2.5)` jobs have passed, including connected browser acceptance. Record the full SHA. Build `backend/Dockerfile` from that checkout and tag it with that SHA: `docker build -t getlancer-api:FULL_COMMIT_SHA backend`. Set `BACKEND_IMAGE` to that exact tag if building on the host, or push to your chosen registry and use its immutable digest. Keep the preceding image for application rollback.
 2. Copy `.env.example` to the ignored `.env.staging`. Set `APP_ENV=staging`, `SECURE_COOKIES=true`, the actual HTTPS frontend `APP_BASE_URL`, HTTPS `BACKEND_URL`, `DEMO_MODE=false`, and a random `BACKEND_PROXY_SECRET` of at least 32 characters. The proxy secret must match the frontend runtime secret.
 3. Use a separate staging PostgreSQL database, private `DB_SCHEMA=getlancer`, and backend-only database credentials. Set `DB_URL=jdbc:postgresql://YOUR_HOST:5432/getLancer?sslmode=verify-full&sslrootcert=/run/secrets/postgres-ca.crt`. Download the database provider's CA certificate, set `DB_CA_FILE` to its absolute host path and ensure the non-root container user can read it. The template refuses to create a missing certificate path.
 4. Configure private S3-compatible storage and a verified SMTP sender in `.env.staging`. Both storage endpoints must use HTTPS; the upload endpoint must be browser-reachable. Restrict storage CORS to the exact frontend origin, PUT and required signed headers. Use TLS or SSL with SMTP. Supply separate staging administrator bootstrap credentials and authenticator secret. OAuth may remain blank until provider applications are ready.
@@ -27,6 +27,29 @@ Set `BACKEND_URL`, `DEMO_MODE=false`, `BACKEND_PROXY_SECRET` and `APP_BASE_URL` 
 Check both `/actuator/health/readiness` and `/actuator/health/liveness`. Readiness includes PostgreSQL; liveness intentionally does not. A stopped database must remove the instance from ready traffic without triggering a database-dependent restart loop. Email and storage require independent delivery/upload checks and alerts; readiness does not certify those services.
 
 Run all six journeys in `docs/10_TESTING_QA.txt` in the real browser through the actual frontend proxy. Verify provider storage CORS, signed upload and thumbnail access, email delivery and expiry, admin password plus MFA, client confirmation, review moderation, cross-account access and proxy rate-limit identity. The Docker CI suite exercises equivalent backend service journeys, but cannot certify the chosen host, provider or browser configuration.
+
+Run the read-only deployed check after connecting the frontend:
+
+```sh
+node scripts/verify-staging.mjs .env.staging
+```
+
+It verifies HTTPS origins, Java readiness/liveness, exact frontend-to-Java provider responses, anonymous rejection and redirects for all four preview workspaces. It measures eight catalog reads at concurrency two and reports observed p95 latency. This small availability measurement is not a capacity/load certification; set the launch traffic target and measure that load separately against staging. The script never creates accounts, sends messages, uploads files, resets data or prints credentials. Use `--existing-admin` only with the verified administrator precondition described below.
+
+For the owner-private Site, provide its short-lived Sites access token as `FRONTEND_SITE_ACCESS_TOKEN` in the checker's process environment through your secure credential workflow. The checker sends `OAI-Sites-Authorization` only to the configured frontend origin, never to a separate Java origin. Keep this token out of Git and the backend's `.env.staging`; the site's audience stays private. Without authorized Site access, the check should fail at the access wall.
+
+V2.5 provider acceptance must also record these browser results with owner-controlled staging accounts:
+
+| Journey | Required evidence |
+|---|---|
+| Registration and administrator login | Actual provider email delivered; email confirmation; password followed by MFA. |
+| Publishing | Browser signed upload succeeds under the provider's CORS policy; image/thumbnail can be read only at the correct visibility. |
+| Hiring-manager consent | Invitation has no access before acceptance; only the intended verified recipient can accept. |
+| Private briefs and talent | Reload preserves saved records; another business cannot read them; closed requests reject editing/matching. |
+| Current proof and concierge | Real approved builder/team results; revoked consent disappears; only an MFA administrator can recommend on opted-in briefs. |
+| Membership revocation | Removed manager loses access immediately in both API and browser. |
+
+Disposable CI now drives these V2.5 hiring journeys through the built frontend and real Java API at desktop, phone and tablet sizes, with no intercepted or mocked network responses. `tests/connected` refuses to run outside the guarded CI project. It cannot be pointed at owner, shared or production data; provider acceptance is a separate operator exercise.
 
 After successful first admin login, remove `ADMIN_BOOTSTRAP_PASSWORD` and `ADMIN_TOTP_SECRET` from the backend environment; the existing database record is retained. Recreate the API container to apply the changed environment. Run the configuration checker with `--existing-admin` only after verifying that database has the administrator. Keep protected authenticator recovery material outside Git.
 

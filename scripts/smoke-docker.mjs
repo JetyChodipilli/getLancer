@@ -1,6 +1,6 @@
 // Ephemeral CI stack only; never use the owner's database or credentials here.
 import assert from 'node:assert/strict';
-import {readdirSync} from 'node:fs';
+import {readdirSync,writeFileSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {createHmac,randomBytes} from 'node:crypto';
 import {setTimeout as delay} from 'node:timers/promises';
@@ -74,8 +74,9 @@ async function register(account,email,name){
  await account('/api/v1/auth/signup',{email,password,displayName:name,acceptedTerms:true},'POST',201);
  await account('/api/v1/auth/verify-email',{token:await confirmation(email,'EMAIL_VERIFICATION')});
  await account('/api/v1/auth/login',{email,password});
- const me=await account('/api/v1/me');assert.equal(me.emailVerified,true);return me;
+ const me=await account('/api/v1/me');assert.equal(me.emailVerified,true);browserAccounts[email]={email,password};return me;
 }
+const browserAccounts={};
 const builderEmail='ci-builder@example.test',clientEmail='ci-client@example.test';
 const owner=await register(builder,builderEmail,'CI Builder');
 await register(client,clientEmail,'CI Client');
@@ -237,3 +238,15 @@ for(let attempt=0;attempt<30;attempt++){
 }
 assert.ok(recovered,'Readiness must recover after PostgreSQL restarts.');
 console.log('Database outage passed: readiness fails, liveness survives, readiness recovers.');
+
+// Browser acceptance gets real API-created records, never a production seed or mock.
+// The secrets are synthetic, ignored, owner-readable and confined to this CI job.
+await builder(`/api/v1/teams/${team.id}/projects`,{productId:products[2]});
+const browserBusinesses={};
+for(const device of ['desktop','phone','tablet']){
+ const b=await client('/api/v1/businesses',{name:'CI Browser '+device,summary:'Disposable connected browser acceptance workspace.'});
+ await client(`/api/v1/businesses/${b.id}/invitations`,{email:'ci-manager@example.test'});
+ browserBusinesses[device]=b;
+}
+writeFileSync('.ci-connected.json',JSON.stringify({project:process.env.COMPOSE_PROJECT_NAME,accounts:browserAccounts,businesses:browserBusinesses,teamId:team.id,builderId:owner.id}),{mode:0o600});
+console.log('Connected browser prerequisites created through the real Java API.');
