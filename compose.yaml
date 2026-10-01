@@ -51,6 +51,12 @@ services:
     environment:
       APP_ENV: local
       DB_URL: jdbc:postgresql://db:5432/getLancer
+      PAYMENTS_ENABLED: ${PAYMENTS_ENABLED:-false}
+      RAZORPAY_MODE: ${RAZORPAY_MODE:-test}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+      RAZORPAY_ROUTE_APPROVED: ${RAZORPAY_ROUTE_APPROVED:-false}
       DB_USERNAME: postgres
       SMTP_HOST: mail
       SMTP_PORT: 1025

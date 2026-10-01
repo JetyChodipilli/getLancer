@@ -126,6 +126,12 @@ public class AccountService {
                 + " m.business_id=r.business_id AND m.user_id=?)",
             id,
             id));
+    result.put("commercialConsents", db.queryForList(
+        "SELECT id,engagement_id,revision,status,scope,terms,amount_minor,currency,milestones,sent_at,accepted_at FROM delivery_proposals WHERE seller_consented_by=? OR buyer_consented_by=?", id, id));
+    result.put("deliveryDisputes", db.queryForList(
+        "SELECT id,engagement_id,reason,status,resolution,resolution_reason,created_at,resolved_at FROM delivery_disputes WHERE opened_by=?", id));
+    result.put("milestonePayments", db.queryForList(
+        "SELECT id,milestone_id,amount_minor,currency,mode,status,order_id,payment_id,refunded_minor,transfer_status,settlement_status,created_at FROM payment_attempts WHERE payer_user_id=?", id));
     return result;
   }
 

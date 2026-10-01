@@ -1,10 +1,10 @@
-# getLancer V2.5 — Slate Atelier
+# getLancer V3 — Slate Atelier
 
 A proof-of-work marketplace connecting clients with the builders behind working software, with team workspaces and private business hiring.
 
 ## Current implementation status
 
-All delivered phase code through **V2.5** is merged into `main`, including the connected acceptance follow-up in [PR #5](https://github.com/JetyChodipilli/getLancer/pull/5). Code and automated acceptance are verified; **hosted production-provider and public-launch acceptance remain pending**. The cloud Site continues to publish only the private frontend preview.
+**V3 adds recorded proposals, agreements, delivery milestones and a single Razorpay gateway.** V1–V2.5 remains the verified main-branch baseline. V3 acceptance is tracked in [the commercial workflow contract](docs/09_V3_COMMERCIAL_WORKFLOWS.md); payment collection is disabled by default. **Hosted production-provider, Route activation and public-launch acceptance remain pending.** The cloud Site publishes only the private frontend preview.
 
 | Phase | Implemented scope | Source and evidence |
 |---|---|---|
@@ -13,24 +13,26 @@ All delivered phase code through **V2.5** is merged into `main`, including the c
 | V2 | Teams/studios, membership consent, recruitment, commercial leads and temporary staffing | `app/workspace/teams`, `backend/src/main/java/com/getlancer/teams`, migration `V12__teams.sql`; [V2 contract](docs/V2_CONTRACT.md) |
 | V2.5 | Business workspaces, hiring-manager consent, private briefs, shared talent lists, evidence matching and opted-in concierge | `app/workspace/business`, `backend/src/main/java/com/getlancer/business`, migration `V13__business_hiring.sql`; [V2.5 acceptance](docs/V2_5_ACCEPTANCE.md) |
 
+| V3 | Source-authorized proposals, immutable consented agreements, milestone delivery/revision/acceptance, disputes, Razorpay orders and signed provider reconciliation | `app/workspace/delivery`, `backend/src/main/java/com/getlancer/{delivery,payments}`, migrations `V14__delivery.sql` and `V15__payments.sql`; [V3 contract](docs/09_V3_COMMERCIAL_WORKFLOWS.md) |
+
 [Main CI run 36756252636](https://github.com/JetyChodipilli/getLancer/actions/runs/36756252636) passed on merged commit `31f027f4e9f3603a78b1fa302bb9009c7d0a6771`: **157 backend tests, 66 frontend tests, 15 preview browser checks and 3 connected browser journeys**, plus real service journeys and encrypted database recovery. Connected browser journeys use the production frontend against disposable Java/PostgreSQL/SMTP/object-storage services at desktop, phone and tablet widths. They do not certify the eventual production providers.
 
 For current acceptance details use [V2.5 acceptance](docs/V2_5_ACCEPTANCE.md) and [hosted staging preparation](ops/STAGING.md). The V1 implementation and verification documents below preserve earlier checkpoints.
 
 ### Why some files still say V1
 
-GitHub's folder listing shows the last commit that changed each folder. An unchanged folder can still show `Import getLancer V1 implementation...` while `main` contains V2.5. These historical commit messages do not identify the current product phase.
+GitHub's folder listing shows the last commit that changed each folder. An unchanged folder can still show `Import getLancer V1 implementation...` while newer phase code exists elsewhere in the tree. These historical commit messages do not identify the current product phase.
 
-`/api/v1` is the stable HTTP contract namespace used by V1, V2 and V2.5. Flyway's `V1__...` through `V13__...` identify ordered database migrations. Package and JAR versions are separate build coordinates. None of these is a feature switch or a reason to rewrite migration history.
+`/api/v1` is the stable HTTP contract namespace used by V1 through V3. Flyway's `V1__...` through `V15__...` identify ordered database migrations. Package and JAR versions are separate build coordinates. None of these is a feature switch or a reason to rewrite migration history.
 
 Authentication redesign and Google activation steps: [AUTHENTICATION.md](docs/AUTHENTICATION.md). Login now asks for an administrator authenticator code only after the administrator password is verified. Google sign-in requires its backend credentials; it is unavailable in the disconnected preview.
 
 
-Historical V1 checkpoints: [implementation status](docs/V1_IMPLEMENTATION.md), [15 September verification](docs/V1_VERIFICATION_2026-09-15.md) and [8 September completeness audit](docs/V1_COMPLETENESS_AUDIT.md). These record earlier evidence and gaps; use the V2.5 acceptance record for the current delivered scope. All 17 original document baselines were verified against the repository text.
+Historical V1 checkpoints: [implementation status](docs/V1_IMPLEMENTATION.md), [15 September verification](docs/V1_VERIFICATION_2026-09-15.md) and [8 September completeness audit](docs/V1_COMPLETENESS_AUDIT.md). These record earlier evidence and gaps; use the V2.5 acceptance record for the baseline and the V3 contract for commercial workflows. All 17 original document baselines were verified against the repository text.
 
 ## Structure
 
-- `app/`: discovery, project details, builder profiles, accounts, builder/team/business workspaces, client requests and moderation.
+- `app/`: discovery, project details, builder profiles, accounts, builder/team/business/delivery workspaces, client requests and moderation.
 - `backend/`: Java 17 / Spring Boot, PostgreSQL / Flyway, transactional email and S3, organized into [feature packages with controller/service boundaries](backend/README.md).
 - `lib/`: shared search state, server API configuration, analytics and SEO.
 - `tests/`: frontend route/component checks; `tests/browser` and `tests/connected`: preview and connected browser journeys. `backend/src/test/`: rule and database integration tests.
@@ -98,7 +100,7 @@ The Java runtime has no demo mode, sample users, sample projects, fake sessions 
 - Private inquiries, emails and NDA-safe content are excluded from public APIs.
 - One-time tokens are hashed and expiring; new email links keep the token in a URL fragment.
 - Images are checked and re-encoded; external URLs must resolve to public HTTPS destinations.
-- Contracts and payments remain external. There is no template checkout, paid ranking or arbitrary developer-code execution.
+- Legacy inquiry reports describe work arranged externally. V3 Delivery records consented agreements and supports enabled Razorpay milestone payments. There is no template checkout, paid ranking or arbitrary developer-code execution.
 
 ## Release preparation
 
@@ -124,7 +126,7 @@ See [historical V1 verification](docs/V1_VERIFICATION_2026-09-15.md) for the aud
 - `/preview/teams`: isolated sample workspace with role switching and reset; no live account, email or database writes.
 - Flyway `V12__teams.sql` creates the team tables when the connected API starts. Existing V1 rules remain enforced.
 - Only owner/business manager can manage commercial leads. Recruitment and staffing have separate roles. Applicants and invitees must consent before joining.
-- Client proposal acknowledgment records a reported outcome; terms, payment and contracts remain external.
+- Team lead acknowledgment records an externally arranged outcome. Use V3 Delivery for a recorded milestone agreement and enabled Razorpay checkout.
 
 Start the connected stack with the existing Docker instructions. OAuth is optional and requires provider credentials. A frontend-only preview does not host the Java API or PostgreSQL.
 
@@ -135,3 +137,10 @@ Start the connected stack with the existing Docker instructions. OAuth is option
 `/preview/business` is a frontend-only in-memory demonstration. Configuring `BACKEND_URL` redirects it to the real workspace and disables every sample fallback, including when Java is unavailable or has no records. Flyway `V13__business_hiring.sql` creates private business tables; it seeds no business or talent records.
 
 See the [V2.5 contract](docs/V2_5_CONTRACT.md) and [acceptance and review record](docs/V2_5_ACCEPTANCE.md). The CI workflow verifies Java/PostgreSQL, connected Docker service journeys, recovery and Chromium layouts at desktop, phone and tablet widths. Backend production deployment remains outside this frontend-only cloud release.
+
+
+## Razorpay activation
+
+One gateway offers multiple methods through Standard Checkout; the Java service creates every order from the accepted milestone amount. Checkout loads on an explicit Pay action. Test captures are labelled and cannot complete real commercial agreements. Payment capture, Route transfer and bank settlement are recorded separately. Refunds and transfer reversals are performed in Razorpay and reconciled into the append-only ledger; recording an application dispute does not move money.
+
+Set `PAYMENTS_ENABLED=false` until commercial policies, Route and seller KYC are approved. Use separate disposable data for test keys. Configure the key ID, key secret, webhook secret and mode only on Java hosting, configure auto-capture in Razorpay, and point the provider webhook directly to `/api/v1/payments/razorpay/webhook` on the public Java API origin. Map activated seller linked accounts using MFA-protected operator controls. No provider secret or bank/PAN data is sent to the frontend. Unknown order creation is reconciled against the original receipt before another order can be attempted.

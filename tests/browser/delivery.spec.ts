@@ -1,0 +1,46 @@
+import {test,expect,type Page} from '@playwright/test';
+
+async function noOverflow(page:Page){await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()!.width+1);}
+async function actor(page:Page,side:'BUYER'|'SELLER'){
+ const disclosure=page.locator('.studio-preview');if(!await disclosure.evaluate(node=>(node as HTMLDetailsElement).open))await page.getByText('Interactive delivery preview',{exact:true}).click();
+ await page.getByLabel('Preview actor',{exact:true}).selectOption(side);
+ await expect(page.getByText(side==='SELLER'?'Private engagement · seller workspace':'Private engagement · buyer workspace',{exact:true})).toBeVisible();
+}
+async function acceptProposal(page:Page){
+ await page.getByRole('button',{name:'Review and send proposal',exact:true}).click();const dialog=page.getByRole('dialog'),send=dialog.getByRole('button',{name:'Send proposal with consent',exact:true});
+ await expect(send).toBeDisabled();await dialog.getByRole('checkbox').check();await send.click();await expect(dialog).not.toBeVisible();
+ await actor(page,'BUYER');await page.getByRole('button',{name:'Review and accept proposal',exact:true}).click();
+ const accept=dialog.getByRole('button',{name:'Accept proposal and consent',exact:true});await expect(accept).toBeDisabled();await dialog.getByRole('checkbox').check();await accept.click();await expect(dialog).not.toBeVisible();await expect(page.getByRole('heading',{name:'Your agreed scope',exact:true})).toBeVisible();
+}
+function milestone(page:Page,title='Design and review queue'){return page.getByTestId('delivery-milestone').filter({has:page.getByRole('heading',{name:title,exact:true})});}
+async function submit(page:Page,title='Design and review queue',note='Responsive screens and the approval queue are ready for client review.'){
+ await milestone(page,title).getByRole('button',{name:'Submit deliverable',exact:true}).click();const dialog=page.getByRole('dialog');await dialog.getByLabel('What was delivered?',{exact:true}).fill(note);await dialog.getByLabel('Deliverable URL (optional, HTTPS)',{exact:true}).fill('https://example.com/client-review');await dialog.getByRole('button',{name:'Submit for buyer review',exact:true}).click();await expect(dialog).not.toBeVisible();
+}
+async function acceptMilestone(page:Page,title='Design and review queue'){
+ await milestone(page,title).getByRole('button',{name:'Accept deliverable',exact:true}).click();const dialog=page.getByRole('dialog');await dialog.getByRole('button',{name:'Accept deliverable',exact:true}).click();await expect(dialog).not.toBeVisible();
+}
+
+test('delivery preview records consent, revision, local payment and both completion acknowledgements',async({page},info)=>{
+ const requests:string[]=[];page.on('request',request=>{if(request.url().includes('/api/v1/')||request.url().includes('razorpay.com'))requests.push(request.url());});
+ await page.goto('/preview/delivery');await expect(page.getByRole('heading',{name:'Customer approval portal',exact:true})).toBeVisible();await noOverflow(page);
+ await page.getByRole('button',{name:'Edit proposal',exact:true}).click();const editor=page.getByRole('dialog');await editor.getByRole('button',{name:'Remove milestone 2',exact:true}).click();await editor.getByLabel('Milestone 1 amount (INR)',{exact:true}).fill('25000.25');await editor.getByRole('button',{name:'Save proposal draft',exact:true}).click();await expect(editor).not.toBeVisible();await expect(page.getByRole('heading',{name:'Proposal · revision 2',exact:true})).toBeVisible();
+ await acceptProposal(page);await actor(page,'SELLER');await expect(page.getByRole('button',{name:'Request project completion',exact:true})).toBeDisabled();
+ await milestone(page).getByRole('button',{name:'Start milestone',exact:true}).click();await submit(page);await actor(page,'BUYER');
+ await milestone(page).getByRole('button',{name:'Request revision',exact:true}).click();const revision=page.getByRole('dialog');await revision.getByLabel('What needs revision?',{exact:true}).fill('Please add a keyboard focus state to the approval action.');await revision.getByRole('button',{name:'Send revision request',exact:true}).click();await expect(revision).not.toBeVisible();await expect(milestone(page).getByText('Revision requested',{exact:true})).toBeVisible();
+ await actor(page,'SELLER');await milestone(page).getByRole('button',{name:'Start milestone',exact:true}).click();await submit(page,'Design and review queue','The requested keyboard focus states are now included and tested.');await actor(page,'BUYER');await acceptMilestone(page);await milestone(page).getByRole('button',{name:'Simulate confirmed payment',exact:true}).click();await expect(milestone(page).getByText('Local sample status; no money moved.',{exact:true})).toBeVisible();
+ await actor(page,'SELLER');await page.getByRole('button',{name:'Request project completion',exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:'Request completion',exact:true}).click();await expect(page.getByRole('dialog')).not.toBeVisible();await actor(page,'BUYER');await page.getByRole('button',{name:'Confirm project completion',exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:'Confirm completion',exact:true}).click();await expect(page.getByRole('dialog')).not.toBeVisible();await expect(page.getByText('Final handover is acknowledged by both parties.',{exact:true})).toBeVisible();
+ await noOverflow(page);await page.screenshot({path:info.outputPath('delivery-completed.png'),fullPage:true});expect(requests).toEqual([]);await expect(page.locator('script[src*="checkout.razorpay.com"]')).toHaveCount(0);
+});
+
+test('a recorded dispute visibly pauses actions and does not imply a refund',async({page})=>{
+ await page.goto('/preview/delivery');await acceptProposal(page);await actor(page,'SELLER');await milestone(page).getByRole('button',{name:'Start milestone',exact:true}).click();await submit(page);await actor(page,'BUYER');await acceptMilestone(page);
+ await milestone(page).getByRole('button',{name:'Simulate confirmed payment',exact:true}).click();await page.getByRole('button',{name:'Raise a dispute',exact:true}).click();const dialog=page.getByRole('dialog');await dialog.getByLabel('Describe the project concern',{exact:true}).fill('The agreed handover documentation needs clarification before closing the project.');await dialog.getByRole('button',{name:'Record dispute',exact:true}).click();await expect(dialog).not.toBeVisible();
+ await expect(page.getByText('An open dispute pauses checkout and completion. An administrator must record a resolution; opening a dispute does not issue a refund.',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Simulate confirmed payment',exact:true})).toHaveCount(0);await actor(page,'SELLER');await expect(page.getByRole('button',{name:'Request project completion',exact:true})).toHaveCount(0);await noOverflow(page);
+});
+
+test('proposal forms reflow, enforce exact INR precision and restore keyboard focus',async({page})=>{
+ await page.goto('/preview/delivery');const edit=page.getByRole('button',{name:'Edit proposal',exact:true});await edit.click();const dialog=page.getByRole('dialog');await expect(dialog.getByLabel('Scope and deliverables',{exact:true})).toBeFocused();await dialog.getByRole('button',{name:'Add milestone',exact:true}).click();await dialog.getByLabel('Milestone 3 title',{exact:true}).fill('Final handover');await dialog.getByLabel('Milestone 3 deliverables',{exact:true}).fill('Complete operational handover and support notes.');await dialog.getByLabel('Milestone 3 due date',{exact:true}).fill('2026-10-30');await dialog.getByLabel('Milestone 3 amount (INR)',{exact:true}).fill('100.001');await dialog.getByRole('button',{name:'Save proposal draft',exact:true}).click();await expect(dialog).toBeVisible();await expect.poll(()=>dialog.getByLabel('Milestone 3 amount (INR)',{exact:true}).evaluate(node=>(node as HTMLInputElement).validity.patternMismatch)).toBe(true);await noOverflow(page);
+ await dialog.getByLabel('Milestone 3 amount (INR)',{exact:true}).fill('0.99');await dialog.getByRole('button',{name:'Save proposal draft',exact:true}).click();await expect(dialog.getByRole('alert')).toHaveText('Each milestone must be between ₹1.00 and ₹1,00,00,000.');await expect(dialog.getByRole('alert')).toBeFocused();
+ await dialog.getByRole('button',{name:'Remove milestone 3',exact:true}).click();await dialog.getByLabel('Milestone 1 amount (INR)',{exact:true}).fill('6000000.00');await dialog.getByLabel('Milestone 2 amount (INR)',{exact:true}).fill('6000000.00');await dialog.getByRole('button',{name:'Save proposal draft',exact:true}).click();await expect(dialog.getByRole('alert')).toHaveText('The proposal total cannot exceed ₹1,00,00,000.');await expect(dialog.getByRole('alert')).toBeFocused();
+ await page.keyboard.press('Escape');await expect(dialog).not.toBeVisible();await expect(edit).toBeFocused();await page.getByRole('button',{name:'Create engagement',exact:true}).click();await expect(page.getByRole('dialog').getByLabel('Qualified inquiry ID',{exact:true})).toBeVisible();await noOverflow(page);await page.keyboard.press('Escape');await expect(page.getByRole('button',{name:'Create engagement',exact:true})).toBeFocused();
+});

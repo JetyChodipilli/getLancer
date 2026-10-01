@@ -5,7 +5,7 @@ const limits:Record<string,[number,number]>={name:[2,120],summary:[10,3000],avai
 
 export function Field({name,label,value='',type='text',options,required=true,minLength,maxLength}:{name:string;label:string;value?:any;type?:string;options?:{value:string;label:string}[];required?:boolean;minLength?:number;maxLength?:number}){
  const id=useId(),error=useContext(FieldErrors)[name],range=limits[name];
- const shared={id,name,defaultValue:value||'',required,'aria-invalid':error?true:undefined,'aria-describedby':error?id+'-error':undefined};
+ const shared={id,name,defaultValue:value||'',required,'aria-label':label,'aria-invalid':error?true:undefined,'aria-describedby':error?id+'-error':undefined};
  return <label className="team-field" htmlFor={id}>{label}{options?<select {...shared}>{options.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select>:type==='textarea'?<textarea {...shared} minLength={minLength??range?.[0]} maxLength={maxLength??range?.[1]??4000}/>:<input {...shared} type={type} minLength={minLength??range?.[0]} maxLength={maxLength??range?.[1]??(type==='text'?500:undefined)}/>} {error&&<span id={id+'-error'} className="team-error">{error}</span>}</label>;
 }
 export function TeamForm({children,onSave,label='Save changes',busy=false}:{children:ReactNode;onSave:(data:Record<string,string>)=>Promise<unknown>;label?:string;busy?:boolean}){

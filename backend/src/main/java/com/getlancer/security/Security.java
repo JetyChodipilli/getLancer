@@ -66,6 +66,8 @@ public class Security extends OncePerRequestFilter {
     res.setHeader("Cache-Control", "no-store");
     res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
     if (req.isSecure()) res.setHeader("Strict-Transport-Security", "max-age=31536000");
+    boolean razorpayWebhook = req.getMethod().equals("POST")
+        && req.getRequestURI().equals("/api/v1/payments/razorpay/webhook");
     String o = req.getHeader("Origin");
     if (origin.equals(o)) {
       res.setHeader("Access-Control-Allow-Origin", origin);
@@ -84,11 +86,12 @@ public class Security extends OncePerRequestFilter {
       return;
     }
     if (!Set.of("GET", "HEAD").contains(req.getMethod())) {
-      if (!origin.equals(o) || !"getlancer".equals(req.getHeader("X-Requested-With"))) {
+      if (!razorpayWebhook
+          && (!origin.equals(o) || !"getlancer".equals(req.getHeader("X-Requested-With")))) {
         deny(res, 403, "FORBIDDEN", "Invalid request origin.");
         return;
       }
-      if (req.getContentLengthLong() > 6 * 1024 * 1024) {
+      if (req.getContentLengthLong() > (razorpayWebhook ? 64 * 1024 : 6 * 1024 * 1024)) {
         deny(res, 413, "PAYLOAD_TOO_LARGE", "Request too large.");
         return;
       }

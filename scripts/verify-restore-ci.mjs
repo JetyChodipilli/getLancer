@@ -13,7 +13,7 @@ const command=(args,input)=>execFileSync('docker',['compose','exec','-T','db',..
 const query=(database,sql)=>command(['psql','-U','postgres','-d',database,'-At','--set','ON_ERROR_STOP=1','-c',sql]).toString().trim();
 const target='getlancer_restore_ci';
 assert.equal(query('postgres',`SELECT count(*) FROM pg_database WHERE datname='${target}'`),'0','Refuse to overwrite an existing restore target.');
-const countsSql="SELECT (SELECT count(*) FROM getlancer.users),(SELECT count(*) FROM getlancer.products),(SELECT count(*) FROM getlancer.product_media),(SELECT count(*) FROM getlancer.inquiries),(SELECT count(*) FROM getlancer.reviews),(SELECT count(*) FROM getlancer.moderation_actions),(SELECT count(*) FROM getlancer.flyway_schema_history WHERE success)";
+const countsSql="SELECT (SELECT count(*) FROM getlancer.users),(SELECT count(*) FROM getlancer.products),(SELECT count(*) FROM getlancer.product_media),(SELECT count(*) FROM getlancer.inquiries),(SELECT count(*) FROM getlancer.reviews),(SELECT count(*) FROM getlancer.moderation_actions),(SELECT count(*) FROM getlancer.delivery_engagements),(SELECT count(*) FROM getlancer.delivery_agreements),(SELECT count(*) FROM getlancer.delivery_milestones),(SELECT count(*) FROM getlancer.delivery_disputes),(SELECT count(*) FROM getlancer.payment_attempts),(SELECT count(*) FROM getlancer.payment_ledger),(SELECT count(*) FROM getlancer.flyway_schema_history WHERE success)";
 const before=query('getLancer',countsSql);
 const archive=command(['pg_dump','-U','postgres','-d','getLancer','--schema=getlancer','--format=custom','--no-owner','--no-acl']);
 assert.ok(archive.length>1000);

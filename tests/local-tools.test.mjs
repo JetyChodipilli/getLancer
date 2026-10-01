@@ -47,3 +47,14 @@ test('environment checker permits retired bootstrap secrets only with explicit e
  save({DB_PASSWORD:'"quoted-secret"'});const invalid=run('--existing-admin');assert.equal(invalid.status,1);assert.ok(!invalid.stderr.includes('quoted-secret'));
  save({});writeFileSync(file,readFileSync(file,'utf8')+'DB_PASSWORD=duplicate-secret\n');const duplicate=run('--existing-admin');assert.equal(duplicate.status,1);assert.match(duplicate.stderr,/Duplicate environment key/);assert.ok(!duplicate.stderr.includes('duplicate-secret'));
 });
+
+test('payment activation requires coherent real gateway credentials and commercial approval without printing secrets',t=>{
+ const dir=mkdtempSync(join(tmpdir(),'getlancer-payments-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));
+ const file=join(dir,'.env'),base=readEnvironment(new URL('../.env.example',import.meta.url));
+ Object.assign(base,{DB_PASSWORD:'synthetic-database',OBJECT_STORAGE_ACCESS_KEY:'synthetic-access',OBJECT_STORAGE_SECRET_KEY:'synthetic-storage',ADMIN_BOOTSTRAP_PASSWORD:'synthetic-admin',ADMIN_TOTP_SECRET:'JBSWY3DPEHPK3PXP',PAYMENTS_ENABLED:'true'});
+ const run=extra=>{writeFileSync(file,Object.entries({...base,...extra}).map(([k,v])=>`${k}=${v}`).join('\n')+'\n');return spawnSync(process.execPath,[new URL('../scripts/check-environment.mjs',import.meta.url).pathname,file],{encoding:'utf8'});};
+ const missing=run({});assert.equal(missing.status,1);assert.match(missing.stdout,/Missing: RAZORPAY_KEY_SECRET/);assert.match(missing.stdout,/approved commercial policies/);
+ const configured={RAZORPAY_MODE:'test',RAZORPAY_KEY_ID:'rzp_test_synthetic',RAZORPAY_KEY_SECRET:'synthetic-provider-private',RAZORPAY_WEBHOOK_SECRET:'synthetic-webhook-private',RAZORPAY_ROUTE_APPROVED:'true',POLICIES_APPROVED:'true'};
+ const ready=run(configured);assert.equal(ready.status,0,ready.stdout);assert.ok(!ready.stdout.includes(configured.RAZORPAY_KEY_SECRET));assert.ok(!ready.stdout.includes(configured.RAZORPAY_WEBHOOK_SECRET));
+ assert.equal(run({...configured,RAZORPAY_MODE:'live'}).status,1);assert.equal(run({...configured,RAZORPAY_ROUTE_APPROVED:'false'}).status,1);
+});

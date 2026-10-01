@@ -59,3 +59,6 @@ The one-time bootstrap creates the sole administrator only if absent and never r
 Public response reliability appears only at the configured minimum of 10 qualified inquiries (changeable with `PUBLIC_RELIABILITY_MIN_SAMPLE`; set 0 to withhold), each observed for at least 48 hours. Spam/quarantine is excluded. These measurements are not a guarantee of service or a purchased trust badge.
 
 This runbook does not claim that external services have been provisioned, migrations have run, or public-launch gates have passed.
+
+
+V3 Razorpay setup and acceptance: [commercial workflow contract](../docs/09_V3_COMMERCIAL_WORKFLOWS.md). Keep `PAYMENTS_ENABLED=false` until policies, Route, seller onboarding and provider verification are approved. The private frontend preview cannot accept real payments; a hosted Java service and public signed webhook endpoint are required.
