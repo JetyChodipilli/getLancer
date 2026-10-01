@@ -7,8 +7,12 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public class PaymentRepository {
-  final JdbcTemplate db;
+  private final JdbcTemplate db;
   public PaymentRepository(JdbcTemplate db) { this.db=db; }
+
+  void advisoryLock(String key) {
+    db.queryForObject("SELECT pg_advisory_xact_lock(hashtextextended(?,0))",Object.class,key);
+  }
 
   Map<String,Object> attempt(UUID id,boolean lock) {
     var rows=db.queryForList("SELECT * FROM payment_attempts WHERE id=?"+(lock?" FOR UPDATE":""),id);

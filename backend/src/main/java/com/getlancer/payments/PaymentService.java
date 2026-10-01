@@ -59,7 +59,7 @@ public class PaymentService {
     provider.requireCollection();
     Map<String,Object> reservation=tx(()-> {
       UUID payer=security.user(request);
-      repo.db.queryForObject("SELECT pg_advisory_xact_lock(hashtextextended(?,0))",Object.class,"payment-key:"+payer+":"+key);
+      repo.advisoryLock("payment-key:"+payer+":"+key);
       var m=delivery.lockMilestone(milestone,request,"BUYER");
       if (!"ACCEPTED".equals(m.get("status")) || !"ACTIVE".equals(m.get("engagementStatus")))
         throw new ApiError(409,"PAYMENT_NOT_READY","Payment requires an accepted milestone in an active, undisputed engagement.");
@@ -252,7 +252,7 @@ public class PaymentService {
     try { digest=HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(body)); } catch (java.security.NoSuchAlgorithmException ex) { throw new IllegalStateException(ex); }
     // Serialize only duplicate event processing, never global payment work. Unlock at transaction end.
     return tx(()-> {
-      repo.db.queryForObject("SELECT pg_advisory_xact_lock(hashtextextended(?,0))",Object.class,eventId);
+      repo.advisoryLock(eventId);
       String previous=repo.existingEvent(eventId);
       if (previous!=null) {
         if (!previous.equals(digest)) throw new ApiError(409,"WEBHOOK_EVENT_CONFLICT","A different payload used the same webhook event identifier.");
