@@ -352,3 +352,6 @@ body{font-family:Inter,system-ui,-apple-system,'Segoe UI',sans-serif;background:
 .marketplace>.demo-gallery[data-layout=masonry]>.project{position:absolute;margin:0;}
 @media(max-width:1000px){.marketplace>.demo-gallery{--demo-columns:2;}}
 @media(max-width:640px){.marketplace>.demo-gallery{--demo-columns:1;}}
+
+/* Footer links wrap as a collection on narrow screens. */
+@media(max-width:760px){.market-footer nav{flex-wrap:wrap;justify-content:flex-start;column-gap:20px;row-gap:0;min-width:0}.market-footer nav a{flex:0 0 auto}}

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test, {before, after} from 'node:test';
 import {createServer} from 'node:http';
 import {once} from 'node:events';
-import worker from '../dist/server/index.js';
+import worker from './helpers/built-worker.mjs';
 
 // An HTTP fixture for the frontend contract only. Java/PostgreSQL and SMTP/S3
 // behavior are verified separately by Maven integration tests and Docker CI.
@@ -33,7 +33,7 @@ async function page(path){const r=await worker.fetch(new Request('https://app.ex
 const noDemo=html=>assert.doesNotMatch(html,/Stockroom|Booklane|Leah Morgan|Northstar Studio|Demo workspace|Interactive team preview|Interactive V1.5 simulation|href="\/preview\//);
 function renderedError({r,html}){
   // A streamed response can commit HTTP 200 before RSC reports its error.
-  const chunks=[...html.matchAll(/__VINEXT_RSC_CHUNKS__\.push\((.*?)\)<\/script>/gs)].map(m=>JSON.parse(m[1])).join('');
+  const chunks=[...html.matchAll(/(?:__VINEXT_RSC_CHUNKS__\.push|\.rsc\.push)\((.*?)\)<\/script>/gs)].map(m=>JSON.parse(m[1])).join('');
   assert.ok(r.status>=500 || /^\w+:E\{.*"digest":/m.test(chunks) || /"error":"\$Z/.test(chunks),'An API failure must reach the error boundary.');
 }
 

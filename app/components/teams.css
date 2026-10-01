@@ -6,3 +6,26 @@
 .studio-shell .team-selection{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:16px;margin-bottom:20px}.studio-shell .team-selection .team-actions{gap:16px}.studio-shell .team-selection .team-field{width:min(330px,100%)}.studio-shell .team-selection .team-actions>span{font-size:12px;color:var(--team-muted)}.studio-shell .team-create{margin:0;padding:5px 14px}.studio-shell .team-create[open]{grid-column:1/-1;padding:16px 20px}.studio-shell .team-create>p{font-size:13px;color:var(--team-muted)}.studio-shell .team-context{display:flex;align-items:center;gap:16px;border:1px solid var(--team-line);background:white;border-radius:12px;padding:22px;margin-bottom:20px}.studio-shell .team-context-mark{display:grid;place-items:center;background:#edf3ff;color:#175cd3;width:52px;height:52px;border-radius:12px;flex-shrink:0;font-size:19px;font-weight:600}.studio-shell .team-context-copy{min-width:0;flex:1}.studio-shell .team-context h2{font-size:21px;margin:0 0 4px}.studio-shell .team-context p{font-size:13px;color:var(--team-muted);margin:0 0 10px}.studio-shell .team-context>.button{font-size:12px}.studio-shell .team-section{margin:0 0 24px;background:white;border:1px solid var(--team-line);border-radius:12px;padding:24px}.studio-shell .team-section>p{font-size:13px;color:var(--team-muted)}.studio-shell .team-section>h3{margin-top:26px}.studio-shell .team-section.team-overview{padding:0;background:transparent;border:0}.studio-shell .team-projects-heading{margin-top:28px}.studio-shell .studio-overview-grid aside .team-form fieldset{grid-template-columns:1fr}.studio-shell .studio-overview-grid aside details{padding:12px;margin-bottom:0}.studio-shell .team-empty{padding:28px 20px}
 @media(max-width:1000px){.team-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.team-two{grid-template-columns:1fr}}
 @media(max-width:640px){.team-hero,.team-row{flex-direction:column;align-items:stretch}.team-grid,.team-project-grid{grid-template-columns:1fr}.team-search{flex-direction:column;align-items:stretch}.team-card{padding:20px}.teams-page{padding-top:24px}.team-actions>*{max-width:100%}.team-form fieldset{grid-template-columns:1fr}.team-form fieldset>.team-field{grid-column:1}.team-profile-count{flex-direction:row;align-items:center;gap:18px}.team-profile-count strong{font-size:40px}.studio-shell .team-selection{grid-template-columns:1fr}.studio-shell .team-selection .team-field{width:100%}.studio-shell .team-create{justify-self:start}.studio-shell .team-create[open]{justify-self:stretch}.studio-shell .team-context{flex-wrap:wrap;padding:18px;gap:12px}.studio-shell .team-context-mark{width:42px;height:42px;font-size:16px}.studio-shell .team-context-copy{flex-basis:calc(100% - 54px)}.studio-shell .team-context>.button{margin-left:54px}.studio-shell .team-section{padding:18px}.team-row .team-actions{justify-content:flex-start}}
+
+.team-card{display:flex;flex-direction:column;gap:0}
+.team-card h2{font-size:20px;line-height:28px;letter-spacing:-.025em}
+.team-card .team-actions{margin-top:auto;padding-top:18px}
+.team-card>p:last-of-type{margin-bottom:20px}
+.team-monogram{background:#f2f6ff;border:1px solid #dbe6fb}
+.team-badge{font-size:12px;line-height:18px;padding:4px 8px}
+.team-form{margin-top:20px}
+.team-form fieldset{gap:18px 20px}
+.team-form fieldset>p{font-size:13px;line-height:21px}
+.team-section summary,.team-create summary,.studio-overview-grid aside summary{min-height:44px;font-size:14px;line-height:21px}
+.studio-shell .team-create{padding:0 16px}
+.studio-shell .team-create[open]{padding:16px 20px}
+.studio-shell .team-context{padding:24px;gap:18px}
+.studio-shell .team-context h2{font-size:22px;line-height:30px;letter-spacing:-.025em}
+.studio-shell .team-context>.button{font-size:13px;min-height:44px}
+.team-row{gap:20px;padding:20px 0}
+.team-row h3{font-size:16px;line-height:24px}
+.team-row p{line-height:21px}
+.team-row .team-actions{flex-shrink:0;gap:8px}
+.team-section details[open]>summary,.team-create[open]>summary{padding-bottom:16px}
+.team-note{font-size:13px;line-height:22px;padding:14px 16px;background:#f5f7fb}
+@media(max-width:640px){.team-form fieldset{gap:16px}.studio-shell .team-context{padding:20px;gap:12px}.studio-shell .team-context>.button{margin-left:0;width:100%}.team-row .team-actions{gap:10px}.team-row .team-actions>.button{flex:1}.team-card .team-actions>.button{flex:1}}

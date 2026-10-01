@@ -1,8 +1,10 @@
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
+import { frontendCsp } from '../lib/security-headers';
 
 interface Env {
+  BACKEND_URL?: string;
   ASSETS: { fetch(request: Request): Promise<Response> };
   IMAGES: {
     input(stream: ReadableStream): {
@@ -44,7 +46,7 @@ const worker = {
     secured.headers.set('X-Content-Type-Options', 'nosniff');
     secured.headers.set('Referrer-Policy', 'no-referrer');
     secured.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-    secured.headers.set('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
+    secured.headers.set('Content-Security-Policy', frontendCsp(Boolean(env.BACKEND_URL?.trim())));
     if (url.protocol === 'https:') secured.headers.set('Strict-Transport-Security', 'max-age=31536000');
     return secured;
   },

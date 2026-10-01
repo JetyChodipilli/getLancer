@@ -23,13 +23,15 @@ public class ProductService {
   private final ProductRepository repository;
   final Security security;
   final Mail mail;
+  private final ShowcaseMeasurements measurements;
 
   public ProductService(
-      JdbcTemplate db, Security security, Mail mail, ProductRepository repository) {
+      JdbcTemplate db, Security security, Mail mail, ProductRepository repository, ShowcaseMeasurements measurements) {
     this.db = db;
     this.security = security;
     this.mail = mail;
     this.repository = repository;
+    this.measurements = measurements;
   }
 
   public Map<String, Object> dto(Map<String, Object> p) {
@@ -95,6 +97,10 @@ public class ProductService {
       "rightsConfirmed"
     };
     for (int n = 0; n < old.length; n++) x.put(keys[n], p.get(old[n]));
+    x.put("pricingMode", p.get("pricing_mode"));
+    x.put("priceMinMinor", p.get("price_min_minor"));
+    x.put("priceMaxMinor", p.get("price_max_minor"));
+    x.put("currency", p.get("currency_code"));
     if (!media.isEmpty())
       x.put("imageUrl", "/api/v1/media/" + media.get(0).get("id") + "?variant=thumbnail");
     x.put(
@@ -353,6 +359,7 @@ public class ProductService {
     Rules.safeUrl(live);
     Rules.safeUrl(video);
     String repository = text(b, "repositoryUrl", 0, 1000), pricing = text(b, "pricingNote", 0, 300);
+    ProductPricing terms = ProductPricing.parse(b);
     Rules.safeUrl(repository);
     String type = text(b, "projectType", 1, 40), visibility = text(b, "visibility", 1, 30);
     if (!Set.of(
@@ -389,10 +396,14 @@ public class ProductService {
         u);
     db.update(
         "UPDATE products SET"
-            + " repository_url=?,pricing_note=?,demo_health='UNKNOWN',demo_checked_at=NULL,demo_checked_url=NULL"
+            + " repository_url=?,pricing_note=?,pricing_mode=?,price_min_minor=?,price_max_minor=?,currency_code=?,demo_health='UNKNOWN',demo_checked_at=NULL,demo_checked_url=NULL"
             + " WHERE id=?",
         repository,
         pricing,
+        terms.mode(),
+        terms.min(),
+        terms.max(),
+        terms.currency(),
         p);
     db.update(
         "DELETE FROM repository_verifications WHERE product_id=? AND repository_url<>?",
@@ -449,10 +460,9 @@ public class ProductService {
           db.update(
               "UPDATE products SET lifecycle_status='ARCHIVED',updated_at=now() WHERE id=?", id);
           db.update(
-              "INSERT INTO analytics_events(id,event_name,entity_id)"
-                  + " VALUES(?,'product_archived',?)",
-              id(),
-              id);
+              "INSERT INTO analytics_events(id,event_name,entity_id,context)"
+                  + " VALUES(?,'product_archived',?,jsonb_build_object('builderId',?::text,'activeCount',?::integer))",
+              id(), id, u.toString(), db.queryForObject("SELECT count(*) FROM products WHERE owner_user_id=? AND lifecycle_status='ACTIVE'", Integer.class, u));
         }
       }
       case "activate" -> activate(id, u, true);
@@ -481,15 +491,15 @@ public class ProductService {
             Integer.class,
             u);
     if (!Rules.canActivate(true, approved, count, (Integer) ent.get("active_slot_limit"))) {
+      if (approved && count >= (Integer) ent.get("active_slot_limit")) measurements.blocked(u, p, count);
       if (fail)
         throw new ApiError(409, "SLOT_LIMIT_REACHED", "Archive an active showcase to make room.");
       return;
     }
     db.update("UPDATE products SET lifecycle_status='ACTIVE',updated_at=now() WHERE id=?", p);
     db.update(
-        "INSERT INTO analytics_events(id,event_name,entity_id) VALUES(?,'product_activated',?)",
-        id(),
-        p);
+        "INSERT INTO analytics_events(id,event_name,entity_id,context) VALUES(?,'product_activated',?,jsonb_build_object('builderId',?::text,'activeCount',?::integer))",
+        id(), p, u.toString(), count + 1);
   }
 
   @Transactional

@@ -20,12 +20,19 @@ public class AdminService {
   final Security security;
   final ProductService products;
   final Mail mail;
+  final MarketplaceMetrics marketplaceMetrics;
 
-  public AdminService(JdbcTemplate db, Security security, ProductService products, Mail mail) {
+  public AdminService(
+      JdbcTemplate db,
+      Security security,
+      ProductService products,
+      Mail mail,
+      MarketplaceMetrics marketplaceMetrics) {
     this.db = db;
     this.security = security;
     this.products = products;
     this.mail = mail;
+    this.marketplaceMetrics = marketplaceMetrics;
   }
 
   public Map<String, Object> pending(HttpServletRequest r) {
@@ -214,8 +221,8 @@ public class AdminService {
     else if (!Set.of("", "NONE").contains(action))
       throw new ApiError(400, "VALIDATION_ERROR", "Choose an action supported by this report.");
     db.update(
-        "UPDATE reports SET status='RESOLVED',resolution=?,updated_at=now() WHERE id=?",
-        reason,
+        "UPDATE reports SET status='RESOLVED',resolution=?,enforcement_action=?,updated_at=now() WHERE id=?",
+        reason, action.isBlank() ? "NONE" : action,
         id);
     if (report.get("reporter_id") != null)
       mail.notify((UUID) report.get("reporter_id"), "Your report was reviewed. " + reason);
@@ -371,6 +378,7 @@ public class AdminService {
     return Map.of("items", db.queryForList("SELECT * FROM " + kind + " ORDER BY name"));
   }
 
+  @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
   public Map<String, Object> metrics(HttpServletRequest r) {
     security.admin(r);
     return Map.of(
@@ -398,7 +406,9 @@ public class AdminService {
             "SELECT reported_currency AS currency,sum(reported_value) AS total,count(*) AS"
                 + " proposals FROM inquiries WHERE reported_value IS NOT NULL AND"
                 + " moderation_status='CLEAR' GROUP BY reported_currency ORDER BY"
-                + " reported_currency"));
+                + " reported_currency"),
+        "marketplace",
+        marketplaceMetrics.snapshot());
   }
 
   public void audit(UUID admin, String type, UUID target, String action, String reason) {

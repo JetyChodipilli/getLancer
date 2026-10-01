@@ -53,6 +53,33 @@ class MarketplaceIntegrationTest {
   String session;
 
   @Test
+  void legacyHistoriesRejectUpdatesAndDeletesAtDatabaseBoundary() {
+    UUID inquiry = UUID.randomUUID(), event = UUID.randomUUID(), decision = UUID.randomUUID();
+    db.update("INSERT INTO inquiries(id,reference_product_id,developer_user_id,client_email,client_name,request_type,description,budget_band,timeline_band,idempotency_key,request_hash) VALUES(?,?,?,'client@example.test','Client','SIMILAR_BUILD','Valid private test inquiry','USD_3K_10K','ONE_TO_THREE_MONTHS',?,?)", inquiry, product, owner, UUID.randomUUID(), Support.hash("history"));
+    db.update("INSERT INTO inquiry_events(id,inquiry_id,event_type,actor_type) VALUES(?,?,'CREATED','CLIENT')", event,inquiry);
+    db.update("INSERT INTO moderation_actions(id,admin_id,target_type,target_id,action,reason) VALUES(?,?,'PRODUCT',?,'approve','Recorded operator decision')", decision,owner,product);
+    for (String table : List.of("inquiry_events","moderation_actions")) {
+      assertThrows(org.springframework.dao.DataAccessException.class, () -> db.update("UPDATE " + table + " SET created_at=now()"));
+      assertThrows(org.springframework.dao.DataAccessException.class, () -> db.update("DELETE FROM " + table));
+      assertEquals(1, db.queryForObject("SELECT count(*) FROM " + table,Integer.class));
+    }
+  }
+
+  @Test
+  void structuredPricesPersistValidateAndRemainIndicative() throws Exception {
+    var body = new LinkedHashMap<String,Object>();
+    body.putAll(Map.of("title","Indicative inventory", "summary","Track stock for independent shops.","description","A working stock and order tracking system for small independent retailers.","category","Inventory","technology","React","projectType","SAAS","visibility","PUBLIC","contribution","Designed and implemented the complete stock workflow."));
+    body.put("pricingMode","RANGE");body.put("priceMinMinor",12500);body.put("priceMaxMinor",25000);body.put("currency","INR");
+    mvc.perform(patch("/api/v1/developer/products/"+product).cookie(new Cookie("gl_session",session)).header("Origin","http://localhost:3000").header("X-Requested-With","getlancer").contentType("application/json").content(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(body))).andExpect(status().isOk());
+    assertEquals(12500L,db.queryForObject("SELECT price_min_minor FROM products WHERE id=?",Long.class,product));
+    mvc.perform(get("/api/v1/developer/products").cookie(new Cookie("gl_session",session))).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].pricingMode").value("RANGE")).andExpect(jsonPath("$.items[0].priceMaxMinor").value(25000));
+    body.put("priceMaxMinor",10000);
+    mvc.perform(patch("/api/v1/developer/products/"+product).cookie(new Cookie("gl_session",session)).header("Origin","http://localhost:3000").header("X-Requested-With","getlancer").contentType("application/json").content(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(body))).andExpect(status().isBadRequest());
+    assertThrows(org.springframework.dao.DataAccessException.class, () -> db.update("UPDATE products SET price_min_minor=NULL WHERE id=?",product));
+    assertEquals(0,db.queryForObject("SELECT count(*) FROM payment_attempts",Integer.class));
+  }
+
+  @Test
   void configuredAdministratorDoesNotSeedDemoMarketplaceRecords() throws Exception {
     db.execute("TRUNCATE users CASCADE");
     new TransactionTemplate(tm)
@@ -546,6 +573,8 @@ class MarketplaceIntegrationTest {
     for (var f : futures) if (f.get(10, TimeUnit.SECONDS)) successes++;
     pool.shutdown();
     assertEquals(1, successes);
+    assertEquals(1, db.queryForObject("SELECT count(*) FROM analytics_events WHERE source='server' AND event_name='showcase_capacity_blocked' AND context->>'builderId'=?", Integer.class, owner.toString()), "Capacity measurement survives the rejected transaction.");
+    assertEquals(1, db.queryForObject("SELECT count(*) FROM analytics_events WHERE event_name='product_activated' AND context->>'builderId'=? AND context->>'activeCount'='3'", Integer.class, owner.toString()));
     assertEquals(
         3,
         db.queryForObject(

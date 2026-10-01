@@ -36,6 +36,7 @@ public class AnalyticsService {
     if (!Set.of(
             "home_view",
             "search_performed",
+            "unavailable_builder_fallback",
             "builder_profile_view",
             "product_impression",
             "product_view",

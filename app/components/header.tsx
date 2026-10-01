@@ -20,7 +20,7 @@ export default function Header({preview=false}:{preview?:boolean}) {
  const authPage=path==='/login'||path==='/signup';
  if(authPage)return <a href="#main" className="skip">Skip to content</a>;
  const demo=preview||path.startsWith('/preview/');
- const links=[{href:'/',label:'Explore projects',active:path==='/'},{href:'/teams',label:'Teams',active:path.startsWith('/teams')},{href:'/saved',label:'Saved',active:path==='/saved'},me?{href:'/workspace',label:'My workspace',active:path.startsWith('/workspace')}:{href:'/how-it-works',label:'How it works',active:path==='/how-it-works'}];
+ const links=[{href:'/',label:'Explore projects',active:path==='/'},{href:'/templates',label:'Templates',active:path.startsWith('/templates')},{href:'/teams',label:'Teams',active:path.startsWith('/teams')},{href:'/saved',label:'Saved',active:path==='/saved'},me?{href:'/workspace',label:'My workspace',active:path.startsWith('/workspace')}:{href:'/how-it-works',label:'How it works',active:path==='/how-it-works'}];
  return <><a href="#main" className="skip">Skip to content</a><header className="site-header"><div className="topbar" ref={bar}>
   <Link className="brand" href="/"><img className="brand-logo" src="/brand/getlancer-transparent.png" alt="getLancer — Methods for Freelance Success" width={767} height={325} fetchPriority="high"/></Link>
   <div id="discovery-nav-slot" className="discovery-nav-slot"/>

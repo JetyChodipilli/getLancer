@@ -24,6 +24,9 @@ GET /api/v1/admin/reports
 GET /api/v1/admin/reports/{id}
 GET /api/v1/admin/reviews
 GET /api/v1/admin/teams
+GET /api/v1/admin/template-purchases/attention
+GET /api/v1/admin/templates
+GET /api/v1/admin/templates/{id}/versions/{version}/package
 GET /api/v1/admin/trust
 GET /api/v1/admin/{kind:categories|technologies}
 GET /api/v1/auth/github/callback
@@ -56,6 +59,9 @@ GET /api/v1/me/inquiries/{id}
 GET /api/v1/me/moderation-decisions
 GET /api/v1/me/saved-products
 GET /api/v1/me/teams
+GET /api/v1/me/template-purchases
+GET /api/v1/me/templates
+GET /api/v1/me/templates/{id}/versions/{version}/package
 GET /api/v1/media/{id}
 GET /api/v1/notifications
 GET /api/v1/payments/config
@@ -69,6 +75,9 @@ GET /api/v1/teams/{id}
 GET /api/v1/teams/{id}/candidates
 GET /api/v1/teams/{id}/workspace
 GET /api/v1/technologies
+GET /api/v1/template-purchases/{id}/download
+GET /api/v1/templates
+GET /api/v1/templates/{slug}
 PATCH /api/v1/admin/concierge/{id}
 PATCH /api/v1/developer/products/{id}
 PATCH /api/v1/developer/products/{product}/media
@@ -94,6 +103,10 @@ POST /api/v1/admin/reports/{id}/resolve
 POST /api/v1/admin/reports/{id}/triage
 POST /api/v1/admin/reviews/{id}/{action}
 POST /api/v1/admin/teams/{id}/moderate
+POST /api/v1/admin/template-purchases/{id}/bind-order
+POST /api/v1/admin/template-purchases/{id}/reconcile
+POST /api/v1/admin/template-purchases/{id}/resolve
+POST /api/v1/admin/templates/{id}/versions/{version}/review
 POST /api/v1/admin/verifications/{id}/{action}
 POST /api/v1/admin/{kind:categories|technologies}
 POST /api/v1/analytics/events
@@ -118,6 +131,7 @@ POST /api/v1/businesses/{id}/requests/{requestId}/concierge
 POST /api/v1/businesses/{id}/requests/{requestId}/shortlist
 POST /api/v1/businesses/{id}/talent-lists
 POST /api/v1/businesses/{id}/talent-lists/{listId}/entries
+POST /api/v1/commerce/razorpay/webhook
 POST /api/v1/developer/products
 POST /api/v1/developer/products/{id}/access
 POST /api/v1/developer/products/{id}/verification
@@ -143,6 +157,10 @@ POST /api/v1/me/inquiries/{id}/confirmation-link
 POST /api/v1/me/inquiries/{id}/decision
 POST /api/v1/me/inquiries/{id}/not-hired
 POST /api/v1/me/inquiries/{id}/review
+POST /api/v1/me/templates
+POST /api/v1/me/templates/{id}/archive
+POST /api/v1/me/templates/{id}/versions
+POST /api/v1/me/templates/{id}/versions/{version}/submit
 POST /api/v1/milestones/{id}/payment-order
 POST /api/v1/payments/razorpay/webhook
 POST /api/v1/payments/{id}/reconcile
@@ -159,6 +177,10 @@ POST /api/v1/teams/{id}/projects
 POST /api/v1/teams/{id}/roles
 POST /api/v1/teams/{id}/roles/{roleId}/applications
 POST /api/v1/teams/{id}/staffing
+POST /api/v1/template-purchases/{id}/disputes
+POST /api/v1/template-purchases/{id}/reconcile
+POST /api/v1/template-purchases/{id}/verify
+POST /api/v1/templates/{id}/orders
 PUT /api/v1/businesses/{id}
 PUT /api/v1/businesses/{id}/requests/{requestId}
 PUT /api/v1/developer/availability

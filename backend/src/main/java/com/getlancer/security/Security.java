@@ -26,6 +26,9 @@ public class Security extends OncePerRequestFilter {
   @Value("${app.email-rate-limit:3}")
   int emailLimit = 3;
 
+  @Value("${app.discovery-rate-limit:300}")
+  int discoveryLimit = 300;
+
   public void limitIdentity(String identity, String kind) {
     if (rateLimits != null
         && !rateLimits.allow(kind + ":" + identity, kind.equals("login") ? authLimit : emailLimit))
@@ -67,7 +70,7 @@ public class Security extends OncePerRequestFilter {
     res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
     if (req.isSecure()) res.setHeader("Strict-Transport-Security", "max-age=31536000");
     boolean razorpayWebhook = req.getMethod().equals("POST")
-        && req.getRequestURI().equals("/api/v1/payments/razorpay/webhook");
+        && Set.of("/api/v1/payments/razorpay/webhook", "/api/v1/commerce/razorpay/webhook").contains(req.getRequestURI());
     String o = req.getHeader("Origin");
     if (origin.equals(o)) {
       res.setHeader("Access-Control-Allow-Origin", origin);
@@ -83,6 +86,14 @@ public class Security extends OncePerRequestFilter {
           "Access-Control-Allow-Headers", "Content-Type,X-Requested-With,Idempotency-Key");
       res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
       res.setStatus(204);
+      return;
+    }
+    if (Set.of("GET", "HEAD").contains(req.getMethod())
+        && req.getRequestURI().matches("/api/v1/(?:products|builders|teams|templates)(?:/.*)?")
+        && rateLimits != null
+        && !rateLimits.allow("discovery:" + clientAddress(req), discoveryLimit)) {
+      res.setHeader("Retry-After", "60");
+      deny(res, 429, "RATE_LIMITED", "Too many discovery requests. Try again in a minute.");
       return;
     }
     if (!Set.of("GET", "HEAD").contains(req.getMethod())) {

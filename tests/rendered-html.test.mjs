@@ -5,9 +5,7 @@ const developmentPreviewMeta =
   /<meta(?=[^>]*\bname=["']robots["'])(?=[^>]*\bcontent=["'][^"']*noindex)[^>]*>/i;
 
 test("keeps the private design preview non-indexable", async () => {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
-  const { default: worker } = await import(workerUrl.href);
+  const { default: worker } = await import("./helpers/built-worker.mjs");
 
   const response = await worker.fetch(
     new Request("http://localhost/", {

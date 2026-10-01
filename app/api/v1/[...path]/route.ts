@@ -34,9 +34,9 @@ async function proxy(req: Request, {params}: {params: Promise<{path: string[]}>}
       method: req.method, headers, body: ['GET', 'HEAD'].includes(req.method) ? undefined : await readBody(req),
       redirect: 'manual', signal: AbortSignal.timeout(20000),
     });
-    const result = new Headers({'Content-Type': response.headers.get('content-type') || 'application/json', 'Cache-Control': 'no-store'});
+    const result = new Headers({'Content-Type': response.headers.get('content-type') || 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff'});
     for (const cookie of response.headers.getSetCookie()) result.append('Set-Cookie', cookie);
-    for (const key of ['retry-after','x-request-id']) { const value = response.headers.get(key); if (value) result.set(key,value); }
+    for (const key of ['retry-after','x-request-id','content-disposition']) { const value = response.headers.get(key); if (value) result.set(key,value); }
     // Only the OAuth callback may redirect, and only to these app-owned destinations.
     const location=response.headers.get('location');
     if(['auth/google/callback','auth/github/callback'].includes(path.join('/'))&&response.status===303&&location&&/^\/(?:workspace|(?:login|signup)\?auth_error=[a-z_]+(?:&provider=github)?)$/.test(location))result.set('Location',location);

@@ -1,14 +1,15 @@
 // Read-only verification of the production frontend against disposable Java CI.
 import assert from 'node:assert/strict';
+import {createBuiltWorker,runtimeBindings} from './worker-runtime.mjs';
 assert.equal(process.env.CI,'true');
 assert.match(process.env.COMPOSE_PROJECT_NAME||'',/^getlancer-ci-[0-9]+$/);
 process.env.BACKEND_URL='http://localhost:8080';
 process.env.DEMO_MODE='true'; // Connecting Java must supersede a preview flag.
-const {default:worker}=await import('../dist/server/index.js');
-const env={ASSETS:{fetch:async()=>new Response('Not found',{status:404})}};
-const ctx={waitUntil(){},passThroughOnException(){}};
+const runtime=createBuiltWorker({bindings:runtimeBindings(),assetsFetch:async()=>new Response('Not found',{status:404})});
 const origin='http://localhost:3000';
-const page=path=>worker.fetch(new Request(origin+path,{headers:{accept:'text/html'}}),env,ctx);
+const page=path=>runtime.dispatchFetch(origin+path,{headers:{accept:'text/html'},redirect:'manual'});
+try {
+await runtime.ready;
 
 const direct=await fetch(process.env.BACKEND_URL+'/api/v1/products?size=12');
 assert.equal(direct.status,200);
@@ -23,10 +24,12 @@ assert.equal((html.match(/<article[^>]*class="project"/g)||[]).length,catalog.it
 assert.equal((await page('/api/v1/me')).status,401,'No fabricated authenticated account.');
 const providers=await page('/api/v1/auth/providers');assert.equal(providers.status,200);
 assert.deepEqual(await providers.json(),await fetch(process.env.BACKEND_URL+'/api/v1/auth/providers').then(r=>r.json()));
-for(const [path,target] of [['/preview/workspace','/workspace'],['/preview/trust','/workspace/trust'],['/preview/teams','/workspace/teams'],['/preview/business','/workspace/business'],['/preview/delivery','/workspace/delivery']]){
+for(const [path,target] of [['/preview/workspace','/workspace'],['/preview/trust','/workspace/trust'],['/preview/teams','/workspace/teams'],['/preview/business','/workspace/business'],['/preview/delivery','/workspace/delivery'],['/preview/templates','/workspace/templates']]){
   const response=await page(path);assert.equal(response.status,307,path);
   assert.equal(new URL(response.headers.get('location'),origin).pathname,target);
 }
 const business=await page('/workspace/business');assert.equal(business.status,200);
 assert.doesNotMatch(await business.text(),/Meridian Labs|Customer approval portal|Leah Morgan|Northstar Studio|Sample data only/);
 console.log(`Connected production frontend verified against Java/PostgreSQL: ${catalog.items.length} actual listings, exact proxy responses, anonymous 401 and no sample workspaces.`);
+
+} finally { await runtime.dispose(); }

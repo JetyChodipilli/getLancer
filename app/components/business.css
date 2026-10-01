@@ -3,3 +3,35 @@
 @media(max-width:900px){.business-request-grid{grid-template-columns:1fr}.business-request-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.business-list-heading{grid-column:1/-1;margin:0}.business-brief-item{margin:0}.business-concierge-callout,.business-invitation{flex-direction:column;align-items:start}.business-brief-actions>span{width:100%;margin:4px 0 0}}
 @media(max-width:640px){.business-section,.business-brief-panel,.business-shortlist,.business-candidate-section{padding:18px}.business-section-head{flex-wrap:wrap;gap:12px}.business-request-list{grid-template-columns:1fr}.business-brief-item{padding:14px}.business-dialog .business-form-grid{grid-template-columns:1fr}.business-candidate{padding:16px}.business-candidate-identity{gap:10px}.business-activity li{flex-direction:column;gap:8px}.business-save-picker{margin:0;width:100%}.business-save-picker select{font-size:16px}.business-page .business-switcher{align-items:stretch}.business-switcher>.team-field{width:100%}.business-invitation .team-actions{flex-direction:column;align-items:stretch;width:100%}.business-candidate-actions .button{min-height:44px}.business-brief-facts{gap:16px}}
 .business-dialog .team-field{font-size:14px;gap:8px}.business-dialog .team-field :is(input,select,textarea){width:100%;min-width:0;min-height:44px;border:1px solid #d5dde8;border-radius:8px;background:white;padding:10px 12px;font:400 14px/1.5 Inter,system-ui,sans-serif;color:var(--studio-ink)}.business-dialog .team-field textarea{min-height:112px;resize:vertical}.business-dialog .team-form fieldset>.business-form-grid{display:grid;align-items:stretch;gap:16px;padding:0;border:0}.business-dialog .team-field :is(input,select,textarea):focus-visible{outline:3px solid var(--studio-blue);outline-offset:3px}@media(max-width:640px){.business-dialog .team-field :is(input,select,textarea){font-size:16px}.business-dialog .team-form fieldset>.business-form-grid{grid-template-columns:1fr}}
+
+/* A request chooser is one collection; private details carry the visual weight. */
+.business-page .business-switcher{margin:0 0 24px;padding:16px 20px;border:1px solid var(--studio-line);background:var(--studio-surface);border-radius:12px;gap:12px}
+.business-request-list{border:1px solid var(--studio-line);border-radius:12px;background:white;overflow:hidden}
+.business-list-heading{padding:18px 16px;margin:0;border-bottom:1px solid var(--studio-line);gap:12px}
+.business-list-heading h2{margin:0;font-size:14px}
+.business-list-heading>span{font-size:12px;font-variant-numeric:tabular-nums}
+.business-brief-item{border:0;border-bottom:1px solid var(--studio-line);border-radius:0;margin:0;padding:18px 16px;gap:8px;transition:background 160ms}
+.business-brief-item:last-child{border-bottom:0}
+.business-brief-item strong{font-size:14px;line-height:21px;letter-spacing:-.01em}
+.business-brief-item>span:last-child{font-size:12px;line-height:19px}
+.business-brief-item:hover{background:var(--studio-hover)}
+.business-brief-item[aria-current=true]{background:var(--studio-blue-soft);box-shadow:inset 3px 0 var(--studio-blue)}
+.business-section-head h3{font-size:20px;line-height:28px;letter-spacing:-.025em}
+.business-brief-description{font-size:15px;line-height:25px;color:#344054}
+.business-brief-facts{background:var(--studio-canvas);padding:18px;border:1px solid var(--studio-line);border-radius:8px;gap:18px;margin:22px 0}
+.business-brief-facts>div{min-width:0}
+.business-candidate+.business-candidate{margin-top:0}
+.business-candidate{padding:22px}
+.business-candidate-identity>div{min-width:0}
+.business-candidate h3{font-size:18px;line-height:25px;letter-spacing:-.02em}
+.business-match-reasons{margin:16px 0 12px}
+.business-match-reasons li{font-size:12px;line-height:19px;background:#f3f6fb;border:1px solid #e8edf5;padding:4px 8px}
+.business-candidate-actions{margin-top:14px;padding-top:18px;gap:12px}
+.business-save-picker{gap:6px;font-size:12px;line-height:18px}
+.business-save-picker select{border-color:var(--studio-control);padding:10px 12px}
+.business-concierge-callout,.business-invitation{padding:20px 22px;background:#f3f7ff;border-color:#dbe6fb}
+.business-concierge-callout>.button{flex-shrink:0}
+.business-member>div{min-width:0;overflow-wrap:anywhere}
+.business-activity p{overflow-wrap:anywhere}
+@media(max-width:900px){.business-request-list{border:0;overflow:visible;background:transparent;gap:12px}.business-list-heading{border:0;padding:0 0 4px}.business-brief-item{border:1px solid var(--studio-line);border-radius:10px;padding:16px}.business-brief-item:last-child{border-bottom:1px solid var(--studio-line)}}
+@media(max-width:640px){.business-page .business-switcher{padding:16px;gap:12px}.business-page .business-switcher>.button{flex:1}.business-brief-facts{grid-template-columns:1fr;padding:16px;gap:16px}.business-brief-facts>div:last-child{grid-column:auto}.business-brief-description{font-size:14px;line-height:24px}.business-candidate{padding:18px}.business-candidate-actions .button{flex:1}.business-concierge-callout,.business-invitation{padding:18px}.business-concierge-callout>.button{width:100%}.business-dialog .team-form-actions{padding-top:20px}}
