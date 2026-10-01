@@ -1,6 +1,6 @@
 # V3.5 requirement audit
 
-All **17 numbered documents** were read fully and compared with the Java/PostgreSQL/frontend source at baseline `24c2d046207878b6d12a106a2444dcdce60a789f`. This is a source audit, not live payment, production readiness, legal or WCAG certification. New V3.5 work is concurrent and must receive separate root verification.
+All **17 numbered documents** were read fully and compared with the Java/PostgreSQL/frontend source at baseline `24c2d046207878b6d12a106a2444dcdce60a789f`. This is a source audit, not live payment, production readiness, legal or WCAG certification. The baseline mapping remains immutable evidence. Root integration dispositions below are recorded separately; acceptance results are in `V3_5_ACCEPTANCE.md`.
 
 The machine-readable companion retains **479 requirement groups**, **50 existing FR/NFR/E2E identifiers**, and a disposition for every one of **5592 nonblank source lines** across **5628 lines**. Repeated requirements across documents are traceability duplicates; these counts are not a percentage of completed features.
 
@@ -31,6 +31,27 @@ The machine-readable companion retains **479 requirement groups**, **50 existing
 | GAP-11 | low | Teams share individually owned proof but do not own products or structured contributor records | Document individual ownership adaptation. Real team ownership/contributors requires a scoped authorization/consent/data migration; do not invent ownership or weaken existing consent to close a schema label. |
 | GAP-12 | low | Public team routes are absent from sitemap generation | Include only genuinely public eligible team pages under indexing gate, with private/suspended exclusions and metadata tests. |
 | GAP-13 | owner | Production/nonfunctional acceptance is not code completeness | Owner: real OAuth/email/S3/TLS/alerts, daily/PITR/object backups, measured RPO/RTO and load, Firefox/Safari/Edge and screen-reader/contrast WCAG checks, legal/contacts/retention/vendor/age policies, curated cohort and live provider acceptance. Current user permits demo frontend hosting only. |
+
+## Current implementation disposition
+
+Baseline counts are not a completion percentage. Mixed source sections retain their original clauses. Code resolutions follow; CI and production acceptance are separate evidence.
+
+| Gap | Current disposition | Evidence and limits |
+|---|---|---|
+| GAP-01 | Implemented; live provider acceptance pending | Connected-only Checkout CSP, lazy script loading and Worker header checks; demo admits no gateway origins. |
+| GAP-02 | Implemented | Protected personal/admin refresh failures clear records; revoked-session connected regression. |
+| GAP-03 | Implemented draft; owner approval pending | Current agreement, Route, source license, privacy and retention notices. |
+| GAP-04 | Implemented | V17 append-only inquiry/moderation history; real database mutation-denial tests. |
+| GAP-05 | Implemented; live provider acceptance pending | Java source marketplace, V16 private artifacts, immutable purchases, MFA review/recovery, refunds/disputes, export and connected UI. |
+| GAP-06 | Implemented with prospective cohorts | Real aggregate dashboard; V20 capacity observations and structured report decisions; consented recommendation/result-count samples. Legacy unrecorded durations/decisions remain unknown. |
+| GAP-07 | Implemented | Configurable trusted-identity discovery throttle and Retry-After negative controls. |
+| GAP-08 | Service coverage plus selected browser coverage | All six original real service journeys stay in Docker smoke. Connected hiring/delivery and source/revoked-session browser flows run at three widths. Not every service journey is independently browser driven. |
+| GAP-09 | Implemented inventory/scan; operator license review pending | Runtime CycloneDX and OSV CI, npm audit, dependency remediation and JAR test-fixture exclusion. Declared licenses are inventory, not legal approval. |
+| GAP-10 | Implemented | V18 optional showcase pricing modes/currency/minor amounts; server/SQL validation; frontend display/forms and precision tests. No showcase checkout. |
+| GAP-11 | Explicit model adaptation remains | Teams share consenting members’ individually owned proof. Source sellers are individuals. Organization-owned products and structured contributor entities require an additional ownership/consent design and are not implemented. |
+| GAP-12 | Implemented | Indexing-gated eligible public team/template sitemap using real team UUID routes. |
+| GAP-13 | Owner acceptance pending | Real provider/OAuth/email/storage credentials, production hosting, observed backups/load/alerts, policies/KYC and broad accessibility/browser acceptance. Only frontend demo hosting is authorized. |
+
 
 ## Full-stack phase check
 
