@@ -106,6 +106,8 @@ jobs:
         with:
           name: frontend-build-${{ github.sha }}
           path: dist
+      - name: Install native Worker verification runtime
+        run: npm ci
       - name: Prepare synthetic local credentials
         run: |
           node scripts/setup-local.mjs --docker
@@ -127,9 +129,7 @@ jobs:
       - name: Verify connected frontend after real service journeys
         run: node scripts/verify-connected-frontend.mjs
       - name: Install connected browser test runner
-        run: |
-          npm ci
-          npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium
       - name: Verify real hiring, V3 delivery and V3.5 source browser journeys on desktop, phone and tablet
         run: npx playwright test --config playwright.connected.config.ts
       - uses: actions/upload-artifact@v4
