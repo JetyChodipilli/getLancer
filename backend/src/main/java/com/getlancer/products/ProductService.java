@@ -95,6 +95,10 @@ public class ProductService {
       "rightsConfirmed"
     };
     for (int n = 0; n < old.length; n++) x.put(keys[n], p.get(old[n]));
+    x.put("pricingMode", p.get("pricing_mode"));
+    x.put("priceMinMinor", p.get("price_min_minor"));
+    x.put("priceMaxMinor", p.get("price_max_minor"));
+    x.put("currency", p.get("currency_code"));
     if (!media.isEmpty())
       x.put("imageUrl", "/api/v1/media/" + media.get(0).get("id") + "?variant=thumbnail");
     x.put(
@@ -353,6 +357,7 @@ public class ProductService {
     Rules.safeUrl(live);
     Rules.safeUrl(video);
     String repository = text(b, "repositoryUrl", 0, 1000), pricing = text(b, "pricingNote", 0, 300);
+    ProductPricing terms = ProductPricing.parse(b);
     Rules.safeUrl(repository);
     String type = text(b, "projectType", 1, 40), visibility = text(b, "visibility", 1, 30);
     if (!Set.of(
@@ -389,10 +394,14 @@ public class ProductService {
         u);
     db.update(
         "UPDATE products SET"
-            + " repository_url=?,pricing_note=?,demo_health='UNKNOWN',demo_checked_at=NULL,demo_checked_url=NULL"
+            + " repository_url=?,pricing_note=?,pricing_mode=?,price_min_minor=?,price_max_minor=?,currency_code=?,demo_health='UNKNOWN',demo_checked_at=NULL,demo_checked_url=NULL"
             + " WHERE id=?",
         repository,
         pricing,
+        terms.mode(),
+        terms.min(),
+        terms.max(),
+        terms.currency(),
         p);
     db.update(
         "DELETE FROM repository_verifications WHERE product_id=? AND repository_url<>?",

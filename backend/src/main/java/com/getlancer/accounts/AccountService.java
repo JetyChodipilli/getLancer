@@ -132,6 +132,14 @@ public class AccountService {
         "SELECT id,engagement_id,reason,status,resolution,resolution_reason,created_at,resolved_at FROM delivery_disputes WHERE opened_by=?", id));
     result.put("milestonePayments", db.queryForList(
         "SELECT id,milestone_id,amount_minor,currency,mode,status,order_id,payment_id,refunded_minor,transfer_status,settlement_status,created_at FROM payment_attempts WHERE payer_user_id=?", id));
+    result.put("sourceTemplates", db.queryForList(
+        "SELECT id,product_id,slug,title,summary,description,price_minor,currency,license_terms,status,created_at FROM source_templates WHERE seller_id=?", id));
+    result.put("sourceReleases", db.queryForList(
+        "SELECT v.id,v.template_id,v.version,v.release_notes,v.sha256,v.size_bytes,v.entry_count,v.license_terms,v.manifest_files,v.rights_consented_at,v.status,v.review_reason,v.created_at FROM source_versions v JOIN source_templates t ON t.id=v.template_id WHERE t.seller_id=?", id));
+    result.put("sourcePurchases", db.queryForList(
+        "SELECT id,template_id,version_id,title,version,license_terms,sha256,amount_minor,currency,mode,status,refunded_minor,entitlement_revoked,license_consented_at,created_at FROM template_purchases WHERE buyer_id=? OR seller_id=?", id,id));
+    result.put("sourceDisputes", db.queryForList(
+        "SELECT d.id,d.purchase_id,d.reason,d.status,d.resolution_reason,d.created_at,d.resolved_at FROM commerce_disputes d JOIN template_purchases p ON p.id=d.purchase_id WHERE p.buyer_id=? OR p.seller_id=?", id,id));
     return result;
   }
 

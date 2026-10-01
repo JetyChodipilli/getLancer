@@ -23,3 +23,39 @@
 @media(max-width:900px){.delivery-grid{grid-template-columns:1fr}.delivery-list{display:flex;flex-wrap:wrap}.delivery-list-head{width:100%;padding:14px 16px}.delivery-list-item{flex:1 1 220px;border-top:1px solid var(--delivery-line);border-right:1px solid var(--delivery-line)}.delivery-list-item[aria-current=true]{box-shadow:inset 0 3px #175cd3}.delivery-milestone-heading>.delivery-badge{margin-left:0}.delivery-milestone-heading{flex-wrap:nowrap}}
 @media(max-width:640px){.delivery-section{padding:18px}.delivery-section-head{flex-wrap:wrap;gap:12px}.delivery-section h2{font-size:18px;line-height:26px}.delivery-overview-facts{gap:12px}.delivery-facts{grid-template-columns:1fr}.delivery-proposal-milestones>li{flex-wrap:wrap;gap:8px}.delivery-proposal-milestones>li>div{width:100%}.delivery-list-item{flex-basis:100%;border-right:0}.delivery-milestone-heading{flex-wrap:wrap}.delivery-milestone-heading>.delivery-badge{margin-left:40px}.delivery-milestone-facts{gap:10px 16px}.delivery-completion>.button{width:100%}.delivery-feedback.error{flex-direction:column;align-items:start}.delivery-dialog{padding:18px!important;max-height:calc(100dvh - 24px);width:calc(100vw - 24px)!important}.delivery-form-pair{grid-template-columns:1fr}.delivery-milestone-editor{padding:14px}.delivery-consent-milestones>li{flex-wrap:wrap;gap:8px}.delivery-activity>li{flex-direction:column;gap:8px}.delivery-empty{padding:28px 18px}.delivery-page .studio-head-actions{width:100%}.delivery-page .studio-head-actions>.button{width:100%}.delivery-form .button{justify-self:start}.delivery-dialog .team-form fieldset{gap:16px}}
 @media(prefers-reduced-motion:reduce){.delivery-page *,.delivery-dialog *{transition:none!important;animation:none!important}}
+
+.delivery-list-head{padding:20px 18px}
+.delivery-list-item{padding:18px;gap:9px;transition:background 160ms}
+.delivery-list-item>strong{font-size:15px;line-height:22px;letter-spacing:-.015em}
+.delivery-list-item:hover{background:var(--studio-hover,#f1f4f9)}
+.delivery-section-head{gap:20px}
+.delivery-section-head h2{font-size:22px;line-height:30px;letter-spacing:-.03em}
+.delivery-kicker{font-size:12px;line-height:18px;letter-spacing:.045em;text-transform:none}
+.delivery-badge{font-size:12px;line-height:18px;padding:4px 8px}
+.delivery-overview-facts{gap:12px 22px;padding-top:20px;margin-top:20px}
+.delivery-proposal-milestones>li{padding:18px 0;font-size:14px;line-height:22px}
+.delivery-proposal-milestones p{font-size:13px;line-height:21px}
+.delivery-proposal-milestones span{font-size:12px}
+.delivery-proposal-total{padding-top:20px;font-size:14px}
+.delivery-proposal-total>strong{font-size:20px;font-variant-numeric:tabular-nums}
+.delivery-milestone h3{font-size:17px;line-height:25px;letter-spacing:-.015em}
+.delivery-step{width:32px;height:32px;border:1px solid var(--delivery-line);background:white;font-size:13px}
+.delivery-milestone-heading p{font-size:13px;line-height:21px}
+.delivery-milestone-facts{padding:14px 16px;border-radius:8px;background:var(--studio-canvas,#f8f9fc);gap:12px 20px}
+.delivery-milestone-facts>strong{font-size:16px;line-height:24px;font-variant-numeric:tabular-nums}
+.delivery-milestone-facts>span{font-size:13px}
+.delivery-actions{gap:12px;margin-top:20px}
+.delivery-small,.delivery-notice{font-size:13px!important;line-height:21px!important}
+.delivery-payment-record{font-size:12px;line-height:20px;padding:14px 16px;border:1px solid var(--delivery-line);border-radius:8px;background:#fbfcfe}
+.delivery-payment-record>span:first-child{font-size:13px;line-height:20px}
+.delivery-activity>li{font-size:13px;line-height:21px;padding:16px 0}
+.delivery-activity time{font-size:12px}
+.delivery-field{font-size:14px;line-height:21px;gap:8px}
+.delivery-checkbox{padding:16px;gap:12px;font-size:14px;line-height:23px;border:1px solid var(--delivery-line)}
+.delivery-dialog [data-slot=dialog-header]{padding-right:32px}
+.delivery-dialog [data-slot=dialog-title]{font-size:24px;line-height:32px;letter-spacing:-.03em}
+.delivery-dialog [data-slot=dialog-description]{font-size:14px;line-height:23px}
+.delivery-form>fieldset{gap:20px}
+.delivery-milestone-editor{padding:20px;gap:16px}
+.delivery-milestone-editor legend{font-size:14px;line-height:21px}
+@media(max-width:640px){.delivery-list-head{padding:16px}.delivery-list-item{padding:16px}.delivery-section{padding:20px}.delivery-section-head h2{font-size:20px;line-height:28px}.delivery-actions>.button{flex:1}.delivery-page input,.delivery-page select,.delivery-page textarea,.delivery-dialog input,.delivery-dialog select,.delivery-dialog textarea{font-size:16px}.delivery-dialog [data-slot=dialog-title]{font-size:22px;line-height:30px}.delivery-milestone-heading>.delivery-badge{margin-left:44px}.delivery-milestone-editor{padding:16px}.delivery-form>fieldset{gap:18px}.delivery-milestone-facts{padding:14px}.delivery-payment-record{padding:12px 14px}}

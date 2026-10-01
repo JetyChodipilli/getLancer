@@ -5,6 +5,7 @@ import {execFileSync} from 'node:child_process';
 import {createHmac,randomBytes} from 'node:crypto';
 import {setTimeout as delay} from 'node:timers/promises';
 import {readEnvironment} from './local-config.mjs';
+import {sourceFixture} from './ci-source-fixture.mjs';
 const env=readEnvironment(new URL('../.env',import.meta.url));
 assert.equal(process.env.CI,'true','This smoke check runs only in disposable CI.');
 assert.match(process.env.COMPOSE_PROJECT_NAME||'',/^getlancer-ci-[0-9]+$/,'Use an isolated CI Compose project.');
@@ -21,12 +22,12 @@ assert.deepEqual(appliedFiles,migrationFiles,'Every versioned migration must be 
 assert.equal(query("SELECT count(*) FROM getlancer.flyway_schema_history WHERE NOT success"),'0');
 function session(){
  const cookies=new Map();
- return async function request(path,body,method=body?'POST':'GET',expected){
-  const response=await fetch('http://localhost:8080'+path,{method,headers:{Origin:'http://localhost:3000','X-Requested-With':'getlancer','Content-Type':'application/json',Cookie:[...cookies].map(([k,v])=>k+'='+v).join('; ')},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(10000)});
+ return async function request(path,body,method=body?'POST':'GET',expected,options={}){
+  const response=await fetch('http://localhost:8080'+path,{method,headers:{Origin:'http://localhost:3000','X-Requested-With':'getlancer',...(body instanceof FormData?{}:{'Content-Type':'application/json'}),...options.headers,Cookie:[...cookies].map(([k,v])=>k+'='+v).join('; ')},body:body instanceof FormData?body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(10000)});
   for(const value of response.headers.getSetCookie()){const pair=value.split(';')[0],split=pair.indexOf('=');cookies.set(pair.slice(0,split),pair.slice(split+1));}
   if(expected)assert.equal(response.status,expected,`${method} ${path}`);
   else assert.ok(response.ok,`${method} ${path} returned HTTP ${response.status}`);
-  return response.status===204?{}:response.json();
+  return options.raw?response:response.status===204?{}:response.json();
  };
 }
 const api=session(),builder=session(),client=session(),visitor=session();
@@ -217,6 +218,31 @@ await client(briefRoot,{...brief,status:'CLOSED'},'PUT');
 await client(briefRoot+'/matches',undefined,'GET',409);
 console.log('Connected V2/V2.5 passed: team consent/private roles, client-reported outcome, business invitations, tenant isolation, real evidence matching, talent lists, opt-in MFA concierge and immediate revocation.');
 
+// Source commerce uses the real Java validation, PostgreSQL and private MinIO storage.
+await builder(`/api/v1/developer/products/${products[2]}/verification`,{});
+await api(`/api/v1/admin/verifications/${products[2]}/approve`,{reason:'Disposable source fixture: operator ownership review only, no real seller claim.'});
+const commerceFixtures={},source=sourceFixture();
+for(const device of ['smoke','desktop','phone','tablet']){
+ const template=await builder('/api/v1/me/templates',{productId:products[2],title:'CI Source '+device,summary:'A versioned inventory starter for connected acceptance.',description:'A synthetic source package to verify private storage, version review and license handling.',priceMinor:490000,licenseTerms:'Synthetic license for one commercial end product. Modification allowed; source redistribution prohibited.'},'POST',201);
+ commerceFixtures[device]=template;
+ if(device==='smoke'){
+  const form=new FormData();form.set('version','1.0.0');form.set('releaseNotes','Synthetic private source release for storage acceptance.');form.set('rightsConsent','true');form.set('file',new Blob([source],{type:'application/zip'}),'source.zip');
+  const release=await builder(`/api/v1/me/templates/${template.id}/versions`,form,'POST',201);
+  await visitor('/api/v1/templates/'+template.slug,undefined,'GET',404);
+  await client(`/api/v1/me/templates/${template.id}/versions/${release.id}/package`,undefined,'GET',404);
+  await builder(`/api/v1/me/templates/${template.id}/versions/${release.id}/submit`,{rightsConsent:true});
+  const attachment=await api(`/api/v1/admin/templates/${template.id}/versions/${release.id}/package`,undefined,'GET',200,{raw:true});
+  assert.equal(attachment.headers.get('content-type'),'application/zip');assert.match(attachment.headers.get('cache-control'),/no-store/);assert.deepEqual(Buffer.from(await attachment.arrayBuffer()),source);
+  await api(`/api/v1/admin/templates/${template.id}/versions/${release.id}/review`,{action:'APPROVE',reason:'CI inspected the package bytes, manifest and synthetic license without executing source.',rightsReviewed:true,packageReviewed:true});
+  const listing=await visitor('/api/v1/templates/'+template.slug);assert.equal(listing.version,'1.0.0');assert.ok(!JSON.stringify(listing).includes('storage_key'));
+  await client(`/api/v1/templates/${template.id}/orders`,{versionId:release.id,licenseConsent:true},'POST',503,{headers:{'Idempotency-Key':crypto.randomUUID()}});
+  assert.equal(query('SELECT count(*) FROM getlancer.template_purchases'),'0','Disabled collection must never create synthetic purchase entitlements.');
+  const exported=await builder('/api/v1/me/export');assert.ok(exported.sourceTemplates.some(t=>t.id===template.id));assert.ok(exported.sourceReleases.some(v=>v.id===release.id));assert.ok(!JSON.stringify(exported.sourceReleases).includes('storage_key'));
+  await builder(`/api/v1/me/templates/${template.id}/archive`,{});await visitor('/api/v1/templates/'+template.slug,undefined,'GET',404);
+ }
+}
+console.log('Connected V3.5 passed: current ownership review, static ZIP validation, real private S3 bytes, MFA package review, public discovery, scoped export, disabled-payment denial and archival.');
+
 const report=await client('/api/v1/reports',{targetType:'PRODUCT',targetId:project.id,reason:'MISLEADING_CLAIM',detail:'CI moderation scenario: proof requires correction.'},'POST',201);
 await api(`/api/v1/admin/reports/${report.reference}/resolve`,{targetAction:'SUSPEND',reason:'Proof requires correction before this showcase can be restored.'});
 await visitor('/api/v1/products/'+project.slug,undefined,'GET',404);
@@ -248,5 +274,5 @@ for(const device of ['desktop','phone','tablet']){
  await client(`/api/v1/businesses/${b.id}/invitations`,{email:'ci-manager@example.test'});
  browserBusinesses[device]=b;
 }
-writeFileSync('.ci-connected.json',JSON.stringify({project:process.env.COMPOSE_PROJECT_NAME,accounts:browserAccounts,businesses:browserBusinesses,teamId:team.id,builderId:owner.id}),{mode:0o600});
+writeFileSync('.ci-connected.json',JSON.stringify({project:process.env.COMPOSE_PROJECT_NAME,accounts:browserAccounts,businesses:browserBusinesses,teamId:team.id,builderId:owner.id,commerce:commerceFixtures}),{mode:0o600});
 console.log('Connected browser prerequisites created through the real Java API.');

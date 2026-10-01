@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.getlancer.admin.AdminService;
+import com.getlancer.admin.MarketplaceMetrics;
 import com.getlancer.auth.AuthService;
 import com.getlancer.config.ProductionConfiguration;
 import com.getlancer.inquiries.InquiryOutcomeService;
@@ -51,7 +52,7 @@ class V1SafeguardsTest {
     UUID id = UUID.randomUUID();
     when(security.admin(request)).thenReturn(id);
     when(security.role(id, "ADMIN")).thenReturn(true);
-    var controller = new AdminService(db, security, mock(ProductService.class), mock(Mail.class));
+    var controller = new AdminService(db, security, mock(ProductService.class), mock(Mail.class), mock(MarketplaceMetrics.class));
     assertEquals(
         "ADMIN_ACCOUNT_PROTECTED",
         assertThrows(

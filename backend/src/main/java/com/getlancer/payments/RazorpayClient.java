@@ -68,29 +68,32 @@ public class RazorpayClient {
     return Map.of("enabled",ready,"keyId",ready?keyId:"","mode",ready?mode:"disabled","reason",reason);
   }
 
-  void requireCollection() {
+  public String mode() { return mode; }
+  public String keyId() { return keyId; }
+
+  public void requireCollection() {
     if (!Boolean.TRUE.equals(configuration().get("enabled")))
       throw new ApiError(503,"PAYMENTS_UNAVAILABLE", Objects.toString(configuration().get("reason")));
   }
 
-  void requireCredentials() {
+  public void requireCredentials() {
     if (!credentialsReady()) throw new ApiError(503,"PAYMENTS_UNAVAILABLE","Provider reconciliation is not configured.");
   }
 
-  JsonNode createOrder(UUID attempt, long amount, String account) {
+  public JsonNode createOrder(UUID attempt, long amount, String account) {
     requireCollection();
     return request("POST", "/v1/orders", Map.of("amount",amount,"currency","INR","receipt",attempt.toString(),
         "partial_payment",false,"transfers",List.of(Map.of("account",account,"amount",amount,"currency","INR","on_hold",false))));
   }
 
-  JsonNode order(String id) { return request("GET","/v1/orders/"+providerId(id,"order_")+"?expand%5B%5D=transfers",null); }
-  JsonNode orderPayments(String id) { return request("GET","/v1/orders/"+providerId(id,"order_")+"/payments",null); }
-  JsonNode payment(String id) { return request("GET","/v1/payments/"+providerId(id,"pay_"),null); }
-  JsonNode transfers(String id) { return request("GET","/v1/payments/"+providerId(id,"pay_")+"/transfers",null); }
-  JsonNode dispute(String id) { return request("GET","/v1/disputes/"+providerId(id,"disp_"),null); }
+  public JsonNode order(String id) { return request("GET","/v1/orders/"+providerId(id,"order_")+"?expand%5B%5D=transfers",null); }
+  public JsonNode orderPayments(String id) { return request("GET","/v1/orders/"+providerId(id,"order_")+"/payments",null); }
+  public JsonNode payment(String id) { return request("GET","/v1/payments/"+providerId(id,"pay_"),null); }
+  public JsonNode transfers(String id) { return request("GET","/v1/payments/"+providerId(id,"pay_")+"/transfers",null); }
+  public JsonNode dispute(String id) { return request("GET","/v1/disputes/"+providerId(id,"disp_"),null); }
   JsonNode account(String id) { return request("GET","/v2/accounts/"+providerId(id,"acc_"),null); }
 
-  static String providerId(String value, String prefix) {
+  public static String providerId(String value, String prefix) {
     if (value==null || !value.matches(prefix+"[A-Za-z0-9]{6,32}"))
       throw new ApiError(400,"VALIDATION_ERROR","Invalid provider identifier.");
     return value;
@@ -101,12 +104,12 @@ public class RazorpayClient {
     catch (java.security.GeneralSecurityException ex) { throw new IllegalStateException(ex); }
   }
 
-  static boolean signed(String secret, byte[] body, String signature) {
+  public static boolean signed(String secret, byte[] body, String signature) {
     if (secret.isBlank() || signature==null || !signature.matches("[a-fA-F0-9]{64}")) return false;
     return MessageDigest.isEqual(mac(secret,body),HexFormat.of().parseHex(signature));
   }
 
-  boolean checkoutSignature(String order, String payment, String signature) {
+  public boolean checkoutSignature(String order, String payment, String signature) {
     return signed(keySecret,(order+"|"+payment).getBytes(StandardCharsets.UTF_8),signature);
   }
 
@@ -154,8 +157,9 @@ public class RazorpayClient {
     public void onComplete() { body.complete(buffer.toByteArray()); }
   }
 
-  static final class ProviderFailure extends RuntimeException {
+  public static final class ProviderFailure extends RuntimeException {
     final boolean rejected;
     ProviderFailure(boolean rejected) { super("Provider request could not be confirmed."); this.rejected=rejected; }
+    public boolean rejected() { return rejected; }
   }
 }

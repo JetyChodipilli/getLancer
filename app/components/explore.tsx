@@ -65,7 +65,7 @@ export default function Explore({ items, preview, totalItems, totalPages, filter
   const visibleIds=items.map(p=>p.id).join(',');
   useEffect(() => { setQ(filters.q); }, [filters.q]);
   useEffect(() => { if (preview||!visibleIds)return;const controller=new AbortController();setSavedReady(false);api('/me/saved-products?ids='+encodeURIComponent(visibleIds),{signal:controller.signal}).then(r=>{setSaved(r.items.map((p:{id:string})=>p.id));setSavedReady(true)}).catch(e=>{if(controller.signal.aborted)return;if(e.status===401){setSaved([]);setSavedReady(true)}else setError('Saved projects could not be loaded. Refresh the page to try again.')});return()=>controller.abort(); }, [preview,visibleIds]);
-  useEffect(()=>{if(!preview){track(filters.q?'search_performed':'home_view');items.forEach(p=>track('product_impression',p.id));}},[items,preview,filters.q]);
+  useEffect(()=>{if(!preview){const searched=!!(filters.q||filters.category||filters.technology||filters.projectType||filters.availability);track(searched?'search_performed':'home_view',undefined,searched?{resultCount:totalItems,queryLength:filters.q.length}:{});items.forEach(p=>track('product_impression',p.id));}},[items,preview,filters.q,filters.category,filters.technology,filters.projectType,filters.availability,totalItems]);
   function update(change: Partial<Filters>) {
     const params = filterParams({ ...filters, page: 0, ...change });
     const target='/?'+params+'#project-collection';

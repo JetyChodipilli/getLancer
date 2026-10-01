@@ -18,6 +18,9 @@ public class ProductionConfiguration implements ApplicationRunner {
         pool = env.getProperty("spring.datasource.hikari.maximum-pool-size", Integer.class, 10);
     if (rate < 1 || rate > 10000 || pool < 1 || pool > 100)
       throw new IllegalStateException("Rate limit or pool size outside supported range");
+    int discovery = env.getProperty("app.discovery-rate-limit", Integer.class, 300);
+    if (discovery < 1 || discovery > 10000)
+      throw new IllegalStateException("Discovery read limit outside supported range");
     int retention = env.getProperty("app.analytics-retention-days", Integer.class, 90),
         sample = env.getProperty("app.reliability-min-sample", Integer.class, 10);
     if (retention < 1 || retention > 365 || sample < 0 || sample > 10000)

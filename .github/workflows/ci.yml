@@ -1,4 +1,4 @@
-name: getLancer validation (V1-V3)
+name: getLancer validation (V1-V3.5)
 on: [push, pull_request]
 jobs:
   backend:
@@ -37,9 +37,23 @@ jobs:
           assert 'BOOT-INF/classes/com/getlancer/Application.class' in entries
           assert not any(name.startswith('BOOT-INF/lib/') and any(tag in name for tag in ('mockito', 'junit', 'spring-boot-test', 'spring-test')) for name in entries), 'Test dependencies leaked into the runtime JAR'
           assert not any(name.startswith('BOOT-INF/classes/com/getlancer/') and ('Test.class' in name or 'RazorpayFixture' in name or '/testing/' in name or '/integration/' in name or '/architecture/' in name) for name in entries), 'Test fixtures leaked into runtime classes'
-          assert not any(tag in name for name in entries for tag in ('demo-state', 'team-demo', 'business-demo', 'workspace-preview', 'delivery-preview')), 'Frontend simulations leaked into the Java artifact'
+          assert not any(tag in name for name in entries for tag in ('demo-state', 'team-demo', 'business-demo', 'workspace-preview', 'delivery-preview', 'template-preview')), 'Frontend simulations leaked into the Java artifact'
           print('Production Java artifact contains application code and runtime dependencies only.')
           PY
+      - name: Generate runtime Java dependency and license inventory
+        run: mvn -B -f backend/pom.xml org.cyclonedx:cyclonedx-maven-plugin:2.9.1:makeAggregateBom -DincludeTestScope=false -DoutputFormat=json
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Scan Java runtime dependencies against OSV
+        run: node scripts/audit-sbom.mjs backend/target/bom.json backend/target/dependency-audit.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: java-dependency-evidence-${{ github.sha }}
+          path: |
+            backend/target/bom.json
+            backend/target/dependency-audit.json
+          retention-days: 7
   frontend:
     runs-on: ubuntu-latest
     steps:
@@ -47,6 +61,18 @@ jobs:
       - uses: actions/setup-node@v4
         with: {node-version: '22', cache: npm}
       - run: npm ci
+      - name: Verify runtime npm advisories and inventory
+        run: |
+          mkdir -p dependency-evidence
+          npm audit --omit=dev --audit-level=high --json > dependency-evidence/npm-audit.json
+          npm sbom --omit=dev --sbom-format=cyclonedx > dependency-evidence/frontend-bom.json
+          node scripts/audit-sbom.mjs dependency-evidence/frontend-bom.json dependency-evidence/frontend-osv.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-dependency-evidence-${{ github.sha }}
+          path: dependency-evidence
+          retention-days: 7
       - run: npx tsc --noEmit
       - run: npm run build
       - run: node --experimental-strip-types --test tests/*.test.mjs
@@ -96,7 +122,7 @@ jobs:
       - run: docker compose up -d --build --wait --wait-timeout 240
       - name: Verify connected production frontend against the empty Java database
         run: node scripts/verify-connected-frontend.mjs
-      - name: Verify connected V1 through V3 service journeys and database recovery
+      - name: Verify connected V1 through V3.5 service journeys and database recovery
         run: node scripts/smoke-docker.mjs
       - name: Verify connected frontend after real service journeys
         run: node scripts/verify-connected-frontend.mjs
@@ -104,7 +130,7 @@ jobs:
         run: |
           npm ci
           npx playwright install --with-deps chromium
-      - name: Verify real hiring and V3 delivery browser journeys on desktop, phone and tablet
+      - name: Verify real hiring, V3 delivery and V3.5 source browser journeys on desktop, phone and tablet
         run: npx playwright test --config playwright.connected.config.ts
       - uses: actions/upload-artifact@v4
         if: always()
