@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {default as worker} from '../dist/server/index.js';
+import {default as worker} from './helpers/built-worker.mjs';
 
 const env={ASSETS:{fetch:async()=>new Response('Not found',{status:404})}};
 const context={waitUntil(){},passThroughOnException(){}};
@@ -52,7 +52,7 @@ test('featured project stack remains available when collection filters have no m
 test('V2 routes expose teams, workspace and isolated preview entry points',async()=>{
  const directory=await page('/teams');assert.equal(directory.response.status,200);assert.match(directory.html,/Find your next team/);assert.match(directory.html,/Search teams/);
  const preview=await page('/preview/teams');assert.equal(preview.response.status,200);assert.match(preview.html,/Interactive team preview/);assert.match(preview.html,/No real accounts/);assert.match(preview.html,/Preview actor/);
- const workspace=await page('/workspace/teams');assert.equal(workspace.response.status,200);assert.match(workspace.html,/Better work, together/);
+ const workspace=await page('/workspace/teams');assert.equal(workspace.response.status,200);assert.match(workspace.html,/Teams &amp; studios/);
 });
 
 test('V2.5 real and sample business routes remain distinct and private',async()=>{

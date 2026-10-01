@@ -23,13 +23,15 @@ public class ProductService {
   private final ProductRepository repository;
   final Security security;
   final Mail mail;
+  private final ShowcaseMeasurements measurements;
 
   public ProductService(
-      JdbcTemplate db, Security security, Mail mail, ProductRepository repository) {
+      JdbcTemplate db, Security security, Mail mail, ProductRepository repository, ShowcaseMeasurements measurements) {
     this.db = db;
     this.security = security;
     this.mail = mail;
     this.repository = repository;
+    this.measurements = measurements;
   }
 
   public Map<String, Object> dto(Map<String, Object> p) {
@@ -458,10 +460,9 @@ public class ProductService {
           db.update(
               "UPDATE products SET lifecycle_status='ARCHIVED',updated_at=now() WHERE id=?", id);
           db.update(
-              "INSERT INTO analytics_events(id,event_name,entity_id)"
-                  + " VALUES(?,'product_archived',?)",
-              id(),
-              id);
+              "INSERT INTO analytics_events(id,event_name,entity_id,context)"
+                  + " VALUES(?,'product_archived',?,jsonb_build_object('builderId',?::text,'activeCount',?::integer))",
+              id(), id, u.toString(), db.queryForObject("SELECT count(*) FROM products WHERE owner_user_id=? AND lifecycle_status='ACTIVE'", Integer.class, u));
         }
       }
       case "activate" -> activate(id, u, true);
@@ -490,15 +491,15 @@ public class ProductService {
             Integer.class,
             u);
     if (!Rules.canActivate(true, approved, count, (Integer) ent.get("active_slot_limit"))) {
+      if (approved && count >= (Integer) ent.get("active_slot_limit")) measurements.blocked(u, p, count);
       if (fail)
         throw new ApiError(409, "SLOT_LIMIT_REACHED", "Archive an active showcase to make room.");
       return;
     }
     db.update("UPDATE products SET lifecycle_status='ACTIVE',updated_at=now() WHERE id=?", p);
     db.update(
-        "INSERT INTO analytics_events(id,event_name,entity_id) VALUES(?,'product_activated',?)",
-        id(),
-        p);
+        "INSERT INTO analytics_events(id,event_name,entity_id,context) VALUES(?,'product_activated',?,jsonb_build_object('builderId',?::text,'activeCount',?::integer))",
+        id(), p, u.toString(), count + 1);
   }
 
   @Transactional

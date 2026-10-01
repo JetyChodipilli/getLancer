@@ -68,12 +68,12 @@ public class MarketplaceMetrics {
         )
         SELECT count(*) AS "qualifiedInquiries",
           count(*) FILTER(WHERE responded_at IS NOT NULL) AS "respondedInquiries",
-          count(*) FILTER(WHERE email_confirmed_at<=? - interval '48 hours') AS "responseEligibleInquiries",
-          count(*) FILTER(WHERE email_confirmed_at<=? - interval '48 hours' AND responded_at IS NOT NULL) AS "respondedEligibleInquiries",
-          round(100.0 * count(*) FILTER(WHERE email_confirmed_at<=? - interval '48 hours' AND responded_at IS NOT NULL)
-            / nullif(count(*) FILTER(WHERE email_confirmed_at<=? - interval '48 hours'),0),2) AS "responseRatePercent",
+          count(*) FILTER(WHERE email_confirmed_at<=?::timestamptz - interval '48 hours') AS "responseEligibleInquiries",
+          count(*) FILTER(WHERE email_confirmed_at<=?::timestamptz - interval '48 hours' AND responded_at IS NOT NULL) AS "respondedEligibleInquiries",
+          round(100.0 * count(*) FILTER(WHERE email_confirmed_at<=?::timestamptz - interval '48 hours' AND responded_at IS NOT NULL)
+            / nullif(count(*) FILTER(WHERE email_confirmed_at<=?::timestamptz - interval '48 hours'),0),2) AS "responseRatePercent",
           percentile_cont(0.5) WITHIN GROUP(ORDER BY extract(epoch FROM (responded_at-email_confirmed_at))/3600.0)
-            FILTER(WHERE email_confirmed_at<=? - interval '48 hours' AND responded_at IS NOT NULL) AS "medianResponseHours",
+            FILTER(WHERE email_confirmed_at<=?::timestamptz - interval '48 hours' AND responded_at IS NOT NULL) AS "medianResponseHours",
           count(*) FILTER(WHERE hired_at IS NOT NULL) AS "confirmedHires",
           count(*) FILTER(WHERE completed_at IS NOT NULL) AS "confirmedCompletions",
           round(100.0 * count(*) FILTER(WHERE hired_at IS NOT NULL) / nullif(count(*),0),2) AS "inquiryToHirePercent",
@@ -118,10 +118,26 @@ public class MarketplaceMetrics {
             AND created_at>=? AND created_at<=? GROUP BY entity_id HAVING count(*)>1
         ) repeated
         """, Long.class, from, to));
-    slots.put("timeToThreeActiveShowcasesDays", null);
-    slots.put("timeToThreeReason", "No historical concurrent slot snapshot is recorded; activation totals cannot prove first reaching three simultaneous active showcases.");
-    slots.put("blockedActivationBuilders", null);
-    slots.put("blockedActivationReason", "Slot-limit errors are not stored as analytics facts; an empty count would incorrectly mean none occurred.");
+    slots.putAll(db.queryForMap("""
+        WITH first_three AS (
+          SELECT u.id,u.created_at,min(e.created_at) AS reached_at
+          FROM users u JOIN analytics_instrumentation m ON m.name='showcase_capacity' AND u.created_at>=m.started_at
+          JOIN analytics_events e ON e.context->>'builderId'=u.id::text AND e.source='server'
+            AND e.event_name='product_activated' AND e.context->>'activeCount'='3'
+            AND e.created_at>=u.created_at AND e.created_at<=?
+          GROUP BY u.id,u.created_at
+        )
+        SELECT count(*) AS "timeToThreeBuilders",
+          percentile_cont(0.5) WITHIN GROUP(ORDER BY extract(epoch FROM (reached_at-created_at))/86400.0) AS "timeToThreeActiveShowcasesDays"
+        FROM first_three WHERE reached_at>=?
+        """, to, from));
+    slots.put("timeToThreeReason", "Median registration-to-first-three concurrent active showcases for accounts created after measurement began; legacy history is not inferred.");
+    slots.put("blockedActivationBuilders", db.queryForObject("""
+        SELECT count(DISTINCT context->>'builderId') FROM analytics_events
+        WHERE source='server' AND event_name='showcase_capacity_blocked' AND created_at>=? AND created_at<=?
+        """, Long.class, from, to));
+    slots.put("blockedActivationReason", "Distinct builders with a recorded capacity rejection in this window; prospective measurements survive the rejected transaction.");
+    slots.put("measurementStartedAt", db.queryForObject("SELECT started_at::text FROM analytics_instrumentation WHERE name='showcase_capacity'", String.class));
     result.put("slots", slots);
     result.put("portfolioCohorts", db.queryForList("""
         WITH builders AS (
@@ -160,8 +176,18 @@ public class MarketplaceMetrics {
         FROM observations
         """, from, to);
     search.put("reason", "Optional consented web observations with a valid bounded result count, not all visitors or unique clients. Empty cohorts have no rate.");
-    search.put("fallbackCoveragePercent", null);
-    search.put("fallbackCoverageReason", "Unavailable-builder page impressions and candidate counts are not paired in stored events.");
+    search.putAll(db.queryForMap("""
+        WITH observations AS (
+          SELECT (context->>'resultCount')::integer AS results FROM analytics_events
+          WHERE source='web' AND event_name='unavailable_builder_fallback' AND created_at>=? AND created_at<=?
+            AND jsonb_typeof(context->'resultCount')='number' AND context->>'resultCount' ~ '^[0-9]{1,6}$'
+        )
+        SELECT count(*) FILTER(WHERE results<=100000) AS "fallbackPageSamples",
+          count(*) FILTER(WHERE results BETWEEN 1 AND 100000) AS "fallbackPagesWithCandidates",
+          round(100.0 * count(*) FILTER(WHERE results BETWEEN 1 AND 100000) / nullif(count(*) FILTER(WHERE results<=100000),0),2) AS "fallbackCoveragePercent"
+        FROM observations
+        """, from, to));
+    search.put("fallbackCoverageReason", "Optional consented unavailable-builder page observations paired with the actual candidate count; failed recommendation requests are not reported as empty results.");
     result.put("search", search);
     Map<String, Object> safety = db.queryForMap("""
         SELECT count(*) AS reports,count(*) FILTER(WHERE status='RESOLVED') AS "resolvedReports",
@@ -191,8 +217,13 @@ public class MarketplaceMetrics {
         SELECT count(*) FROM moderation_actions WHERE created_at>=? AND created_at<=?
           AND lower(action) IN ('suspend','hide','quarantine','block')
         """, Long.class, from, to));
-    safety.put("reportActionRatePercent", null);
-    safety.put("reportActionRateReason", "Reports store resolution text, not a structured report-to-enforcement link. Resolution rate and actual enforcement action count are shown separately.");
+    safety.putAll(db.queryForMap("""
+        SELECT count(*) AS "reportsWithRecordedDecision",
+          count(*) FILTER(WHERE enforcement_action IN ('SUSPEND','HIDE','QUARANTINE','BLOCK')) AS "reportsWithEnforcement",
+          round(100.0 * count(*) FILTER(WHERE enforcement_action IN ('SUSPEND','HIDE','QUARANTINE','BLOCK')) / nullif(count(*),0),2) AS "reportActionRatePercent"
+        FROM reports WHERE status='RESOLVED' AND enforcement_action IS NOT NULL AND created_at>=? AND created_at<=?
+        """, from, to));
+    safety.put("reportActionRateReason", "Resolved reports with a recorded structured decision; suspension, hiding, quarantine or blocking count as enforcement. Legacy free-text resolutions are excluded.");
     result.put("safety", safety);
     return result;
   }

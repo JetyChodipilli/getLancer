@@ -100,7 +100,7 @@ class AnalyticsCoverageIntegrationTest {
     assertEquals(0,m.at("/search/sampleSearches").asInt());
     for(String path:new String[]{"/supply/liveDemoPercent","/outcomes/responseRatePercent","/outcomes/inquiryToHirePercent","/outcomes/medianResponseHours","/outcomes/top10LeadSharePercent","/slots/utilisationPercent","/search/threeResultPercent","/safety/resolutionRatePercent","/safety/reversalRatePercent"}) assertTrue(m.at(path).isNull(),path);
     assertEquals(0,m.get("portfolioCohorts").size());
-    assertTrue(m.at("/slots/blockedActivationBuilders").isNull());
+    assertEquals(0,m.at("/slots/blockedActivationBuilders").asInt());
     assertFalse(m.at("/slots/blockedActivationReason").asText().isBlank());
   }
 
@@ -151,10 +151,14 @@ class AnalyticsCoverageIntegrationTest {
     for(String context:new String[]{"{\"resultCount\":0}","{\"resultCount\":3}","{\"resultCount\":8}","{\"resultCount\":\"3\"}","{\"resultCount\":-1}","{\"resultCount\":3.5}","{\"resultCount\":100001,\"query\":\"Private search text\"}"}) observation("search_performed","web",null,context,at);
     observation("search_performed","server",null,"{\"resultCount\":100}",at);
     observation("search_performed","web",null,"{\"resultCount\":100}",at.minus(90,ChronoUnit.DAYS));
+    observation("unavailable_builder_fallback","web",null,"{\"resultCount\":0}",at);
+    observation("unavailable_builder_fallback","web",null,"{\"resultCount\":2}",at);
+    observation("unavailable_builder_fallback","server",null,"{\"resultCount\":9}",at);
     JsonNode m=metrics();assertFalse(m.toString().contains("Private search text"));
     assertEquals(7,m.at("/search/receivedEvents").asInt());assertEquals(3,m.at("/search/sampleSearches").asInt());assertEquals(2,m.at("/search/searchesWithThreeResults").asInt());assertEquals(1,m.at("/search/noResultSearches").asInt());
     assertEquals(66.67,m.at("/search/threeResultPercent").asDouble(),0.01);assertEquals(33.33,m.at("/search/noResultPercent").asDouble(),0.01);
-    assertTrue(m.at("/search/fallbackCoveragePercent").isNull());
+    assertEquals(50,m.at("/search/fallbackCoveragePercent").asDouble());
+    assertEquals(2,m.at("/search/fallbackPageSamples").asInt());
   }
 
   @Test void safetyBreakdownsAndAppealReversalsUseStoredCohorts() throws Exception {
@@ -168,12 +172,28 @@ class AnalyticsCoverageIntegrationTest {
       db.update("INSERT INTO moderation_actions(id,admin_id,target_type,target_id,action,reason) VALUES(?,?,'PRODUCT',?,?,'Reasoned decision')",decision,admin,target,actions[i]);
       db.update("INSERT INTO moderation_appeals(id,decision_id,appellant_id,statement,status) VALUES(?,?,?,'Requested review of evidence',?)",UUID.randomUUID(),decision,a,states[i]);
     }
+    db.update("UPDATE reports SET enforcement_action=CASE WHEN reason='SPAM' THEN 'NONE' ELSE 'SUSPEND' END WHERE status='RESOLVED'");
     JsonNode m=metrics();
     assertEquals(3,m.at("/safety/reports").asInt());assertEquals(2,m.at("/safety/resolvedReports").asInt());assertEquals(1,m.at("/safety/openReports").asInt());assertEquals(66.67,m.at("/safety/resolutionRatePercent").asDouble(),0.01);
     assertEquals(1,m.at("/safety/maliciousLinkReports").asInt());assertEquals(1,m.at("/safety/ipComplaints").asInt());assertEquals(1,m.at("/safety/spamReports").asInt());
     assertEquals(3,m.at("/safety/appeals").asInt());assertEquals(2,m.at("/safety/decidedAppeals").asInt());assertEquals(1,m.at("/safety/overturnedAppeals").asInt());assertEquals(50,m.at("/safety/reversalRatePercent").asDouble());
     assertEquals(2,m.at("/safety/enforcementActions").asInt());assertEquals(3,m.at("/safety/bySeverity").size());assertEquals(3,m.at("/safety/byReason").size());
-    assertEquals("CRITICAL",m.at("/safety/bySeverity/0/severity").asText());assertTrue(m.at("/safety/reportActionRatePercent").isNull());
+    assertEquals("CRITICAL",m.at("/safety/bySeverity/0/severity").asText());assertEquals(50,m.at("/safety/reportActionRatePercent").asDouble());
     assertFalse(m.toString().contains("Confidential evidence"));
   }
+  @Test void concurrentSlotCohortsExcludeLegacyAccountsAndWebSpoofing() throws Exception {
+    UUID fresh=user("fresh-capacity",true),legacy=user("legacy-capacity",true);
+    Instant start=Instant.now().minus(3,ChronoUnit.DAYS);
+    db.update("UPDATE analytics_instrumentation SET started_at=? WHERE name='showcase_capacity'",Timestamp.from(start));
+    db.update("UPDATE users SET created_at=? WHERE id=?",Timestamp.from(start.plus(1,ChronoUnit.DAYS)),fresh);
+    db.update("UPDATE users SET created_at=? WHERE id=?",Timestamp.from(start.minus(1,ChronoUnit.DAYS)),legacy);
+    for(UUID id:new UUID[]{fresh,legacy}) observation("product_activated","server",UUID.randomUUID(),"{\"builderId\":\""+id+"\",\"activeCount\":3}",start.plus(2,ChronoUnit.DAYS));
+    observation("showcase_capacity_blocked","server",UUID.randomUUID(),"{\"builderId\":\""+fresh+"\"}",Instant.now());
+    observation("showcase_capacity_blocked","web",UUID.randomUUID(),"{\"builderId\":\""+legacy+"\"}",Instant.now());
+    JsonNode m=metrics();
+    assertEquals(1,m.at("/slots/timeToThreeBuilders").asInt());
+    assertEquals(1,m.at("/slots/timeToThreeActiveShowcasesDays").asDouble(),0.01);
+    assertEquals(1,m.at("/slots/blockedActivationBuilders").asInt());
+  }
+
 }

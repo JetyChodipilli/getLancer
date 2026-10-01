@@ -573,6 +573,8 @@ class MarketplaceIntegrationTest {
     for (var f : futures) if (f.get(10, TimeUnit.SECONDS)) successes++;
     pool.shutdown();
     assertEquals(1, successes);
+    assertEquals(1, db.queryForObject("SELECT count(*) FROM analytics_events WHERE source='server' AND event_name='showcase_capacity_blocked' AND context->>'builderId'=?", Integer.class, owner.toString()), "Capacity measurement survives the rejected transaction.");
+    assertEquals(1, db.queryForObject("SELECT count(*) FROM analytics_events WHERE event_name='product_activated' AND context->>'builderId'=? AND context->>'activeCount'='3'", Integer.class, owner.toString()));
     assertEquals(
         3,
         db.queryForObject(

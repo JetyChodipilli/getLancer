@@ -221,8 +221,8 @@ public class AdminService {
     else if (!Set.of("", "NONE").contains(action))
       throw new ApiError(400, "VALIDATION_ERROR", "Choose an action supported by this report.");
     db.update(
-        "UPDATE reports SET status='RESOLVED',resolution=?,updated_at=now() WHERE id=?",
-        reason,
+        "UPDATE reports SET status='RESOLVED',resolution=?,enforcement_action=?,updated_at=now() WHERE id=?",
+        reason, action.isBlank() ? "NONE" : action,
         id);
     if (report.get("reporter_id") != null)
       mail.notify((UUID) report.get("reporter_id"), "Your report was reviewed. " + reason);

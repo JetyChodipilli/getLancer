@@ -20,7 +20,7 @@ export async function GET(){
         const response=await fetch(origin+'/api/v1/'+kind+'?size=100&page='+page,{cache:'no-store',signal:AbortSignal.timeout(15000)});
         if(!response.ok)return new Response('Sitemap temporarily unavailable',{status:503});
         const data=await response.json();
-        for(const item of data.items)if(item.slug)urls.add(base+'/'+kind+'/'+encodeURIComponent(item.slug));
+        for(const item of data.items){const key=kind==='teams'?item.id:item.slug;if(key)urls.add(base+'/'+kind+'/'+encodeURIComponent(key));}
         if(page+1>=data.totalPages)break;
       }
     }

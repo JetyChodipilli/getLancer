@@ -30,7 +30,7 @@ public class CommerceService {
     terms+="\n\ngetLancer license floor: one commercial end product; modification is permitted; source redistribution or resale as a competing template is prohibited. Third-party license notices remain applicable.";
     repo.create(id,seller,product,slug,title,summary,description,price,terms);repo.audit(id,null,seller,"TEMPLATE_CREATED","Seller created a source listing tied to verified public proof.");return repo.ownerDetail(id,seller);
   });}
-  private Map<String,Object> owner(UUID id,HttpServletRequest r,boolean approved) {UUID seller=security.developer(r,approved);var row=repo.template(id,true);if(!seller.equals(row.get("seller_id"))) throw new ApiError(404,"NOT_FOUND","Template not found.");return row;}
+  private Map<String,Object> owner(UUID id,HttpServletRequest r,boolean approved) {UUID seller=approved?security.developer(r,true):security.user(r);var row=repo.template(id,true);if(!seller.equals(row.get("seller_id"))) throw new ApiError(404,"NOT_FOUND","Template not found.");return row;}
   public Map<String,Object> upload(UUID template,MultipartFile file,String version,String notes,boolean consent,HttpServletRequest r) throws IOException {
     if(!consent) throw new ApiError(400,"RIGHTS_CONSENT_REQUIRED","Confirm source ownership and third-party redistribution rights.");
     version=version.trim();notes=notes.trim();if(!version.matches("[A-Za-z0-9][A-Za-z0-9._+\\-]{0,39}") || notes.length()<10 || notes.length()>4000) throw new ApiError(400,"VALIDATION_ERROR","Use a release version up to 40 characters and release notes of 10–4000 characters.");
