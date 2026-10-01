@@ -12,7 +12,8 @@ Structured showcase prices, prospective capacity/response/liquidity measurements
 
 - Previous source head 7b8cba9288a013866c9188fc50a2fbb351780831: all 224 Java tests passed against real PostgreSQL, and production JAR fixture exclusion passed. Runtime OSV scanning blocked 27 advisory matches; this was a failed release gate, not successful acceptance.
 - That head passed frontend runtime vulnerability checks, type checking, build and all 75 Node tests. Chromium responsive suite passed 23 of 33 cases; ten phone cases found shared footer overflow. No full browser acceptance is claimed for that run.
-- Corrective commit 6f729fa5bdc8ba4d3b4d86f6e53db807b25d2edf updates the affected Java dependency families and wraps footer links at narrow widths. Local type checking and Worker production build pass. New current-head CI evidence is pending.
+- Java dependency remediation passed on fca4f8f154252b7c61c844f37eb1e870752aa3d9: all 224 tests pass and OSV reports zero known advisory matches across 105 runtime package versions.
+- The first stylesheet transfer was truncated and failed CI parsing. Commit 148e037a0005d0572b675dd857b5c58f9ab2efd2 restores the complete stylesheet, verified byte for byte against local source. Local type checking and Worker production build pass. Its frontend job passed all 75 Node tests and all 33 responsive Chromium cases; its backend job also passed. Connected Docker acceptance remains pending at report preparation. A final purchase-badge CSS refinement and machine-readable audit sync must pass the final current-head run before merge.
 - PR: https://github.com/JetyChodipilli/getLancer/pull/8
 - Previous failed run: https://github.com/JetyChodipilli/getLancer/actions/runs/36823235193
 

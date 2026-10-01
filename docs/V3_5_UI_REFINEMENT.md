@@ -38,3 +38,7 @@ Required existing checks: `tests/browser/workspaces.spec.ts` and `tests/browser/
 The local `npx playwright install chromium` attempt failed: the download returned empty/corrupt archives and `End of central directory record signature not found`. No local screenshot, keyboard run or browser pass is claimed. GitHub CI has a Chromium installation path; the parent must inspect actual screenshots and job logs, and verify no document overflow, visible focused controls, field errors, empty/loading/failure states and all permission-specific actions before closing the rendered gate.
 
 Final build, parent independent review and rendered multi-viewport evidence remain pending at this leaf's handoff. Production hosting and live Razorpay acceptance remain separate owner/environment dependencies.
+
+## Parent execution evidence
+
+The integrated source at 148e037a0005d0572b675dd857b5c58f9ab2efd2 passed type checking, production Worker build, all 75 Node tests and all 33 Chromium responsive cases in run 36845854327. Root inspected the saved full-page phone business workspace and purchase/license screenshots. Footer links wrap inside the viewport; forms and matching cards retain their controls. A short purchase-status badge wrapping issue was found visually and corrected with nonshrinking text while adjacent titles remain flexible; the final current-head run must verify that polish. The local Chromium installation failure remains recorded above; CI supplies the actual browser evidence.
