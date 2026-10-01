@@ -13,6 +13,7 @@ import { api } from '@/lib/api';
 import { track } from '@/lib/analytics';
 import { emptyFilters, filterParams, type Filters } from '@/lib/discovery';
 import type { Catalog } from '@/lib/server';
+import { availabilityLabel } from '@/lib/catalog';
 
 export default function Explore({ items, preview, totalItems, totalPages, filters, featured }: Catalog & {featured:Catalog['items']}) {
  const {categories,technologies}=useTaxonomy();
@@ -54,17 +55,21 @@ export default function Explore({ items, preview, totalItems, totalPages, filter
 
   const gallery = useRef<HTMLDivElement>(null);
   const heroSearch = useRef<HTMLFormElement>(null);
-  const [q, setQ] = useState(filters.q);
-  const [category,setCategory]=useState(filters.category),[technology,setTechnology]=useState(filters.technology);
-  useEffect(()=>{setCategory(filters.category);setTechnology(filters.technology)},[filters.category,filters.technology]);
+  const draftKey=JSON.stringify([filters.q,filters.category,filters.technology]);
+  const [draft,setDraft]=useState({key:draftKey,q:filters.q,category:filters.category,technology:filters.technology});
+  if(draft.key!==draftKey)setDraft({key:draftKey,q:filters.q,category:filters.category,technology:filters.technology});
+  const {q,category,technology}=draft;
+  const setQ=(value:string)=>setDraft(previous=>({...previous,q:value}));
+  const setCategory=(value:string)=>setDraft(previous=>({...previous,category:value}));
+  const setTechnology=(value:string)=>setDraft(previous=>({...previous,technology:value}));
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState('');
   const [saved, setSaved] = useState<string[]>([]);
   const [saving, setSaving] = useState('');
-  const [savedReady,setSavedReady]=useState(preview);
   const visibleIds=items.map(p=>p.id).join(',');
-  useEffect(() => { setQ(filters.q); }, [filters.q]);
-  useEffect(() => { if (preview||!visibleIds)return;const controller=new AbortController();setSavedReady(false);api('/me/saved-products?ids='+encodeURIComponent(visibleIds),{signal:controller.signal}).then(r=>{setSaved(r.items.map((p:{id:string})=>p.id));setSavedReady(true)}).catch(e=>{if(controller.signal.aborted)return;if(e.status===401){setSaved([]);setSavedReady(true)}else setError('Saved projects could not be loaded. Refresh the page to try again.')});return()=>controller.abort(); }, [preview,visibleIds]);
+  const [loadedSavedIds,setLoadedSavedIds]=useState('');
+  const savedReady=preview||loadedSavedIds===visibleIds;
+  useEffect(() => { if (preview||!visibleIds)return;const controller=new AbortController();api('/me/saved-products?ids='+encodeURIComponent(visibleIds),{signal:controller.signal}).then(r=>{setSaved(r.items.map((p:{id:string})=>p.id));setLoadedSavedIds(visibleIds)}).catch(e=>{if(controller.signal.aborted)return;if(e.status===401){setSaved([]);setLoadedSavedIds(visibleIds)}else setError('Saved projects could not be loaded. Refresh the page to try again.')});return()=>controller.abort(); }, [preview,visibleIds]);
   useEffect(()=>{if(!preview){const searched=!!(filters.q||filters.category||filters.technology||filters.projectType||filters.availability);track(searched?'search_performed':'home_view',undefined,searched?{resultCount:totalItems,queryLength:filters.q.length}:{});items.forEach(p=>track('product_impression',p.id));}},[items,preview,filters.q,filters.category,filters.technology,filters.projectType,filters.availability,totalItems]);
   function update(change: Partial<Filters>) {
     const params = filterParams({ ...filters, page: 0, ...change });
@@ -84,8 +89,13 @@ export default function Explore({ items, preview, totalItems, totalPages, filter
   return <main id="main" className="wrap marketplace">
     <DiscoveryDock anchor={heroSearch} q={q} setQ={setQ} filters={filters} pending={pending} update={update} reset={reset}/>
     <section className="marketplace-hero">
-      <div className="hero-copy"><span className="eyebrow">REAL SOFTWARE. INDEPENDENT BUILDERS.</span><h1>Find the build.<br/>Meet the <span>builder.</span></h1><p>Explore working software and connect<br className="desktop-break"/> with the people who built it.</p><a className="hero-explore" href="#project-collection">Explore projects <ArrowRight size={20}/></a></div>
-      <ProjectStack products={featured}/>
+      <div className="hero-copy"><span className="eyebrow">INDEPENDENT TALENT. EXTRAORDINARY WORK.</span><h1>Great work deserves<br/>to be <span>seen.</span></h1><p>Show what you make. Find the people to build with.</p><a className="hero-explore" href="#project-collection">Explore projects <ArrowRight size={18}/></a></div>
+      <div className="spectral-scene">
+        <img className="spectral-ribbon" src="/spectral/glass-ribbon.webp" alt="" aria-hidden="true" width={1536} height={1024} fetchPriority="high"/>
+        <ProjectStack products={featured}/>
+        {featured[0]&&<div className="spectral-builder"><span className="avatar" aria-hidden="true">{featured[0].builder.split(' ').map(x=>x[0]).join('')}</span><div><strong>{featured[0].builder}</strong><span>{availabilityLabel(featured[0].availability,featured[0].bookedUntil)}</span></div><Link href={'/builders/'+featured[0].builderSlug}>View profile <ArrowUpRight size={16} aria-hidden="true"/></Link></div>}
+        <div className="spectral-inquiry"><span className="spectral-card-kicker">LET’S MAKE SOMETHING GREAT</span><strong>A project in mind?</strong><p>Find the right people for your next idea.</p><Link className="button primary" href={preview?'/preview/business':'/workspace/business'}>Start a project request</Link></div>
+      </div>
     </section>
     <form ref={heroSearch} className="market-search" role="search" onSubmit={e=>{e.preventDefault();update({q,category,technology})}}>
       <label className="market-query"><Search size={23} aria-hidden="true"/><span><strong>What do you need?</strong><input aria-label="Search projects" maxLength={200} value={q} onChange={e=>setQ(e.target.value)} placeholder="Search projects or builders"/></span></label>

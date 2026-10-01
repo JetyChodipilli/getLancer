@@ -8,5 +8,5 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   const filters=parseFilters(params);
   const catalog=await getCatalog(filters);
   const featured=params.size?(await getCatalog()).items:catalog.items;
-  return <Explore {...catalog} featured={featured.slice(0,3)} />;
+  return <Explore {...catalog} featured={featured.slice(0,6)} />;
 }

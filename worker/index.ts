@@ -1,7 +1,7 @@
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
-import { frontendCsp } from '../lib/security-headers';
+import { secureFrontendResponse } from '../lib/security-headers';
 
 interface Env {
   BACKEND_URL?: string;
@@ -32,23 +32,18 @@ const worker = {
 
     if (url.pathname === "/_vinext/image") {
       const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
-      return handleImageOptimization(request, {
+      const imageResponse=await handleImageOptimization(request, {
         fetchAsset: (path) => env.ASSETS.fetch(new Request(new URL(path, request.url))),
         transformImage: async (body, { width, format, quality }) => {
           const result = await env.IMAGES.input(body).transform(width > 0 ? { width } : {}).output({ format, quality });
           return result.response();
         },
       }, allowedWidths);
+      return secureFrontendResponse(imageResponse,request.url,Boolean(env.BACKEND_URL?.trim()));
     }
 
     const response = await handler.fetch(request, env, ctx);
-    const secured = new Response(response.body, response);
-    secured.headers.set('X-Content-Type-Options', 'nosniff');
-    secured.headers.set('Referrer-Policy', 'no-referrer');
-    secured.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-    secured.headers.set('Content-Security-Policy', frontendCsp(Boolean(env.BACKEND_URL?.trim())));
-    if (url.protocol === 'https:') secured.headers.set('Strict-Transport-Security', 'max-age=31536000');
-    return secured;
+    return secureFrontendResponse(response,request.url,Boolean(env.BACKEND_URL?.trim()));
   },
 };
 
