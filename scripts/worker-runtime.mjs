@@ -9,7 +9,7 @@ export function createBuiltWorker({bindings={},assetsFetch,port,host='127.0.0.1'
  const paths=readdirSync(root,{recursive:true}).filter(path=>path.endsWith('.js')).sort((a,b)=>a==='index.js'?-1:b==='index.js'?1:a.localeCompare(b));
  const worker={name:'getlancer',modules:paths.map(path=>({type:'ESModule',path:join(root,path)})),modulesRoot:root,compatibilityDate:'2026-09-30',compatibilityFlags:['nodejs_compat'],bindings};
  if(assetsFetch)worker.serviceBindings={ASSETS:assetsFetch};
- else worker.assets={directory:new URL('../dist/client/',import.meta.url).pathname,binding:'ASSETS'};
+ else worker.assets={directory:new URL('../dist/client/',import.meta.url).pathname,binding:'ASSETS',routerConfig:{has_user_worker:true}};
  return new Miniflare(convertV4MiniflareOptions({...(port===undefined?{}:{port,host}),workers:[worker]}));
 }
 export function runtimeBindings(env=process.env){
