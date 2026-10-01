@@ -75,6 +75,8 @@ jobs:
           retention-days: 7
       - run: npx tsc --noEmit
       - run: npm run build
+      - name: Check published frontend assets for private keys and source maps
+        run: node scripts/check-frontend-security.mjs
       - run: node --experimental-strip-types --test tests/*.test.mjs
       - name: Install Chromium for responsive workspace acceptance
         run: npx playwright install --with-deps chromium

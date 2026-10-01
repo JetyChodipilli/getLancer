@@ -8,7 +8,7 @@ async function page(path){const response=await worker.fetch(new Request('https:/
 
 test('project discovery renders six clearly illustrative projects',async()=>{
  const {response,html}=await page('/');assert.equal(response.status,200);
- assert.match(html,/Explore working software/);assert.match(html,/Projects are illustrative/);
+ assert.match(html,/Great work deserves/);assert.match(html,/Projects are illustrative/);
  assert.equal((html.match(/<article[^>]*class="project"/g)||[]).length,6);
  assert.equal(response.headers.get('referrer-policy'),'no-referrer');
 });
@@ -36,7 +36,7 @@ test('design preview is excluded from search indexing',async()=>{
 
 test('featured project stack remains available when collection filters have no matches',async()=>{
  const {html}=await page('/?q=nonexistentquantumservice');
- assert.equal((html.match(/class="stack-card stack-card-/g)||[]).length,2);
+ assert.equal((html.match(/class="stack-card stack-card-/g)||[]).length,3);
  assert.doesNotMatch(html,/Pause animation|Play animation/);
  assert.match(html,/Featured project demos/);
  assert.match(html,/href="#project-collection"/);

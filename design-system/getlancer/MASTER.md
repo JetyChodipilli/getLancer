@@ -1,214 +1,28 @@
-# Design System Master File
+# getLancer — Spectral Studio
 
-> **LOGIC:** When building a specific page, first check `design-system/pages/[page-name].md`.
-> If that file exists, its rules **override** this Master file.
-> If not, strictly follow the rules below.
+The user's selected Spectral Studio image is the visual authority. Awesome Design MD's Apple system informs hierarchy, spacing and purposeful glass. Original getLancer typography, artwork and product interactions remain our own. UI/UX Pro Max's Liquid Glass result applies to material and accessibility; its unrelated hospitality palette and testimonial layout were rejected after a narrower search. Shadcn Dashboard Free and Template inform rail, content, cards, dialogs and labelled forms using the existing shadcn primitives. The bundled template source is unavailable; no template router, mock API or new dependency is imported.
 
----
+## Visual system
+Pearl canvas #F4F4F2, ink #191B20, secondary text #585B64, white content surfaces, silver borders #D7D8DD. Vermillion #E64A19 is decorative orange; primary actions use #C63810 with white text for 4.5:1 contrast. Hover #A92E0B; focus #9C2D0F. Soft orange #FFF0E9 marks selection. Keep green success, amber warning and red error with text labels. Glass chrome combines translucent white, a bright top rim, restrained inner shadow and backdrop blur. Controls and dense records use an opaque backplate. No lens effect under essential text.
 
-**Project:** getLancer
-**Generated:** 2026-09-07 06:50:31
-**Category:** SaaS (General)
+Use self-hosted Inter only. Hero 700, clamp(38px,5.2vw,72px), 1.04 line-height, -.055em tracking. Page headings 32/40, section headings 22/30, cards 18/26. Body 16/25, labels 14/20, metadata at least 12/18. Form controls 16px on every screen. No new remote fonts, scripts or tracking.
 
----
+Spacing: 4, 8, 12, 16, 20, 24, 32, 48, 64px. Content max 1440px. Desktop gutters 40px, tablet 24px, mobile 16px. Controls 12px radius; cards 20px; large glass panels 28px; pills full radius. Minimum action target 44px. Shadcn tokens mirror these semantics including dark tokens, although this release presents the approved light theme.
 
-## Global Rules
+## Public experience
+Floating capsule navigation with a black/orange wordmark. A centered headline and short description lead into three genuine project previews framed by an original transparent glass ribbon. No generated interface, flattened screenshot or fabricated account is interactive. Cards link to actual catalogue records; the demo portrait may be curated only when already in the frontend demo catalogue. Connected cards derive exclusively from approved server records. The compact builder panel uses the featured builder's actual identity and availability. Project request action uses the existing business workspace.
 
-### Color Palette
+Search, category, technology, filter, sort and saved actions retain their existing behavior. The gallery keeps mixed image proportions, genuine metadata and accessible save controls. Sample-data disclosure remains visible. All other public pages inherit the same surfaces and controls.
 
-| Role | Hex | CSS Variable |
-|------|-----|--------------|
-| Primary | `#2563EB` | `--color-primary` |
-| On Primary | `#FFFFFF` | `--color-on-primary` |
-| Secondary | `#3B82F6` | `--color-secondary` |
-| On Secondary | `#000000` | `--color-on-secondary` |
-| Accent/CTA | `#EA580C` | `--color-accent` |
-| On Accent/CTA | `#000000` | `--color-on-accent` |
-| Background | `#F8FAFC` | `--color-background` |
-| Foreground | `#1E293B` | `--color-foreground` |
-| Card | `#FFFFFF` | `--color-card` |
-| Card Foreground | `#1E293B` | `--color-card-foreground` |
-| Muted | `#E9EFF8` | `--color-muted` |
-| Muted Foreground | `#475569` | `--color-muted-foreground` |
-| Border | `#E2E8F0` | `--color-border` |
-| Destructive | `#DC2626` | `--color-destructive` |
-| On Destructive | `#FFFFFF` | `--color-on-destructive` |
-| Ring | `#2563EB` | `--color-ring` |
+## Workspaces and forms
+One glass rail and one readable content area. Retain breadcrumbs, one H1, primary action, permission-gated controls, sample disclosure, tabs, metrics and real records. No invented charts, growth or online status. The rail becomes a bounded horizontal strip below 1000px. Dialogs use an opaque near-white surface, bounded scrolling, associated labels, inline validation and keyboard focus restoration. Preserve role management, private briefs, saved talent, concierge, source purchases and delivery/payment semantics.
 
-**Color Notes:** Trust blue + orange CTA contrast [Accent adjusted from #F97316]
+Authentication shares the pearl glass artwork and wordmark. Provider availability, errors and authentication remain truthful. Inputs are readable white, consent text visible and submit actions orange. Do not let decoration delay, hide or intercept controls.
 
-### Typography
+## Motion and responsive behavior
+Use 180–240ms color/shadow transitions and a single short entrance. Cards may lift 3px on pointer hover; keyboard focus has equal emphasis. No perpetual glass animation or costly displacement shader. Optical refraction is pre-rendered in the decorative asset; backdrop blur is restrained to chrome. Respect reduced motion and reduced transparency; opaque fallbacks cover unsupported blur and forced colors.
 
-- **Heading Font:** Fira Code
-- **Body Font:** Fira Sans
-- **Mood:** dashboard, data, analytics, code, technical, precise
-- **Google Fonts:** [Fira Code + Fira Sans](https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap)
+At 1000px simplify navigation/workspace rail; at 760px use the menu and stack search; at 640px use one-column forms and cards. Hero scene reserves its dimensions and remains within the viewport at 320px. At 200% text zoom headings wrap and controls remain reachable. No horizontal document overflow, suppressed zoom or hover-only information.
 
-**CSS Import:**
-```css
-@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap');
-```
-
-### Spacing Variables
-
-| Token | Value | Usage |
-|-------|-------|-------|
-| `--space-xs` | `4px` / `0.25rem` | Tight gaps |
-| `--space-sm` | `8px` / `0.5rem` | Icon gaps, inline spacing |
-| `--space-md` | `16px` / `1rem` | Standard padding |
-| `--space-lg` | `24px` / `1.5rem` | Section padding |
-| `--space-xl` | `32px` / `2rem` | Large gaps |
-| `--space-2xl` | `48px` / `3rem` | Section margins |
-| `--space-3xl` | `64px` / `4rem` | Hero padding |
-
-### Shadow Depths
-
-| Level | Value | Usage |
-|-------|-------|-------|
-| `--shadow-sm` | `0 1px 2px rgba(0,0,0,0.05)` | Subtle lift |
-| `--shadow-md` | `0 4px 6px rgba(0,0,0,0.1)` | Cards, buttons |
-| `--shadow-lg` | `0 10px 15px rgba(0,0,0,0.1)` | Modals, dropdowns |
-| `--shadow-xl` | `0 20px 25px rgba(0,0,0,0.15)` | Hero images, featured cards |
-
----
-
-## Component Specs
-
-### Buttons
-
-```css
-/* Primary Button */
-.btn-primary {
-  background: #EA580C;
-  color: white;
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-weight: 600;
-  transition: all 200ms ease;
-  cursor: pointer;
-}
-
-.btn-primary:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
-}
-
-/* Secondary Button */
-.btn-secondary {
-  background: transparent;
-  color: #2563EB;
-  border: 2px solid #2563EB;
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-weight: 600;
-  transition: all 200ms ease;
-  cursor: pointer;
-}
-```
-
-### Cards
-
-```css
-.card {
-  background: #F8FAFC;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: var(--shadow-md);
-  transition: all 200ms ease;
-  cursor: pointer;
-}
-
-.card:hover {
-  box-shadow: var(--shadow-lg);
-  transform: translateY(-2px);
-}
-```
-
-### Inputs
-
-```css
-.input {
-  padding: 12px 16px;
-  border: 1px solid #E2E8F0;
-  border-radius: 8px;
-  font-size: 16px;
-  transition: border-color 200ms ease;
-}
-
-.input:focus {
-  border-color: #2563EB;
-  outline: none;
-  box-shadow: 0 0 0 3px #2563EB20;
-}
-```
-
-### Modals
-
-```css
-.modal-overlay {
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
-}
-
-.modal {
-  background: white;
-  border-radius: 16px;
-  padding: 32px;
-  box-shadow: var(--shadow-xl);
-  max-width: 500px;
-  width: 90%;
-}
-```
-
----
-
-## Style Guidelines
-
-**Style:** Minimalism & Swiss Style
-
-**Keywords:** Clean, simple, spacious, functional, white space, high contrast, geometric, sans-serif, grid-based, essential
-
-**Best For:** Enterprise apps, dashboards, documentation sites, SaaS platforms, professional tools
-
-**Key Effects:** Subtle hover (200-250ms), smooth transitions, sharp shadows if any, clear type hierarchy, fast loading
-
-### Page Pattern
-
-**Pattern Name:** Hero + Features + CTA
-
-- **Conversion Strategy:** Deep CTA placement. For CTA label text, verify at least 4.5:1 against the button fill; use 7:1 only when the product explicitly targets AAA normal-text contrast. Keep focus and component boundaries independently visible. Disable hero parallax under reduced motion and render its static final state.
-- **CTA Placement:** Hero (sticky) + Bottom
-- **Section Order:** Hero with headline/image > Value prop > Key features (3-5) > CTA section > Footer
-
----
-
-## Anti-Patterns (Do NOT Use)
-
-- ❌ Excessive animation
-- ❌ Dark mode by default
-
-### Additional Forbidden Patterns
-
-- ❌ **Emojis as icons** — Use SVG icons (Heroicons, Lucide, Simple Icons)
-- ❌ **Missing cursor:pointer** — All clickable elements must have cursor:pointer
-- ❌ **Layout-shifting hovers** — Avoid scale transforms that shift layout
-- ❌ **Low contrast text** — Maintain 4.5:1 minimum contrast ratio
-- ❌ **Instant state changes** — Always use transitions (150-300ms)
-- ❌ **Invisible focus states** — Focus states must be visible for a11y
-
----
-
-## Pre-Delivery Checklist
-
-Before delivering any UI code, verify:
-
-- [ ] No emojis used as icons (use SVG instead)
-- [ ] All icons from consistent icon set (Heroicons/Lucide)
-- [ ] `cursor-pointer` on all clickable elements
-- [ ] Hover states with smooth transitions (150-300ms)
-- [ ] Light mode: text contrast 4.5:1 minimum
-- [ ] Focus states visible for keyboard navigation
-- [ ] `prefers-reduced-motion` respected
-- [ ] Responsive: 375px, 768px, 1024px, 1440px
-- [ ] No content hidden behind fixed navbars
-- [ ] No horizontal scroll on mobile
+## Security and acceptance
+No public environment secrets, persisted credentials or external dependency assets. Java auth stays cookie-based and same-origin. Connected mode must fail closed without demo fallback. Validate untrusted external links before rendering. Preserve CSP, referrer policy, nosniff, permissions policy and HTTPS HSTS; do not widen hosts for artwork. Check production assets for credential signatures and source maps. Browser tests cover desktop, tablet, phone, keyboard dialogs, real navigation and security boundaries. GitHub CI must pass before merging; only the demo frontend is published to the cloud.

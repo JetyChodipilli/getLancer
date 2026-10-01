@@ -2,6 +2,7 @@
 import {useEffect,useRef,useState} from 'react';
 import {usePathname} from 'next/navigation';
 import Link from 'next/link';
+import Brand from './brand';
 export default function IcyAuthShell({children}:{children:React.ReactNode}){
  const root=useRef<HTMLElement>(null),art=useRef<HTMLDivElement>(null);const path=usePathname();
  const [visible,setVisible]=useState(true),[focused,setFocused]=useState(false);
@@ -12,8 +13,8 @@ export default function IcyAuthShell({children}:{children:React.ReactNode}){
  return <main id="main" ref={root} className="icy-auth" data-running={running} onFocusCapture={event=>{if((event.target as HTMLElement).matches('input,textarea,select'))setFocused(true)}} onBlurCapture={event=>{if(!(event.relatedTarget as HTMLElement|null)?.matches('input,textarea,select'))setFocused(false)}}>
   <div className="icy-shell">
    <aside className="icy-story" aria-label="Build. Show. Get hired." onPointerMove={event=>{if(!running||matchMedia('(prefers-reduced-motion: reduce)').matches||!matchMedia('(pointer: fine)').matches||event.pointerType!=='mouse'||!art.current)return;const b=event.currentTarget.getBoundingClientRect();const x=(event.clientX-b.left)/b.width-.5,y=(event.clientY-b.top)/b.height-.5;art.current.style.transform=`translate(${x*12}px, ${y*12}px) rotate(${x*2}deg)`}} onPointerLeave={()=>{if(art.current)art.current.style.transform=''}}>
-    <div className="icy-art-parallax" ref={art} aria-hidden="true"><div className="icy-art-float"><img className="icy-arrow" src="/auth/icy-arrow.png" alt="" width={1254} height={1254} fetchPriority="high"/><svg className="icy-shimmer" viewBox="0 0 700 700" preserveAspectRatio="xMaxYMid slice" fill="none"><path d="M 675 715 C 380 620 180 505 390 400 C 635 280 520 170 270 290 C 350 260 545 160 639 65" stroke="white" strokeWidth="2" strokeLinecap="round" pathLength="100"/></svg><span className="icy-tip-glint"/></div></div>
-    <Link href="/" className="icy-logo"><img src="/brand/getlancer-transparent.png" alt="getLancer — Methods for Freelance Success" width={767} height={325}/></Link>
+    <div className="icy-art-parallax" ref={art} aria-hidden="true"><img className="spectral-auth-art" src="/spectral/glass-ribbon.webp" alt="" width={1536} height={1024}/></div>
+    <Link href="/" className="icy-logo" aria-label="getLancer home"><Brand/></Link>
     <div className="icy-story-copy"><h2>Build.<br/>Show.<br/><span>Get hired.</span></h2><p>A community where developers showcase real work and clients discover and hire the people who built it.</p><div className="icy-signature">Code builds opportunity</div></div>
     <p className="icy-manifesto">Ideas<br/>People<br/>Projects<br/>A brighter<br/>tomorrow<span>—</span></p>
 
