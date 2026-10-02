@@ -41,7 +41,7 @@ body .marketplace-hero .hero-copy>p {
  box-shadow: 0 4px 10px #3a46540a,inset 0 1px #fff; cursor: pointer;
  transition: transform var(--spectral-feedback) var(--spectral-ease),background var(--spectral-feedback),box-shadow var(--spectral-feedback);
 }
-.hero-categories button.selected { background: linear-gradient(145deg,#df471b,#bd3210); border-color: #ffddd0; color: #fff; box-shadow: 0 5px 12px #c6381026,inset 0 1px #ffffff69; }
+.hero-categories button.selected { background: linear-gradient(145deg,#c63810,#bd3210); border-color: #ffddd0; color: #fff; box-shadow: 0 5px 12px #c6381026,inset 0 1px #ffffff69; }
 .hero-categories button:hover:enabled { transform: translateY(-2px); box-shadow: 0 8px 16px #3a46541a,inset 0 1px #fff; }
 .hero-categories button:active:enabled { transform: translateY(0) scale(.97); }
 .hero-categories button:disabled { cursor: wait; }
@@ -138,8 +138,8 @@ body .marketplace-hero .spectral-inquiry { right: 0; width: 40%; max-width: 575p
 .spectral-inquiry label>svg { flex: none; }
 .spectral-inquiry input { width: 100%; min-width: 0; font-size: 16px; color: #222b39; background: transparent; border: 0; border-radius: 0; padding: 8px 0; outline: 0; box-shadow: none; }
 .spectral-inquiry input::placeholder { color: #616d80; font-size: 14px; opacity: 1; }
-body .marketplace-hero .spectral-inquiry .button { grid-column: 2; grid-row: 1/3; align-self: center; width: auto; min-height: 48px; border-radius: 999px; font-size: 14px; padding: 12px 18px; background: linear-gradient(145deg,#df471b,#bd3210); box-shadow: inset 0 2px 1px #ffffff6b,0 5px 12px #c6381026; transition: transform var(--spectral-settle) var(--spectral-ease),box-shadow var(--spectral-settle); }
-body .marketplace-hero .spectral-inquiry .button:hover { transform: translateY(-2px); background: linear-gradient(145deg,#d34419,#a92e0b); }
+body .marketplace-hero .spectral-inquiry .button { grid-column: 2; grid-row: 1/3; align-self: center; width: auto; min-height: 48px; border-radius: 999px; font-size: 14px; padding: 12px 18px; background: linear-gradient(145deg,#c63810,#bd3210); box-shadow: inset 0 2px 1px #ffffff6b,0 5px 12px #c6381026; transition: transform var(--spectral-settle) var(--spectral-ease),box-shadow var(--spectral-settle); }
+body .marketplace-hero .spectral-inquiry .button:hover { transform: translateY(-2px); background: linear-gradient(145deg,#bd3210,#a92e0b); }
 .spectral-privacy { grid-column: 1/-1; display: flex; align-items: center; gap: 8px; font-size: 12px; color: #4e596a; margin: 2px 0; }
 .spectral-privacy svg { flex: none; }
 .spectral-inquiry .error { grid-column: 1/-1; margin: 0; font-size: 14px; }
