@@ -1,5 +1,5 @@
 /* Supplied brand, a quiet navigable footer, and the Real Opportunities composition. */
-body .spectral-wordmark { display: inline-flex; width: 150px; max-width: 100%; align-items: center; line-height: 1; }
+body .spectral-wordmark { display: inline-flex; width: 180px; max-width: 100%; align-items: center; line-height: 1; }
 body .spectral-wordmark img { display: block; width: 100%; height: auto; position: static; margin: 0; object-fit: contain; }
 body .site-footer.spectral-footer { padding: 56px 32px 0; background: linear-gradient(120deg,#fff 10%,#f3f4f7 62%,#fff4ed); border-top: 1px solid #d7d8dd; }
 .spectral-footer-inner { max-width: 1376px; margin: auto; }
@@ -16,12 +16,12 @@ body .site-footer.spectral-footer { padding: 56px 32px 0; background: linear-gra
 .spectral-footer-bottom a { display: flex; align-items: center; min-height: 44px; font-size: 14px; }
 .spectral-footer a:focus-visible { outline: 3px solid var(--ring); outline-offset: 5px; }
 
-body .icy-auth { padding: clamp(16px,3vw,44px); background: #f4f4f2; }
-body .icy-shell { max-width: 1376px; grid-template-columns: 1.08fr 1fr; padding: 16px; gap: 16px; background: #fffffff0; }
-body .icy-story { margin: -16px 0 -16px -16px; border-radius: 27px 0 0 27px; min-height: 0; padding: 106px 0 40px; background: radial-gradient(ellipse at 72% 23%,#ffe0c2a8,transparent 48%),radial-gradient(ellipse at 20% 66%,#fff4e8,transparent 65%),#f4f1ed; }
-body .icy-logo { left: 8.7%; top: 38px; width: 220px; min-height: 44px; overflow: visible; }
-body .icy-logo .spectral-wordmark { width: 220px; }
-.auth-scene { position: relative; width: 100%; aspect-ratio: 1 / 1.06; isolation: isolate; }
+body .icy-auth { padding: clamp(12px,2vw,28px); background: #f4f5f7; }
+body .icy-shell { max-width: 1376px; grid-template-columns: 1fr 1fr; padding: 16px; gap: 16px; background: #fffffff0; }
+body .icy-story { margin: -16px 0 -16px -16px; border-radius: 27px 0 0 27px; min-height: 0; padding: 100px 0 32px; background: radial-gradient(ellipse at 70% 24%,#ffffff,transparent 64%),#eef0f4; }
+body .icy-logo { left: 8.7%; top: 38px; width: 240px; min-height: 44px; overflow: visible; }
+body .icy-logo .spectral-wordmark { width: 240px; }
+.auth-scene { position: relative; width: min(100%,560px); margin-inline: auto; aspect-ratio: 1 / 1.02; isolation: isolate; }
 .auth-scene-art { position: absolute; inset: 0; pointer-events: none; }
 .auth-scene-frame { position: absolute; left: -6%; top: 1%; width: 112%; max-width: none; height: 117%; object-fit: fill; z-index: 1; }
 .auth-scene-laptop { position: absolute; left: 14%; top: 28%; width: 65%; height: auto; z-index: 3; }
@@ -32,12 +32,12 @@ body .icy-logo .spectral-wordmark { width: 220px; }
 .auth-orbit-opportunities { left: 78%; top: 64%; width: 43%; z-index: 4; }
 .auth-orbit-toggle { position: absolute; right: 8%; bottom: 0; z-index: 5; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 8px 12px; border: 1px solid #ffffffd9; border-radius: 999px; color: #585b64; background: #ffffffe0; font-size: 12px; cursor: pointer; }
 body .icy-story-copy { position: relative; left: auto; bottom: auto; width: auto; margin: 14px 8.7% 0; padding: 0; border: 0; border-radius: 0; background: transparent; backdrop-filter: none; }
-body .icy-story-copy h2 { font-size: clamp(30px,3.3vw,48px); font-weight: 750; letter-spacing: -.055em; line-height: 1.02; margin: 0 0 18px; }
+body .icy-story-copy h2 { font-size: clamp(30px,2.9vw,42px); font-weight: 750; letter-spacing: -.055em; line-height: 1.02; margin: 0 0 18px; }
 body .icy-story-copy h2 span { color: #c63810; }
 body .icy-story-copy p { font-size: 16px; line-height: 1.5; max-width: none; margin: 0; }
 body .icy-signature { margin-top: 26px; font-size: 12px; letter-spacing: .22em; white-space: normal; }
 body .icy-signature:before { width: 40px; margin-bottom: 14px; }
-body .icy-form { padding-top: 72px; padding-bottom: 40px; background: #fff; box-shadow: none; }
+body .icy-form { padding: 76px clamp(24px,3vw,44px) 32px; background: #fff; box-shadow: none; justify-content: center; }
 @media(max-width:1000px) {
  .spectral-footer-top { grid-template-columns: 1.4fr 1fr 1fr; gap: 32px; }
  .spectral-footer-top nav:last-child { grid-column: 2/4; }
@@ -46,7 +46,7 @@ body .icy-form { padding-top: 72px; padding-bottom: 40px; background: #fff; box-
  body .icy-story-copy h2 { font-size: 32px; }
 }
 @media(max-width:760px) {
- body .spectral-wordmark { width: 118px; }
+ body .spectral-wordmark { width: 140px; }
  body .site-footer.spectral-footer { padding: 40px 24px 0; }
  .spectral-footer-top { grid-template-columns: 1fr 1fr; gap: 32px 24px; padding-bottom: 32px; }
  .spectral-footer-brand { grid-column: 1/-1; }
@@ -59,8 +59,40 @@ body .icy-form { padding-top: 72px; padding-bottom: 40px; background: #fff; box-
  body .icy-story { margin: 0; padding: 0; min-height: 76px; background: transparent; border-radius: 0; }
  body .icy-logo { left: 12px; top: 8px; width: 175px; height: auto; }
  .auth-scene,body .icy-story-copy { display: none; }
- body .icy-form { padding: 64px 18px 28px; }
+ body .icy-form { padding: 56px 8px 24px; }
  body .icy-form .icy-options { font-size: 14px; flex-wrap: wrap; }
 }
 @media(prefers-reduced-motion:reduce) { .auth-orbit-card { will-change: auto; } .auth-orbit-toggle { display: none; } .spectral-footer * { transition: none !important; } }
 @media(forced-colors:active) { body .icy-story,body .site-footer.spectral-footer { background: Canvas; } .auth-scene-art { display: none; } }
+
+/* Readable account controls with balanced column gutters and content-driven height. */
+body .icy-form-content { max-width: 520px; margin: 0 auto; }
+body .icy-form h1 { font-size: clamp(30px,2.7vw,40px); line-height: 1.15; margin-bottom: 8px; }
+body .icy-description { font-size: 18px; line-height: 1.5; margin-bottom: 20px; }
+body .icy-provider { min-height: 52px; height: auto; padding: 12px 16px; font-size: 16px; }
+body .icy-providers { gap: 10px; }
+body .icy-divider { font-size: 14px; margin: 20px 0; }
+body .icy-field label { font-size: 15px; line-height: 1.4; margin-bottom: 8px; }
+body .icy-fields fieldset { gap: 16px; }
+body .icy-input { height: 54px; }
+body .icy-input input { font-size: 17px; }
+body .icy-input button { width: 44px; height: 44px; top: 4px; }
+body .icy-helper,body .icy-legal,body .icy-service-note,body .icy-form .auth-field-error { font-size: 14px; line-height: 1.5; }
+body .icy-options { font-size: 14px; gap: 8px 16px; flex-wrap: wrap; }
+body .icy-options label,body .icy-options button { min-height: 44px; }
+body .icy-switch { font-size: 16px; line-height: 1.5; margin-top: 20px; }
+body .icy-form .auth-submit { min-height: 54px; height: auto; padding: 14px 16px; font-size: 17px; }
+body .auth-connection { font-size: 14px; line-height: 1.5; padding: 16px; margin-bottom: 18px; }
+body .auth-connection .button { font-size: 15px; }
+body .icy-browse { font-size: 14px; min-height: 44px; top: 12px; }
+@media (min-width:761px) and (max-height:850px) {
+ body .auth-scene { width: min(100%,460px); }
+ body .icy-story-copy h2 { font-size: 34px; }
+}
+@media(max-width:760px) {
+ body .icy-form-content { max-width: 520px; }
+ body .icy-form h1 { font-size: 32px; }
+ body .icy-description { font-size: 16px; }
+ body .icy-logo,body .icy-logo .spectral-wordmark { width: 190px; }
+ body .icy-browse { right: 8px; }
+}
