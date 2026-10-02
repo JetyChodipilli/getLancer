@@ -19,27 +19,25 @@ body .site-footer.spectral-footer { padding: 56px 32px 0; background: linear-gra
 /* Compact authentication: generous artwork, restrained account column. */
 body .icy-auth { padding: 0; background: #f4f5f7; }
 body .icy-shell { max-width: none; grid-template-columns: minmax(0,65fr) minmax(0,35fr); min-height: 100svh; padding: 0; gap: 0; border: 0; border-radius: 0; box-shadow: none; background: #fff; }
-body .icy-story { display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0; border-radius: 0; min-height: 0; padding: 88px clamp(24px,4vw,56px) 32px; overflow: visible; background: radial-gradient(ellipse at 60% 35%,#fff,transparent 70%),#eef0f4; }
+body .icy-story { --auth-story-gutter: clamp(24px,4vw,56px); display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0; border-radius: 0; min-height: 0; padding: 88px var(--auth-story-gutter) 32px; overflow: visible; background: radial-gradient(ellipse at 60% 35%,#fff,transparent 70%),#eef0f4; }
 body .icy-logo { left: clamp(24px,4vw,56px); top: 28px; width: 220px; min-height: 44px; height: auto; overflow: visible; }
 body .icy-logo .spectral-wordmark { width: 220px; }
-.auth-scene { position: relative; width: min(100%,1060px,calc((100svh - 350px)*1.35)); flex: 0 0 auto; margin: auto; aspect-ratio: 1.35; isolation: isolate; }
+.auth-scene { position: relative; width: min(calc(100% + var(--auth-story-gutter) + var(--auth-story-gutter) - 32px),1160px); flex: 0 0 auto; margin: auto; aspect-ratio: 1.6; isolation: isolate; }
 .auth-scene-art { position: absolute; inset: 0; pointer-events: none; }
-.auth-scene-frame { position: absolute; inset: 4%; width: 92%; height: 92%; max-width: none; object-fit: contain; z-index: 1; animation: auth-frame-drift 14s ease-in-out infinite; }
-.auth-scene-laptop { position: absolute; left: 22%; top: 29%; width: 56%; height: auto; z-index: 3; animation: auth-frame-drift 12s ease-in-out -3s infinite; }
-.auth-orbit-card { position: absolute; width: 32%; height: auto; max-width: none; z-index: 4; transform: translate(-50%,-50%); animation: auth-card-drift 10s ease-in-out infinite; }
-.auth-orbit-freelancers { left: 81%; top: 24%; animation-delay: -2.5s; }
-.auth-orbit-projects { left: 19%; top: 24%; }
-.auth-orbit-clients { left: 19%; top: 76%; animation-delay: -5s; }
-.auth-orbit-opportunities { left: 81%; top: 76%; animation-delay: -7.5s; }
-@keyframes auth-card-drift { 0%,100% { transform: translate(-50%,calc(-50% + 4px)); } 50% { transform: translate(-50%,calc(-50% - 4px)); } }
-@keyframes auth-frame-drift { 0%,100% { transform: translateY(2px); } 50% { transform: translateY(-2px); } }
+.auth-scene-frame { position: absolute; inset: 1.5%; width: 97%; height: 97%; max-width: none; object-fit: contain; z-index: 1; }
+.auth-scene-laptop { position: absolute; left: 22%; top: 25%; width: 56%; height: auto; z-index: 3; }
+.auth-orbit-card { position: absolute; width: 25.5%; height: auto; max-width: none; z-index: 4; transform: translate(-50%,-50%); will-change: transform; }
+.auth-orbit-freelancers { left: 74.7487%; top: 30.5546%; }
+.auth-orbit-projects { left: 25.2513%; top: 30.5546%; }
+.auth-orbit-clients { left: 25.2513%; top: 69.4454%; }
+.auth-orbit-opportunities { left: 74.7487%; top: 69.4454%; }
 body .icy-story-copy { position: relative; left: auto; bottom: auto; align-self: flex-start; width: 100%; margin: 16px 0 0; padding: 0; border: 0; border-radius: 0; background: transparent; backdrop-filter: none; }
 body .icy-story-copy h2 { font-size: clamp(28px,2.7vw,40px); font-weight: 750; letter-spacing: -.05em; line-height: 1.04; margin: 0 0 12px; }
 body .icy-story-copy h2 span { color: #c63810; }
 body .icy-story-copy p { font-size: 14px; line-height: 1.5; max-width: none; margin: 0; }
 body .icy-signature { margin-top: 18px; font-size: 10px; letter-spacing: .22em; white-space: normal; }
 body .icy-signature:before { width: 32px; margin-bottom: 10px; }
-body .icy-form { padding: 52px clamp(20px,2vw,32px) 24px; background: #fff; border: 0; border-radius: 0; box-shadow: none; justify-content: center; }
+body .icy-form { align-self: start; min-height: 100svh; padding: 52px clamp(20px,2vw,32px) 24px; background: #fff; border: 0; border-radius: 0; box-shadow: none; justify-content: center; }
 body .icy-form:hover { box-shadow: none; }
 body .icy-form-content { max-width: 320px; margin: 0 auto; }
 body .icy-form h1 { font-size: 26px; line-height: 1.15; letter-spacing: -.04em; margin-bottom: 4px; }
@@ -68,7 +66,7 @@ body .icy-browse { font-size: 13px; min-height: 44px; top: 12px; right: 24px; }
  .spectral-footer-top { grid-template-columns: 1.4fr 1fr 1fr; gap: 32px; }
  .spectral-footer-top nav:last-child { grid-column: 2/4; }
  body .icy-shell { grid-template-columns: minmax(0,55fr) minmax(0,45fr); }
- body .icy-story { padding-inline: 24px; }
+ body .icy-story { --auth-story-gutter: 24px; padding-inline: 24px; }
  body .icy-logo { left: 24px; }
  body .icy-logo,body .icy-logo .spectral-wordmark { width: 185px; }
  body .icy-story-copy h2 { font-size: 30px; }
@@ -76,7 +74,6 @@ body .icy-browse { font-size: 13px; min-height: 44px; top: 12px; right: 24px; }
 }
 @media (min-width:761px) and (max-height:850px) {
  body .icy-story { padding-top: 80px; padding-bottom: 24px; }
- body .auth-scene { width: min(100%,calc((100svh - 300px)*1.35)); }
  body .icy-story-copy h2 { font-size: 30px; }
 }
 
@@ -95,10 +92,10 @@ body .icy-browse { font-size: 13px; min-height: 44px; top: 12px; right: 24px; }
  body .icy-logo { left: 8px; top: 4px; width: 185px; height: auto; }
  body .icy-logo .spectral-wordmark { width: 185px; }
  .auth-scene,body .icy-story-copy { display: none; }
- body .icy-form { padding: 40px 8px 20px; }
+ body .icy-form { min-height: 0; padding: 40px 8px 20px; }
  body .icy-form h1 { font-size: 26px; }
  body .icy-browse { top: -8px; right: 8px; }
  body .auth-connection p { flex-basis: 100%; }
 }
-@media(prefers-reduced-motion:reduce) { .auth-orbit-card,.auth-scene-frame,.auth-scene-laptop { animation: none; } .spectral-footer * { transition: none !important; } }
+@media(prefers-reduced-motion:reduce) { .auth-orbit-card { will-change: auto; } .spectral-footer * { transition: none !important; } }
 @media(forced-colors:active) { body .icy-story,body .site-footer.spectral-footer { background: Canvas; } .auth-scene-art { display: none; } }
