@@ -12,7 +12,7 @@ Reviewed [Webflow's login page](https://webflow.com/login) and its [split-screen
 - Keep the unavailable-account notice truthful and shorten its copy. Group Google and GitHub actions in one row and use a compact demo/check-again row.
 - Preserve the supplied charcoal/orange vector logo at 220px on desktop and 185px on phones.
 - Keep the cool silver story background (#EEF0F4) and quiet outside surface (#F4F5F7).
-- Preserve the laptop, four cards, 72-second orbit, pause control, typing pause and reduced-motion behavior. Use equally sized cards with quarter-turn spacing on an ellipse so their bounds never overlap.
+- Preserve the original laptop, four cards, complete chrome ring and bubbles. Enlarge the laptop to 56% and cards to 32% of the scene, keeping stable corner anchors and clear labels. Use continuous gentle CSS drifts with no pause/resume control or typing pause, plus OS reduced-motion support.
 - Replace the inherently cropped ribbon with a complete transparent oval. Render it with `object-fit: contain` inside an inset canvas; keep the entire animated card bounds within that canvas.
 - Keep story copy in normal flow so it cannot collide with or crop artwork. Allow natural vertical scrolling for long signup and service states.
 
@@ -28,6 +28,10 @@ Prompt: Complete the cropped pearlescent liquid-glass ribbon into one self-conta
 
 ## Verification
 
-Login and signup are checked at 1920×1080, 1440×1000, 1366×768, 1024×768, 768×1024, 720×900, 375×812 and 320×812. Checks cover the loaded vector logo, exact responsive split, maximum form width, readable controls, no horizontal overflow, contained artwork, password visibility and reachable submit buttons. A full 72-second virtual animation cycle checks containment and pairwise separation of the moving card bounds while confirming the laptop stays fixed. Existing authentication tests cover provider behavior and navigation.
+Login and signup are checked at 1920×1080, 1440×1000, 1366×768, 1024×768, 768×1024, 720×900, 375×812 and 320×812. Checks cover the loaded vector logo, exact responsive split, maximum form width, readable controls, no horizontal overflow, contained artwork, password visibility and reachable submit buttons. Full native animation cycles check containment, card separation and continued motion during form use. Existing authentication tests cover provider behavior and navigation.
 
 Styling does not activate an unconfigured backend or OAuth provider. The published preview continues to disclose unavailable account services.
+
+## Original asset refit
+
+The user requested scale and fit improvements, preserving the approved chrome ring, bubbles, laptop and all four cards. No replacement artwork is used. A corrected full-page sample was shown before refitting the source. The old optional orbit control is removed, as requested. CSS motion keeps the composition stable and leaves labels readable.
