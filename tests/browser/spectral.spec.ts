@@ -33,7 +33,7 @@ test('auth artwork revolves slowly around a stationary laptop and pauses for foc
  await page.getByRole('heading',{name:'Welcome back',exact:true}).focus();await expect(scene).toHaveAttribute('data-running','true');
  await page.emulateMedia({reducedMotion:'reduce'});await expect(scene).toHaveAttribute('data-running','false');
  const positions=await scene.evaluate(node=>{const b=node.getBoundingClientRect();return [...node.querySelectorAll('.auth-orbit-card')].map(card=>{const r=card.getBoundingClientRect();return {x:(r.x+r.width/2-b.x)/b.width,y:(r.y+r.height/2-b.y)/b.height};});});
- for(const [index,pose] of [[.74,.19],[.19,.43],[.19,.74],[.78,.64]].entries()){expect(positions[index].x).toBeCloseTo(pose[0],2);expect(positions[index].y).toBeCloseTo(pose[1],2);}
+ for(const [index,pose] of [[.747487,.273726],[.252513,.273726],[.252513,.726274],[.747487,.726274]].entries()){expect(positions[index].x).toBeCloseTo(pose[0],2);expect(positions[index].y).toBeCloseTo(pose[1],2);}
  await fits(page);
 });
 test('authentication and public detail screens reflow and retain protected external links',async({page},info)=>{
@@ -50,4 +50,59 @@ test('phone navigation and scroll search remain reachable at narrow widths',asyn
  await page.evaluate(()=>{const search=document.querySelector('.market-search')!;window.scrollTo({top:search.getBoundingClientRect().bottom+window.scrollY+120,behavior:'instant'});});
  await expect(page.getByRole('textbox',{name:'Search projects while browsing'})).toBeVisible();await fits(page);
  await page.emulateMedia({reducedMotion:'reduce'});expect(await page.locator('.stack-card').first().evaluate(el=>getComputedStyle(el).animationName)).toBe('none');
+});
+test('account controls stay readable across short laptops and narrow phones',async({page},info)=>{
+ test.skip(info.project.name!=='desktop','The desktop project covers the complete viewport matrix.');
+ for(const [width,height] of [[1920,1080],[1440,1000],[1366,768],[1024,768],[768,1024],[720,900],[375,812],[320,812]]){
+  await page.setViewportSize({width,height});
+  for(const route of ['/login','/signup']){
+   await page.goto(route);await expect(page.locator('.auth-connection')).toContainText('Sign-in is unavailable');
+   await fits(page);
+   const logo=page.locator('.icy-logo img');await expect(logo).toHaveAttribute('src','/brand/getlancer-logo.svg');
+   expect(await logo.evaluate((node:HTMLImageElement)=>node.complete&&node.naturalWidth>0)).toBe(true);
+   const controls=await page.locator('.icy-input input').evaluateAll(nodes=>nodes.map(node=>({font:parseFloat(getComputedStyle(node).fontSize),height:Math.round(node.getBoundingClientRect().height)})));
+   for(const control of controls){expect(control.font).toBeGreaterThanOrEqual(16);expect(control.height).toBeGreaterThanOrEqual(42);}
+   const form=await page.locator('.icy-form-content').boundingBox();expect(form!.height).toBeLessThan(width<=760?640:600);expect(form!.width).toBeGreaterThanOrEqual(width<=375?250:290);
+   expect(form!.width).toBeLessThanOrEqual(320);
+   if(width>760){
+    await expect(page.locator('.icy-story')).toHaveCSS('background-color','rgb(238, 240, 244)');
+    const shell=await page.locator('.icy-shell').boundingBox(),story=await page.locator('.icy-story').boundingBox();
+    expect(story!.width/shell!.width).toBeCloseTo(width>1000?.65:.55,2);
+    const bounds=await page.locator('.auth-scene').evaluate(node=>{const scene=node.getBoundingClientRect();return [...node.querySelectorAll('img')].map(image=>{const box=image.getBoundingClientRect();return {left:box.left-scene.left,top:box.top-scene.top,right:scene.right-box.right,bottom:scene.bottom-box.bottom};});});
+    for(const bound of bounds)for(const margin of Object.values(bound))expect(margin).toBeGreaterThanOrEqual(-1);
+   }
+   const input=page.getByLabel('Password',{exact:true});await input.fill('layout-check-123');
+   await page.getByRole('button',{name:'Show password',exact:true}).click();await expect(input).toHaveAttribute('type','text');
+   await page.getByRole('button',{name:'Hide password',exact:true}).click();await expect(input).toHaveAttribute('type','password');
+   await page.getByRole('button',{name:route==='/signup'?'Create account':'Log in',exact:true}).scrollIntoViewIfNeeded();
+   await page.screenshot({path:info.outputPath(`${route.slice(1)}-${width}x${height}.png`),fullPage:true});
+  }
+ }
+});
+test('complete artwork and every card remain inside the scene over a full animation cycle',async({page},info)=>{
+ test.skip(info.project.name!=='desktop','One complete desktop orbit covers the shared animation.');
+ test.setTimeout(120000);
+ await page.clock.install();await page.goto('/login');
+ const scene=page.locator('.auth-scene');await expect(scene).toHaveAttribute('data-running','true');
+ await expect(page.locator('.auth-scene-frame')).toHaveAttribute('src','/auth/pearlescent-frame-complete.webp');
+ const laptop=await page.locator('.auth-scene-laptop').boundingBox();
+ for(let phase=0;phase<24;phase++){
+  await page.clock.runFor(3000);
+  const bounds=await scene.evaluate(node=>{const scene=node.getBoundingClientRect();return [...node.querySelectorAll('.auth-orbit-card')].map(image=>{const box=image.getBoundingClientRect();return {left:box.left-scene.left,top:box.top-scene.top,right:scene.right-box.right,bottom:scene.bottom-box.bottom};});});
+  for(const bound of bounds)for(const margin of Object.values(bound))expect(margin).toBeGreaterThanOrEqual(8);
+  const cards=await scene.locator('.auth-orbit-card').evaluateAll(nodes=>nodes.map(node=>{const r=node.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom};}));
+  for(let a=0;a<cards.length;a++)for(let b=a+1;b<cards.length;b++){const x=cards[a],y=cards[b];expect(x.right<=y.left||y.right<=x.left||x.bottom<=y.top||y.bottom<=x.top).toBe(true);}
+ }
+ expect(await page.locator('.auth-scene-laptop').boundingBox()).toEqual(laptop);
+});
+test('provider progress fits a narrow compact form and a failed start recovers',async({page})=>{
+ await page.setViewportSize({width:320,height:812});
+ await page.route('**/api/v1/auth/providers',route=>route.fulfill({json:{google:true,github:true}}));
+ let release:()=>void=()=>{};
+ const started=new Promise<void>(resolve=>{release=resolve});
+ await page.route('**/api/v1/auth/google/start',async route=>{await started;await route.fulfill({status:503,json:{error:{message:'Please try again.',code:'UNAVAILABLE'}}});});
+ await page.goto('/login');const google=page.getByRole('button',{name:'Continue with Google',exact:true});await expect(google).toBeEnabled();await google.click();
+ const progress=page.getByRole('button',{name:'Opening sign-in with Google',exact:true});await expect(progress).toContainText('Opening…');
+ expect(await progress.evaluate(node=>node.scrollWidth<=node.clientWidth+1)).toBe(true);await fits(page);
+ release();await expect(page.getByRole('alert')).toContainText('Please try again.');await expect(google).toBeEnabled();
 });

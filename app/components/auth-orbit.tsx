@@ -2,14 +2,11 @@
 import {useEffect,useRef,useState} from 'react';
 import {Pause,Play} from 'lucide-react';
 
-// Shared closed path: the four starting poses follow the supplied reference.
-const poses=[{x:.74,y:.19,w:.37},{x:.19,y:.43,w:.38},{x:.19,y:.74,w:.29},{x:.78,y:.64,w:.43}];
+// Equal quarter-turn spacing keeps complete card bounds apart throughout the orbit.
 const cards=['freelancers','projects','clients','opportunities'] as const;
 function poseAt(progress:number){
- const step=(progress%1)*4,index=Math.floor(step),t=step-index;
- const p0=poses[(index+3)%4],p1=poses[index],p2=poses[(index+1)%4],p3=poses[(index+2)%4];
- const smooth=(key:'x'|'y'|'w')=>.5*((2*p1[key])+(-p0[key]+p2[key])*t+(2*p0[key]-5*p1[key]+4*p2[key]-p3[key])*t*t+(-p0[key]+3*p1[key]-3*p2[key]+p3[key])*t*t*t);
- return {x:smooth('x'),y:smooth('y'),w:smooth('w')};
+ const angle=-Math.PI/4-progress*2*Math.PI;
+ return {x:.5+.35*Math.cos(angle),y:.5+.32*Math.sin(angle)};
 }
 export default function AuthOrbit(){
  const scene=useRef<HTMLDivElement>(null),elapsed=useRef(0);
@@ -21,8 +18,8 @@ export default function AuthOrbit(){
   const reduced=matchMedia('(prefers-reduced-motion: reduce)'),compact=matchMedia('(max-width: 760px)');
   let frame=0,last=0,inView=true,disposed=false,width=node.clientWidth,height=node.clientHeight;
   const paint=()=>images.forEach((image,index)=>{
-   const initial=poses[index],pose=poseAt(elapsed.current/72000+index/4);
-   image.style.transform=`translate3d(${(pose.x-initial.x)*width}px,${(pose.y-initial.y)*height}px,0) translate(-50%,-50%) scale(${pose.w/initial.w})`;
+   const initial=poseAt(index/4),pose=poseAt(elapsed.current/72000+index/4);
+   image.style.transform=`translate3d(${(pose.x-initial.x)*width}px,${(pose.y-initial.y)*height}px,0) translate(-50%,-50%)`;
    image.style.zIndex=pose.y>.5?'4':'2';
   });
   const tick=(now:number)=>{if(last)elapsed.current+=Math.min(now-last,64);last=now;paint();frame=requestAnimationFrame(tick);};
@@ -44,7 +41,7 @@ export default function AuthOrbit(){
  },[paused]);
  return <div className="auth-scene" ref={scene} data-running="false">
   <div className="auth-scene-art" aria-hidden="true">
-   <img className="auth-scene-frame" src="/auth/pearlescent-frame.webp" alt="" width={1086} height={1448}/>
+   <img className="auth-scene-frame" src="/auth/pearlescent-frame-complete.webp" alt="" width={1536} height={1024}/>
    <img className="auth-scene-laptop" src="/auth/laptop.webp" alt="" width={1448} height={1086} fetchPriority="high"/>
    {cards.map(card=><img key={card} className={`auth-orbit-card auth-orbit-${card}`} src={`/auth/${card}.webp`} alt="" width={1254} height={1254}/>)}
   </div>
