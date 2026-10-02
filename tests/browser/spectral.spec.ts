@@ -7,7 +7,7 @@ test('Spectral discovery keeps genuine project navigation, search and readable g
  await expect(page.locator('.project-stack .stack-card')).toHaveCount(3);
  await expect(page.locator('.spectral-studio-background')).toHaveAttribute('alt','');
  await expect(page.locator('.spectral-builder,.spectral-inquiry')).toHaveCount(0);
- await expect(page.locator('.site-header img')).toHaveAttribute('src','/brand/getlancer-liquid-glass.svg');
+ await expect(page.locator('.site-header img')).toHaveAttribute('src','/brand/getlancer-logo.svg');
  await fits(page);await page.screenshot({path:info.outputPath('spectral-home.png'),fullPage:true});
  const project=page.getByRole('link',{name:'Explore Stockroom',exact:true});
  await project.focus();await expect(page.locator('.stack-float').first()).toHaveCSS('animation-play-state','paused');
