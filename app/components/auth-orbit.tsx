@@ -2,8 +2,8 @@
 import {useEffect,useRef,useState} from 'react';
 import {Pause,Play} from 'lucide-react';
 
-// Shared closed path: the four starting poses follow the supplied reference.
-const poses=[{x:.74,y:.19,w:.37},{x:.19,y:.43,w:.38},{x:.19,y:.74,w:.29},{x:.78,y:.64,w:.43}];
+// Inset orbit: the complete card bounds stay inside the scene at every phase.
+const poses=[{x:.72,y:.26,w:.28},{x:.23,y:.43,w:.30},{x:.27,y:.73,w:.24},{x:.75,y:.66,w:.32}];
 const cards=['freelancers','projects','clients','opportunities'] as const;
 function poseAt(progress:number){
  const step=(progress%1)*4,index=Math.floor(step),t=step-index;
@@ -44,7 +44,7 @@ export default function AuthOrbit(){
  },[paused]);
  return <div className="auth-scene" ref={scene} data-running="false">
   <div className="auth-scene-art" aria-hidden="true">
-   <img className="auth-scene-frame" src="/auth/pearlescent-frame.webp" alt="" width={1086} height={1448}/>
+   <img className="auth-scene-frame" src="/auth/pearlescent-frame-complete.webp" alt="" width={1536} height={1024}/>
    <img className="auth-scene-laptop" src="/auth/laptop.webp" alt="" width={1448} height={1086} fetchPriority="high"/>
    {cards.map(card=><img key={card} className={`auth-orbit-card auth-orbit-${card}`} src={`/auth/${card}.webp`} alt="" width={1254} height={1254}/>)}
   </div>

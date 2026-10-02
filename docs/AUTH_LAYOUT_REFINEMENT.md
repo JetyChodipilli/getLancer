@@ -1,15 +1,33 @@
 # Authentication layout refinement
 
-The supplied login/signup screenshots showed a warm orange wash behind the artwork, a pale wordmark, a narrow form and small supporting text. Large outside gutters and inconsistent inner padding made the page feel undersized.
+The latest reference showed an oversized account form and a ribbon with straight cropped ends. The revision gives the artwork a larger portion while making login and signup compact and readable.
 
-- Keep all six artwork assets, their proportions and the existing slow orbit.
-- Replace the story wash with white and cool silver (#EEF0F4); use #F4F5F7 around the page.
-- Use the supplied charcoal/orange vector logo in the shared brand component: 240px on desktop authentication, 190px on phones, 180px in desktop navigation.
-- Balance the desktop columns and reduce outside gutters to 12–24px. Give the form a 520px maximum width.
-- Use 54px fields and submit buttons, 52px provider buttons, 17px input text, 15px labels and at least 14px supporting text.
-- Keep 16px field spacing, 44px password visibility targets and wrapping account options. Compact the preview service notice into two columns only when sufficient width is available.
-- Reduce the artwork canvas on short laptops, preserving form readability. Allow natural vertical scrolling for signup and service messages. Hide decorative artwork on phones.
+## Research and decisions
 
-Verification covers login and signup at 1440×1000, 1366×768, 1024×768, 768×1024, 720×900, 375×812 and 320×812, including loaded logo assets, no horizontal overflow, readable controls, password visibility, and reachable submit buttons. Existing tests also cover provider behavior, navigation and animation pause behavior.
+Reviewed [Webflow's login page](https://webflow.com/login) and its [split-screen login example](https://splitscreen-login.webflow.io/) before implementation. Their concise account hierarchy informed the restrained heading, narrow form, grouped provider controls and consistent field spacing. The 65:35 desktop ratio follows the user's requested composition.
 
-The published demo continues to disclose unavailable account services. Styling does not activate an unconfigured backend or OAuth provider.
+- Use 65:35 columns above 1000px, 55:45 on smaller tablets, and a single compact column on phones.
+- Cap the form at 360px. Use 28px headings, 14px labels, 16px input text, 44px controls and 12px field spacing.
+- Fill the desktop viewport with 16px outside gutters. Remove the nested form card and excessive padding.
+- Keep the unavailable-account notice truthful and shorten its copy.
+- Preserve the supplied charcoal/orange vector logo at 220px on desktop and 185px on phones.
+- Keep the cool silver story background (#EEF0F4) and quiet outside surface (#F4F5F7).
+- Preserve the laptop, four cards, 72-second orbit, pause control, typing pause and reduced-motion behavior.
+- Replace the inherently cropped ribbon with a complete transparent oval. Render it with `object-fit: contain` inside an inset canvas; keep the entire animated card bounds within that canvas.
+- Keep story copy in normal flow so it cannot collide with or crop artwork. Allow natural vertical scrolling for long signup and service states.
+
+## Asset generation
+
+Mode: edit of the original ribbon with the image-generation skill. The generated image was converted to WebP for delivery without changing its contents.
+
+Source output: `/workspace/scratch/3216c26b08e9/auth-ribbon-output/pearlescent-oval-frame.png`.
+
+Delivered asset: `public/auth/pearlescent-frame-complete.webp` (1536×1024, transparent background and center).
+
+Prompt: Complete the cropped pearlescent liquid-glass ribbon into one self-contained, closed, wide oval frame with matching glass droplets. Preserve silver/pearl identity, translucent folds, pale blue refractions and thin gold highlights. Use a large open transparent center for the existing laptop and cards, and transparent outer margins. Keep every edge naturally curved and fully visible; no cropped ends, straight crop lines, orange wash, opaque backdrop, UI, text, logo or watermark.
+
+## Verification
+
+Login and signup are checked at 1920×1080, 1440×1000, 1366×768, 1024×768, 768×1024, 720×900, 375×812 and 320×812. Checks cover the loaded vector logo, exact responsive split, maximum form width, readable controls, no horizontal overflow, contained artwork, password visibility and reachable submit buttons. A full 72-second virtual animation cycle checks the moving card bounds while confirming the laptop stays fixed. Existing authentication tests cover provider behavior and navigation.
+
+Styling does not activate an unconfigured backend or OAuth provider. The published preview continues to disclose unavailable account services.

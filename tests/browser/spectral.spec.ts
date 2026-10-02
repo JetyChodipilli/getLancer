@@ -33,7 +33,7 @@ test('auth artwork revolves slowly around a stationary laptop and pauses for foc
  await page.getByRole('heading',{name:'Welcome back',exact:true}).focus();await expect(scene).toHaveAttribute('data-running','true');
  await page.emulateMedia({reducedMotion:'reduce'});await expect(scene).toHaveAttribute('data-running','false');
  const positions=await scene.evaluate(node=>{const b=node.getBoundingClientRect();return [...node.querySelectorAll('.auth-orbit-card')].map(card=>{const r=card.getBoundingClientRect();return {x:(r.x+r.width/2-b.x)/b.width,y:(r.y+r.height/2-b.y)/b.height};});});
- for(const [index,pose] of [[.74,.19],[.19,.43],[.19,.74],[.78,.64]].entries()){expect(positions[index].x).toBeCloseTo(pose[0],2);expect(positions[index].y).toBeCloseTo(pose[1],2);}
+ for(const [index,pose] of [[.72,.26],[.23,.43],[.27,.73],[.75,.66]].entries()){expect(positions[index].x).toBeCloseTo(pose[0],2);expect(positions[index].y).toBeCloseTo(pose[1],2);}
  await fits(page);
 });
 test('authentication and public detail screens reflow and retain protected external links',async({page},info)=>{
@@ -53,17 +53,24 @@ test('phone navigation and scroll search remain reachable at narrow widths',asyn
 });
 test('account controls stay readable across short laptops and narrow phones',async({page},info)=>{
  test.skip(info.project.name!=='desktop','The desktop project covers the complete viewport matrix.');
- for(const [width,height] of [[1440,1000],[1366,768],[1024,768],[768,1024],[720,900],[375,812],[320,812]]){
+ for(const [width,height] of [[1920,1080],[1440,1000],[1366,768],[1024,768],[768,1024],[720,900],[375,812],[320,812]]){
   await page.setViewportSize({width,height});
   for(const route of ['/login','/signup']){
-   await page.goto(route);await expect(page.locator('.auth-connection')).toContainText('Sign-in is not connected');
+   await page.goto(route);await expect(page.locator('.auth-connection')).toContainText('Sign-in is unavailable');
    await fits(page);
    const logo=page.locator('.icy-logo img');await expect(logo).toHaveAttribute('src','/brand/getlancer-logo.svg');
    expect(await logo.evaluate((node:HTMLImageElement)=>node.complete&&node.naturalWidth>0)).toBe(true);
    const controls=await page.locator('.icy-input input').evaluateAll(nodes=>nodes.map(node=>({font:parseFloat(getComputedStyle(node).fontSize),height:node.getBoundingClientRect().height})));
-   for(const control of controls){expect(control.font).toBeGreaterThanOrEqual(16);expect(control.height).toBeGreaterThanOrEqual(52);}
+   for(const control of controls){expect(control.font).toBeGreaterThanOrEqual(16);expect(control.height).toBeGreaterThanOrEqual(42);}
    const form=await page.locator('.icy-form-content').boundingBox();expect(form!.width).toBeGreaterThanOrEqual(width<=375?250:290);
-   if(width>760)await expect(page.locator('.icy-story')).toHaveCSS('background-color','rgb(238, 240, 244)');
+   expect(form!.width).toBeLessThanOrEqual(360);
+   if(width>760){
+    await expect(page.locator('.icy-story')).toHaveCSS('background-color','rgb(238, 240, 244)');
+    const shell=await page.locator('.icy-shell').boundingBox(),story=await page.locator('.icy-story').boundingBox();
+    expect(story!.width/shell!.width).toBeCloseTo(width>1000?.65:.55,2);
+    const bounds=await page.locator('.auth-scene').evaluate(node=>{const scene=node.getBoundingClientRect();return [...node.querySelectorAll('img')].map(image=>{const box=image.getBoundingClientRect();return {left:box.left-scene.left,top:box.top-scene.top,right:scene.right-box.right,bottom:scene.bottom-box.bottom};});});
+    for(const bound of bounds)for(const margin of Object.values(bound))expect(margin).toBeGreaterThanOrEqual(-1);
+   }
    const input=page.getByLabel('Password',{exact:true});await input.fill('layout-check-123');
    await page.getByRole('button',{name:'Show password',exact:true}).click();await expect(input).toHaveAttribute('type','text');
    await page.getByRole('button',{name:'Hide password',exact:true}).click();await expect(input).toHaveAttribute('type','password');
@@ -71,4 +78,18 @@ test('account controls stay readable across short laptops and narrow phones',asy
    await page.screenshot({path:info.outputPath(`${route.slice(1)}-${width}x${height}.png`),fullPage:true});
   }
  }
+});
+test('complete artwork and every card remain inside the scene over a full animation cycle',async({page},info)=>{
+ test.skip(info.project.name!=='desktop','One complete desktop orbit covers the shared animation.');
+ test.setTimeout(120000);
+ await page.clock.install();await page.goto('/login');
+ const scene=page.locator('.auth-scene');await expect(scene).toHaveAttribute('data-running','true');
+ await expect(page.locator('.auth-scene-frame')).toHaveAttribute('src','/auth/pearlescent-frame-complete.webp');
+ const laptop=await page.locator('.auth-scene-laptop').boundingBox();
+ for(let phase=0;phase<24;phase++){
+  await page.clock.runFor(3000);
+  const bounds=await scene.evaluate(node=>{const scene=node.getBoundingClientRect();return [...node.querySelectorAll('.auth-orbit-card')].map(image=>{const box=image.getBoundingClientRect();return {left:box.left-scene.left,top:box.top-scene.top,right:scene.right-box.right,bottom:scene.bottom-box.bottom};});});
+  for(const bound of bounds)for(const margin of Object.values(bound))expect(margin).toBeGreaterThanOrEqual(8);
+ }
+ expect(await page.locator('.auth-scene-laptop').boundingBox()).toEqual(laptop);
 });
