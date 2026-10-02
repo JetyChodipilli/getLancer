@@ -24,7 +24,7 @@ export default function Header({preview=false}:{preview?:boolean}) {
  if(authPage)return <a href="#main" className="skip">Skip to content</a>;
  const currentUser=preview||path.startsWith('/preview/')?null:me;
  const links=[{href:'/',label:'Explore projects',active:path==='/'},{href:'/templates',label:'Templates',active:path.startsWith('/templates')},{href:'/teams',label:'Teams',active:path.startsWith('/teams')},{href:'/saved',label:'Saved',active:path==='/saved'},currentUser?{href:'/workspace',label:'My workspace',active:path.startsWith('/workspace')}:{href:'/how-it-works',label:'How it works',active:path==='/how-it-works'}];
- return <><a href="#main" className="skip">Skip to content</a><header className="site-header"><div className="topbar" ref={bar}>
+ return <><a href="#main" className="skip">Skip to content</a><header className={'site-header'+(path==='/'?' spectral-home-header':'')}><div className="topbar" ref={bar}>
   <Link className="spectral-brand" href="/" aria-label="getLancer home"><Brand/></Link>
   <div id="discovery-nav-slot" className="discovery-nav-slot"/>
   <nav className="topnav" aria-label="Main navigation">{links.map(l=><Link key={l.href} className={l.active?'current':''} aria-current={l.active?'page':undefined} href={l.href}>{l.label}</Link>)}</nav>

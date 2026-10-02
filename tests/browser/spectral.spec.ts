@@ -5,14 +5,31 @@ test('Spectral discovery keeps genuine project navigation, search and readable g
  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
  await page.goto('/');await expect(page.getByRole('heading',{name:'Great work deserves to be seen.'})).toBeVisible();
  await expect(page.locator('.project-stack .stack-card')).toHaveCount(3);
- await expect(page.locator('.spectral-ribbon')).toHaveAttribute('alt','');
+ await expect(page.locator('.spectral-studio-background')).toHaveAttribute('alt','');
  await expect(page.locator('.spectral-builder')).toContainText('Leah Morgan');
  await fits(page);await page.screenshot({path:info.outputPath('spectral-home.png'),fullPage:true});
- await page.getByRole('link',{name:'Explore Stockroom',exact:true}).click();await expect(page.getByRole('heading',{name:'Stockroom',exact:true})).toBeVisible();
+ const project=page.getByRole('link',{name:'Explore Stockroom',exact:true});
+ await project.focus();await expect(page.locator('.stack-float').first()).toHaveCSS('animation-play-state','paused');
+ await project.click();await expect(page.getByRole('heading',{name:'Stockroom',exact:true})).toBeVisible();
  await page.goto('/');await page.getByRole('textbox',{name:'Search projects',exact:true}).fill('Stockroom');await page.locator('.market-search').getByRole('button',{name:'Search',exact:true}).click();
  await expect(page).toHaveURL(/q=Stockroom/);await expect(page.locator('.demo-gallery .project')).toHaveCount(1);await fits(page);
  await page.getByRole('link',{name:'Start a project request',exact:true}).click();await expect(page.getByRole('button',{name:'New project request',exact:true})).toBeVisible();
  expect(errors).toEqual([]);
+});
+test('hero inquiry carries a private draft into review without sending in demo mode',async({page})=>{
+ await page.goto('/');
+ await page.getByRole('textbox',{name:'Work email',exact:true}).fill('client@example.test');
+ const idea='Build a private booking workspace for our small team.';
+ await page.getByRole('textbox',{name:'Your project idea',exact:true}).fill(idea);
+ await page.getByRole('button',{name:'Continue inquiry',exact:true}).click();
+ await expect(page).toHaveURL(/\/inquiry\?product=stockroom&requestType=NEW_BUILD/);
+ expect(page.url()).not.toContain('client@example');
+ await expect(page.getByLabel('Describe your project',{exact:true})).toHaveValue(idea);
+ await expect(page.getByLabel('Your email',{exact:true})).toHaveValue('client@example.test');
+ await expect(page.getByRole('button',{name:'Send inquiry',exact:true})).toBeDisabled();
+ await expect(page.getByText('Frontend preview. You can review the form; nothing is sent.')).toBeVisible();
+ expect(await page.evaluate(()=>sessionStorage.getItem('getlancer:inquiry-draft'))).toBeNull();
+ await fits(page);
 });
 test('authentication and public detail screens reflow and retain protected external links',async({page},info)=>{
  for(const route of ['/login','/signup','/products/stockroom','/builders/leah-morgan','/teams','/templates','/report']){

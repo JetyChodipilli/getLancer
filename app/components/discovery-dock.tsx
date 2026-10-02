@@ -16,11 +16,14 @@ export default function DiscoveryDock({anchor,q,setQ,filters,pending,update,rese
  const [focused,setFocused]=useState(false);
  const [open,setOpen]=useState(false);
  useEffect(()=>{
-  setTarget(document.getElementById('discovery-nav-slot'));
+  const lookupFrame=requestAnimationFrame(()=>setTarget(document.getElementById('discovery-nav-slot')));
   const search=anchor.current;
   const nav=document.querySelector('.site-header .topbar');
-  if(!search||!nav)return;
+  if(!search||!nav)return()=>cancelAnimationFrame(lookupFrame);
   let observer:IntersectionObserver|undefined;
+  let frame=0;
+  const measure=()=>{frame=0;setPassed(search!.getBoundingClientRect().bottom<=nav!.getBoundingClientRect().height+8)};
+  const scroll=()=>{if(!frame)frame=requestAnimationFrame(measure)};
   function watch(){
    const height=nav!.getBoundingClientRect().height;
    observer?.disconnect();
@@ -29,11 +32,14 @@ export default function DiscoveryDock({anchor,q,setQ,filters,pending,update,rese
    observer.observe(search!);
   }
   const resize=new ResizeObserver(watch);resize.observe(nav);watch();
-  return()=>{resize.disconnect();observer?.disconnect()};
+  // A long mobile hero can jump from below to above the viewport without an
+  // intersection change. Measure on scroll as well so the dock still appears.
+  window.addEventListener('scroll',scroll,{passive:true});
+  return()=>{resize.disconnect();observer?.disconnect();cancelAnimationFrame(frame);cancelAnimationFrame(lookupFrame);window.removeEventListener('scroll',scroll)};
  },[anchor]);
  const count=[filters.category,filters.technology,filters.projectType,filters.availability,filters.liveDemo].filter(Boolean).length;
  const visible=passed||focused||open;
- useEffect(()=>{if(target){target.dataset.visible=String(visible);return()=>{delete target.dataset.visible}}},[target,visible]);
+ useEffect(()=>{const slot=document.getElementById('discovery-nav-slot');if(slot){slot.dataset.visible=String(visible);return()=>{delete slot.dataset.visible}}},[target,visible]);
  if(!target)return null;
  return createPortal(<div className="scroll-discovery" data-visible={visible} inert={!visible} aria-hidden={!visible} onFocusCapture={()=>setFocused(true)} onBlurCapture={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))setFocused(false)}}>
   <form className="dock-search" role="search" aria-label="Browse projects" onSubmit={e=>{e.preventDefault();update({q})}}>
