@@ -26,3 +26,5 @@ At 1000px simplify navigation/workspace rail; at 760px use the menu and stack se
 
 ## Security and acceptance
 No public environment secrets, persisted credentials or external dependency assets. Java auth stays cookie-based and same-origin. Connected mode must fail closed without demo fallback. Validate untrusted external links before rendering. Preserve CSP, referrer policy, nosniff, permissions policy and HTTPS HSTS; do not widen hosts for artwork. Check production assets for credential signatures and source maps. Browser tests cover desktop, tablet, phone, keyboard dialogs, real navigation and security boundaries. GitHub CI must pass before merging; only the demo frontend is published to the cloud.
+
+Authentication refinement: neutral pearl/silver background, 65:35 desktop columns, a 320px form maximum, 26px headings, 16px input text and 44px controls. Provider actions share one row. Equal-sized cards maintain quarter-turn spacing around an inset ellipse; their complete bounds remain apart and inside the scene. Short laptop viewports reduce the art canvas. Content height remains natural for signup and zoom.

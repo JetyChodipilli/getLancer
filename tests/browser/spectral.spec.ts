@@ -33,7 +33,7 @@ test('auth artwork revolves slowly around a stationary laptop and pauses for foc
  await page.getByRole('heading',{name:'Welcome back',exact:true}).focus();await expect(scene).toHaveAttribute('data-running','true');
  await page.emulateMedia({reducedMotion:'reduce'});await expect(scene).toHaveAttribute('data-running','false');
  const positions=await scene.evaluate(node=>{const b=node.getBoundingClientRect();return [...node.querySelectorAll('.auth-orbit-card')].map(card=>{const r=card.getBoundingClientRect();return {x:(r.x+r.width/2-b.x)/b.width,y:(r.y+r.height/2-b.y)/b.height};});});
- for(const [index,pose] of [[.72,.26],[.23,.43],[.27,.73],[.75,.66]].entries()){expect(positions[index].x).toBeCloseTo(pose[0],2);expect(positions[index].y).toBeCloseTo(pose[1],2);}
+ for(const [index,pose] of [[.747487,.273726],[.252513,.273726],[.252513,.726274],[.747487,.726274]].entries()){expect(positions[index].x).toBeCloseTo(pose[0],2);expect(positions[index].y).toBeCloseTo(pose[1],2);}
  await fits(page);
 });
 test('authentication and public detail screens reflow and retain protected external links',async({page},info)=>{
@@ -60,10 +60,10 @@ test('account controls stay readable across short laptops and narrow phones',asy
    await fits(page);
    const logo=page.locator('.icy-logo img');await expect(logo).toHaveAttribute('src','/brand/getlancer-logo.svg');
    expect(await logo.evaluate((node:HTMLImageElement)=>node.complete&&node.naturalWidth>0)).toBe(true);
-   const controls=await page.locator('.icy-input input').evaluateAll(nodes=>nodes.map(node=>({font:parseFloat(getComputedStyle(node).fontSize),height:node.getBoundingClientRect().height})));
+   const controls=await page.locator('.icy-input input').evaluateAll(nodes=>nodes.map(node=>({font:parseFloat(getComputedStyle(node).fontSize),height:Math.round(node.getBoundingClientRect().height)})));
    for(const control of controls){expect(control.font).toBeGreaterThanOrEqual(16);expect(control.height).toBeGreaterThanOrEqual(42);}
-   const form=await page.locator('.icy-form-content').boundingBox();expect(form!.width).toBeGreaterThanOrEqual(width<=375?250:290);
-   expect(form!.width).toBeLessThanOrEqual(360);
+   const form=await page.locator('.icy-form-content').boundingBox();expect(form!.height).toBeLessThan(width<=760?640:600);expect(form!.width).toBeGreaterThanOrEqual(width<=375?250:290);
+   expect(form!.width).toBeLessThanOrEqual(320);
    if(width>760){
     await expect(page.locator('.icy-story')).toHaveCSS('background-color','rgb(238, 240, 244)');
     const shell=await page.locator('.icy-shell').boundingBox(),story=await page.locator('.icy-story').boundingBox();
@@ -90,6 +90,8 @@ test('complete artwork and every card remain inside the scene over a full animat
   await page.clock.runFor(3000);
   const bounds=await scene.evaluate(node=>{const scene=node.getBoundingClientRect();return [...node.querySelectorAll('.auth-orbit-card')].map(image=>{const box=image.getBoundingClientRect();return {left:box.left-scene.left,top:box.top-scene.top,right:scene.right-box.right,bottom:scene.bottom-box.bottom};});});
   for(const bound of bounds)for(const margin of Object.values(bound))expect(margin).toBeGreaterThanOrEqual(8);
+  const cards=await scene.locator('.auth-orbit-card').evaluateAll(nodes=>nodes.map(node=>{const r=node.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom};}));
+  for(let a=0;a<cards.length;a++)for(let b=a+1;b<cards.length;b++){const x=cards[a],y=cards[b];expect(x.right<=y.left||y.right<=x.left||x.bottom<=y.top||y.bottom<=x.top).toBe(true);}
  }
  expect(await page.locator('.auth-scene-laptop').boundingBox()).toEqual(laptop);
 });

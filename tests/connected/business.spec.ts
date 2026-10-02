@@ -70,6 +70,16 @@ test('real hiring journey persists consent, matching, talent, MFA concierge and 
   await expect(form.getByRole('alert')).toBeFocused();
   await form.getByLabel('Business category (optional if technology provided)',{exact:true}).fill('Inventory');
   await form.getByLabel('Technology (one, optional if category provided)',{exact:true}).fill('React');
+  // Exercise the field-error focus branch after an asynchronous rejected save.
+  await page.route('**/api/v1/businesses/'+b.id+'/requests',async route=>{
+   await route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:{code:'VALIDATION_ERROR',message:'Check the project title.',fieldErrors:{title:'Use a different title.'}}})});
+  },{times:1});
+  await form.getByRole('button',{name:'Create project request',exact:true}).click();
+  const titleField=form.getByLabel('Project title',{exact:true});
+  await expect(titleField).toBeEnabled();await expect(titleField).toHaveAttribute('aria-invalid','true');
+  await expect(titleField).toBeFocused();await expect(titleField).toHaveValue(title);
+  await expect(form.getByText('Use a different title.',{exact:true})).toBeVisible();
+  await expect(form.getByRole('alert')).not.toBeFocused();
   await reflow(page);
   await form.getByRole('button',{name:'Create project request',exact:true}).click();
   await expect(form).not.toBeVisible();

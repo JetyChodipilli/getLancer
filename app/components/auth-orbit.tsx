@@ -2,14 +2,11 @@
 import {useEffect,useRef,useState} from 'react';
 import {Pause,Play} from 'lucide-react';
 
-// Inset orbit: the complete card bounds stay inside the scene at every phase.
-const poses=[{x:.72,y:.26,w:.28},{x:.23,y:.43,w:.30},{x:.27,y:.73,w:.24},{x:.75,y:.66,w:.32}];
+// Equal quarter-turn spacing keeps complete card bounds apart throughout the orbit.
 const cards=['freelancers','projects','clients','opportunities'] as const;
 function poseAt(progress:number){
- const step=(progress%1)*4,index=Math.floor(step),t=step-index;
- const p0=poses[(index+3)%4],p1=poses[index],p2=poses[(index+1)%4],p3=poses[(index+2)%4];
- const smooth=(key:'x'|'y'|'w')=>.5*((2*p1[key])+(-p0[key]+p2[key])*t+(2*p0[key]-5*p1[key]+4*p2[key]-p3[key])*t*t+(-p0[key]+3*p1[key]-3*p2[key]+p3[key])*t*t*t);
- return {x:smooth('x'),y:smooth('y'),w:smooth('w')};
+ const angle=-Math.PI/4-progress*2*Math.PI;
+ return {x:.5+.35*Math.cos(angle),y:.5+.32*Math.sin(angle)};
 }
 export default function AuthOrbit(){
  const scene=useRef<HTMLDivElement>(null),elapsed=useRef(0);
@@ -21,8 +18,8 @@ export default function AuthOrbit(){
   const reduced=matchMedia('(prefers-reduced-motion: reduce)'),compact=matchMedia('(max-width: 760px)');
   let frame=0,last=0,inView=true,disposed=false,width=node.clientWidth,height=node.clientHeight;
   const paint=()=>images.forEach((image,index)=>{
-   const initial=poses[index],pose=poseAt(elapsed.current/72000+index/4);
-   image.style.transform=`translate3d(${(pose.x-initial.x)*width}px,${(pose.y-initial.y)*height}px,0) translate(-50%,-50%) scale(${pose.w/initial.w})`;
+   const initial=poseAt(index/4),pose=poseAt(elapsed.current/72000+index/4);
+   image.style.transform=`translate3d(${(pose.x-initial.x)*width}px,${(pose.y-initial.y)*height}px,0) translate(-50%,-50%)`;
    image.style.zIndex=pose.y>.5?'4':'2';
   });
   const tick=(now:number)=>{if(last)elapsed.current+=Math.min(now-last,64);last=now;paint();frame=requestAnimationFrame(tick);};

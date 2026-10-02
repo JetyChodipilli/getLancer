@@ -33,3 +33,13 @@ test('concierge opt-in completes through the isolated administrator preview',asy
 test('keyboard dialog dismissal restores the primary action',async({page})=>{
  await page.goto('/preview/business');await page.getByRole('button',{name:'New project request',exact:true}).click();await expect(page.getByLabel('Project title',{exact:true})).toBeFocused();await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).not.toBeVisible();await expect(page.getByRole('button',{name:'New project request',exact:true})).toBeFocused();
 });
+
+test('rejected brief submission focuses the committed error summary and preserves entered values',async({page})=>{
+ await page.goto('/preview/business');await page.getByRole('button',{name:'New project request',exact:true}).click();const dialog=page.getByRole('dialog');
+ await dialog.getByLabel('Project title',{exact:true}).fill('Inventory approvals');
+ await dialog.getByLabel('Problem, users and essential requirements',{exact:true}).fill('Build an accessible inventory approval workspace for our warehouse team.');
+ await dialog.getByLabel('Budget range',{exact:true}).fill('10k');await dialog.getByLabel('Timeline',{exact:true}).fill('2 months');
+ await dialog.getByRole('button',{name:'Create project request',exact:true}).click();
+ await expect(dialog.getByRole('alert')).toContainText('Choose a category or technology');await expect(dialog.getByRole('alert')).toBeFocused();
+ await expect(dialog.getByLabel('Project title',{exact:true})).toHaveValue('Inventory approvals');await expect(dialog.getByRole('button',{name:'Create project request',exact:true})).toBeEnabled();
+});
