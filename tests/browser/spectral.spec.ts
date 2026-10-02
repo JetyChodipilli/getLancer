@@ -17,23 +17,21 @@ test('Spectral discovery keeps genuine project navigation, search and readable g
  await page.getByRole('link',{name:'Start a project request',exact:true}).click();await expect(page.getByRole('button',{name:'New project request',exact:true})).toBeVisible();
  expect(errors).toEqual([]);
 });
-test('auth artwork revolves slowly around a stationary laptop and pauses for focus and reduced motion',async({page})=>{
+test('original auth cards rotate continuously during form use without pause controls',async({page})=>{
  await page.goto('/login');
  const scene=page.locator('.auth-scene'),card=page.locator('.auth-orbit-freelancers');
+ await expect(page.getByRole('button',{name:/^(Pause|Play|Resume) animation$/})).toHaveCount(0);
  if(page.viewportSize()!.width<=760){await expect(scene).toBeHidden();await expect(page.getByLabel('Email address',{exact:true})).toBeVisible();return;}
  await expect(scene).toHaveAttribute('data-running','true');
- const laptop=await page.locator('.auth-scene-laptop').boundingBox();
+ await expect(card).toHaveAttribute('src','/auth/freelancers.webp');
+ expect(await card.evaluate((node:HTMLImageElement)=>node.complete&&node.naturalWidth===1254)).toBe(true);
  const start=await card.boundingBox();
- await expect.poll(async()=>Math.abs((await card.boundingBox())!.x-start!.x)).toBeGreaterThan(.5);
- expect(Math.abs((await card.boundingBox())!.x-start!.x)).toBeLessThan(30);
- expect(await page.locator('.auth-scene-laptop').boundingBox()).toEqual(laptop);
- await page.getByRole('button',{name:'Pause animation',exact:true}).click();await expect(scene).toHaveAttribute('data-running','false');
- await page.getByRole('button',{name:'Play animation',exact:true}).click();await expect(scene).toHaveAttribute('data-running','true');
- await page.getByLabel('Email address',{exact:true}).fill('client@example.test');await expect(scene).toHaveAttribute('data-running','false');
- await page.getByRole('heading',{name:'Welcome back',exact:true}).focus();await expect(scene).toHaveAttribute('data-running','true');
+ await expect.poll(async()=>Math.abs((await card.boundingBox())!.x-start!.x)).toBeGreaterThan(.1);
+ await page.getByLabel('Email address',{exact:true}).fill('client@example.test');
+ await expect(scene).toHaveAttribute('data-running','true');
+ const focused=await card.boundingBox();
+ await expect.poll(async()=>Math.abs((await card.boundingBox())!.x-focused!.x)).toBeGreaterThan(.1);
  await page.emulateMedia({reducedMotion:'reduce'});await expect(scene).toHaveAttribute('data-running','false');
- const positions=await scene.evaluate(node=>{const b=node.getBoundingClientRect();return [...node.querySelectorAll('.auth-orbit-card')].map(card=>{const r=card.getBoundingClientRect();return {x:(r.x+r.width/2-b.x)/b.width,y:(r.y+r.height/2-b.y)/b.height};});});
- for(const [index,pose] of [[.747487,.273726],[.252513,.273726],[.252513,.726274],[.747487,.726274]].entries()){expect(positions[index].x).toBeCloseTo(pose[0],2);expect(positions[index].y).toBeCloseTo(pose[1],2);}
  await fits(page);
 });
 test('authentication and public detail screens reflow and retain protected external links',async({page},info)=>{
@@ -46,14 +44,16 @@ test('authentication and public detail screens reflow and retain protected exter
 });
 test('phone navigation and scroll search remain reachable at narrow widths',async({page})=>{
  await page.setViewportSize({width:320,height:812});await page.goto('/');await fits(page);
- await page.getByRole('button',{name:'Open navigation menu',exact:true}).click();await expect(page.getByRole('menu')).toBeVisible();await page.keyboard.press('Escape');
+ const menuButton=page.getByRole('button',{name:'Open navigation menu',exact:true});
+ await menuButton.click();await expect(page.getByRole('menu')).toBeVisible();await page.keyboard.press('Escape');
+ await expect(page.getByRole('menu')).toBeHidden();await expect(menuButton).toBeFocused();
  await page.evaluate(()=>{const search=document.querySelector('.market-search')!;window.scrollTo({top:search.getBoundingClientRect().bottom+window.scrollY+120,behavior:'instant'});});
  await expect(page.getByRole('textbox',{name:'Search projects while browsing'})).toBeVisible();await fits(page);
  await page.emulateMedia({reducedMotion:'reduce'});expect(await page.locator('.stack-card').first().evaluate(el=>getComputedStyle(el).animationName)).toBe('none');
 });
 test('account controls stay readable across short laptops and narrow phones',async({page},info)=>{
  test.skip(info.project.name!=='desktop','The desktop project covers the complete viewport matrix.');
- for(const [width,height] of [[1920,1080],[1440,1000],[1366,768],[1024,768],[768,1024],[720,900],[375,812],[320,812]]){
+ for(const [width,height] of [[1920,1080],[1440,1000],[1366,768],[1366,650],[1024,768],[768,1024],[720,900],[375,812],[320,812]]){
   await page.setViewportSize({width,height});
   for(const route of ['/login','/signup']){
    await page.goto(route);await expect(page.locator('.auth-connection')).toContainText('Sign-in is unavailable');
@@ -68,6 +68,7 @@ test('account controls stay readable across short laptops and narrow phones',asy
     await expect(page.locator('.icy-story')).toHaveCSS('background-color','rgb(238, 240, 244)');
     const shell=await page.locator('.icy-shell').boundingBox(),story=await page.locator('.icy-story').boundingBox();
     expect(story!.width/shell!.width).toBeCloseTo(width>1000?.65:.55,2);
+    const sceneBox=await page.locator('.auth-scene').boundingBox();expect(sceneBox!.width/story!.width).toBeGreaterThanOrEqual(.9);
     const bounds=await page.locator('.auth-scene').evaluate(node=>{const scene=node.getBoundingClientRect();return [...node.querySelectorAll('img')].map(image=>{const box=image.getBoundingClientRect();return {left:box.left-scene.left,top:box.top-scene.top,right:scene.right-box.right,bottom:scene.bottom-box.bottom};});});
     for(const bound of bounds)for(const margin of Object.values(bound))expect(margin).toBeGreaterThanOrEqual(-1);
    }
@@ -79,21 +80,38 @@ test('account controls stay readable across short laptops and narrow phones',asy
   }
  }
 });
-test('complete artwork and every card remain inside the scene over a full animation cycle',async({page},info)=>{
+test('large cards complete a full orbit with visible artwork separated and contained',async({page},info)=>{
  test.skip(info.project.name!=='desktop','One complete desktop orbit covers the shared animation.');
- test.setTimeout(120000);
- await page.clock.install();await page.goto('/login');
+ test.setTimeout(120000);await page.clock.install();await page.goto('/login');
  const scene=page.locator('.auth-scene');await expect(scene).toHaveAttribute('data-running','true');
- await expect(page.locator('.auth-scene-frame')).toHaveAttribute('src','/auth/pearlescent-frame-complete.webp');
- const laptop=await page.locator('.auth-scene-laptop').boundingBox();
+ await expect(scene.locator('.auth-orbit-card')).toHaveCount(4);
+ await expect(scene.locator('.auth-scene-frame')).toHaveAttribute('src','/auth/pearlescent-frame-complete.webp');
+ await expect(scene.locator('.auth-scene-laptop')).toHaveAttribute('src','/auth/laptop.webp');
+ // Measure the visible alpha silhouette independently; supplied images include transparent padding.
+ const masks=await scene.locator('.auth-orbit-card').evaluateAll(nodes=>nodes.map(node=>{
+  const image=node as HTMLImageElement,canvas=document.createElement('canvas');canvas.width=image.naturalWidth;canvas.height=image.naturalHeight;
+  const ctx=canvas.getContext('2d')!;ctx.drawImage(image,0,0);const rgba=ctx.getImageData(0,0,canvas.width,canvas.height).data;
+  let left=canvas.width,top=canvas.height,right=0,bottom=0;
+  for(let y=0;y<canvas.height;y++)for(let x=0;x<canvas.width;x++)if(rgba[(y*canvas.width+x)*4+3]>32){left=Math.min(left,x);top=Math.min(top,y);right=Math.max(right,x);bottom=Math.max(bottom,y);}
+  return {left:left/canvas.width,top:top/canvas.height,right:(right+1)/canvas.width,bottom:(bottom+1)/canvas.height};
+ }));
+ const laptop=await scene.locator('.auth-scene-laptop').boundingBox(),initial=await scene.locator('.auth-orbit-card').first().boundingBox();
+ let movedAbove=false,movedBelow=false;
  for(let phase=0;phase<24;phase++){
   await page.clock.runFor(3000);
-  const bounds=await scene.evaluate(node=>{const scene=node.getBoundingClientRect();return [...node.querySelectorAll('.auth-orbit-card')].map(image=>{const box=image.getBoundingClientRect();return {left:box.left-scene.left,top:box.top-scene.top,right:scene.right-box.right,bottom:scene.bottom-box.bottom};});});
+  const bounds=await scene.evaluate(node=>{const scene=node.getBoundingClientRect();return [...node.querySelectorAll('img')].map(image=>{const box=image.getBoundingClientRect();return {left:box.left-scene.left,top:box.top-scene.top,right:scene.right-box.right,bottom:scene.bottom-box.bottom};});});
   for(const bound of bounds)for(const margin of Object.values(bound))expect(margin).toBeGreaterThanOrEqual(8);
-  const cards=await scene.locator('.auth-orbit-card').evaluateAll(nodes=>nodes.map(node=>{const r=node.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom};}));
-  for(let a=0;a<cards.length;a++)for(let b=a+1;b<cards.length;b++){const x=cards[a],y=cards[b];expect(x.right<=y.left||y.right<=x.left||x.bottom<=y.top||y.bottom<=x.top).toBe(true);}
+  const boxes=await scene.locator('.auth-orbit-card').evaluateAll(nodes=>nodes.map(node=>{const r=node.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};}));
+  const visible=boxes.map((box,index)=>({left:box.x+masks[index].left*box.width,top:box.y+masks[index].top*box.height,right:box.x+masks[index].right*box.width,bottom:box.y+masks[index].bottom*box.height}));
+  for(let a=0;a<visible.length;a++)for(let b=a+1;b<visible.length;b++){const x=visible[a],y=visible[b];expect(x.right<=y.left||y.right<=x.left||x.bottom<=y.top||y.bottom<=x.top).toBe(true);}
+  movedAbove ||= boxes[0].y<initial!.y-20;movedBelow ||= boxes[0].y>initial!.y+20;
  }
- expect(await page.locator('.auth-scene-laptop').boundingBox()).toEqual(laptop);
+ expect(movedAbove&&movedBelow).toBe(true);
+ expect(await scene.locator('.auth-scene-laptop').boundingBox()).toEqual(laptop);
+ await expect(page.locator('.auth-orbit-toggle')).toHaveCount(0);
+ const box=await scene.boundingBox();expect(laptop!.width/box!.width).toBeGreaterThanOrEqual(.5);
+ for(let index=0;index<masks.length;index++)expect((masks[index].right-masks[index].left)*.255).toBeGreaterThanOrEqual(.18);
+ const copy=await page.locator('.icy-story-copy').boundingBox();expect(copy!.y-(box!.y+box!.height)).toBeGreaterThanOrEqual(12);
 });
 test('provider progress fits a narrow compact form and a failed start recovers',async({page})=>{
  await page.setViewportSize({width:320,height:812});
