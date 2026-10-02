@@ -19,7 +19,7 @@ test('private brief form can create, open and close a request',async({page})=>{
  await page.getByRole('button',{name:'Close request',exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:'Close request',exact:true}).click();await expect(page.getByRole('button',{name:'Edit brief',exact:true})).toHaveCount(0);
 });
 test('hiring manager consent and owner-only settings are reflected in the interface',async({page})=>{
- await page.goto('/preview/business');await page.getByText('Interactive business preview',{exact:true}).click();await page.getByLabel('Preview actor',{exact:true}).selectOption('outsider');
+ await page.goto('/preview/business');await expect(page.getByRole('heading',{name:'Customer approval portal',exact:true})).toBeVisible();await page.getByText('Interactive business preview',{exact:true}).click();await page.getByLabel('Preview actor',{exact:true}).selectOption('outsider');
  await expect(page.getByText('Meridian Labs invited you to join.',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'New project request',exact:true})).toHaveCount(0);
  await page.getByRole('button',{name:'Accept invitation',exact:true}).click();await expect(page.getByRole('heading',{name:'Customer approval portal',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Business settings',exact:true})).toHaveCount(0);await noOverflow(page);
 });

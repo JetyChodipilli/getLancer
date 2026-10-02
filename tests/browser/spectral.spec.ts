@@ -95,3 +95,14 @@ test('complete artwork and every card remain inside the scene over a full animat
  }
  expect(await page.locator('.auth-scene-laptop').boundingBox()).toEqual(laptop);
 });
+test('provider progress fits a narrow compact form and a failed start recovers',async({page})=>{
+ await page.setViewportSize({width:320,height:812});
+ await page.route('**/api/v1/auth/providers',route=>route.fulfill({json:{google:true,github:true}}));
+ let release:()=>void=()=>{};
+ const started=new Promise<void>(resolve=>{release=resolve});
+ await page.route('**/api/v1/auth/google/start',async route=>{await started;await route.fulfill({status:503,json:{error:{message:'Please try again.',code:'UNAVAILABLE'}}});});
+ await page.goto('/login');const google=page.getByRole('button',{name:'Continue with Google',exact:true});await expect(google).toBeEnabled();await google.click();
+ const progress=page.getByRole('button',{name:'Opening sign-in with Google',exact:true});await expect(progress).toContainText('Opening…');
+ expect(await progress.evaluate(node=>node.scrollWidth<=node.clientWidth+1)).toBe(true);await fits(page);
+ release();await expect(page.getByRole('alert')).toContainText('Please try again.');await expect(google).toBeEnabled();
+});
