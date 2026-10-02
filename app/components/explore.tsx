@@ -8,14 +8,12 @@ import Preview from './preview';
 import ProjectStack from './project-stack';
 import DiscoveryDock from './discovery-dock';
 import SpectralMotion from './spectral-motion';
-import HeroInquiry from './hero-inquiry';
 
 import {useTaxonomy} from '@/lib/use-taxonomy';
 import { api } from '@/lib/api';
 import { track } from '@/lib/analytics';
 import { emptyFilters, filterParams, type Filters } from '@/lib/discovery';
 import type { Catalog } from '@/lib/server';
-import { availabilityLabel } from '@/lib/catalog';
 
 export default function Explore({ items, preview, totalItems, totalPages, filters, featured }: Catalog & {featured:Catalog['items']}) {
  const {categories,technologies}=useTaxonomy();
@@ -97,9 +95,7 @@ export default function Explore({ items, preview, totalItems, totalPages, filter
       </div>
       <SpectralMotion>
         <ProjectStack products={featured}/>
-        {featured[0]&&<div className="spectral-builder"><span className="avatar" aria-hidden="true">{featured[0].builder.split(' ').map(x=>x[0]).join('')}</span><div><strong>{featured[0].builder}</strong><p>Independent builder</p><span className={'spectral-availability availability-'+featured[0].availability.toLowerCase()}>{availabilityLabel(featured[0].availability,featured[0].bookedUntil)}</span><Link href={'/builders/'+featured[0].builderSlug}>View profile <ArrowUpRight size={16} aria-hidden="true"/></Link></div></div>}
-        <HeroInquiry product={featured[0]} preview={preview}/>
-        <a className="spectral-browse-link" href="#project-collection">Explore projects <ArrowUpRight size={15} aria-hidden="true"/></a>
+        <a className="spectral-browse-link" href="#project-collection">Explore projects</a>
       </SpectralMotion>
     </section>
     <form ref={heroSearch} className="market-search" role="search" onSubmit={e=>{e.preventDefault();update({q,category,technology})}}>
