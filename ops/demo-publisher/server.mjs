@@ -436,28 +436,33 @@ export async function createPublisher(input) {
       requireValue(++hits.count <= config.requestsPerMinute, 'Demo request limit reached', 429);
       requireValue(activePublic < 8, 'Public concurrency limit', 503); activePublic++;
       const gatewayCancellation = new AbortController();
-      let released = false;
+      let released = false; let responseDone = false; let workDone = false;
       const deadline = setTimeout(() => response.destroy(), 10_000); deadline.unref();
       const releasePublic = () => {
-        if (released) return; released = true; gatewayCancellation.abort(); clearTimeout(deadline); activePublic--;
-        response.removeListener('finish', releasePublic); response.removeListener('close', releasePublic);
+        if (released || !responseDone || !workDone) return; released = true; activePublic--;
       };
-      response.once('finish', releasePublic); response.once('close', releasePublic);
-      // Every recognized static GET/HEAD checks the authority, including missing paths. No forwarded user headers or query.
-      requireValue(await gatewayAllows(config, id, gatewayCancellation.signal), 'Demo unavailable', 403);
-      if (response.destroyed) return;
-      requireValue(!unhealthy, 'Publisher storage unavailable', 503);
-      requireValue(records.get(id) === record && record.state === 'READY' && Date.parse(record.expiresAt) > config.now(), 'Not found', 404);
-      let filename; try { filename = decodeURIComponent(target); } catch { throw new HttpError(400, 'Invalid encoded path'); }
-      requireValue(!/%(?:2f|5c)/i.test(target), 'Encoded separator rejected');
-      filename = filename === '/' ? 'index.html' : filename.slice(1); if (filename.endsWith('/')) filename += 'index.html';
-      validateFilePath(filename); const file = record.files.find((candidate) => candidate.path === filename); requireValue(file, 'Not found', 404);
-      const bytes = await plainRead(path.join(identities, id, 'bundle'), filename, HARD_LIMITS.fileBytes);
-      if (response.destroyed) return;
-      requireValue(bytes.length === file.sizeBytes && sha(bytes) === file.sha256, 'Stored content unavailable', 503);
-      requireValue(records.get(id) === record && Date.parse(record.expiresAt) > config.now(), 'Not found', 404);
-      requireValue(!unhealthy, 'Publisher storage unavailable', 503);
-      response.writeHead(200, { 'Content-Type': validateFilePath(filename), 'Content-Length': bytes.length }); response.end(head ? undefined : bytes);
+      const responseSettled = () => {
+        if (responseDone) return; responseDone = true; gatewayCancellation.abort(); clearTimeout(deadline);
+        response.removeListener('finish', responseSettled); response.removeListener('close', responseSettled); releasePublic();
+      };
+      response.once('finish', responseSettled); response.once('close', responseSettled);
+      try {
+        // Every recognized static GET/HEAD checks the authority, including missing paths. No forwarded user headers or query.
+        requireValue(await gatewayAllows(config, id, gatewayCancellation.signal), 'Demo unavailable', 403);
+        if (response.destroyed) return;
+        requireValue(!unhealthy, 'Publisher storage unavailable', 503);
+        requireValue(records.get(id) === record && record.state === 'READY' && Date.parse(record.expiresAt) > config.now(), 'Not found', 404);
+        let filename; try { filename = decodeURIComponent(target); } catch { throw new HttpError(400, 'Invalid encoded path'); }
+        requireValue(!/%(?:2f|5c)/i.test(target), 'Encoded separator rejected');
+        filename = filename === '/' ? 'index.html' : filename.slice(1); if (filename.endsWith('/')) filename += 'index.html';
+        validateFilePath(filename); const file = record.files.find((candidate) => candidate.path === filename); requireValue(file, 'Not found', 404);
+        const bytes = await plainRead(path.join(identities, id, 'bundle'), filename, HARD_LIMITS.fileBytes);
+        if (response.destroyed) return;
+        requireValue(bytes.length === file.sizeBytes && sha(bytes) === file.sha256, 'Stored content unavailable', 503);
+        requireValue(records.get(id) === record && Date.parse(record.expiresAt) > config.now(), 'Not found', 404);
+        requireValue(!unhealthy, 'Publisher storage unavailable', 503);
+        response.writeHead(200, { 'Content-Type': validateFilePath(filename), 'Content-Length': bytes.length }); response.end(head ? undefined : bytes);
+      } finally { workDone = true; releasePublic(); }
     } catch (error) {
       if (!response.headersSent && !response.destroyed) {
         if (!request.complete) response.setHeader('Connection', 'close');

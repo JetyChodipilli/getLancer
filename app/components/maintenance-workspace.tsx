@@ -19,6 +19,17 @@ const pageOf=<T,>(items:T[]):TemplatePage<T>=>({items,page:0,size:12,hasMore:fal
 const emptyPage=<T,>()=>pageOf<T>([]);
 const draft:CareTerms={title:'',scope:'',terms:'',amountMinor:0,requestsPerCycle:3,responseHours:24,totalCycles:12};
 type PendingRequest={offerId:string;key:string;title:string;description:string};
+function actionAvailable(record:CareDetail|null,dialog:string){
+  if(!dialog||['create','request'].includes(dialog))return true;
+  if(!record)return false;
+  const [action,id]=dialog.split(':'),buyer=record.side==='BUYER';
+  if(action==='send')return !buyer&&record.status==='DRAFT';
+  if(['accept','reject'].includes(action))return buyer&&record.status==='OFFERED';
+  if(action==='withdraw')return !buyer&&['DRAFT','OFFERED'].includes(record.status);
+  if(action==='cancel-billing')return buyer&&!!record.billing&&!record.billing.cancelRequested&&!record.billing.cancelConfirmed;
+  if(id){const request=record.requests.find(item=>item.id===id),states:Record<string,string[]>={start:['OPEN','REVISION_REQUESTED'],submit:['IN_PROGRESS'],revision:['SUBMITTED'],'accept-request':['SUBMITTED'],'cancel-request':['OPEN','REVISION_REQUESTED']};return !!request&&!!states[action]?.includes(request.status)&&buyer===['revision','accept-request','cancel-request'].includes(action);}
+  return true;
+}
 
 export default function MaintenanceWorkspace({demo=false}:{demo?:boolean}) {
   const [preview]=useState(()=>demo?createMaintenancePreview():null),[side,setSide]=useState<CareSide>('SELLER');
@@ -37,9 +48,9 @@ export default function MaintenanceWorkspace({demo=false}:{demo?:boolean}) {
       if(preview){nextOffers=pageOf(preview.list());nextSources=pageOf(preview.sources());config={enabled:true,keyId:'',mode:'preview',reason:''};}
       else {const me=await api('/me');if(run!==generation.current||!mounted.current)return;const identity=String(me.id||me.email||'');if(identity!==account.current){billingKey.current={};pendingRequests.current=[];}account.current=identity;[nextOffers,nextSources,config]=await Promise.all([api('/maintenance?page='+page+'&size=12'+(new URLSearchParams(window.location.search).get('engagementId')?'&engagementId='+encodeURIComponent(new URLSearchParams(window.location.search).get('engagementId')!):'')),api('/maintenance/sources?page='+sourcePage+'&size=12'+(new URLSearchParams(window.location.search).get('engagementId')?'&engagementId='+encodeURIComponent(new URLSearchParams(window.location.search).get('engagementId')!):'')),api('/maintenance/config')]);}
       let chosen=id||nextOffers.items[0]?.id||'';
-      const record=chosen?(preview?preview.detail(chosen):await api('/maintenance/'+chosen+'?page='+requestPage+'&size=12')):null;
+      const record:CareDetail|null=chosen?(preview?preview.detail(chosen):await api('/maintenance/'+chosen+'?page='+requestPage+'&size=12')):null;
       if(run!==generation.current||!mounted.current)return;
-      setOffers(nextOffers);setSources(nextSources);setConfiguration(config);setSelected(chosen);setDetail(record);setAuthenticated(true);return true;
+      setOffers(nextOffers);setSources(nextSources);setConfiguration(config);setSelected(chosen);setDetail(record);setAuthenticated(true);return {record};
     } catch(problem){if(run===generation.current&&mounted.current){clear(!(problem instanceof ApiError&&[401,403,404].includes(problem.status)));setError(failureMessage||(problem as Error).message);return false;}}
     finally{if(run===generation.current&&mounted.current)setLoading(false);}
   }
@@ -55,7 +66,7 @@ export default function MaintenanceWorkspace({demo=false}:{demo?:boolean}) {
   async function change(work:()=>unknown|Promise<unknown>,message:string,id=selected,page=offers.page) {
     const run=generation.current;setBusy(true);setError('');setNote('');
     try{const result=await work();const next=id||((result&&typeof result==='object'&&'id' in result)?String(result.id):'');if(mounted.current&&run===generation.current){const failureMessage='The action was saved, but the workspace could not be refreshed. Reconnect to verify its current state.',refreshed=await load(next,page,sources.page,0,failureMessage);if(refreshed===false)throw new Error(failureMessage);if(refreshed)setNote(message);}return result;}
-    catch(problem){await recoverWrite(problem,id,page,run);throw problem;}
+    catch(problem){const refreshed=await recoverWrite(problem,id,page,run);if(refreshed&&!actionAvailable(refreshed.record,dialog))setDialog('');throw problem;}
     finally{if(mounted.current)setBusy(false);}
   }
   function act(work:()=>unknown|Promise<unknown>,message:string){void change(work,message).catch(()=>{});}
@@ -104,7 +115,7 @@ export default function MaintenanceWorkspace({demo=false}:{demo?:boolean}) {
             {detail.billing&&buyer&&!detail.billing.cancelRequested&&['CREATED','AUTHENTICATED','PENDING','HALTED'].includes(detail.billing.status)&&<button className="button" disabled={disabled||!configuration?.enabled} onClick={()=>show('authorize')}>Continue billing authorization</button>}
             {buyer&&access?.available&&<button className="button primary" disabled={disabled||access.remainingRequests<1} onClick={()=>show('request')}>New support request</button>}
             {detail.billing&&<button className="button" disabled={disabled} onClick={()=>act(()=>preview?undefined:post('/maintenance/'+detail.id+'/billing/refresh'),'Billing and financial status refreshed.')}><RefreshCw size={15} aria-hidden="true"/>Refresh billing</button>}
-            {detail.billing&&buyer&&!detail.billing.cancelConfirmed&&<button className="button" disabled={disabled} onClick={()=>show('cancel-billing')}>Cancel future billing</button>}
+            {detail.billing&&buyer&&!detail.billing.cancelRequested&&!detail.billing.cancelConfirmed&&<button className="button" disabled={disabled} onClick={()=>show('cancel-billing')}>Cancel future billing</button>}
           </div>{!demo&&detail.status==='ACCEPTED'&&!configuration?.enabled&&<p className="care-muted">{configuration?.reason}</p>}
         </CardContent></Card>
         <Tabs value={tab} onValueChange={setTab}><TabsList aria-label="Maintenance details"><TabsTrigger value="requests">Requests</TabsTrigger><TabsTrigger value="billing">Billing</TabsTrigger><TabsTrigger value="terms">Terms & consent</TabsTrigger></TabsList>

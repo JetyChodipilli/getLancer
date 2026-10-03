@@ -436,6 +436,45 @@ test('F1 disconnected readers cancel unfinished gateway checks before returning 
   h.setMode('allow'); assert.equal((await h.public(p.id)).status, 200);
 });
 
+test('F1 disconnected readers retain admission until real slow-volume reads settle', { timeout: 10_000 }, async (t) => {
+  const h = await harness(t); const p = payload(); await h.admin('PUT', p.id, p);
+  const sample = await fs.open(path.join(h.dataDir, 'identities', p.id, 'bundle', 'index.html'));
+  const prototype = Object.getPrototypeOf(sample); const original = prototype.readFile; await sample.close();
+  let release; const gate = new Promise(resolve => { release = resolve; });
+  let holding = true; let started = 0; let active = 0; let peak = 0;
+  const responses = []; const sockets = [];
+  h.server.on('request', (req, res) => { if (req.headers.host === `${p.id}.demo.localhost:8090`) responses.push(res); });
+  prototype.readFile = async function (...args) {
+    started++; active++; peak = Math.max(peak, active);
+    try { if (holding) await gate; return await original.apply(this, args); }
+    finally { active--; }
+  };
+  try {
+    for (let i = 0; i < 8; i++) {
+      const socket = net.createConnection({ host: 'localhost', port: h.port }); socket.on('error', () => {}); sockets.push(socket);
+      await new Promise(resolve => socket.once('connect', resolve));
+      socket.write(`GET / HTTP/1.1\r\nHost: ${p.id}.demo.localhost:8090\r\n\r\n`);
+      for (let attempt = 0; attempt < 200 && started === i; attempt++) await new Promise(resolve => setTimeout(resolve, 5));
+      assert.equal(started, i + 1, 'reader must enter the actual FileHandle read');
+      const response = responses[i]; assert.ok(response);
+      const closed = new Promise(resolve => response.once('close', resolve)); socket.destroy(); await closed;
+    }
+    assert.equal(active, 8); holding = false;
+    // Later disk operations may finish quickly while earlier ones are still pending.
+    assert.equal((await h.public(p.id)).status, 503, 'disconnect cannot return an unfinished read slot');
+    assert.equal(started, 8); assert.equal(peak, 8);
+    release(); let next;
+    for (let attempt = 0; attempt < 100; attempt++) {
+      next = await h.public(p.id); if (next.status === 200) break;
+      assert.equal(next.status, 503); await new Promise(resolve => setTimeout(resolve, 5));
+    }
+    assert.equal(next.status, 200, 'settled reads must return their admission slots');
+    assert.ok(peak <= 8); assert.equal(active, 0);
+  } finally {
+    prototype.readFile = original; release(); for (const socket of sockets) socket.destroy();
+  }
+});
+
 test('F11 concurrent stale lease recovery admits one writer', { timeout: 30_000 }, async (t) => {
   const h = await harness(t); await h.stop();
   const children = [];
