@@ -19,7 +19,7 @@ export function canOpenTemplateCheckout(template:SourceTemplate){return template
 export function eligibleTemplateDownload(purchase:TemplatePurchase){return purchase.downloadAvailable===true&&purchase.mode==='live'&&purchase.status==='CAPTURED'&&purchase.refundedMinor===0&&(!purchase.dispute||purchase.dispute.status==='RESUMED');}
 export function templateDisputeAvailable(purchase:TemplatePurchase){return ['CAPTURED','PARTIALLY_REFUNDED','REFUNDED','DISPUTED'].includes(purchase.status)&&!purchase.dispute;}
 
-type CheckoutInstance={open:()=>void;on:(event:string,handler:(result:{error?:{description?:string}})=>void)=>void};
+type CheckoutInstance={open:()=>void;close?:()=>void;on:(event:string,handler:(result:{error?:{description?:string}})=>void)=>void};
 type CheckoutConstructor=new(options:Record<string,unknown>)=>CheckoutInstance;
 let checkoutPending:Promise<CheckoutConstructor>|undefined;
 /** Called only after a connected checkout order exists; previews never load the gateway. */

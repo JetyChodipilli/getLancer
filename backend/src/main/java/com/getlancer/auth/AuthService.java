@@ -318,6 +318,8 @@ public class AuthService {
               409,
               "ADMIN_ACCOUNT_PROTECTED",
               "The sole administrator cannot close their account through self-service.");
+        if (db.queryForObject("SELECT count(*) FROM maintenance_subscriptions s JOIN delivery_engagements e ON e.id=s.engagement_id WHERE NOT s.cancel_confirmed AND NOT(s.status='REJECTED' AND s.provider_subscription_id IS NULL) AND (s.payer_id=? OR e.buyer_user_id=? OR e.builder_user_id=? OR e.business_id IN (SELECT id FROM businesses WHERE owner_id=?) OR e.team_id IN (SELECT id FROM teams WHERE owner_id=?))", Integer.class, user,user,user,user,user)>0)
+          throw new ApiError(409,"RECURRING_BILLING_ACTIVE","Cancel future maintenance billing and confirm the provider stopped it before closing this account. Ask the operator to recover uncertain billing.");
         db.update("INSERT INTO deletion_requests(user_id) VALUES(?) ON CONFLICT DO NOTHING", user);
         db.update("UPDATE users SET account_status='DELETED' WHERE id=?", user);
         db.update("DELETE FROM sessions WHERE user_id=?", user);

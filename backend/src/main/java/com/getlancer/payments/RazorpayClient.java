@@ -91,6 +91,27 @@ public class RazorpayClient {
   public JsonNode payment(String id) { return request("GET","/v1/payments/"+providerId(id,"pay_"),null); }
   public JsonNode transfers(String id) { return request("GET","/v1/payments/"+providerId(id,"pay_")+"/transfers",null); }
   public JsonNode dispute(String id) { return request("GET","/v1/disputes/"+providerId(id,"disp_"),null); }
+  public JsonNode createPlan(long amount,String title,UUID reservation,String digest) {
+    requireCollection();
+    return request("POST","/v1/plans",Map.of("period","monthly","interval",1,"item",Map.of("name",title,"amount",amount,"currency","INR"),"notes",Map.of("maintenance_attempt",reservation.toString(),"terms_hash",digest)));
+  }
+  public JsonNode plan(String id) { return request("GET","/v1/plans/"+providerId(id,"plan_"),null); }
+  public JsonNode createSubscription(String plan,int cycles,UUID reservation,String digest) {
+    requireCollection();
+    return request("POST","/v1/subscriptions",Map.of("plan_id",providerId(plan,"plan_"),"total_count",cycles,"quantity",1,"customer_notify",true,"notes",Map.of("maintenance_attempt",reservation.toString(),"terms_hash",digest)));
+  }
+  public JsonNode subscription(String id) { return request("GET","/v1/subscriptions/"+providerId(id,"sub_"),null); }
+  public JsonNode invoices(String subscription,int skip) { return request("GET","/v1/invoices?subscription_id="+providerId(subscription,"sub_")+"&count=100&skip="+pageOffset(skip),null); }
+  public JsonNode refunds(String payment,int skip) { return request("GET","/v1/payments/"+providerId(payment,"pay_")+"/refunds?count=100&skip="+pageOffset(skip),null); }
+  public JsonNode disputes(int skip) { return request("GET","/v1/disputes?count=100&skip="+pageOffset(skip),null); }
+  private static int pageOffset(int skip) { if(skip<0||skip>10000) throw new ApiError(409,"PROVIDER_INCOMPLETE","Provider collection requires operator review."); return skip; }
+  public JsonNode createPaymentTransfer(String payment,String account,long amount,UUID key,String invoice) {
+    requireCollection();
+    return request("POST","/v1/payments/"+providerId(payment,"pay_")+"/transfers",Map.of("transfers",List.of(Map.of("account",providerId(account,"acc_"),"amount",amount,"currency","INR","on_hold",false,"notes",Map.of("maintenance_route",key.toString(),"invoice_id",providerId(invoice,"inv_"))))));
+  }
+  public JsonNode cancelSubscription(String id) { return request("POST","/v1/subscriptions/"+providerId(id,"sub_")+"/cancel",Map.of("cancel_at_cycle_end",false)); }
+  public boolean subscriptionSignature(String subscription,String payment,String signature) { return signed(keySecret,(payment+"|"+subscription).getBytes(StandardCharsets.UTF_8),signature); }
+  public boolean maintenanceWebhookSignature(byte[] body,String signature) { return webhookSignature(body,signature); }
   JsonNode account(String id) { return request("GET","/v2/accounts/"+providerId(id,"acc_"),null); }
 
   public static String providerId(String value, String prefix) {

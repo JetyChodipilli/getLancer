@@ -1,4 +1,4 @@
-name: getLancer validation (V1-V3.5)
+name: getLancer validation (V1-V4)
 on: [push, pull_request]
 jobs:
   backend:
@@ -28,6 +28,12 @@ jobs:
           TEST_DB_PASSWORD: ci-only
           APP_BASE_URL: http://localhost:3000
           SECURE_COOKIES: 'false'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-verification-${{ github.event.pull_request.head.sha || github.sha }}
+          path: backend/target/surefire-reports
+          retention-days: 7
       - name: Verify production JAR excludes test mocks and frontend simulations
         run: |
           python3 - <<'PY'
@@ -126,13 +132,13 @@ jobs:
       - run: docker compose up -d --build --wait --wait-timeout 240
       - name: Verify connected production frontend against the empty Java database
         run: node scripts/verify-connected-frontend.mjs
-      - name: Verify connected V1 through V3.5 service journeys and database recovery
+      - name: Verify connected V1 through V4 service journeys and database recovery
         run: node scripts/smoke-docker.mjs
       - name: Verify connected frontend after real service journeys
         run: node scripts/verify-connected-frontend.mjs
       - name: Install connected browser test runner
         run: npx playwright install --with-deps chromium
-      - name: Verify real hiring, V3 delivery and V3.5 source browser journeys on desktop, phone and tablet
+      - name: Verify real hiring, delivery, source and maintenance browser journeys on desktop, phone and tablet
         run: npx playwright test --config playwright.connected.config.ts
       - uses: actions/upload-artifact@v4
         if: always()

@@ -31,7 +31,7 @@ public class PaymentRepository {
     var rows=db.queryForList("SELECT * FROM payment_attempts WHERE milestone_id=? AND status<>'REJECTED'",milestone);
     return rows.isEmpty()?null:rows.get(0);
   }
-  String payee(Map<String,Object> milestone,String mode) {
+  public String payee(Map<String,Object> milestone,String mode) {
     if (milestone.get("builderUserId")!=null) {
       var active=db.queryForList("SELECT u.id FROM users u JOIN developer_profiles d ON d.user_id=u.id JOIN user_roles r ON r.user_id=u.id AND r.role='DEVELOPER' WHERE u.id=? AND u.account_status='ACTIVE' AND u.email_verified_at IS NOT NULL AND d.approval_status='APPROVED' FOR SHARE OF u",milestone.get("builderUserId"));
       if (active.isEmpty()) throw new ApiError(409,"PAYEE_UNAVAILABLE","The seller is no longer eligible for collection.");
