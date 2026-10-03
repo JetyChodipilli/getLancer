@@ -28,6 +28,11 @@ public class AuthService {
   final Security security;
   final Mail mail;
   private final InquiryOutcomeService outcomes;
+  private com.getlancer.hosting.HostingRepository hosting;
+
+  @org.springframework.beans.factory.annotation.Autowired
+  public void setHostingRepository(com.getlancer.hosting.HostingRepository hosting) { this.hosting = hosting; }
+
   final boolean secure;
   final BCryptPasswordEncoder passwords = new BCryptPasswordEncoder(12);
   final String reservedAdminEmail;
@@ -320,6 +325,8 @@ public class AuthService {
               "The sole administrator cannot close their account through self-service.");
         if (db.queryForObject("SELECT count(*) FROM maintenance_subscriptions s JOIN delivery_engagements e ON e.id=s.engagement_id WHERE NOT s.cancel_confirmed AND NOT(s.status='REJECTED' AND s.provider_subscription_id IS NULL) AND (s.payer_id=? OR e.buyer_user_id=? OR e.builder_user_id=? OR e.business_id IN (SELECT id FROM businesses WHERE owner_id=?) OR e.team_id IN (SELECT id FROM teams WHERE owner_id=?))", Integer.class, user,user,user,user,user)>0)
           throw new ApiError(409,"RECURRING_BILLING_ACTIVE","Cancel future maintenance billing and confirm the provider stopped it before closing this account. Ask the operator to recover uncertain billing.");
+        if (hosting != null && hosting.blocksAccountDeletion(user))
+          throw new ApiError(409,"HOSTED_DEMOS_ACTIVE","Withdraw hosted demos and confirm removal before closing this account. Ask the operator to recover uncertain deployments.");
         db.update("INSERT INTO deletion_requests(user_id) VALUES(?) ON CONFLICT DO NOTHING", user);
         db.update("UPDATE users SET account_status='DELETED' WHERE id=?", user);
         db.update("DELETE FROM sessions WHERE user_id=?", user);

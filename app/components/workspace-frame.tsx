@@ -4,7 +4,7 @@ import { ArrowUpRight, BriefcaseBusiness, ChevronDown, Code2, Compass, FlaskConi
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
-type Section = 'personal' | 'trust' | 'teams' | 'business' | 'delivery' | 'templates' | 'maintenance';
+type Section = 'personal' | 'trust' | 'teams' | 'business' | 'delivery' | 'templates' | 'maintenance' | 'hosting';
 
 export function WorkspaceFrame({ children, title, description, section, preview = false, actions, className }: {
   children: ReactNode; title: string; description: string; section: Section;
@@ -17,6 +17,7 @@ export function WorkspaceFrame({ children, title, description, section, preview 
     { section: 'teams', title: 'Teams & studios', href: root + '/teams', Icon: Users },
     { section: 'delivery', title: 'Delivery & payments', href: root + '/delivery', Icon: Layers },
     { section: 'maintenance', title: 'Maintenance & support', href: root + '/maintenance', Icon: LifeBuoy },
+    { section: 'hosting', title: 'Hosted frontend demos', href: root + '/hosting', Icon: Compass },
     { section: 'templates', title: 'Templates & purchases', href: root + '/templates', Icon: Code2 },
     { section: 'business', title: 'Business hiring', href: root + '/business', Icon: BriefcaseBusiness },
   ];

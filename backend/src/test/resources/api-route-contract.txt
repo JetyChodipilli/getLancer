@@ -15,6 +15,8 @@ GET /api/v1/admin/concierge/{id}/matches
 GET /api/v1/admin/deletion-requests
 GET /api/v1/admin/delivery/disputes
 GET /api/v1/admin/email-jobs
+GET /api/v1/admin/hosting
+GET /api/v1/admin/hosting/{id}/package
 GET /api/v1/admin/maintenance/attention
 GET /api/v1/admin/metrics
 GET /api/v1/admin/payments/accounts
@@ -53,6 +55,9 @@ GET /api/v1/developer/trust
 GET /api/v1/engagements
 GET /api/v1/engagements/{id}
 GET /api/v1/engagements/{id}/payments
+GET /api/v1/hosting/config
+GET /api/v1/hosting/gateway/{deploymentId}
+GET /api/v1/hosting/products/{productId}
 GET /api/v1/maintenance
 GET /api/v1/maintenance/config
 GET /api/v1/maintenance/sources
@@ -60,6 +65,10 @@ GET /api/v1/maintenance/{id}
 GET /api/v1/me
 GET /api/v1/me/appeals
 GET /api/v1/me/export
+GET /api/v1/me/hosting
+GET /api/v1/me/hosting/sources
+GET /api/v1/me/hosting/{id}
+GET /api/v1/me/hosting/{id}/package
 GET /api/v1/me/inquiries/{id}
 GET /api/v1/me/moderation-decisions
 GET /api/v1/me/saved-products
@@ -98,6 +107,9 @@ POST /api/v1/admin/deletion-requests/{id}/review
 POST /api/v1/admin/delivery/disputes/{id}/resolve
 POST /api/v1/admin/earned-capacity/{id}
 POST /api/v1/admin/email-jobs/{id}/retry
+POST /api/v1/admin/hosting/{id}/reconcile
+POST /api/v1/admin/hosting/{id}/review
+POST /api/v1/admin/hosting/{id}/withdraw
 POST /api/v1/admin/inquiries/{id}/{action}
 POST /api/v1/admin/maintenance/{id}/{action}
 POST /api/v1/admin/payments/accounts
@@ -168,6 +180,11 @@ POST /api/v1/maintenance/{id}/billing/refresh
 POST /api/v1/maintenance/{id}/requests
 POST /api/v1/maintenance/{id}/requests/{requestId}/{action}
 POST /api/v1/maintenance/{id}/{action}
+POST /api/v1/me/hosting
+POST /api/v1/me/hosting/{id}/deploy
+POST /api/v1/me/hosting/{id}/reconcile
+POST /api/v1/me/hosting/{id}/submit
+POST /api/v1/me/hosting/{id}/withdraw
 POST /api/v1/me/inquiries/{id}/confirmation-link
 POST /api/v1/me/inquiries/{id}/decision
 POST /api/v1/me/inquiries/{id}/not-hired

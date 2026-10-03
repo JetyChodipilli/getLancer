@@ -121,8 +121,11 @@ jobs:
           node scripts/setup-local.mjs --docker
           node --input-type=module <<'JS'
           import {readFileSync,writeFileSync} from 'node:fs';
+          import {randomBytes} from 'node:crypto';
           let value=readFileSync('.env','utf8').replace(/^ADMIN_EMAIL=.*$/m,'ADMIN_EMAIL=ci-admin@example.test');
-          writeFileSync('.env',value);
+          const hosting={COMPOSE_PROFILES:'hosting',HOSTED_DEMOS_ENABLED:'true',DEMO_PUBLISHER_URL:'http://demo-publisher:8090',DEMO_PUBLIC_URL_TEMPLATE:'http://{id}.demo.localhost:8090',DEMO_PUBLISHER_SECRET:randomBytes(32).toString('hex'),DEMO_GATEWAY_SECRET:randomBytes(32).toString('hex')};
+          value=value.split('\n').filter(line=>!Object.keys(hosting).some(key=>line.startsWith(key+'='))).join('\n')+'\n'+Object.entries(hosting).map(([key,value])=>key+'='+value).join('\n')+'\n';
+          writeFileSync('.env',value,{mode:0o600});
           JS
       - run: docker compose config --quiet
       - name: Validate standalone staging manifest
@@ -138,7 +141,7 @@ jobs:
         run: node scripts/verify-connected-frontend.mjs
       - name: Install connected browser test runner
         run: npx playwright install --with-deps chromium
-      - name: Verify real hiring, delivery, source and maintenance browser journeys on desktop, phone and tablet
+      - name: Verify real hiring, delivery, source, maintenance and hosted demo browser journeys on desktop, phone and tablet
         run: npx playwright test --config playwright.connected.config.ts
       - uses: actions/upload-artifact@v4
         if: always()
@@ -150,7 +153,7 @@ jobs:
         run: node scripts/verify-restore-ci.mjs
       - name: Show startup diagnostics on failure
         if: failure()
-        run: docker compose logs --tail=80 api db storage-init
+        run: docker compose logs --tail=80 api db storage-init demo-publisher
       - name: Remove disposable CI containers and volumes
         if: always()
         run: |
