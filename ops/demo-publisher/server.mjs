@@ -406,6 +406,7 @@ export async function createPublisher(input) {
       try {
         // Every recognized static GET/HEAD checks the authority, including missing paths. No forwarded user headers or query.
         requireValue(await gatewayAllows(config, id), 'Demo unavailable', 403);
+        requireValue(!unhealthy, 'Publisher storage unavailable', 503);
         requireValue(records.get(id) === record && record.state === 'READY' && Date.parse(record.expiresAt) > config.now(), 'Not found', 404);
         let filename; try { filename = decodeURIComponent(target); } catch { throw new HttpError(400, 'Invalid encoded path'); }
         requireValue(!/%(?:2f|5c)/i.test(target), 'Encoded separator rejected');
@@ -414,6 +415,7 @@ export async function createPublisher(input) {
         const bytes = await plainRead(path.join(identities, id, 'bundle'), filename, HARD_LIMITS.fileBytes);
         requireValue(bytes.length === file.sizeBytes && sha(bytes) === file.sha256, 'Stored content unavailable', 503);
         requireValue(records.get(id) === record && Date.parse(record.expiresAt) > config.now(), 'Not found', 404);
+        requireValue(!unhealthy, 'Publisher storage unavailable', 503);
         response.writeHead(200, { 'Content-Type': validateFilePath(filename), 'Content-Length': bytes.length }); response.end(head ? undefined : bytes);
       } finally { activePublic--; }
     } catch (error) {

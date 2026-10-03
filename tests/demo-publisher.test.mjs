@@ -344,3 +344,17 @@ test('startup seals full legacy identities before accepting requests without all
   assert.equal((await h.admin('PUT', absent.id, absent)).status, 409); assert.equal((await h.admin('PUT', existing.id, existing)).status, 200);
   assert.equal((await fs.readdir(path.join(h.dataDir, 'identities'))).length, 1);
 });
+
+// A storage mutation can fail while a previously authorized request awaits the gateway.
+test('storage failure denies in-flight public reads after the gateway await', async (t) => {
+  const h = await harness(t); const p = payload();
+  assert.equal((await h.admin('PUT', p.id, p)).status, 200);
+  h.setMode('hold'); const reading = h.public(p.id);
+  for (let attempt = 0; attempt < 100 && !h.calls.length; attempt++) await new Promise(resolve => setTimeout(resolve, 5));
+  assert.equal(h.calls.length, 1);
+  const file = path.join(h.dataDir, 'identities', p.id, 'record.json');
+  await fs.rm(file); await fs.mkdir(file);
+  assert.equal((await h.admin('DELETE', p.id)).status, 503);
+  assert.equal((await request(h.port)).status, 503);
+  h.release(); assert.equal((await reading).status, 503);
+});

@@ -39,7 +39,7 @@ test('real built frontend ZIP, MFA review, isolated JavaScript and withdrawal wo
   expect(await demo.evaluate(async()=>{try{await fetch('https://example.com/blocked-by-demo-csp');return false;}catch{return true;}})).toBe(true);
   await page.screenshot({path:info.outputPath('connected-hosting.png'),fullPage:true});await demo.screenshot({path:info.outputPath('isolated-demo.png'),fullPage:true});
   await page.getByRole('button',{name:'Withdraw frontend',exact:true}).click();dialog=page.getByRole('dialog');await dialog.getByRole('button',{name:'Confirm withdrawal',exact:true}).click();await expect(dialog).not.toBeVisible();await expect(page.getByText('Withdrawal completed',{exact:true})).toBeVisible();await expect(link).toHaveCount(0);
-  expect((await demo.request.get(url)).status()).not.toBe(200);expect((await (await call(page,'/me/hosting/'+record.id)).json()).deploymentState).toBe('DELETED');
+  expect((await demo.goto(url))?.status()).not.toBe(200);expect((await (await call(page,'/me/hosting/'+record.id)).json()).deploymentState).toBe('DELETED');
   expect((await call(page,'/auth/logout',{})).ok()).toBeTruthy();await page.getByRole('button',{name:'Refresh status',exact:true}).click();await expect(page.getByRole('heading',{name:'Connect to your hosting workspace',exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:title,exact:true})).toHaveCount(0);expect(errors).toEqual([]);
  }finally{await adminContext.close();await demoContext.close();}
 });
