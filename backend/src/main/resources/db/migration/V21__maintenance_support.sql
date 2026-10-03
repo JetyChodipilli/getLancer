@@ -19,7 +19,7 @@ CREATE TABLE maintenance_subscriptions (
  digest char(64) NOT NULL, account_id varchar(40) NOT NULL, mode varchar(4) NOT NULL CHECK(mode IN ('test','live')),
  status varchar(32) NOT NULL DEFAULT 'CREATING', creation_step varchar(16) NOT NULL DEFAULT 'PLAN' CHECK(creation_step IN ('PLAN','SUBSCRIPTION','COMPLETE')),
  plan_state varchar(16) NOT NULL DEFAULT 'CREATING' CHECK(plan_state IN ('CREATING','UNKNOWN','REJECTED','CONFIRMED')),
- subscription_state varchar(16) CHECK(subscription_state IN ('CREATING','UNKNOWN','REJECTED','CONFIRMED')),
+ subscription_state varchar(16) CHECK(subscription_state IN ('NOT_CREATED','CREATING','UNKNOWN','REJECTED','CONFIRMED')),
  provider_plan_id varchar(40) UNIQUE, provider_subscription_id varchar(40) UNIQUE,
  attention_reason varchar(240), local_hold boolean NOT NULL DEFAULT false, reconcile_generation bigint NOT NULL DEFAULT 0, reconciled_at timestamptz,
  cancel_requested boolean NOT NULL DEFAULT false, cancel_confirmed boolean NOT NULL DEFAULT false,
@@ -52,6 +52,11 @@ CREATE TABLE maintenance_provider_disputes (
  id varchar(40) PRIMARY KEY, period_id uuid NOT NULL REFERENCES maintenance_periods,
  status varchar(32) NOT NULL, deducted_minor bigint NOT NULL CHECK(deducted_minor>=0), updated_at timestamptz NOT NULL DEFAULT now()
 );
+CREATE TABLE maintenance_refunds (
+ id varchar(40) PRIMARY KEY, period_id uuid NOT NULL REFERENCES maintenance_periods,
+ amount_minor bigint NOT NULL CHECK(amount_minor>0), status varchar(16) NOT NULL CHECK(status IN ('pending','processed','failed')),
+ created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
+);
 CREATE TABLE maintenance_ledger (
  id uuid PRIMARY KEY, period_id uuid NOT NULL REFERENCES maintenance_periods, entry_key varchar(100) NOT NULL,
  kind varchar(16) NOT NULL CHECK(kind IN ('CAPTURE','REFUND','TRANSFER')), amount_minor bigint NOT NULL CHECK(amount_minor>0),
@@ -60,7 +65,7 @@ CREATE TABLE maintenance_ledger (
 CREATE TABLE maintenance_webhook_events (
  event_id varchar(100) PRIMARY KEY, payload_hash char(64) NOT NULL, event_kind varchar(100) NOT NULL,
  subscription_id varchar(40), payment_id varchar(40), dispute_id varchar(40), processed_at timestamptz,
- received_at timestamptz NOT NULL DEFAULT now(), attempts integer NOT NULL DEFAULT 0
+ received_at timestamptz NOT NULL DEFAULT now(), attempts integer NOT NULL DEFAULT 0 CHECK(attempts>=0)
 );
 CREATE TABLE maintenance_audit (
  id uuid PRIMARY KEY, offer_id uuid NOT NULL REFERENCES maintenance_offers, actor_id uuid REFERENCES users,
@@ -92,10 +97,24 @@ CREATE TRIGGER maintenance_requests_retained BEFORE UPDATE OR DELETE ON maintena
 CREATE TRIGGER maintenance_ledger_append BEFORE UPDATE OR DELETE ON maintenance_ledger FOR EACH ROW EXECUTE FUNCTION reject_payment_ledger_change();
 CREATE TRIGGER maintenance_audit_append BEFORE UPDATE OR DELETE ON maintenance_audit FOR EACH ROW EXECUTE FUNCTION reject_payment_ledger_change();
 DO $$ DECLARE t text; BEGIN
- FOREACH t IN ARRAY ARRAY['maintenance_offers','maintenance_subscriptions','maintenance_periods','maintenance_requests','maintenance_provider_disputes','maintenance_ledger','maintenance_webhook_events','maintenance_audit'] LOOP
+ FOREACH t IN ARRAY ARRAY['maintenance_offers','maintenance_subscriptions','maintenance_periods','maintenance_requests','maintenance_provider_disputes','maintenance_refunds','maintenance_ledger','maintenance_webhook_events','maintenance_audit'] LOOP
   EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY',t);
   EXECUTE format('REVOKE ALL ON %I FROM PUBLIC',t);
   IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname='anon') THEN EXECUTE format('REVOKE ALL ON %I FROM anon',t); END IF;
   IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN EXECUTE format('REVOKE ALL ON %I FROM authenticated',t); END IF;
  END LOOP;
 END $$;
+CREATE FUNCTION maintenance_retained_dispute() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+ IF TG_OP='DELETE' OR (NEW.id,NEW.period_id) IS DISTINCT FROM (OLD.id,OLD.period_id) THEN RAISE EXCEPTION 'Provider dispute identity and history are retained'; END IF;
+ RETURN NEW; END $$;
+CREATE TRIGGER maintenance_disputes_retained BEFORE UPDATE OR DELETE ON maintenance_provider_disputes FOR EACH ROW EXECUTE FUNCTION maintenance_retained_dispute();
+CREATE FUNCTION maintenance_retained_event() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+ IF TG_OP='DELETE' OR (NEW.event_id,NEW.payload_hash,NEW.event_kind,NEW.subscription_id,NEW.payment_id,NEW.dispute_id,NEW.received_at) IS DISTINCT FROM (OLD.event_id,OLD.payload_hash,OLD.event_kind,OLD.subscription_id,OLD.payment_id,OLD.dispute_id,OLD.received_at) THEN RAISE EXCEPTION 'Signed event identity and evidence are retained'; END IF;
+ IF NEW.attempts<OLD.attempts OR (OLD.processed_at IS NOT NULL AND NEW.processed_at IS DISTINCT FROM OLD.processed_at) THEN RAISE EXCEPTION 'Processed event evidence cannot be reset'; END IF;
+ RETURN NEW; END $$;
+CREATE TRIGGER maintenance_events_retained BEFORE UPDATE OR DELETE ON maintenance_webhook_events FOR EACH ROW EXECUTE FUNCTION maintenance_retained_event();
+
+CREATE FUNCTION maintenance_retained_refund() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+ IF TG_OP='DELETE' OR (NEW.id,NEW.period_id,NEW.amount_minor,NEW.created_at) IS DISTINCT FROM (OLD.id,OLD.period_id,OLD.amount_minor,OLD.created_at) OR (OLD.status='processed' AND NEW.status<>'processed') THEN RAISE EXCEPTION 'Provider refund identity and processed facts are retained'; END IF;
+ RETURN NEW; END $$;
+CREATE TRIGGER maintenance_refunds_retained BEFORE UPDATE OR DELETE ON maintenance_refunds FOR EACH ROW EXECUTE FUNCTION maintenance_retained_refund();

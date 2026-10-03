@@ -6,6 +6,7 @@ import {createHmac,randomBytes} from 'node:crypto';
 import {setTimeout as delay} from 'node:timers/promises';
 import {readEnvironment} from './local-config.mjs';
 import {sourceFixture} from './ci-source-fixture.mjs';
+import {maintenanceFixtures} from './ci-maintenance-fixture.mjs';
 const env=readEnvironment(new URL('../.env',import.meta.url));
 assert.equal(process.env.CI,'true','This smoke check runs only in disposable CI.');
 assert.match(process.env.COMPOSE_PROJECT_NAME||'',/^getlancer-ci-[0-9]+$/,'Use an isolated CI Compose project.');
@@ -218,6 +219,8 @@ await client(briefRoot,{...brief,status:'CLOSED'},'PUT');
 await client(briefRoot+'/matches',undefined,'GET',409);
 console.log('Connected V2/V2.5 passed: team consent/private roles, client-reported outcome, business invitations, tenant isolation, real evidence matching, talent lists, opt-in MFA concierge and immediate revocation.');
 
+const careFixtures=await maintenanceFixtures({query,builder,client,buyerId:clientAccount.id,sellerId:owner.id,productId:products[2]});
+
 // Source commerce uses the real Java validation, PostgreSQL and private MinIO storage.
 await builder(`/api/v1/developer/products/${products[2]}/verification`,{});
 await api(`/api/v1/admin/verifications/${products[2]}/approve`,{reason:'Disposable source fixture: operator ownership review only, no real seller claim.'});
@@ -274,5 +277,5 @@ for(const device of ['desktop','phone','tablet']){
  await client(`/api/v1/businesses/${b.id}/invitations`,{email:'ci-manager@example.test'});
  browserBusinesses[device]=b;
 }
-writeFileSync('.ci-connected.json',JSON.stringify({project:process.env.COMPOSE_PROJECT_NAME,accounts:browserAccounts,businesses:browserBusinesses,teamId:team.id,builderId:owner.id,commerce:commerceFixtures}),{mode:0o600});
+writeFileSync('.ci-connected.json',JSON.stringify({project:process.env.COMPOSE_PROJECT_NAME,accounts:browserAccounts,businesses:browserBusinesses,teamId:team.id,builderId:owner.id,commerce:commerceFixtures,maintenance:careFixtures}),{mode:0o600});
 console.log('Connected browser prerequisites created through the real Java API.');

@@ -52,16 +52,18 @@ public class MaintenanceBillingService {
     });
     UUID id=(UUID)reserved.get("id");
     if(Boolean.TRUE.equals(reserved.get("create"))) {
-      try {var plan=provider.createPlan(number(reserved,"amount_minor"),"getLancer care "+id,id,reserved.get("digest").toString());String planId=plan(reserved,plan);tx(()->{access.system(id);repo.bindPlan(id,planId);return null;});createSubscription(id);}
+      try {var plan=provider.createPlan(number(reserved,"amount_minor"),"getLancer care "+id,id,reserved.get("digest").toString());String planId=plan(reserved,plan);boolean bound=tx(()->{access.system(id);return repo.bindPlan(id,planId);});if(bound)createSubscription(id);}
       catch(RazorpayClient.ProviderFailure e){failed(id,e.rejected());throw unknown(e.rejected());}
       catch(ApiError e){failed(id,false);throw e;}
     }
     return tx(()->checkout(access.billing(id,r,"BUYER",true)));
   }
   private void createSubscription(UUID id) {
-    var s=tx(()->{var b=access.system(id);mode(b);access.requireEligible(access.delivery.lockEngagementSystem((UUID)b.get("engagement_id")));return new LinkedHashMap<>(b);});
+    var s=tx(()->{var b=access.system(id);mode(b);if(Boolean.TRUE.equals(b.get("cancel_requested"))){if(b.get("provider_subscription_id")==null&&Set.of("NOT_CREATED","REJECTED").contains(Objects.toString(b.get("subscription_state"))))repo.noSubscriptionCancelled(id);b.put("create",false);return new LinkedHashMap<>(b);}access.requireEligible(access.delivery.lockEngagementSystem((UUID)b.get("engagement_id")));requireCollection();if(!"NOT_CREATED".equals(b.get("subscription_state")))throw new ApiError(409,"BILLING_REQUIRES_RECOVERY","Subscription creation is already reserved and must not be repeated.");repo.subscriptionReserved(id);b.put("create",true);return new LinkedHashMap<>(b);});
+    if(!Boolean.TRUE.equals(s.get("create")))return;
     var response=provider.createSubscription(s.get("provider_plan_id").toString(),(int)number(s,"total_cycles"),id,s.get("digest").toString());
     String sub=subscription(s,response);tx(()->{access.system(id);repo.bindSubscription(id,sub,response.path("status").asText().toUpperCase(Locale.ROOT));repo.audit((UUID)s.get("offer_id"),null,"SUBSCRIPTION_BOUND","Provider subscription confirmed; invoice payment is still required.");return null;});
+    if(Boolean.TRUE.equals(tx(()->repo.billing(id,false)).get("cancel_requested")))cancelSystem(id);
   }
   private void failed(UUID id,boolean rejected){tx(()->{var s=access.system(id);repo.creationFailed(id,s.get("creation_step").toString(),rejected);repo.audit((UUID)s.get("offer_id"),null,"BILLING_CREATION_ATTENTION","Provider creation could not be safely completed. Duplicate creation is blocked.");return null;});}
   private static ApiError unknown(boolean rejected){return new ApiError(502,rejected?"MAINTENANCE_BILLING_REJECTED":"MAINTENANCE_BILLING_UNKNOWN","Billing creation needs operator verification. Do not create another subscription.");}
@@ -93,12 +95,12 @@ public class MaintenanceBillingService {
       for(var n:invoices) {
         equal(n.path("subscription_id").asText().equals(s.get("provider_subscription_id")));String invoiceId=id(n,"id","inv_");seen.add(invoiceId);
         if(!n.path("status").asText().equals("paid")) {equal(tx(()->repo.byInvoice(invoiceId))==null);continue;}
-        var i=invoice(s,n);var pay=provider.payment(i.payment());long refunded=payment(i,pay);var refunds=refunds(i,collection(skip->provider.refunds(i.payment(),skip),started),refunded);
+        var i=invoice(s,n);var pay=provider.payment(i.payment());long refunded=payment(i,pay);var refundRows=collection(skip->provider.refunds(i.payment(),skip),started);var refunds=refunds(i,refundRows,refunded);
         UUID period=tx(()->{generation(s);var prior=repo.byInvoice(i.id());if(prior==null){UUID p=UUID.randomUUID();repo.addPeriod(p,id,i.id(),i.payment(),i.order(),i.amount(),i.start(),i.end());return p;}equal(prior.get("subscription_id").equals(id)&&prior.get("payment_id").equals(i.payment())&&prior.get("order_id").equals(i.order())&&number(prior,"amount_minor")==i.amount()&&instant(prior.get("period_start")).equals(i.start())&&instant(prior.get("period_end")).equals(i.end()));return (UUID)prior.get("id");});
         var disputes=new LinkedHashMap<String,JsonNode>();for(var d:discovered)if(d.path("payment_id").asText().equals(i.payment()))disputes.put(id(d,"id","disp_"),d);
-        for(String known:tx(()->repo.knownDisputes(period)))disputes.put(known,provider.dispute(known));
+        var knownIds=new HashSet<>(tx(()->repo.knownDisputes(period)));knownIds.addAll(tx(()->repo.eventDisputes(i.payment(),started)));if(knownIds.size()>500)throw new ApiError(409,"PROVIDER_INCOMPLETE","Dispute discovery exceeded its safe bound.");for(String known:knownIds){if(Instant.now().isAfter(started.plusSeconds(90)))throw new ApiError(409,"PROVIDER_INCOMPLETE","Dispute discovery exceeded its time bound.");var fetched=provider.dispute(known);equal(fetched.path("id").asText().equals(known));disputes.put(known,fetched);}
         for(var d:disputes.values())dispute(i,d);
-        tx(()->{generation(s);repo.period(period,true);repo.financial(period,refunds.total(),refunds.pending());for(var d:disputes.values())repo.dispute(period,d.path("id").asText(),d.path("status").asText(),integer(d,"amount_deducted"));return null;});
+        tx(()->{generation(s);repo.period(period,true);for(var refund:refundRows)repo.refund(period,refund.path("id").asText(),integer(refund,"amount"),refund.path("status").asText());repo.financial(period,refunds.total(),refunds.pending()||repo.pendingRefund(period));for(var d:disputes.values())repo.dispute(period,d.path("id").asText(),d.path("status").asText(),integer(d,"amount_deducted"));return null;});
         route(s,period);
       }
       tx(()->{var current=generation(s);for(var p:repo.periods(id))equal(seen.contains(p.get("provider_invoice_id")));repo.status(id,sub.path("status").asText().toUpperCase(Locale.ROOT),terminal(sub.path("status").asText()));repo.fresh(id,started);repo.processed(id,started);if(Boolean.TRUE.equals(current.get("cancel_requested"))&&!terminal(sub.path("status").asText()))repo.cancelUnknown(id);return null;});
@@ -110,20 +112,20 @@ public class MaintenanceBillingService {
     if(items.size()==1) {
       String status=transfer(s,p,items.get(0));
       // An ambiguous operation is deliberately bound only by an MFA operator.
-      if(Set.of("UNKNOWN","CREATING","REJECTED").contains(p.get("transfer_state"))&&p.get("transfer_id")==null)return;
+      if(Set.of("UNKNOWN","CREATING","REJECTED").contains(p.get("transfer_state"))&&p.get("transfer_id")==null){tx(()->{generation(s);repo.period(period,true);repo.transferObserved(period,status,integer(items.get(0),"amount_reversed"));return null;});return;}
       tx(()->{generation(s);repo.period(period,true);repo.transferBound(period,items.get(0).path("id").asText(),status,integer(items.get(0),"amount_reversed"));return null;});return;
     }
     if(!p.get("transfer_state").equals("NOT_CREATED")){if(p.get("transfer_id")!=null)throw mismatch();return;}
-    boolean create=tx(()->{var current=generation(s);var row=repo.period(period,true);if(!row.get("transfer_state").equals("NOT_CREATED"))return false;
+    requireCollection();boolean create=tx(()->{var current=generation(s);var row=repo.period(period,true);if(!row.get("transfer_state").equals("NOT_CREATED"))return false;
       if(number(row,"refunded_minor")>0||Boolean.TRUE.equals(row.get("pending_refund"))||"HELD".equals(row.get("dispute_status"))||Boolean.TRUE.equals(current.get("local_hold")))return false;
       access.requireEligible(access.delivery.lockEngagementSystem((UUID)s.get("engagement_id")));repo.transferReserved(period);return true;});
     if(!create)return;
-    try{var created=provider.createPaymentTransfer(p.get("payment_id").toString(),s.get("account_id").toString(),number(p,"amount_minor"),(UUID)p.get("transfer_key"),p.get("provider_invoice_id").toString());var transfers=created.path("items");equal(transfers.isArray()&&transfers.size()==1);String status=transfer(s,p,transfers.get(0));tx(()->{access.system((UUID)s.get("id"));repo.period(period,true);repo.transferBound(period,transfers.get(0).path("id").asText(),status,integer(transfers.get(0),"amount_reversed"));return null;});}
+    try{var created=provider.createPaymentTransfer(p.get("payment_id").toString(),s.get("account_id").toString(),number(p,"amount_minor"),(UUID)p.get("transfer_key"),p.get("provider_invoice_id").toString());var transfers=created.path("items");equal(transfers.isArray()&&transfers.size()==1);String status=transfer(s,p,transfers.get(0));tx(()->{generation(s);repo.period(period,true);repo.transferBound(period,transfers.get(0).path("id").asText(),status,integer(transfers.get(0),"amount_reversed"));return null;});}
     catch(RuntimeException e){tx(()->{access.system((UUID)s.get("id"));repo.period(period,true);repo.transferUnknown(period,e instanceof RazorpayClient.ProviderFailure f&&f.rejected());return null;});}
   }
   public void cancel(UUID offer,HttpServletRequest r) {UUID id=tx(()->{access.offer(offer,r,"BUYER",false);var s=repo.forOffer(offer,true);if(s==null)throw new ApiError(409,"BILLING_NOT_READY","No subscription exists.");return (UUID)s.get("id");});cancelSystem(id);tx(()->{access.billing(id,r,"BUYER",false);return null;});}
   private void cancelSystem(UUID id) {
-    var before=tx(()->new LinkedHashMap<>(access.system(id)));mode(before);provider.requireCredentials();if(Boolean.TRUE.equals(before.get("cancel_confirmed")))return;
+    var before=tx(()->{var current=access.system(id);repo.cancelIntent(id);if(current.get("provider_subscription_id")==null&&(current.get("subscription_state")==null||Set.of("NOT_CREATED","REJECTED").contains(Objects.toString(current.get("subscription_state"))))repo.noSubscriptionCancelled(id);return new LinkedHashMap<>(repo.billing(id,false));});if(Boolean.TRUE.equals(before.get("cancel_confirmed")))return;mode(before);provider.requireCredentials();
     if(before.get("provider_subscription_id")==null)throw new ApiError(409,"BILLING_REQUIRES_RECOVERY","Recover provider creation before cancelling possible future billing.");
     var fetched=provider.subscription(before.get("provider_subscription_id").toString());subscription(before,fetched);
     if(terminal(fetched.path("status").asText())){tx(()->{access.system(id);repo.status(id,fetched.path("status").asText().toUpperCase(Locale.ROOT),true);return null;});return;}
@@ -136,16 +138,16 @@ public class MaintenanceBillingService {
     UUID actor=security.admin(r);String reason=text(body,"reason",10,1000);var s=tx(()->{security.admin(r);var row=access.system(id);mode(row);return new LinkedHashMap<>(row);});
     switch(action) {
       case "bind-plan" -> {equal(s.get("provider_plan_id")==null&&Set.of("UNKNOWN","CREATING").contains(s.get("plan_state")));String candidate=RazorpayClient.providerId(text(body,"providerId",10,40),"plan_");String confirmed=plan(s,provider.plan(candidate));equal(candidate.equals(confirmed));tx(()->{security.admin(r);var current=access.system(id);equal(current.get("provider_plan_id")==null);repo.bindPlan(id,confirmed);repo.audit((UUID)s.get("offer_id"),actor,"OPERATOR_PLAN_BOUND",reason);return null;});try{createSubscription(id);}catch(RuntimeException e){failed(id,e instanceof RazorpayClient.ProviderFailure f&&f.rejected());throw unknown(false);}}
-      case "bind-subscription" -> {equal(s.get("provider_subscription_id")==null&&s.get("provider_plan_id")!=null);String candidate=RazorpayClient.providerId(text(body,"providerId",9,40),"sub_");plan(s,provider.plan(s.get("provider_plan_id").toString()));var fetched=provider.subscription(candidate);equal(candidate.equals(subscription(s,fetched)));tx(()->{security.admin(r);var current=access.system(id);equal(current.get("provider_subscription_id")==null);repo.bindSubscription(id,candidate,fetched.path("status").asText().toUpperCase(Locale.ROOT));repo.audit((UUID)s.get("offer_id"),actor,"OPERATOR_SUBSCRIPTION_BOUND",reason);return null;});reconcile(id);}
-      case "bind-transfer" -> {UUID period=uuid(body.get("periodId"));var p=tx(()->{access.system(id);var row=repo.period(period,true);equal(row.get("subscription_id").equals(id));return new LinkedHashMap<>(row);});String candidate=RazorpayClient.providerId(text(body,"providerId",10,40),"trf_");var items=provider.transfers(p.get("payment_id").toString()).path("items");equal(items.isArray()&&items.size()==1&&items.get(0).path("id").asText().equals(candidate));String status=transfer(s,p,items.get(0));tx(()->{security.admin(r);access.system(id);var current=repo.period(period,true);equal(current.get("subscription_id").equals(id));transfer(s,current,items.get(0));repo.transferBound(period,candidate,status,integer(items.get(0),"amount_reversed"));repo.audit((UUID)s.get("offer_id"),actor,"OPERATOR_TRANSFER_BOUND",reason);return null;});reconcile(id);}
+      case "bind-subscription" -> {equal(s.get("provider_subscription_id")==null&&s.get("provider_plan_id")!=null);String candidate=RazorpayClient.providerId(text(body,"providerId",9,40),"sub_");plan(s,provider.plan(s.get("provider_plan_id").toString()));var fetched=provider.subscription(candidate);equal(candidate.equals(subscription(s,fetched)));tx(()->{security.admin(r);var current=access.system(id);equal(current.get("provider_subscription_id")==null);repo.bindSubscription(id,candidate,fetched.path("status").asText().toUpperCase(Locale.ROOT));repo.audit((UUID)s.get("offer_id"),actor,"OPERATOR_SUBSCRIPTION_BOUND",reason);return null;});if(Boolean.TRUE.equals(tx(()->repo.billing(id,false)).get("cancel_requested")))cancelSystem(id);reconcile(id);}
+      case "bind-transfer" -> {UUID period=uuid(body.get("periodId"));var p=tx(()->{access.system(id);var row=repo.period(period,true);equal(row.get("subscription_id").equals(id));return new LinkedHashMap<>(row);});String candidate=RazorpayClient.providerId(text(body,"providerId",10,40),"trf_");var items=provider.transfers(p.get("payment_id").toString()).path("items");equal(items.isArray()&&items.size()==1&&items.get(0).path("id").asText().equals(candidate));String status=transfer(s,p,items.get(0));tx(()->{security.admin(r);generation(s);var current=repo.period(period,true);equal(current.get("subscription_id").equals(id));transfer(s,current,items.get(0));repo.transferBound(period,candidate,status,integer(items.get(0),"amount_reversed"));repo.audit((UUID)s.get("offer_id"),actor,"OPERATOR_TRANSFER_BOUND",reason);return null;});reconcile(id);}
       case "hold","release-hold" -> {tx(()->{security.admin(r);access.system(id);repo.hold(id,action.equals("hold"));repo.audit((UUID)s.get("offer_id"),actor,action.equals("hold")?"OPERATOR_HOLD":"OPERATOR_HOLD_RELEASED",reason);return null;});if(action.equals("release-hold"))reconcile(id);}
-      case "reconcile" -> reconcile(id);
+      case "reconcile" -> {if(Boolean.TRUE.equals(s.get("cancel_requested"))&&!Boolean.TRUE.equals(s.get("cancel_confirmed")))cancelSystem(id);reconcile(id);}
       case "cancel" -> cancelSystem(id);
       default -> throw new ApiError(400,"VALIDATION_ERROR","Unknown maintenance operator action.");
     }
     return tx(()->{security.admin(r);var current=access.system(id);repo.audit((UUID)s.get("offer_id"),actor,"OPERATOR_"+action.toUpperCase(Locale.ROOT).replace('-','_'),reason);var out=summary(current);out.put("periods",repo.periods(id));return out;});
   }
-  public Map<String,Object> attention(HttpServletRequest r){security.admin(r);return repo.attention(r);}
+  public Map<String,Object> attention(HttpServletRequest r){security.admin(r);var page=repo.attention(r);for(var row:com.getlancer.shared.Pages.items(page))row.put("periods",repo.periods((UUID)row.get("id")).stream().map(p->{var out=new LinkedHashMap<String,Object>();out.put("id",p.get("id"));out.put("providerInvoiceId",p.get("provider_invoice_id"));out.put("transferState",p.get("transfer_state"));out.put("transferStatus",p.get("transfer_status"));out.put("attentionReason",p.get("attention_reason"));return out;}).toList());return page;}
   public Map<String,Object> webhook(HttpServletRequest r) {
     byte[] body;try{body=r.getInputStream().readNBytes(65537);}catch(IOException e){throw new ApiError(400,"INVALID_WEBHOOK","Webhook body unavailable.");}
     if(body.length>65536)throw new ApiError(413,"PAYLOAD_TOO_LARGE","Webhook exceeds its bound.");
@@ -156,7 +158,7 @@ public class MaintenanceBillingService {
   }
   private static String optionalId(JsonNode n,String prefix){return n.isMissingNode()||n.isNull()?null:RazorpayClient.providerId(n.asText(),prefix);}
   @Scheduled(fixedDelayString="${app.maintenance.reconcile-interval-ms:60000}")
-  public void pending(){if(!jobs||!enabled||webhookSecret.length()<16)return;for(UUID id:repo.pending())try{reconcile(id);}catch(RuntimeException ignored){/* Durable inbox and safe attention remain for operator/next bounded pass. */}}
+  public void pending(){if(!jobs||!enabled||webhookSecret.length()<16)return;for(UUID id:repo.pending())try{var current=tx(()->repo.billing(id,false));if(Boolean.TRUE.equals(current.get("cancel_requested"))&&!Boolean.TRUE.equals(current.get("cancel_confirmed")))cancelSystem(id);reconcile(id);}catch(RuntimeException ignored){/* Durable inbox and safe attention remain for operator/next bounded pass. */}}
   static Instant instant(Object value){return value instanceof java.sql.Timestamp t?t.toInstant():((java.time.OffsetDateTime)value).toInstant();}
   static Map<String,Object> summary(Map<String,Object> s){var out=new LinkedHashMap<String,Object>();for(String key:List.of("id","status","mode"))out.put(key,s.get(key));out.put("providerSubscriptionId",s.get("provider_subscription_id"));out.put("providerPlanId",s.get("provider_plan_id"));out.put("creationStep",s.get("creation_step"));out.put("attentionReason",s.get("attention_reason"));out.put("cancelRequested",s.get("cancel_requested"));out.put("cancelConfirmed",s.get("cancel_confirmed"));out.put("createdAt",s.get("created_at"));return out;}
 }
