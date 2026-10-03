@@ -1,4 +1,5 @@
 FROM node:22.23.3-alpine3.23
+RUN apk add --no-cache flock
 WORKDIR /opt/demo-publisher
 COPY --chown=node:node server.mjs ./server.mjs
 RUN mkdir /data && chown node:node /data

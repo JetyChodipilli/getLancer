@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
+import net from 'node:net';
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
@@ -31,11 +32,20 @@ function request(port, { method = 'GET', host = adminHost, target = '/health', b
 }
 async function harness(t, overrides = {}) {
   const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'demo-publisher-'));
-  const calls = []; let mode = 'allow'; let hold;
+  const calls = []; const gatewaySockets = new Set(); const gatewayPending = new Set(); let gatewayPeak = 0; let mode = 'allow'; let hold;
   const gateway = http.createServer((req, res) => {
     calls.push({ path: req.url, headers: req.headers });
     assert.equal(req.headers['x-getlancer-demo-gateway'], gatewaySecret);
+    if (mode === 'allowed-hang') {
+      gatewayPending.add(res); gatewayPeak = Math.max(gatewayPeak, gatewayPending.size);
+      res.once('close', () => gatewayPending.delete(res));
+      res.writeHead(200, { 'Content-Type': 'application/json' }); res.flushHeaders(); return;
+    }
     if (mode === 'hang') return;
+    if (mode === 'denied-hang' || mode === 'wrong-type-hang') {
+      res.writeHead(mode === 'denied-hang' ? 403 : 200, { 'Content-Type': mode === 'denied-hang' ? 'application/json' : 'text/plain' });
+      res.flushHeaders(); return;
+    }
     if (mode === 'hold') { hold = () => { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{"allowed":true}'); }; return; }
     if (mode === 'redirect') { res.writeHead(302, { Location: 'http://localhost:1/unapproved' }); res.end(); return; }
     if (mode === 'huge') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(' '.repeat(4097)); return; }
@@ -43,6 +53,7 @@ async function harness(t, overrides = {}) {
     if (mode === 'wrong-type') { res.writeHead(200, { 'Content-Type': 'text/plain' }); res.end('{"allowed":true}'); return; }
     res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ allowed: mode === 'allow' }));
   });
+  gateway.on('connection', socket => { gatewaySockets.add(socket); socket.once('close', () => gatewaySockets.delete(socket)); });
   await new Promise((resolve) => gateway.listen(0, 'localhost', resolve));
   const config = { dataDir, secret, adminHost, publicUrlTemplate: 'http://{id}.demo.localhost:8090',
     gatewayUrl: `http://localhost:${gateway.address().port}/api/v1/hosting/gateway`, gatewaySecret, ...overrides };
@@ -50,7 +61,7 @@ async function harness(t, overrides = {}) {
   t.after(async () => { if (publisher) await publisher.close(); gateway.closeAllConnections();
     if (gateway.listening) await new Promise((resolve) => gateway.close(resolve)); await fs.rm(dataDir, { recursive: true, force: true }); });
   publisher = await createPublisher(config); port = (await publisher.listen()).port;
-  return { calls, config, dataDir, get port() { return port; }, setMode(value) { mode = value; }, release() { assert.ok(hold); hold(); },
+  return { calls, config, dataDir, gatewaySockets, gatewayPending, get gatewayPeak() { return gatewayPeak; }, get server() { return publisher.server; }, get port() { return port; }, setMode(value) { mode = value; }, release() { assert.ok(hold); hold(); },
     async offline() { gateway.closeAllConnections(); await new Promise((resolve) => gateway.close(resolve)); },
     admin(method, id, body, options = {}) { return request(port, { method, target: `/deployments/${id}`, body, admin: true, ...options }); },
     public(id, target = '/', options = {}) { return request(port, { host: `${id}.demo.localhost:8090`, target, ...options }); },
@@ -278,7 +289,7 @@ test('chunked oversized upload returns 413 and concurrent upload limit rejects w
   const candidate = payload(); assert.equal((await h.admin('PUT', candidate.id, candidate)).status, 503); pending.destroy();
 });
 
-test('standalone process rejects a second writer and recovers abrupt crash with persistent identity/tombstone', async (t) => {
+test('F11 standalone process rejects a second writer and recovers abrupt crash with persistent identity/tombstone', async (t) => {
   const h = await harness(t); await h.stop();
   const probe = http.createServer(); await new Promise((resolve) => probe.listen(0, 'localhost', resolve)); const port = probe.address().port;
   await new Promise((resolve) => probe.close(resolve));
@@ -357,4 +368,124 @@ test('storage failure denies in-flight public reads after the gateway await', as
   assert.equal((await h.admin('DELETE', p.id)).status, 503);
   assert.equal((await request(h.port)).status, 503);
   h.release(); assert.equal((await reading).status, 503);
+});
+
+test('F1 stalled readers retain eight slots through finish/close and a deadline frees buffered responses', { timeout: 15_000 }, async (t) => {
+  const h = await harness(t); const p = payload(randomUUID(), { 'index.html': Buffer.alloc(HARD_LIMITS.fileBytes, 97) });
+  assert.equal((await h.admin('PUT', p.id, p)).status, 200);
+  const responses = []; const readers = [];
+  h.server.on('request', (req, res) => { if (req.headers.host === `${p.id}.demo.localhost:8090`) responses.push(res); });
+  t.after(() => { for (const socket of readers) socket.destroy(); });
+  const stalledRead = async () => {
+    const index = responses.length; const socket = net.createConnection({ host: 'localhost', port: h.port });
+    socket.on('error', () => {}); socket.pause(); readers.push(socket);
+    await new Promise(resolve => socket.once('connect', resolve));
+    socket.write(`GET / HTTP/1.1\r\nHost: ${p.id}.demo.localhost:8090\r\n\r\n`);
+    for (let attempt = 0; attempt < 200 && !responses[index]?.writableEnded; attempt++) await new Promise(resolve => setTimeout(resolve, 5));
+    assert.ok(responses[index]?.writableEnded); assert.equal(responses[index].statusCode, 200);
+    assert.equal(responses[index].writableFinished, false); return { socket, response: responses[index] };
+  };
+  for (let i = 0; i < 8; i++) await stalledRead();
+  assert.equal((await h.public(p.id)).status, 503, 'queued bodies must retain their admission slots');
+  const closed = new Promise(resolve => responses[0].once('close', resolve)); readers[0].destroy(); await closed;
+  await stalledRead();
+  assert.equal((await h.public(p.id)).status, 503, 'close must release exactly one slot');
+  const outstanding = responses.filter(res => res.statusCode === 200 && !res.destroyed);
+  const waitingSince = Date.now();
+  await Promise.all(outstanding.map(res => new Promise(resolve => res.once('close', resolve))));
+  assert.ok(Date.now() - waitingSince >= 8000, 'paused responses must remain admitted until their deadline');
+  assert.ok(outstanding.every(res => res.destroyed && res.writableLength === 0), 'deadline must destroy stalled sockets and free their queued bytes');
+  assert.equal((await h.public(p.id, '/', { method: 'HEAD' })).status, 200, 'deadline returns capacity');
+  assert.equal((await h.public(p.id)).status, 200, 'finished responses also return capacity');
+});
+
+test('F2 rejected unfinished gateway responses immediately close every transport', async (t) => {
+  const h = await harness(t); const p = payload(); await h.admin('PUT', p.id, p);
+  for (const mode of ['denied-hang', 'wrong-type-hang']) {
+    h.setMode(mode);
+    for (let i = 0; i < 12; i++) assert.equal((await h.public(p.id)).status, 403);
+    for (let attempt = 0; attempt < 60 && h.gatewaySockets.size; attempt++) await new Promise(resolve => setTimeout(resolve, 5));
+    assert.equal(h.gatewaySockets.size, 0, `${mode} must not retain sockets after rejecting its headers`);
+  }
+  h.setMode('allow'); assert.equal((await h.public(p.id)).status, 200);
+});
+
+test('F1 disconnected readers cancel unfinished gateway checks before returning capacity', { timeout: 10_000 }, async (t) => {
+  const h = await harness(t); const p = payload(); await h.admin('PUT', p.id, p); h.setMode('allowed-hang');
+  const responses = []; const sockets = [];
+  h.server.on('request', (req, res) => { if (req.headers.host === `${p.id}.demo.localhost:8090`) responses.push(res); });
+  t.after(() => { for (const socket of sockets) socket.destroy(); });
+  const pendingRead = async () => {
+    const count = h.calls.length; const index = responses.length;
+    const socket = net.createConnection({ host: 'localhost', port: h.port }); socket.on('error', () => {}); sockets.push(socket);
+    await new Promise(resolve => socket.once('connect', resolve));
+    socket.write(`GET / HTTP/1.1\r\nHost: ${p.id}.demo.localhost:8090\r\n\r\n`);
+    for (let attempt = 0; attempt < 200 && h.calls.length === count; attempt++) await new Promise(resolve => setTimeout(resolve, 5));
+    assert.equal(h.calls.length, count + 1, 'admitted reader must reach the real gateway');
+    const response = responses[index]; assert.ok(response);
+    return async () => { const closed = new Promise(resolve => response.once('close', resolve)); socket.destroy(); await closed; };
+  };
+  const close = []; for (let i = 0; i < 8; i++) close.push(await pendingRead());
+  assert.equal(h.gatewayPending.size, 8); assert.equal((await h.public(p.id)).status, 503);
+  await Promise.all(close.map(disconnect => disconnect()));
+  // Reproduce rapid disconnect churn without waiting for old gateway requests to time out.
+  for (let i = 0; i < 24; i++) { const disconnect = await pendingRead(); await disconnect(); }
+  assert.ok(h.gatewayPeak <= 8, `disconnect churn admitted ${h.gatewayPeak} simultaneous unfinished gateway checks`);
+  for (let attempt = 0; attempt < 60 && h.gatewayPending.size; attempt++) await new Promise(resolve => setTimeout(resolve, 5));
+  assert.equal(h.gatewayPending.size, 0, 'disconnect must close every outgoing gateway request promptly');
+  h.setMode('allow'); assert.equal((await h.public(p.id)).status, 200);
+});
+
+test('F11 concurrent stale lease recovery admits one writer', { timeout: 30_000 }, async (t) => {
+  const h = await harness(t); await h.stop();
+  const children = [];
+  t.after(async () => {
+    for (const child of children) if (child.exitCode === null && child.signalCode === null) {
+      const exited = new Promise(resolve => child.once('exit', resolve)); child.kill('SIGKILL'); await exited;
+    }
+  });
+  const script = `import {createPublisher} from ${JSON.stringify(new URL('../ops/demo-publisher/server.mjs', import.meta.url).href)};
+    process.stdin.resume(); process.stdout.write('READY\\n');
+    await new Promise(resolve => process.stdin.once('data', resolve));
+    try { const publisher = await createPublisher(JSON.parse(process.env.PUBLISHER_TEST_CONFIG));
+      process.stdout.write('OPEN\\n'); process.stdin.once('end', async () => { await publisher.close(); process.exit(0); });
+    } catch(error) { process.stdout.write('REJECTED:'+error.message+'\\n'); process.exit(1); }`;
+  const launch = config => {
+    const child = spawn(process.execPath, ['--input-type=module', '-e', script], {
+      env: { ...process.env, PUBLISHER_TEST_CONFIG: JSON.stringify(config) }, stdio: ['pipe', 'pipe', 'pipe'] });
+    children.push(child); let output = ''; const waits = [];
+    child.stdout.on('data', chunk => { output += chunk; for (const item of waits) if (output.includes(item.marker)) item.resolve(output); });
+    child.stderr.on('data', () => {});
+    const waitFor = marker => output.includes(marker) ? Promise.resolve(output) : new Promise(resolve => waits.push({ marker, resolve }));
+    return { child, waitFor, result: () => output };
+  };
+  for (let trial = 0; trial < 8; trial++) {
+    const dataDir = path.join(h.dataDir, `race-${trial}`); await fs.mkdir(dataDir);
+    await fs.writeFile(path.join(dataDir, 'writer.lock'), JSON.stringify({ pid: 99999999, identity: 'dead', token: 'stale' }));
+    const racers = [launch({ ...h.config, dataDir }), launch({ ...h.config, dataDir })];
+    await Promise.all(racers.map(racer => racer.waitFor('READY')));
+    for (const racer of racers) racer.child.stdin.write('go');
+    for (let attempt = 0; attempt < 400 && racers.some(racer => !/OPEN|REJECTED:/.test(racer.result())); attempt++) await new Promise(resolve => setTimeout(resolve, 5));
+    assert.equal(racers.filter(racer => racer.result().includes('OPEN')).length, 1, `stale recovery trial ${trial}: ${racers.map(racer => racer.result()).join(';')}`);
+    assert.equal(racers.filter(racer => racer.result().includes('REJECTED:')).length, 1);
+    for (const racer of racers) if (racer.child.exitCode === null && racer.child.signalCode === null) {
+      const exited = new Promise(resolve => racer.child.once('exit', resolve)); racer.child.stdin.end(); await exited;
+    }
+    const restart = await createPublisher({ ...h.config, dataDir }); await restart.close();
+  }
+});
+
+test('F11 parent descriptor retains the lock after acquisition utility exits and preserves its inode', async (t) => {
+  const h = await harness(t); const p = payload(); await h.admin('PUT', p.id, p);
+  const inode = (await fs.stat(path.join(h.dataDir, 'writer.flock'))).ino;
+  const tryLock = () => new Promise((resolve, reject) => {
+    const child = spawn('flock', ['-n', '-E', '75', path.join(h.dataDir, 'writer.flock'), 'true'], { stdio: 'ignore' });
+    child.once('error', reject); child.once('exit', resolve);
+  });
+  // createPublisher only resolves after the short-lived acquisition utility has exited.
+  assert.equal(await tryLock(), 75, 'Node must retain the shared open file description lock');
+  await h.stop(); assert.equal(await tryLock(), 0, 'close must release the parent descriptor');
+  await h.restart(); assert.equal((await fs.stat(path.join(h.dataDir, 'writer.flock'))).ino, inode);
+  assert.equal(await tryLock(), 75, 'restart must reacquire the same permanent inode');
+  assert.equal((await h.public(p.id)).status, 200);
 });

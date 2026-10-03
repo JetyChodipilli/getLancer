@@ -12,6 +12,11 @@ The API is a Java 17 / Spring Boot modular monolith with PostgreSQL and Flyway. 
 | `config` | Environment validation and sole-administrator bootstrap |
 | `inquiries` | Builder/client requests, shared outcomes, reviews and confirmation contracts |
 | `jobs` | Scheduled expiry and retention tasks |
+| `maintenance` | Consented recurring care, financial reconciliation, support quotas and MFA recovery |
+| `hosting` | Built static ZIP consent/review, fixed deployment identities, withdrawal and gateway authority |
+| `commerce` | Source-template releases, purchases and protected delivery |
+| `delivery` | Consented agreements, milestones and dispute workflows |
+| `payments` | Provider verification, financial reservations, refunds, disputes, transfers and ledgers |
 | `media` | Proof uploads, image sanitization, storage and access |
 | `moderation` | Report triage, decisions, appeals and mail recovery |
 | `notifications` | Transactional mail and notification delivery |
@@ -26,7 +31,7 @@ HTTP controllers own route/parameter/status annotations and delegate to applicat
 
 Controllers never inject another controller or JdbcTemplate. Cross-feature calls use explicit service or policy methods. Tests follow their owning feature; PostgreSQL scenarios live in `integration`, database reset guards in `testing`, and boundary/route checks in `architecture`.
 
-Run `mvn -B -f backend/pom.xml verify` with the guarded disposable `getlancer_test` configuration described in the root README. BackendArchitectureTest checks feature placement, controller/service boundaries and the 145-route HTTP contract (121 existing routes plus 24 V2.5 routes). V13 adds private business hiring tables without changing existing V1–V2 routes.
+Run `mvn -B -f backend/pom.xml verify` with the guarded disposable `getlancer_test` configuration described in the root README. BackendArchitectureTest checks feature placement, controller/service boundaries and the published HTTP route contract in `src/test/resources/api-route-contract.txt`, including maintenance and hosting routes. New operator recovery actions use the existing action route; historical route counts are not the current inventory.
 
 The cloud Site publishes the demo frontend with `DEMO_MODE=true` while BACKEND_URL is absent. The real frontend, this Java service, migrations, tests and container manifests are maintained together in GitHub. Configuring BACKEND_URL always selects the real frontend and disables the sample workspace routes; use `DEMO_MODE=false` to also reject a missing backend URL.
 
@@ -34,3 +39,5 @@ Java has no demo mode or fake data adapter. Its runtime reads and writes Postgre
 
 
 V3 adds `delivery` (source-authorized agreements and milestones) and `payments` (Razorpay orders, webhook verification, ledger and reconciliation). [The commercial workflow contract](../docs/09_V3_COMMERCIAL_WORKFLOWS.md) defines their shared repository boundary and activation requirements. INR amounts use integer paise. Payment keys and linked seller accounts are never seeded. Backend origin exposes the exact signed webhook route separately from same-origin browser mutations.
+
+V4 includes maintenance/support and reviewed static hosting. V21 creates retained care/financial records, V22 creates hosting records, and V23 retains known refund references. Collection and publisher activation remain separate, disabled deployment choices. See [maintenance operations](../docs/V4_OPERATIONS.md) and [hosting operations](../docs/V4_HOSTING_OPERATIONS.md).

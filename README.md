@@ -4,7 +4,7 @@ A proof-of-work marketplace connecting clients with the builders behind working 
 
 ## Current implementation status
 
-**V4.0 milestone 1 adds maintenance and support for completed delivery:** immutable monthly care agreements, separate recurring billing consent, verified paid-period access, support requests and MFA recovery. See the [V4 contract](docs/V4_CONTRACT.md) and [operations guide](docs/V4_OPERATIONS.md). Collection stays disabled until the actual merchant approves Subscriptions, Route and commercial policies. Hosted demos remain a later V4 milestone. The cloud Site publishes the private, isolated frontend sample at `/preview/maintenance`.
+**V4.0 implements maintenance/support and reviewed static frontend demos:** immutable monthly care agreements, separate recurring billing consent, verified paid-period access, bounded support requests, MFA recovery, built ZIP review and isolated publication. See the [V4 contract](docs/V4_CONTRACT.md), [maintenance operations](docs/V4_OPERATIONS.md) and [hosting operations](docs/V4_HOSTING_OPERATIONS.md). Collection and hosting remain disabled by default. Merchant approval, live provider acceptance and separate publisher/DNS/TLS setup remain deployment requirements. The private cloud Site provides labelled frontend exercises at `/preview/maintenance` and `/preview/hosting`.
 
 The active visual system is [Spectral Studio](docs/SPECTRAL_STUDIO_ACCEPTANCE.md), using the installed shadcn components and current authentication artwork.
 
@@ -16,17 +16,19 @@ The active visual system is [Spectral Studio](docs/SPECTRAL_STUDIO_ACCEPTANCE.md
 | V2.5 | Business workspaces, hiring-manager consent, private briefs, shared talent lists, evidence matching and opted-in concierge | `app/workspace/business`, `backend/src/main/java/com/getlancer/business`, migration `V13__business_hiring.sql`; [V2.5 acceptance](docs/V2_5_ACCEPTANCE.md) |
 | V3 | Source-authorized proposals, immutable consented agreements, milestone delivery/revision/acceptance, disputes, Razorpay orders and signed provider reconciliation | `app/workspace/delivery`, `backend/src/main/java/com/getlancer/{delivery,payments}`, migrations `V14__delivery.sql` and `V15__payments.sql`; [V3 contract](docs/09_V3_COMMERCIAL_WORKFLOWS.md) |
 | V3.5 | Versioned source templates, consented purchases and protected delivery | [V3.5 contract](docs/V3_5_CONTRACT.md) and [acceptance](docs/V3_5_ACCEPTANCE.md) |
-| V4.0 milestone 1 | Monthly maintenance, recurring invoice authority, bounded requests and operator recovery | `app/workspace/maintenance`, `backend/src/main/java/com/getlancer/maintenance`, migration `V21__maintenance_support.sql`; [V4 contract](docs/V4_CONTRACT.md) |
+| V4.0 | Monthly maintenance, recurring invoice authority, bounded requests, operator recovery and reviewed static hosting | `app/workspace/{maintenance,hosting}`, `backend/src/main/java/com/getlancer/{maintenance,hosting}`, `ops/demo-publisher`, migrations V21–V23; [V4 contract](docs/V4_CONTRACT.md) |
+
+Merged V4 baseline: [main CI run 37122827837](https://github.com/JetyChodipilli/getLancer/actions/runs/37122827837) passed on `e61316043a057befa2ba4ac8849bec0787ac92df` with 278 Java tests, 105 Node tests, 89 responsive browser checks and 15 connected browser checks, plus encrypted database restore. This is the pre-audit-fix checkpoint; use the current pull request checks for subsequent changes.
 
 Historical V3 verification: [Main CI run 36756252636](https://github.com/JetyChodipilli/getLancer/actions/runs/36756252636) passed on merged commit `31f027f4e9f3603a78b1fa302bb9009c7d0a6771`: **157 backend tests, 66 frontend tests, 15 preview browser checks and 3 connected browser journeys**, plus real service journeys and encrypted database recovery. Connected browser journeys use the production frontend against disposable Java/PostgreSQL/SMTP/object-storage services at desktop, phone and tablet widths. They do not certify the eventual production providers.
 
-Use the V4 contract and operations guide above for this milestone, plus [hosted staging preparation](ops/STAGING.md) for deployment requirements. The V1 implementation and verification documents below preserve earlier checkpoints.
+Use the V4 contract and operations guides above for the current implementation, plus [hosted staging preparation](ops/STAGING.md) for deployment requirements. The V1 implementation and verification documents below preserve earlier checkpoints.
 
 ### Why some files still say V1
 
 GitHub's folder listing shows the last commit that changed each folder. An unchanged folder can still show `Import getLancer V1 implementation...` while newer phase code exists elsewhere in the tree. These historical commit messages do not identify the current product phase.
 
-`/api/v1` is the stable HTTP contract namespace used by V1 through V4. Flyway's `V1__...` through `V21__...` identify ordered database migrations. Package and JAR versions are separate build coordinates. None of these is a feature switch or a reason to rewrite migration history.
+`/api/v1` is the stable HTTP contract namespace used by V1 through V4. Flyway's `V1__...` through `V23__...` identify ordered database migrations. Package and JAR versions are separate build coordinates. None of these is a feature switch or a reason to rewrite migration history.
 
 Authentication redesign and Google activation steps: [AUTHENTICATION.md](docs/AUTHENTICATION.md). Login now asks for an administrator authenticator code only after the administrator password is verified. Google sign-in requires its backend credentials; it is unavailable in the disconnected preview.
 
@@ -35,7 +37,7 @@ Historical V1 checkpoints: [implementation status](docs/V1_IMPLEMENTATION.md), [
 
 ## Structure
 
-- `app/`: discovery, project details, builder profiles, accounts, builder/team/business/delivery/maintenance workspaces, client requests and moderation.
+- `app/`: discovery, project details, builder profiles, accounts, builder/team/business/delivery/maintenance/hosting workspaces, client requests and moderation.
 - `backend/`: Java 17 / Spring Boot, PostgreSQL / Flyway, transactional email and S3, organized into [feature packages with controller/service boundaries](backend/README.md).
 - `lib/`: shared search state, server API configuration, analytics and SEO.
 - `tests/`: frontend route/component checks; `tests/browser` and `tests/connected`: preview and connected browser journeys. `backend/src/test/`: rule and database integration tests.
@@ -88,7 +90,7 @@ Configure these server-only frontend settings when connecting the backend:
 
 The browser uses same-origin `/api/v1` requests. Database, email and storage secrets never enter client code. A configured but unavailable API returns an error rather than substituting sample listings.
 
-Without a backend, six fictional projects and labelled workspace previews are available for design review. Account/inquiry actions are unavailable. When BACKEND_URL is configured, all three `/preview/*` routes redirect to their real `/workspace/*` counterparts. API failures and empty databases never trigger sample data or demo invitations. Clear BACKEND_URL only when intentionally returning to the frontend-only preview.
+Without a backend, six fictional projects and labelled workspace previews are available for design review. Account/inquiry actions are unavailable. When BACKEND_URL is configured, all `/preview/*` routes redirect to their real `/workspace/*` counterparts. API failures and empty databases never trigger sample data or demo invitations. Clear BACKEND_URL only when intentionally returning to the frontend-only preview.
 
 The Java runtime has no demo mode, sample users, sample projects, fake sessions or in-memory marketplace adapter. Flyway inserts supported taxonomy values only. Bootstrap creates the configured real administrator with a BCrypt password and TOTP; it does not seed listings or teams. Test fixtures and Mockito are confined to `src/test` and are excluded from the production JAR. `DemoHealth` is the real outbound reachability check for builders' live project URLs.
 
@@ -103,7 +105,7 @@ The Java runtime has no demo mode, sample users, sample projects, fake sessions 
 - Private inquiries, emails and NDA-safe content are excluded from public APIs.
 - One-time tokens are hashed and expiring; new email links keep the token in a URL fragment.
 - Images are checked and re-encoded; external URLs must resolve to public HTTPS destinations.
-- Legacy inquiry reports describe work arranged externally. V3 Delivery records consented agreements and supports enabled Razorpay milestone payments. There is no template checkout, paid ranking or arbitrary developer-code execution.
+- Legacy inquiry reports describe work arranged externally. V3 Delivery records consented agreements and supports enabled Razorpay milestone payments. V3.5 adds consented source-template checkout and protected delivery. V4 accepts reviewed built static frontend ZIPs. Paid ranking and server execution of submitted code are outside this implementation.
 
 ## Release preparation
 
