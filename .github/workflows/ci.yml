@@ -123,7 +123,8 @@ jobs:
           import {readFileSync,writeFileSync} from 'node:fs';
           import {randomBytes} from 'node:crypto';
           let value=readFileSync('.env','utf8').replace(/^ADMIN_EMAIL=.*$/m,'ADMIN_EMAIL=ci-admin@example.test');
-          value+='\nCOMPOSE_PROFILES=hosting\nHOSTED_DEMOS_ENABLED=true\nDEMO_PUBLISHER_URL=http://demo-publisher:8090\nDEMO_PUBLIC_URL_TEMPLATE=http://{id}.demo.localhost:8090\nDEMO_PUBLISHER_SECRET='+randomBytes(32).toString('hex')+'\nDEMO_GATEWAY_SECRET='+randomBytes(32).toString('hex')+'\n';
+          const hosting={COMPOSE_PROFILES:'hosting',HOSTED_DEMOS_ENABLED:'true',DEMO_PUBLISHER_URL:'http://demo-publisher:8090',DEMO_PUBLIC_URL_TEMPLATE:'http://{id}.demo.localhost:8090',DEMO_PUBLISHER_SECRET:randomBytes(32).toString('hex'),DEMO_GATEWAY_SECRET:randomBytes(32).toString('hex')};
+          value=value.split('\n').filter(line=>!Object.keys(hosting).some(key=>line.startsWith(key+'='))).join('\n')+'\n'+Object.entries(hosting).map(([key,value])=>key+'='+value).join('\n')+'\n';
           writeFileSync('.env',value,{mode:0o600});
           JS
       - run: docker compose config --quiet
