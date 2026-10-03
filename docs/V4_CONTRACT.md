@@ -20,7 +20,7 @@ Each captured invoice has one independently reserved payment-linked Route transf
 
 Raw webhook bytes are bounded and signed before JSON parsing. Event ID plus SHA-256 deduplicates exact deliveries and rejects conflicting payloads. A durable inbox retains unmatched/pre-binding events for scheduled reconciliation. Events trigger authoritative fetching; they do not overwrite payment authority. Reconciliation failure removes fresh-service availability. Scheduled work is bounded, with explicit refresh and operator recovery.
 
-Buyer cancellation persists its own obligation before requesting immediate provider cancellation. A lost response is reconciled by GET before any retry. Only a matching terminal provider status confirms stopped billing. Eligible, undisputed prepaid access continues until the invoice's exclusive end. Cancellation remains possible when the seller is ineligible. Self-service account deletion is blocked while a personal or represented-party subscription has an unconfirmed billing obligation; the account must cancel it or obtain operator recovery first.
+Buyer cancellation persists its own obligation before requesting immediate provider cancellation. A lost response is reconciled by GET before any retry. Only a matching terminal provider status confirms stopped billing. Eligible, undisputed prepaid access continues until the invoice's exclusive end. Cancellation remains possible when the seller is ineligible. Self-service account deletion is blocked while a personal payer/delivery-party or represented-owner subscription has an unconfirmed billing obligation; the account must cancel it or obtain operator recovery first.
 
 ## Support and interface
 

@@ -68,12 +68,25 @@ class MaintenanceIntegrationTest {
   UUID offer=paid();String request=ok(body(post(base(offer)+"/requests"),"care-buyer",Map.of("title","Notification fix","description","Correct the approval notification for the second reviewer.")).header("Idempotency-Key",UUID.randomUUID())).path("id").asText();
   fixture.invalidRefundStatus=true;mvc.perform(body(post(base(offer)+"/requests/"+request+"/start"),"care-seller",Map.of())).andExpect(status().isConflict());assertEquals("OPEN",db.queryForObject("SELECT status FROM maintenance_requests",String.class));
   fixture.invalidRefundStatus=false;fixture.pendingRefund=true;ok(body(post(base(offer)+"/billing/refresh"),"care-buyer",Map.of()));var attention=ok(as(get("/api/v1/admin/maintenance/attention"),"care-admin"));assertEquals(1,attention.path("items").size());assertTrue(attention.path("items").get(0).path("periods").get(0).path("pendingRefund").asBoolean());mvc.perform(body(post(base(offer)+"/requests/"+request+"/start"),"care-seller",Map.of())).andExpect(status().isConflict());
-  fixture.pendingRefund=false;ok(body(post(base(offer)+"/requests/"+request+"/start"),"care-seller",Map.of()));assertEquals("IN_PROGRESS",db.queryForObject("SELECT status FROM maintenance_requests",String.class));
+  fixture.pendingRefund=false;fixture.failedRefund=true;ok(body(post(base(offer)+"/requests/"+request+"/start"),"care-seller",Map.of()));assertEquals("IN_PROGRESS",db.queryForObject("SELECT status FROM maintenance_requests",String.class));
  }
 
  @Test void tooManySignedDisputeReferencesRemainPendingAndCannotMarkFresh()throws Exception{
   UUID offer=paid();for(int n=0;n<501;n++)db.update("INSERT INTO maintenance_webhook_events(event_id,payload_hash,event_kind,payment_id,dispute_id) VALUES(?,repeat('a',64),'payment.dispute.created',?,?)","care-cap-"+n,MaintenanceFixture.PAYMENT,"disp_bounded"+n);
   mvc.perform(body(post(base(offer)+"/billing/refresh"),"care-buyer",Map.of())).andExpect(status().isConflict());assertNull(db.queryForObject("SELECT reconciled_at FROM maintenance_subscriptions",java.sql.Timestamp.class));assertEquals(501,db.queryForObject("SELECT count(*) FROM maintenance_webhook_events WHERE processed_at IS NULL",Integer.class));assertEquals(1,fixture.transfers.get());assertFalse(ok(as(get(base(offer)),"care-buyer")).path("entitlement").path("available").asBoolean());
+ }
+
+ @Test void expiredPeriodDeniesNewRequestsButRetainedExistingWorkCanContinue()throws Exception{
+  fixture.period(true);UUID offer=accepted();start(offer);fixture.paid=true;ok(body(post(base(offer)+"/billing/refresh"),"care-buyer",Map.of()));UUID subscription=db.queryForObject("SELECT id FROM maintenance_subscriptions",UUID.class),period=db.queryForObject("SELECT id FROM maintenance_periods",UUID.class),request=UUID.randomUUID();
+  // Disposable historical request fixture models work opened during this now-expired period.
+  db.update("INSERT INTO maintenance_requests(id,subscription_id,period_id,actor_id,request_key,title,description,response_due_at,created_at) VALUES(?,?,?,?,?,'Prior care request','Retained work opened while the historical period was paid.',now()-interval '1 day',now()-interval '2 days')",request,subscription,period,buyer,UUID.randomUUID());
+  assertFalse(ok(as(get(base(offer)),"care-buyer")).path("entitlement").path("available").asBoolean());mvc.perform(body(post(base(offer)+"/requests"),"care-buyer",Map.of("title","New care request","description","New requests require a currently active paid invoice period.")).header("Idempotency-Key",UUID.randomUUID())).andExpect(status().isConflict());
+  ok(body(post(base(offer)+"/requests/"+request+"/start"),"care-seller",Map.of()));assertEquals("IN_PROGRESS",db.queryForObject("SELECT status FROM maintenance_requests",String.class));mvc.perform(body(post(base(offer)+"/requests/"+UUID.randomUUID()+"/start"),"care-seller",Map.of())).andExpect(status().isNotFound());
+ }
+
+ @Test void failedCancellationPreflightRetainsAuditedVisibleIntentWithoutInventingAnAttempt()throws Exception{
+  UUID offer=paid();fixture.failSubscriptionGet=true;mvc.perform(body(post(base(offer)+"/billing/cancel"),"care-buyer",Map.of())).andExpect(status().isBadGateway());assertTrue(db.queryForObject("SELECT cancel_requested FROM maintenance_subscriptions",Boolean.class));assertNull(db.queryForObject("SELECT cancel_state FROM maintenance_subscriptions",String.class));assertEquals(0,fixture.cancels.get());assertEquals(1,ok(as(get("/api/v1/admin/maintenance/attention"),"care-admin")).path("items").size());assertEquals(1,db.queryForObject("SELECT count(*) FROM maintenance_audit WHERE kind='CANCELLATION_INTENT_REQUESTED'",Integer.class));
+  fixture.failSubscriptionGet=false;ok(body(post(base(offer)+"/billing/cancel"),"care-buyer",Map.of()));assertEquals(1,fixture.cancels.get());assertTrue(ok(as(get(base(offer)),"care-buyer")).path("entitlement").path("available").asBoolean());
  }
 
 }
