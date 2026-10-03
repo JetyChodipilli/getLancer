@@ -25,7 +25,7 @@ test('upload hints reject missing/empty/oversized/non-ZIP packages and invalid m
   for(const [title,version,consent] of [['x','1',true],['x'.repeat(101),'1',true],['Frontend','..1',true],['Frontend','1/2',true],['Frontend','a'.repeat(41),true],['Frontend','1',false]])assert.throws(()=>validateHostingUpload(valid,title,version,consent));
 });
 test('sample record and unresolved deployment bounds are enforced',()=>{
-  const {p,id}=approved();p.publish(id,true);
+  const {p,id}=approved();assert.throws(()=>p.create('Duplicate immutable version','1.0.0',true));p.publish(id,true);
   for(let i=0;i<2;i++){const created=p.create('Additional frontend '+i,'1.1.'+i,true);p.submit(created.id,true);p.setActor('OPERATOR');p.review(created.id,decision);p.setActor('BUILDER');p.publish(created.id,true);}
   const fourth=p.create('Fourth frontend','4',true);p.submit(fourth.id,true);p.setActor('OPERATOR');p.review(fourth.id,decision);p.setActor('BUILDER');assert.throws(()=>p.publish(fourth.id));p.withdraw(id);p.publish(fourth.id);
   while(p.list().length<10)p.create('Retained frontend','retained-'+p.list().length,true);assert.throws(()=>p.create('Over retained limit','1',true));const page=hostingPage(p.list(),1,3);assert.equal(page.items.length,3);assert.equal(page.totalItems,10);assert.equal(page.totalPages,4);assert.equal(page.hasMore,true);page.items[0].files[0].path='mutated';assert.notEqual(p.list()[3].files[0].path,'mutated');

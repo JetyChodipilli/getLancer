@@ -131,7 +131,8 @@ test('independent id, hashes, manifest, base64, times, schema and file bounds va
 
 test('path allowlist denies traversal, dot/private/source/archive names, duplicates, case and parent collisions', async (t) => {
   const h = await harness(t);
-  for (const invalid of ['../outside.txt', '/outside.txt', 'a//b.txt', '.env', 'a/.private.txt', 'a\\b.txt', 'a%2fb.txt', 'a/../b.txt', 'file.js.map', 'file.zip', 'file.exe', 'source.ts', 'credentials.json', 'secret.json', 'private-key.txt', 'é.txt']) {
+  for (const invalid of ['../outside.txt', '/outside.txt', 'a//b.txt', '.env', 'a/.private.txt', 'a\\b.txt', 'a%2fb.txt', 'a/../b.txt', 'file.js.map', 'file.zip', 'file.exe', 'source.ts', 'credentials.json', 'secret.json', 'private-key.txt',
+    'tokens.json', 'assets/design-tokens.js', 'tokens/theme.css', 'é.txt']) {
     const p = payload(randomUUID(), { 'index.html': '', [invalid]: 'bad' }); assert.equal((await h.admin('PUT', p.id, p)).status, 400, invalid);
   }
   const noRoot = payload(randomUUID(), { 'nested/index.html': '' }); assert.equal((await h.admin('PUT', noRoot.id, noRoot)).status, 400);
@@ -140,7 +141,9 @@ test('path allowlist denies traversal, dot/private/source/archive names, duplica
     const p = payload(randomUUID(), files); assert.equal((await h.admin('PUT', p.id, p)).status, 400);
   }
   const duplicate = payload(); duplicate.files.push(duplicate.files.at(-1)); assert.equal((await h.admin('PUT', duplicate.id, duplicate)).status, 400);
-  const p = payload(randomUUID(), { 'index.html': 'ok', 'README.md': 'Useful frontend sample notice.', 'LICENSE': 'Useful frontend license notice.', 'nested/LICENCE': 'Useful frontend license notice.' }); assert.equal((await h.admin('PUT', p.id, p)).status, 200);
+  const p = payload(randomUUID(), { 'index.html': 'ok', 'README.md': 'Useful frontend sample notice.', 'LICENSE': 'Useful frontend license notice.',
+    'nested/LICENCE': 'Useful frontend license notice.', 'tokens.css': ':root { --color: red; }', 'assets/design-tokens.css': ':root { --space: 1rem; }' });
+  assert.equal((await h.admin('PUT', p.id, p)).status, 200);
   assert.equal((await h.public(p.id, '/README.md')).headers['content-type'], 'text/plain; charset=utf-8');
   for (const target of ['/../record.json', '/%2e%2e/record.json', '/assets%2fmain.js', '/%2findex.html', '//index.html', '/index.html%00', '/a\\b.txt', '/%ZZ']) assert.equal((await h.public(p.id, target)).status, 400, target);
   assert.equal(await fs.access(path.join(h.dataDir, 'outside.txt')).then(() => true, () => false), false);
@@ -187,8 +190,8 @@ test('expiry blocks serving, removes bytes and retains identity across restart; 
   now += 2000; assert.equal((await h.public(p.id)).status, 404); assert.equal((await h.admin('GET', p.id)).json.state, 'DELETED');
   assert.equal(await fs.access(path.join(h.dataDir, 'identities', p.id, 'bundle')).then(() => true, () => false), false);
   const third = payload(randomUUID(), { 'index.html': 'a' }); assert.equal((await h.admin('PUT', third.id, third)).status, 200);
-  assert.equal((await h.admin('DELETE', randomUUID())).status, 507);
-  const fourth = payload(randomUUID(), { 'index.html': 'a' }); assert.equal((await h.admin('PUT', fourth.id, fourth)).status, 507);
+  const neverCreated = randomUUID(); assert.deepEqual((await h.admin('DELETE', neverCreated)).json, { id: neverCreated, state: 'DELETED' });
+  const fourth = payload(randomUUID(), { 'index.html': 'a' }); assert.equal((await h.admin('PUT', fourth.id, fourth)).status, 409);
   await h.restart(); assert.equal((await h.admin('PUT', p.id, p)).status, 409); assert.equal((await h.admin('GET', p.id)).json.state, 'DELETED');
 });
 
@@ -225,7 +228,8 @@ test('startup cleans orphan staging and withdrawn bytes without dropping tombsto
 
 test('configuration requires isolated origins, exact gateway, independent secrets and downward-only limits', async (t) => {
   const h = await harness(t);
-  for (const override of [{ secret: 'short' }, { gatewaySecret: secret }, { adminHost: 'admin/path' }, { publicUrlTemplate: 'https://demo.example/{id}' },
+  for (const override of [{ secret: 'short' }, { gatewaySecret: secret }, { adminHost: 'admin/path' },
+    { adminHost: `${randomUUID()}.demo.localhost:8090` }, { publicUrlTemplate: 'https://demo.example/{id}' },
     { publicUrlTemplate: 'http://{id}.example.com' }, { publicUrlTemplate: 'https://{id}.demo.example/a' }, { gatewayUrl: 'https://api.example/arbitrary' },
     { gatewayUrl: 'http://public.example/api/v1/hosting/gateway' }, { maxBytes: HARD_LIMITS.storageBytes + 1 }, { maxIdentities: 1001 },
     { requestsPerMinute: 241 }, { dataDir: 'relative' }]) await assert.rejects(createPublisher({ ...h.config, ...override }));
@@ -249,6 +253,8 @@ test('maximum valid 10 MiB and 256 files publish; credential, invalid text and d
     const candidate = payload(randomUUID(), { 'index.html': 'valid', 'image.png': Buffer.from(`${magic}000102030405`, 'hex') });
     assert.equal((await h.admin('PUT', candidate.id, candidate)).status, 400, magic);
   }
+  const tar = Buffer.alloc(512); tar.write('ustar', 257, 'ascii');
+  const renamedTar = payload(randomUUID(), { 'index.html': 'valid', 'image.png': tar }); assert.equal((await h.admin('PUT', renamedTar.id, renamedTar)).status, 400);
   for (const name of ['package.json', 'node_modules/a.js', 'lock/package-lock.json', 'service-account.json']) {
     const candidate = payload(randomUUID(), { 'index.html': 'valid', [name]: 'x' }); assert.equal((await h.admin('PUT', candidate.id, candidate)).status, 400, name);
   }
@@ -299,4 +305,42 @@ test('standalone process rejects a second writer and recovers abrupt crash with 
   await stop(second, 'SIGTERM'); const third = launch(); await ready(third);
   assert.equal((await request(port, { method: 'PUT', target: `/deployments/${p.id}`, admin: true, body: p })).status, 409);
   assert.equal((await request(port, { host: `${p.id}.demo.localhost:8090`, target: '/' })).status, 404); await stop(third, 'SIGTERM');
+});
+
+test('full identity capacity has durable bounded absence settlement; in-flight PUT cannot bypass admission fence after restart/cap increase', async (t) => {
+  const h = await harness(t, { maxIdentities: 1 }); const existing = payload(); const absent = payload();
+  assert.equal((await h.admin('PUT', existing.id, existing)).status, 200);
+  assert.equal((await h.admin('PUT', absent.id, absent)).status, 507); assert.equal((await h.admin('GET', absent.id)).status, 404);
+  const bytes = Buffer.from(JSON.stringify(absent)); let pendingRequest;
+  const inFlight = new Promise((resolve, reject) => {
+    pendingRequest = http.request({ host: 'localhost', port: h.port, method: 'PUT', path: `/deployments/${absent.id}`, agent: false,
+      headers: { Host: adminHost, Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json', 'Content-Length': bytes.length } }, (res) => {
+      res.resume(); res.on('end', () => resolve(res.statusCode));
+    }); pendingRequest.on('error', reject); pendingRequest.write(bytes.subarray(0, 1));
+  }); t.after(() => pendingRequest.destroy());
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  const tombstone = { id: absent.id, state: 'DELETED' };
+  assert.deepEqual((await h.admin('DELETE', absent.id)).json, tombstone);
+  assert.deepEqual(JSON.parse(await fs.readFile(path.join(h.dataDir, 'admission-closed.json'), 'utf8')), { state: 'CLOSED' });
+  assert.equal((await fs.readdir(path.join(h.dataDir, 'identities'))).length, 1);
+  pendingRequest.end(bytes.subarray(1)); assert.equal(await inFlight, 409);
+  assert.deepEqual((await h.admin('GET', absent.id)).json, tombstone); assert.deepEqual((await h.admin('DELETE', absent.id)).json, tombstone);
+  h.config.maxIdentities = HARD_LIMITS.identities; await h.restart();
+  assert.deepEqual((await h.admin('GET', absent.id)).json, tombstone); assert.equal((await h.admin('PUT', absent.id, absent)).status, 409);
+  assert.equal((await h.admin('PUT', existing.id, existing)).status, 200); assert.equal((await h.public(existing.id)).status, 200);
+  const randomAbsent = payload(); assert.equal((await h.admin('PUT', randomAbsent.id, randomAbsent)).status, 409);
+  assert.deepEqual((await h.admin('DELETE', randomAbsent.id)).json, { id: randomAbsent.id, state: 'DELETED' });
+  await h.admin('DELETE', existing.id); await h.restart(); assert.equal((await h.admin('PUT', randomAbsent.id, randomAbsent)).status, 409);
+  assert.equal((await fs.readdir(path.join(h.dataDir, 'identities'))).length, 1);
+  await h.stop(); await fs.writeFile(path.join(h.dataDir, 'admission-closed.json'), '{"state":"OPEN"}');
+  await assert.rejects(createPublisher(h.config), /admission fence/);
+  await fs.writeFile(path.join(h.dataDir, 'admission-closed.json'), '{"state":"CLOSED"}'); await h.restart();
+});
+
+test('startup seals full legacy identities before accepting requests without allocating extra tombstones', async (t) => {
+  const h = await harness(t, { maxIdentities: 1 }); const existing = payload(); await h.admin('PUT', existing.id, existing);
+  assert.equal(await fs.access(path.join(h.dataDir, 'admission-closed.json')).then(() => true, () => false), false);
+  await h.restart(); const absent = payload(); assert.deepEqual((await h.admin('GET', absent.id)).json, { id: absent.id, state: 'DELETED' });
+  assert.equal((await h.admin('PUT', absent.id, absent)).status, 409); assert.equal((await h.admin('PUT', existing.id, existing)).status, 200);
+  assert.equal((await fs.readdir(path.join(h.dataDir, 'identities'))).length, 1);
 });

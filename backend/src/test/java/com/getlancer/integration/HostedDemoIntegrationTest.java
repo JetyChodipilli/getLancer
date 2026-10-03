@@ -25,7 +25,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
-/** Real PostgreSQL transactions and real provider HTTP. Only private S3 transport is replaced. */
+/** Real PostgreSQL transactions and real provider HTTP. Private S3 transport and startup admin bootstrap are replaced to isolate synthetic fixtures. */
 @org.springframework.test.context.ContextConfiguration(initializers=TestDatabaseGuard.class)
 @SpringBootTest(properties={"app.environment=local","app.jobs-enabled=false","app.admin-email=admin@example.test","app.admin-password=","app.admin-totp=","spring.config.import=",
  "spring.datasource.url=${TEST_DB_URL:jdbc:postgresql://localhost:5432/getlancer_test}","spring.datasource.username=${TEST_DB_USERNAME:postgres}","spring.datasource.password=${TEST_DB_PASSWORD:}",
@@ -37,6 +37,7 @@ class HostedDemoIntegrationTest {
   @AfterAll static void close(){provider.close();}
   @Autowired JdbcTemplate db;@Autowired MockMvc mvc;@Autowired ObjectMapper json;@Autowired HostingRepository repo;
   @MockBean CommerceStorage storage;
+  @MockBean com.getlancer.config.Bootstrap bootstrap;
   UUID owner,outsider,admin,product,demo;byte[] zip;
   UUID user(String token,boolean approved){UUID id=UUID.randomUUID();db.update("INSERT INTO users(id,email,password_hash,email_verified_at) VALUES(?,?,'unused',now())",id,token+"@example.test");db.update("INSERT INTO user_roles(user_id,role) VALUES(?,'DEVELOPER')",id);db.update("INSERT INTO developer_profiles(user_id,slug,display_name,approval_status) VALUES(?,?,?,?)",id,token,token,approved?"APPROVED":"DRAFT");db.update("INSERT INTO sessions(token_hash,user_id,expires_at) VALUES(?,?,now()+interval '1 hour')",Support.hash(token),id);return id;}
   MockHttpServletRequestBuilder as(MockHttpServletRequestBuilder request,String token){return request.cookie(new Cookie("gl_session",token));}

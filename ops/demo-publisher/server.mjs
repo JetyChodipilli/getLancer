@@ -39,7 +39,9 @@ export function validateFilePath(value) {
   requireValue(typeof value === 'string' && value.length > 0 && value.length <= 240 && /^[A-Za-z0-9._/-]+$/.test(value), 'Invalid file path');
   const parts = value.split('/');
   requireValue(parts.every((part) => part.length > 0 && !part.startsWith('.') && part !== '..'), 'Invalid file path');
-  requireValue(!parts.some((part) => /(?:^|[._-])(?:secrets?|credentials?|private|passwords?|tokens?|api[_-]?keys?)(?:[._-]|$)/i.test(part)), 'Private file name');
+  requireValue(!parts.some((part) => /(?:^|[._-])(?:secrets?|credentials?|private|passwords?|api[_-]?keys?)(?:[._-]|$)/i.test(part)), 'Private file name');
+  requireValue(!parts.some((part, index) => /(?:^|[._-])tokens?(?:[._-]|$)/i.test(part)
+    && !(index === parts.length - 1 && /\.css$/i.test(part))), 'Private token file name');
   requireValue(!/(?:credentials|secret-key|private-key|service-account|id_rsa|id_ed25519|node_modules|package-lock|yarn.lock|pnpm-lock)/i.test(value)
     && parts.at(-1).toLowerCase() !== 'package.json', 'Private or source package file');
   const extension = value.split('.').at(-1).toLowerCase();
@@ -58,6 +60,7 @@ function inspectBytes(filename, bytes) {
   const header = bytes.subarray(0, 8).toString('hex');
   requireValue(!['4d5a', '7f454c46', '504b0304', '504b0506', '504b0708', '1f8b', '377abcaf271c', '526172211a07',
     '425a68', 'fd377a585a00', 'cafebabe', 'bebafeca', 'feedface', 'cefaedfe', 'feedfacf', 'cffaedfe'].some((magic) => header.startsWith(magic)), 'Executable or nested archive content');
+  requireValue(!(bytes.length >= 262 && bytes.subarray(257, 262).toString('ascii') === 'ustar'), 'Nested TAR archive content');
   requireValue(!containsSecret(bytes.toString('latin1')), 'Credential marker in content');
   const notice = /^(?:README|LICEN[CS]E)(?:\.(?:md|txt))?$/i.test(filename.split('/').at(-1));
   if (notice || /\.(?:html|css|js|json|svg|txt|webmanifest)$/i.test(filename)) {
@@ -136,10 +139,12 @@ function configure(input) {
     || input.publicUrlTemplate.split('{id}').length !== 2) throw new Error('publicUrlTemplate must have one {id} as the first hostname label');
   const sample = '11111111-1111-4111-8111-111111111111';
   const publicUrl = configuredUrl(input.publicUrlTemplate.replace('{id}', sample), 'publicUrlTemplate', false);
-  if (publicUrl.pathname !== '/' || publicUrl.host === input.adminHost) throw new Error('Isolated public origin with root path required');
+  const publicSuffix = publicUrl.host.slice(sample.length);
+  if (publicUrl.pathname !== '/' || (input.adminHost.endsWith(publicSuffix)
+    && UUID.test(input.adminHost.slice(0, -publicSuffix.length)))) throw new Error('Admin Host must never match a public deployment origin');
   const gateway = configuredUrl(input.gatewayUrl, 'gatewayUrl', true);
   if (!gateway.pathname.endsWith('/api/v1/hosting/gateway')) throw new Error('gatewayUrl must end with /api/v1/hosting/gateway');
-  return { ...input, gateway, publicSuffix: publicUrl.host.slice(sample.length), publicUrlTemplate: publicUrl.origin.replace(sample, '{id}'),
+  return { ...input, gateway, publicSuffix, publicUrlTemplate: publicUrl.origin.replace(sample, '{id}'),
     maxBytes: boundedInteger(input.maxBytes, HARD_LIMITS.storageBytes, HARD_LIMITS.storageBytes, 'maxBytes'),
     maxIdentities: boundedInteger(input.maxIdentities, HARD_LIMITS.identities, HARD_LIMITS.identities, 'maxIdentities'),
     requestsPerMinute: boundedInteger(input.requestsPerMinute, HARD_LIMITS.requestsPerMinute, HARD_LIMITS.requestsPerMinute, 'requestsPerMinute'),
@@ -257,8 +262,10 @@ export async function createPublisher(input) {
   let releaseWriter;
   try { releaseWriter = await acquireWriter(root); } catch (error) { openedDirectories.delete(root); throw error; }
   const identities = path.join(root, 'identities'); const staging = path.join(root, 'staging');
-  const records = new Map(); let totalBytes = 0; let pending = Promise.resolve(); let activeUploads = 0; let activePublic = 0; let unhealthy = false;
-  const serialized = (fn) => { const result = pending.then(fn).catch((error) => {
+  const records = new Map(); let totalBytes = 0; let pending = Promise.resolve(); let activeUploads = 0; let activePublic = 0; let unhealthy = false; let admissionClosed = false;
+  const serialized = (fn) => { const result = pending.then(() => {
+    requireValue(!unhealthy, 'Publisher storage unavailable', 503); return fn();
+  }).catch((error) => {
     // A persistence failure may occur after an atomic rename. Stop serving/mutating until a verified restart.
     if (!(error instanceof HttpError)) unhealthy = true;
     throw error;
@@ -266,6 +273,14 @@ export async function createPublisher(input) {
   const urlFor = (id) => config.publicUrlTemplate.replace('{id}', id);
   const metadata = (record) => ({ id: record.id, state: record.state, ...(record.archiveSha256 ? {
     archiveSha256: record.archiveSha256, manifestSha256: record.manifestSha256, expiresAt: record.expiresAt, url: record.url } : {}) });
+  const unknownTombstone = (id) => ({ id, state: 'DELETED', sizeBytes: 0, files: [] });
+  async function closeAdmission() {
+    if (admissionClosed) return;
+    const temporary = path.join(root, `admission-${randomUUID()}.tmp`);
+    await writeSynced(temporary, JSON.stringify({ state: 'CLOSED' }));
+    await fs.rename(temporary, path.join(root, 'admission-closed.json')); await syncDirectory(root);
+    admissionClosed = true;
+  }
   async function commitNew(record, files = []) {
     const temporary = path.join(staging, randomUUID()); await fs.mkdir(temporary, { mode: 0o700 });
     try {
@@ -298,6 +313,12 @@ export async function createPublisher(input) {
   } catch (error) { if (error.code !== 'EEXIST') { await releaseWriter(); openedDirectories.delete(root); throw error; } }
   try {
     await plainDirectory(identities); await fs.mkdir(staging, { recursive: true, mode: 0o700 }); await plainDirectory(staging);
+    try {
+      const fence = JSON.parse((await plainRead(root, 'admission-closed.json', 4096)).toString('utf8'));
+      if (!exactKeys(fence, ['state']) || fence.state !== 'CLOSED') throw new Error('Invalid permanent admission fence');
+      admissionClosed = true;
+    } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    for (const name of await fs.readdir(root)) if (/^admission-[0-9a-f-]+\.tmp$/.test(name)) await fs.rm(path.join(root, name), { force: true });
     // Private single-writer volume: orphan unpublished staging trees are safe to discard.
     for (const name of await fs.readdir(staging)) await fs.rm(path.join(staging, name), { recursive: true, force: true });
     for (const id of await fs.readdir(identities)) {
@@ -320,6 +341,7 @@ export async function createPublisher(input) {
       records.set(id, record);
     }
     await expire(); if (records.size > config.maxIdentities || totalBytes > config.maxBytes) throw new Error('Stored data exceeds configured capacity');
+    if (records.size === config.maxIdentities) await closeAdmission();
   } catch (error) { await releaseWriter(); openedDirectories.delete(root); throw error; }
   const traffic = new Map();
   const server = http.createServer({ maxHeaderSize: 8192, requestTimeout: 10_000, headersTimeout: 5000, keepAliveTimeout: 1000 }, async (request, response) => {
@@ -347,6 +369,7 @@ export async function createPublisher(input) {
                 requireValue(existing.archiveSha256 === checked.archiveSha256 && existing.manifestSha256 === checked.manifestSha256
                   && existing.expiresAt === checked.expiresAt, 'Deployment identity conflict', 409); return existing;
               }
+              requireValue(!admissionClosed, 'New deployment admission permanently closed', 409);
               const remaining = Date.parse(checked.expiresAt) - config.now();
               requireValue(remaining > 0 && remaining <= HARD_LIMITS.expiryMs, 'Expiry outside permitted lifetime');
               requireValue(records.size < config.maxIdentities && totalBytes + checked.size <= config.maxBytes, 'Publisher capacity reached', 507);
@@ -358,12 +381,14 @@ export async function createPublisher(input) {
           } finally { activeUploads--; }
         }
         if (request.method === 'GET') {
-          const result = await serialized(async () => { await expire(); return records.get(id); }); requireValue(result, 'Not found', 404); json(response, 200, metadata(result)); return;
+          const result = await serialized(async () => { await expire(); return records.get(id) || (admissionClosed ? unknownTombstone(id) : undefined); });
+          requireValue(result, 'Not found', 404); json(response, 200, metadata(result)); return;
         }
         if (request.method === 'DELETE') {
           const result = await serialized(async () => {
             const existing = records.get(id); if (existing) return remove(existing);
-            requireValue(records.size < config.maxIdentities, 'Publisher identity capacity reached', 507);
+            if (admissionClosed) return unknownTombstone(id);
+            if (records.size >= config.maxIdentities) { await closeAdmission(); return unknownTombstone(id); }
             const record = { id, state: 'DELETED', sizeBytes: 0, files: [] }; await commitNew(record); return record;
           }); json(response, 200, metadata(result)); return;
         }

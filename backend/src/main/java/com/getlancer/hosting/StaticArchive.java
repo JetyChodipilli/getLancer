@@ -24,6 +24,8 @@ public final class StaticArchive {
   }
   private record Entry(String name,int size,long crc,int offset,int end) {}
   private static final Set<String> EXTENSIONS=Set.of("html","css","js","json","png","jpg","jpeg","webp","gif","svg","ico","woff","woff2","ttf","txt","webmanifest");
+  private static final Pattern TOKEN_PATH=Pattern.compile("(?:^|[._-])tokens?(?:[._-]|$)",Pattern.CASE_INSENSITIVE);
+  private static final Pattern PRIVATE_PATH=Pattern.compile("(?:^|[._-])(?:secrets?|credentials?|private|passwords?|api[_-]?keys?)(?:[._-]|$)",Pattern.CASE_INSENSITIVE);
   private static final Pattern SECRET_MARKER=Pattern.compile("(?is)-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----|\\bAKIA[A-Z0-9]{16}\\b|\\b(?:ghp_|github_pat_)[A-Za-z0-9_]{20,}\\b|\\brzp_live_[A-Za-z0-9]{8,}\\b");
   private static final Pattern SECRET_ASSIGNMENT=Pattern.compile("(?:^|[\\s;{,])[\"']?([A-Za-z0-9_]{1,128})[\"']?[ \\t]*[:=][ \\t]*[\"']([A-Za-z0-9+/=_-]{16,})[\"']");
   private static boolean secret(String text){if(SECRET_MARKER.matcher(text).find())return true;var matches=SECRET_ASSIGNMENT.matcher(text);while(matches.find()){String key=matches.group(1).toUpperCase(Locale.ROOT);if(key.contains("SECRET")||key.contains("PRIVATE_KEY")||key.contains("PRIVATEKEY")||key.contains("PASSWORD")||key.contains("ACCESS_TOKEN")||key.contains("ACCESSTOKEN")||key.contains("API_KEY")||key.contains("APIKEY"))return true;}return false;}
@@ -34,7 +36,8 @@ public final class StaticArchive {
     if(name.isEmpty()||name.length()>240||!name.matches("[A-Za-z0-9._/-]+")||name.startsWith("/")||name.startsWith(".")||(!directory&&name.endsWith("/")))throw unsafe("Use safe ASCII relative static paths.");
     var parts=name.split("/",-1);
     for(int i=0;i<parts.length;i++)if(parts[i].startsWith(".")||parts[i].isEmpty()&&i<parts.length-1)throw unsafe("Hidden, empty, and traversal path segments are not accepted.");
-    for(String part:parts)if(Pattern.compile("(?:^|[._-])(?:secrets?|credentials?|private|passwords?|tokens?|api[_-]?keys?)(?:[._-]|$)",Pattern.CASE_INSENSITIVE).matcher(part).find())throw unsafe("Private file names are not accepted.");
+    for(String part:parts)if(PRIVATE_PATH.matcher(part).find())throw unsafe("Private file names are not accepted.");
+    for(int i=0;i<parts.length;i++)if(TOKEN_PATH.matcher(parts[i]).find()&&!(i==parts.length-1&&parts[i].toLowerCase(Locale.ROOT).endsWith(".css")))throw unsafe("Private token file names are not accepted; design-token CSS assets are allowed.");
     String lower=name.toLowerCase(Locale.ROOT),base=parts[parts.length-1].toLowerCase(Locale.ROOT);
     if(lower.matches(".*(?:credentials|secret-key|private-key|service-account|id_rsa|id_ed25519|node_modules|package-lock|yarn.lock|pnpm-lock).*")||base.equals("package.json"))throw unsafe("Remove private files, source manifests, credentials and dependencies.");
     if(!directory) {
