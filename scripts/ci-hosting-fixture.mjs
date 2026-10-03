@@ -1,6 +1,7 @@
 // Synthetic built frontend only; ZIP creation never executes a submitted package.
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
+import {request} from 'node:http';
 import {readEnvironment} from './local-config.mjs';
 
 export function hostingFixture(){return execFileSync('python3',['-c',String.raw`
@@ -17,7 +18,18 @@ sys.stdout.buffer.write(stream.getvalue())
 export async function publicDemo(record,path='/'){
  const url=new URL(record.url);
  assert.match(url.hostname,/^[0-9a-f-]+\.demo\.localhost$/);
- return fetch('http://localhost:8090'+path,{headers:{Host:url.host},redirect:'manual',signal:AbortSignal.timeout(6000)});
+ // Native fetch replaces Host with its connection origin. Keep the local TCP
+ // destination separate from the exact public demo Host, as the browser does.
+ return new Promise((resolve,reject)=>{
+  const req=request({hostname:'localhost',port:8090,path,method:'GET',headers:{Host:url.host},agent:false,signal:AbortSignal.timeout(6000)},async res=>{
+   try{
+    const chunks=[];let size=0;
+    for await(const chunk of res){size+=chunk.length;assert.ok(size<=5*1024*1024,'Public demo response exceeds the static file limit.');chunks.push(chunk);}
+    const headers=Object.fromEntries(Object.entries(res.headers).filter(([,value])=>value!==undefined).map(([key,value])=>[key,Array.isArray(value)?value.join(', '):value]));
+    resolve(new Response(Buffer.concat(chunks),{status:res.statusCode,headers}));
+   }catch(error){req.destroy();reject(error);}
+  });req.on('error',reject);req.end();
+ });
 }
 
 export async function hostingFixtures({builder,client,visitor,admin,productId}){
