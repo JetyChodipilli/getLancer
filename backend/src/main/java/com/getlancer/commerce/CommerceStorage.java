@@ -37,7 +37,7 @@ public class CommerceStorage {
     } catch(ApiError e) {throw e;} catch(Exception e) {throw new ApiError(503,"STORAGE_UNAVAILABLE","Private source storage is unavailable. Try again later.");}
   }
   /** Only the upload transaction invokes this for its own uncommitted random object. */
-  void discardUnlinked(String key) {
+  public void discardUnlinked(String key) {
     if(s3==null || !key.matches("commerce/[0-9a-f-]{36}/[0-9a-f-]{36}\\.zip")) return;
     try {s3.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(key).build());}
     catch(RuntimeException e) {org.slf4j.LoggerFactory.getLogger(CommerceStorage.class).warn("An unlinked source upload could not be removed; storage cleanup is required.");}

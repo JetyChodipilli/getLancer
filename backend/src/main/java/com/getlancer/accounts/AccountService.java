@@ -13,6 +13,10 @@ import org.springframework.transaction.annotation.Transactional;
 public class AccountService {
   final JdbcTemplate db;
   final Security security;
+  private com.getlancer.hosting.HostingRepository hosting;
+
+  @org.springframework.beans.factory.annotation.Autowired
+  public void setHostingRepository(com.getlancer.hosting.HostingRepository hosting) { this.hosting = hosting; }
 
   public AccountService(JdbcTemplate db, Security security) {
     this.db = db;
@@ -147,6 +151,7 @@ public class AccountService {
     result.put("maintenanceLedger",db.queryForList("SELECT l.id,l.period_id,l.kind,l.amount_minor,l.currency,l.created_at FROM maintenance_ledger l JOIN maintenance_periods p ON p.id=l.period_id JOIN maintenance_subscriptions s ON s.id=p.subscription_id JOIN maintenance_offers o ON o.id=s.offer_id WHERE s.payer_id=? OR o.seller_id=? OR o.buyer_id=?",id,id,id));
     result.put("maintenanceRequests",db.queryForList("SELECT id,subscription_id,period_id,title,description,status,delivery_note,delivery_url,response_due_at,created_at,resolved_at FROM maintenance_requests WHERE actor_id=?",id));
     result.put("maintenanceActions",db.queryForList("SELECT id,offer_id,kind,detail,created_at FROM maintenance_audit WHERE actor_id=?",id));
+    if (hosting != null) result.put("hostedDemos", hosting.export(id));
     return result;
   }
 

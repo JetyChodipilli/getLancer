@@ -6,6 +6,7 @@ import {createHmac,randomBytes} from 'node:crypto';
 import {setTimeout as delay} from 'node:timers/promises';
 import {readEnvironment} from './local-config.mjs';
 import {sourceFixture} from './ci-source-fixture.mjs';
+import {hostingFixtures,publicDemo} from './ci-hosting-fixture.mjs';
 import {maintenanceFixtures} from './ci-maintenance-fixture.mjs';
 const env=readEnvironment(new URL('../.env',import.meta.url));
 assert.equal(process.env.CI,'true','This smoke check runs only in disposable CI.');
@@ -246,6 +247,8 @@ for(const device of ['smoke','desktop','phone','tablet']){
 }
 console.log('Connected V3.5 passed: current ownership review, static ZIP validation, real private S3 bytes, MFA package review, public discovery, scoped export, disabled-payment denial and archival.');
 
+const demoFixtures=await hostingFixtures({builder,client,visitor,admin:api,productId:products[2]});
+
 const report=await client('/api/v1/reports',{targetType:'PRODUCT',targetId:project.id,reason:'MISLEADING_CLAIM',detail:'CI moderation scenario: proof requires correction.'},'POST',201);
 await api(`/api/v1/admin/reports/${report.reference}/resolve`,{targetAction:'SUSPEND',reason:'Proof requires correction before this showcase can be restored.'});
 await visitor('/api/v1/products/'+project.slug,undefined,'GET',404);
@@ -259,6 +262,7 @@ try{
  execFileSync('docker',['compose','stop','db'],{stdio:'pipe'});
  assert.equal((await visitor('/actuator/health/readiness',undefined,'GET',503)).status,'DOWN');
  assert.equal((await visitor('/actuator/health/liveness')).status,'UP');
+ assert.notEqual((await publicDemo(demoFixtures.ready)).status,200,'Publisher must deny content when the authoritative database is unavailable.');
 }finally{execFileSync('docker',['compose','start','db'],{stdio:'pipe'});}
 let recovered=false;
 for(let attempt=0;attempt<30;attempt++){
@@ -266,6 +270,7 @@ for(let attempt=0;attempt<30;attempt++){
  if(health.ok){recovered=true;break;}await delay(2000);
 }
 assert.ok(recovered,'Readiness must recover after PostgreSQL restarts.');
+assert.equal((await publicDemo(demoFixtures.ready)).status,200,'Eligible content resumes only after the gateway has recovered.');
 console.log('Database outage passed: readiness fails, liveness survives, readiness recovers.');
 
 // Browser acceptance gets real API-created records, never a production seed or mock.
@@ -277,5 +282,5 @@ for(const device of ['desktop','phone','tablet']){
  await client(`/api/v1/businesses/${b.id}/invitations`,{email:'ci-manager@example.test'});
  browserBusinesses[device]=b;
 }
-writeFileSync('.ci-connected.json',JSON.stringify({project:process.env.COMPOSE_PROJECT_NAME,accounts:browserAccounts,businesses:browserBusinesses,teamId:team.id,builderId:owner.id,commerce:commerceFixtures,maintenance:careFixtures}),{mode:0o600});
+writeFileSync('.ci-connected.json',JSON.stringify({project:process.env.COMPOSE_PROJECT_NAME,accounts:browserAccounts,businesses:browserBusinesses,teamId:team.id,builderId:owner.id,commerce:commerceFixtures,maintenance:careFixtures,hosting:demoFixtures}),{mode:0o600});
 console.log('Connected browser prerequisites created through the real Java API.');

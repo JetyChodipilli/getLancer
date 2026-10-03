@@ -1,6 +1,6 @@
-# V4.0 — maintenance and support, milestone 1
+# V4.0 — maintenance, support and static frontend demos
 
-V4 starts with recurring maintenance for a completed delivery engagement. Hosted demos and arbitrary source execution are a later milestone. This release preserves Java/PostgreSQL as the authority and publishes only an isolated frontend exercise.
+V4 provides recurring maintenance for a completed delivery engagement and reviewed hosted static frontend demos. The user selected built static frontend exports. Java/PostgreSQL remains authoritative; arbitrary submitted server execution and full-stack hosting are outside this selected scope. Hosting operations and the separate publisher boundary are documented in [V4_HOSTING_OPERATIONS.md](V4_HOSTING_OPERATIONS.md).
 
 ## Agreement and authority
 
@@ -35,3 +35,7 @@ OPEN → IN_PROGRESS → SUBMITTED → RESOLVED; a buyer may request revision of
 Authenticated routes: GET maintenance/config, maintenance/sources, maintenance, maintenance/{id}; POST maintenance, maintenance/{id}/{send|accept|reject|withdraw}, maintenance/{id}/billing, maintenance/{id}/billing/confirm, maintenance/{id}/billing/refresh, maintenance/{id}/billing/cancel, maintenance/{id}/requests and maintenance/{id}/requests/{requestId}/{action}. MFA routes expose attention, bind and hold/reconcile/cancel. Exact POST maintenance/razorpay/webhook alone bypasses browser CSRF headers.
 
 Acceptance includes negative current-party/consent checks, immutable SQL protection, concurrent quota/idempotency, provider mismatch/unknown recovery, live-vs-test entitlement, refunds/disputes/cancellation, event deduplication, scoped exports, retained restore data, connected API journeys and desktop/tablet/phone UI. CI must pass at the final PR head. The preview is not evidence of merchant approval or a real live payment. This milestone is complete only when those implementation and verification gates pass.
+
+## Hosted static demos
+
+The static publisher and owner/operator workspace implement immutable ZIP upload, reviewed rights, fixed deployment reservation, idempotent publication, same-identity recovery, permanent withdrawal tombstones, expiry, bounded storage/traffic and per-request current gateway permission. The independent public origin never receives application credentials. Hosting is disabled until the separate publisher, private ingress and isolated DNS/TLS are configured. `/workspace/hosting` uses Java; `/preview/hosting` is a labelled local metadata exercise with no uploads or externally reachable demo. Account deletion/export, private append-only data, real HTTP/PostgreSQL/S3/browser tests and encrypted database restore cover hosting. Production activation and provider budget controls are explicit operator setup, not frontend simulation.

@@ -61,6 +61,13 @@ services:
       RAZORPAY_SUBSCRIPTIONS_APPROVED: ${RAZORPAY_SUBSCRIPTIONS_APPROVED:-false}
       RAZORPAY_MAINTENANCE_WEBHOOK_SECRET: ${RAZORPAY_MAINTENANCE_WEBHOOK_SECRET:-}
       MAINTENANCE_RECONCILE_INTERVAL_MS: ${MAINTENANCE_RECONCILE_INTERVAL_MS:-60000}
+      HOSTED_DEMOS_ENABLED: ${HOSTED_DEMOS_ENABLED:-false}
+      DEMO_PUBLISHER_URL: ${DEMO_PUBLISHER_URL:-http://demo-publisher:8090}
+      DEMO_PUBLISHER_SECRET: ${DEMO_PUBLISHER_SECRET:-}
+      DEMO_GATEWAY_SECRET: ${DEMO_GATEWAY_SECRET:-}
+      DEMO_PUBLIC_URL_TEMPLATE: ${DEMO_PUBLIC_URL_TEMPLATE:-}
+      DEMO_EXPIRY_DAYS: ${DEMO_EXPIRY_DAYS:-7}
+      DEMO_PUBLISHER_TIMEOUT_MS: ${DEMO_PUBLISHER_TIMEOUT_MS:-5000}
       DISCOVERY_RATE_LIMIT_PER_MINUTE: ${DISCOVERY_RATE_LIMIT_PER_MINUTE:-300}
       RAZORPAY_ROUTE_APPROVED: ${RAZORPAY_ROUTE_APPROVED:-false}
       DB_USERNAME: postgres
@@ -79,6 +86,26 @@ services:
       interval: 10s
       timeout: 5s
       retries: 12
+  demo-publisher:
+    profiles: [hosting]
+    build: ./ops/demo-publisher
+    environment:
+      DEMO_PUBLISHER_PORT: 8090
+      DEMO_PUBLISHER_ADMIN_HOST: demo-publisher:8090
+      DEMO_PUBLISHER_SECRET: ${DEMO_PUBLISHER_SECRET:-}
+      DEMO_GATEWAY_SECRET: ${DEMO_GATEWAY_SECRET:-}
+      DEMO_GATEWAY_URL: http://api:8080/api/v1/hosting/gateway
+      DEMO_PUBLIC_URL_TEMPLATE: ${DEMO_PUBLIC_URL_TEMPLATE:-}
+      DEMO_PUBLISHER_DATA_DIR: /data
+    ports: ['127.0.0.1:8090:8090']
+    volumes: [demo-bundles:/data]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    mem_limit: 512m
+    cpus: 1
   test-db:
     profiles: [test]
     image: postgres:16-alpine
@@ -109,3 +136,4 @@ services:
 volumes:
   docker-database:
   objects:
+  demo-bundles:

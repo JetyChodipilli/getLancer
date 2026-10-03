@@ -1,0 +1,37 @@
+# Static demo publisher
+
+This service serves reviewed, built static assets on one immutable origin per deployment. It uses only Node built-ins. It does not unpack ZIPs, install packages, clone repositories, build assets, or execute submitted source. Java verifies the original private ZIP and remains the authority for review, account eligibility, withdrawal, and expiry.
+
+Run `node ops/demo-publisher/server.mjs` with these operator-controlled variables:
+
+| Variable | Required value / default |
+| --- | --- |
+| `DEMO_PUBLISHER_DATA_DIR` | Absolute private persistent directory; Docker defaults to `/data` |
+| `DEMO_PUBLISHER_SECRET` | Printable independent admin secret, at least 32 characters |
+| `DEMO_PUBLISHER_ADMIN_HOST` | Exact lowercase internal Host including a non-default port, such as `demo-publisher:8090` |
+| `DEMO_PUBLIC_URL_TEMPLATE` | Isolated origin with `{id}` as the complete first hostname label, such as `https://{id}.demos.example.net` |
+| `DEMO_GATEWAY_URL` | Fixed Java endpoint ending `/api/v1/hosting/gateway`; no query, credentials, or redirects |
+| `DEMO_GATEWAY_SECRET` | Independent printable gateway secret, at least 32 characters |
+| `DEMO_PUBLISHER_HOST` | Listen address; default `0.0.0.0` |
+| `DEMO_PUBLISHER_PORT` | Port; default `8081` |
+| `DEMO_PUBLISHER_MAX_BYTES` | Optional downward storage limit; default/hard maximum `524288000` |
+| `DEMO_PUBLISHER_MAX_IDENTITIES` | Optional downward permanent identity limit; default/hard maximum `1000` |
+| `DEMO_PUBLISHER_REQUESTS_PER_MINUTE` | Optional downward per-demo traffic limit; default/hard maximum `240` |
+
+Production public and gateway URLs require HTTPS. Development HTTP public origins must be under `.localhost`; HTTP gateway URLs may use localhost or an internal single-label Docker hostname. Public origin templates must use the root path. The Java public template must match exactly. Keep the public domain separate from the application and any domain that receives application cookies. Terminate wildcard TLS on that isolated public domain and preserve its Host header. Route the internal administrative Host only on the private service network; the publisher additionally checks the Bearer secret. Public Cookie, Authorization, query values, and arbitrary gateway headers are never forwarded.
+
+The Docker image runs as `node` (UID/GID 1000). A fresh named volume inherits `/data` ownership; preexisting bind mounts must already belong to UID/GID 1000. Use one replica with its own private volume, a read-only root filesystem, dropped capabilities, no-new-privileges, bounded CPU/PIDs and a 512 MiB memory cap. The built-in local writer lease rejects a second live process and recovers stale Linux process identities; it is not a distributed filesystem lock. Do not share the volume between independent containers or hosts. Node Alpine needs mounted `/proc` for native realpath and writer identity. The root Compose definition supplies these runtime controls.
+
+`GET /health` returns `200 {"status":"ok"}` only on the configured administrative Host. It needs no Bearer secret and discloses no deployment metadata. It becomes unavailable after a persistence failure, which stops serving and mutating until a verified restart. Health does not claim the Java gateway is reachable: public requests always perform their own uncached check and fail closed when it is unavailable.
+
+Administrative requests use `Authorization: Bearer <DEMO_PUBLISHER_SECRET>` and the configured admin Host. The contract is `PUT /deployments/{uuid}` for the exact canonical file payload, `GET` for saved metadata, and idempotent `DELETE` for a permanent tombstone. PUT retries with matching immutable identity return saved metadata; conflicting or tombstoned IDs return 409. Unknown DELETE reserves a permanent tombstone. GET of an unknown identity returns 404. Never allocate a replacement ID to resolve an uncertain PUT. Expired deployments are blocked immediately and their content is removed during the 30-second sweep, an admin read/write, or startup. Tombstones remain permanently; reaching the identity cap requires an operator to stop creating new deployments, not remove tombstones.
+
+Files must be sorted ASCII paths with a nonempty root `index.html`. The publisher independently checks path/case/prefix collisions, allowed types, 256 files, 5 MiB per file, 10 MiB expanded total, canonical base64, every file SHA-256, canonical manifest SHA-256, UTC expiry and the 30-day maximum. It rejects private/source package names, executable/archive magic, invalid UTF-8 text, NUL text, and recognized credential markers. README/LICENSE/LICENCE notices must contain useful text. This marker scan is a bounded defense, not a guarantee that arbitrary assets contain no sensitive information. `archiveSha256` is validated as a canonical SHA-256 identity; the protocol does not include ZIP bytes, so original archive verification belongs to Java.
+
+Publication writes and syncs an unpublished staging tree before its atomic rename into a UUID identity directory. All mutations serialize. Withdrawal syncs the tombstone before content removal. Startup removes unpublished staging, discards withdrawn bundle remnants and verifies retained metadata, manifest and every file hash. Store and restore the **entire** data directory together with application hosting records; restoring only content or removing tombstones breaks identity history. Storage accounting covers retained bundle bytes (maximum 500 MiB); immutable metadata and bounded temporary ingress are additional overhead. Upload bodies are limited to 14 MiB, one upload at a time; eight public gateway/read requests and 128 sockets may be in flight. Excess concurrency returns 503 and capacity returns 507. Safe same-ID retries preserve the frozen payload.
+
+Public responses have `no-store`, MIME allowlisting, `nosniff`, device denial, no-referrer, same-origin resource/opener policy, and the fixed CSP in `server.mjs`. Scripts execute only in the visitor's isolated browser origin. Inline scripts/styles are allowed for built exports; eval, external fetches, workers, frames, objects, forms and base URLs are denied by the policy. The sandbox retains the isolated origin and permits scripts; it does not prevent a standalone document from navigating its own tab. Browser enforcement, phishing/IP review, DNS/TLS operation and any already delivered bytes remain outside the service's guarantees. Gateway revocation blocks subsequent requests; it cannot recall a prior response.
+
+The importable `createPublisher(config)` factory returns `{ server, listen, close }`. Tests use temporary volumes, actual HTTP gateways and child processes. Run `node --test --test-reporter=tap tests/demo-publisher.test.mjs`.
+
+Primary references: [Node 22 filesystem API](https://nodejs.org/docs/latest-v22.x/api/fs.html), [MDN CSP sandbox](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/sandbox), [MDN Content Security Policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy), and [Docker official Node image tags](https://github.com/docker-library/official-images/blob/master/library/node). File syncing requests OS/device flushing; actual power-loss durability still depends on the mounted filesystem and storage device.
