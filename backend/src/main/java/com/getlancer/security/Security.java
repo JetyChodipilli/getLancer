@@ -70,7 +70,7 @@ public class Security extends OncePerRequestFilter {
     res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
     if (req.isSecure()) res.setHeader("Strict-Transport-Security", "max-age=31536000");
     boolean razorpayWebhook = req.getMethod().equals("POST")
-        && Set.of("/api/v1/payments/razorpay/webhook", "/api/v1/commerce/razorpay/webhook").contains(req.getRequestURI());
+        && Set.of("/api/v1/payments/razorpay/webhook", "/api/v1/commerce/razorpay/webhook", "/api/v1/maintenance/razorpay/webhook").contains(req.getRequestURI());
     String o = req.getHeader("Origin");
     if (origin.equals(o)) {
       res.setHeader("Access-Control-Allow-Origin", origin);

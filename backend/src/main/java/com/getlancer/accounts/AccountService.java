@@ -140,6 +140,11 @@ public class AccountService {
         "SELECT id,template_id,version_id,title,version,license_terms,sha256,amount_minor,currency,mode,status,refunded_minor,entitlement_revoked,license_consented_at,created_at FROM template_purchases WHERE buyer_id=? OR seller_id=?", id,id));
     result.put("sourceDisputes", db.queryForList(
         "SELECT d.id,d.purchase_id,d.reason,d.status,d.resolution_reason,d.created_at,d.resolved_at FROM commerce_disputes d JOIN template_purchases p ON p.id=d.purchase_id WHERE p.buyer_id=? OR p.seller_id=?", id,id));
+    result.put("maintenanceConsents",db.queryForList("SELECT id,engagement_id,revision,status,title,scope,terms,amount_minor,currency,requests_per_cycle,response_hours,total_cycles,digest,seller_consented_at,buyer_consented_at,created_at FROM maintenance_offers WHERE seller_id=? OR buyer_id=?",id,id));
+    result.put("maintenanceBilling",db.queryForList("SELECT s.id,s.offer_id,s.amount_minor,s.currency,s.mode,s.status,s.cancel_requested,s.cancel_confirmed,s.billing_consented_at,s.created_at FROM maintenance_subscriptions s JOIN maintenance_offers o ON o.id=s.offer_id WHERE s.payer_id=? OR o.seller_id=? OR o.buyer_id=?",id,id,id));
+    result.put("maintenancePeriods",db.queryForList("SELECT p.id,p.subscription_id,p.provider_invoice_id,p.amount_minor,p.currency,p.period_start,p.period_end,p.status,p.refunded_minor,p.transfer_status,p.dispute_status FROM maintenance_periods p JOIN maintenance_subscriptions s ON s.id=p.subscription_id JOIN maintenance_offers o ON o.id=s.offer_id WHERE s.payer_id=? OR o.seller_id=? OR o.buyer_id=?",id,id,id));
+    result.put("maintenanceRequests",db.queryForList("SELECT id,subscription_id,period_id,title,description,status,delivery_note,delivery_url,response_due_at,created_at,resolved_at FROM maintenance_requests WHERE actor_id=?",id));
+    result.put("maintenanceActions",db.queryForList("SELECT id,offer_id,kind,detail,created_at FROM maintenance_audit WHERE actor_id=?",id));
     return result;
   }
 

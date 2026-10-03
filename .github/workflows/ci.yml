@@ -1,4 +1,4 @@
-name: getLancer validation (V1-V3.5)
+name: getLancer validation (V1-V4)
 on: [push, pull_request]
 jobs:
   backend:

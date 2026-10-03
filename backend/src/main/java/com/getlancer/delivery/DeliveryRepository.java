@@ -89,6 +89,10 @@ public class DeliveryRepository {
     return row;
   }
 
+  public Map<String,Object> lockEngagementSystem(UUID engagement) {
+    return one(ENGAGEMENT + "WHERE e.id=? FOR UPDATE", engagement);
+  }
+
   public Map<String, Object> lockMilestone(UUID milestone, HttpServletRequest request, String side) {
     UUID engagement = (UUID) one("SELECT engagement_id FROM delivery_milestones WHERE id=?", milestone).get("engagement_id");
     return milestoneWithParties(milestone, lockEngagement(engagement, request, side));

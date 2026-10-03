@@ -15,6 +15,7 @@ GET /api/v1/admin/concierge/{id}/matches
 GET /api/v1/admin/deletion-requests
 GET /api/v1/admin/delivery/disputes
 GET /api/v1/admin/email-jobs
+GET /api/v1/admin/maintenance/attention
 GET /api/v1/admin/metrics
 GET /api/v1/admin/payments/accounts
 GET /api/v1/admin/payments/attention
@@ -52,6 +53,10 @@ GET /api/v1/developer/trust
 GET /api/v1/engagements
 GET /api/v1/engagements/{id}
 GET /api/v1/engagements/{id}/payments
+GET /api/v1/maintenance
+GET /api/v1/maintenance/config
+GET /api/v1/maintenance/sources
+GET /api/v1/maintenance/{id}
 GET /api/v1/me
 GET /api/v1/me/appeals
 GET /api/v1/me/export
@@ -94,6 +99,7 @@ POST /api/v1/admin/delivery/disputes/{id}/resolve
 POST /api/v1/admin/earned-capacity/{id}
 POST /api/v1/admin/email-jobs/{id}/retry
 POST /api/v1/admin/inquiries/{id}/{action}
+POST /api/v1/admin/maintenance/{id}/{action}
 POST /api/v1/admin/payments/accounts
 POST /api/v1/admin/payments/{id}/bind-order
 POST /api/v1/admin/payments/{id}/reconcile
@@ -153,6 +159,15 @@ POST /api/v1/inquiries/{id}/confirm-hire
 POST /api/v1/inquiries/{id}/not-hired
 POST /api/v1/inquiries/{id}/review
 POST /api/v1/inquiries/{id}/{action}
+POST /api/v1/maintenance
+POST /api/v1/maintenance/razorpay/webhook
+POST /api/v1/maintenance/{id}/billing
+POST /api/v1/maintenance/{id}/billing/cancel
+POST /api/v1/maintenance/{id}/billing/confirm
+POST /api/v1/maintenance/{id}/billing/refresh
+POST /api/v1/maintenance/{id}/requests
+POST /api/v1/maintenance/{id}/requests/{requestId}/{action}
+POST /api/v1/maintenance/{id}/{action}
 POST /api/v1/me/inquiries/{id}/confirmation-link
 POST /api/v1/me/inquiries/{id}/decision
 POST /api/v1/me/inquiries/{id}/not-hired
