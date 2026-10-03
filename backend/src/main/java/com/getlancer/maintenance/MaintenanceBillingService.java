@@ -101,13 +101,14 @@ public class MaintenanceBillingService {
         var knownIds=new HashSet<>(tx(()->repo.knownDisputes(period)));knownIds.addAll(tx(()->repo.eventDisputes(i.payment(),started)));if(knownIds.size()>500)throw new ApiError(409,"PROVIDER_INCOMPLETE","Dispute discovery exceeded its safe bound.");for(String known:knownIds){if(Instant.now().isAfter(started.plusSeconds(90)))throw new ApiError(409,"PROVIDER_INCOMPLETE","Dispute discovery exceeded its time bound.");var fetched=provider.dispute(known);equal(fetched.path("id").asText().equals(known));disputes.put(known,fetched);}
         for(var d:disputes.values())dispute(i,d);
         tx(()->{generation(s);repo.period(period,true);for(var refund:refundRows)repo.refund(period,refund.path("id").asText(),integer(refund,"amount"),refund.path("status").asText());repo.financial(period,refunds.total(),refunds.pending()||repo.pendingRefund(period));for(var d:disputes.values())repo.dispute(period,d.path("id").asText(),d.path("status").asText(),integer(d,"amount_deducted"));return null;});
-        route(s,period);
+        budget(started);route(s,period,started);
       }
-      tx(()->{var current=generation(s);for(var p:repo.periods(id))equal(seen.contains(p.get("provider_invoice_id")));repo.status(id,sub.path("status").asText().toUpperCase(Locale.ROOT),terminal(sub.path("status").asText()));repo.fresh(id,started);repo.processed(id,started);if(Boolean.TRUE.equals(current.get("cancel_requested"))&&!terminal(sub.path("status").asText()))repo.cancelUnknown(id);return null;});
+      budget(started);tx(()->{var current=generation(s);budget(started);for(var p:repo.periods(id))equal(seen.contains(p.get("provider_invoice_id")));repo.status(id,sub.path("status").asText().toUpperCase(Locale.ROOT),terminal(sub.path("status").asText()));repo.fresh(id,started);repo.processed(id,started);if(Boolean.TRUE.equals(current.get("cancel_requested"))&&!terminal(sub.path("status").asText()))repo.cancelUnknown(id);return null;});
     }catch(RuntimeException failure){if(failure instanceof ApiError e&&e.code.equals("RECONCILIATION_SUPERSEDED"))throw e;tx(()->{var current=access.system(id);if(number(current,"reconcile_generation")==number(s,"reconcile_generation"))repo.stale(id,"Provider reconciliation could not confirm all financial facts. New support requests are held.");return null;});if(failure instanceof ApiError error)throw error;throw new ApiError(502,"MAINTENANCE_RECONCILIATION_FAILED","Provider reconciliation is unavailable. New support requests remain held.");}
   }
   private Map<String,Object> generation(Map<String,Object> snapshot) {var current=access.system((UUID)snapshot.get("id"));if(number(current,"reconcile_generation")!=number(snapshot,"reconcile_generation"))throw new ApiError(409,"RECONCILIATION_SUPERSEDED","A newer financial refresh is running. Refresh before continuing.");return current;}
-  private void route(Map<String,Object> s,UUID period) {
+  private static void budget(Instant started) {if(Instant.now().isAfter(started.plusSeconds(90)))throw new ApiError(409,"PROVIDER_INCOMPLETE","Financial discovery exceeded its time bound. New service is held.");}
+  private void route(Map<String,Object> s,UUID period,Instant started) {
     var p=tx(()->repo.period(period,false));var response=provider.transfers(p.get("payment_id").toString());var items=response.path("items");equal(items.isArray()&&items.size()<=1);
     if(items.size()==1) {
       String status=transfer(s,p,items.get(0));
@@ -116,7 +117,7 @@ public class MaintenanceBillingService {
       tx(()->{generation(s);repo.period(period,true);repo.transferBound(period,items.get(0).path("id").asText(),status,integer(items.get(0),"amount_reversed"));return null;});return;
     }
     if(!p.get("transfer_state").equals("NOT_CREATED")){if(p.get("transfer_id")!=null)throw mismatch();return;}
-    requireCollection();boolean create=tx(()->{var current=generation(s);var row=repo.period(period,true);if(!row.get("transfer_state").equals("NOT_CREATED"))return false;
+    budget(started);requireCollection();boolean create=tx(()->{var current=generation(s);budget(started);var row=repo.period(period,true);if(!row.get("transfer_state").equals("NOT_CREATED"))return false;
       if(number(row,"refunded_minor")>0||Boolean.TRUE.equals(row.get("pending_refund"))||"HELD".equals(row.get("dispute_status"))||Boolean.TRUE.equals(current.get("local_hold")))return false;
       access.requireEligible(access.delivery.lockEngagementSystem((UUID)s.get("engagement_id")));repo.transferReserved(period);return true;});
     if(!create)return;
@@ -125,7 +126,7 @@ public class MaintenanceBillingService {
   }
   public void cancel(UUID offer,HttpServletRequest r) {UUID id=tx(()->{access.offer(offer,r,"BUYER",false);var s=repo.forOffer(offer,true);if(s==null)throw new ApiError(409,"BILLING_NOT_READY","No subscription exists.");return (UUID)s.get("id");});cancelSystem(id);tx(()->{access.billing(id,r,"BUYER",false);return null;});}
   private void cancelSystem(UUID id) {
-    var before=tx(()->{var current=access.system(id);repo.cancelIntent(id);if(current.get("provider_subscription_id")==null&&(current.get("subscription_state")==null||Set.of("NOT_CREATED","REJECTED").contains(Objects.toString(current.get("subscription_state"))))repo.noSubscriptionCancelled(id);return new LinkedHashMap<>(repo.billing(id,false));});if(Boolean.TRUE.equals(before.get("cancel_confirmed")))return;mode(before);provider.requireCredentials();
+    var before=tx(()->{var current=access.system(id);repo.cancelIntent(id);if(current.get("provider_subscription_id")==null&&(current.get("subscription_state")==null||Set.of("NOT_CREATED","REJECTED").contains(Objects.toString(current.get("subscription_state")))))repo.noSubscriptionCancelled(id);return new LinkedHashMap<>(repo.billing(id,false));});if(Boolean.TRUE.equals(before.get("cancel_confirmed")))return;mode(before);provider.requireCredentials();
     if(before.get("provider_subscription_id")==null)throw new ApiError(409,"BILLING_REQUIRES_RECOVERY","Recover provider creation before cancelling possible future billing.");
     var fetched=provider.subscription(before.get("provider_subscription_id").toString());subscription(before,fetched);
     if(terminal(fetched.path("status").asText())){tx(()->{access.system(id);repo.status(id,fetched.path("status").asText().toUpperCase(Locale.ROOT),true);return null;});return;}
