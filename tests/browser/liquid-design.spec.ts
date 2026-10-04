@@ -26,9 +26,9 @@ async function settle(page: Page) {
 
 async function evidence(page: Page, info: TestInfo, name: string) {
   await settle(page);
-  const path = info.outputPath(`liquid-${name}-${page.viewportSize()!.width}.png`);
-  await page.screenshot({path, fullPage: true});
-  await info.attach(name, {path, contentType: 'image/png'});
+  const path = info.outputPath(`liquid-${name}-${page.viewportSize()!.width}.jpg`);
+  await page.screenshot({path, fullPage: true, type: 'jpeg', quality: 90});
+  await info.attach(name, {path, contentType: 'image/jpeg'});
 }
 
 async function material(surface: Locator) {
