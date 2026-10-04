@@ -61,9 +61,9 @@ body .marketplace-hero .project-stack .stack-card-1 { --card-angle: 1deg; --dept
 body .marketplace-hero .project-stack .stack-card-2 { --card-angle: -3deg; --depth: .8; left: auto; right: 3%; top: 12px; width: 36.5%; z-index: 2; animation-delay: 240ms; }
 body .marketplace-hero .project-stack .stack-card:hover,
 body .marketplace-hero .project-stack .stack-card:focus-within { translate: none; box-shadow: none; }
-.stack-float { animation: spectral-float 7s 1.25s ease-in-out infinite; }
-.stack-card-1 .stack-float { animation-duration: 8.5s; animation-delay: 1.4s; }
-.stack-card-2 .stack-float { animation-duration: 7.8s; animation-delay: 1.55s; }
+.stack-float { --float-duration: 7s; --float-delay: 1.25s; animation: spectral-float var(--float-duration) var(--float-delay) ease-in-out infinite; }
+.stack-card-1 .stack-float { --float-duration: 8.5s; --float-delay: 1.4s; }
+.stack-card-2 .stack-float { --float-duration: 7.8s; --float-delay: 1.55s; }
 .stack-glass {
  position: relative; padding: 7px; border: 2px solid #fffffff2; border-radius: 24px;
  background: linear-gradient(135deg,#ffffffb8,#edf0f5b0 48%,#ffffffd9);
@@ -170,6 +170,8 @@ body .marketplace .market-search { margin-top: 26px; }
  html { scroll-behavior: auto; }
  /* Keep the explicitly requested card loop; omit spatial entrances and parallax. */
  body .marketplace-hero *:not(.stack-float),body .marketplace-hero *:before { animation: none !important; transition: none !important; }
+ /* Override the global reduced-motion reset only for this decorative loop. */
+ body .marketplace-hero .stack-float { animation: spectral-float var(--float-duration) var(--float-delay) ease-in-out infinite !important; }
  body .marketplace-hero .stack-glass { transform: none !important; }
 }
 @media(forced-colors:active) {
