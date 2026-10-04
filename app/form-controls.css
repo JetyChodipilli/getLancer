@@ -1,5 +1,6 @@
 /* Real application fields. Keep embedded software previews at their own scale.
    Explicit native-type exclusions also override older generic .form input rules. */
+:root { --control-focus: #9c2d0f; }
 body :is(.form,.team-field,.team-form,.studio-shell,.teams-page,.demo-filters,.commerce-field,.commerce-filters,.business-save-picker,.dock-options,[data-slot=dialog-content],[data-slot=alert-dialog-content]) :is(input:not([type=checkbox]):not([type=radio]):not([type=file]):not(:where([type=range],[type=color],[type=hidden],[type=button],[type=submit],[type=reset],[type=image],[data-slot=input-otp])),select,textarea,[data-slot=select-trigger]):not(:where(.showcase-screen *,.showcase-mobile *,.miniapp *,.product-demo *)),
 body [data-slot=input]:not(:where([type=checkbox],[type=radio],[type=file],[type=range],[type=color],[type=hidden])), body [data-slot=select-trigger] {
   width: 100%; min-width: 0; min-height: 44px;
@@ -17,7 +18,7 @@ body [data-slot=input]::placeholder { color: #686b74; opacity: 1; }
 /* One focus indicator, with no Tailwind ring or orange field fill. */
 body :is(.form,.team-field,.team-form,.team-form .team-field,.studio-shell,.teams-page,.icy-auth,.demo-filters,.commerce-field,.commerce-filters,.business-save-picker,.dock-options,[data-slot=dialog-content],[data-slot=alert-dialog-content]) :is(input,select,textarea,[data-slot=select-trigger],[data-slot=checkbox],[data-slot=dialog-close]):focus-visible,
 body :is([data-slot=input],[data-slot=select-trigger]):focus-visible {
-  outline: 2px solid #9c2d0f; outline-offset: 2px;
+  outline: 2px solid var(--control-focus); outline-offset: 2px;
   box-shadow: none; --tw-ring-shadow: 0 0 #0000; --tw-ring-offset-shadow: 0 0 #0000;
 }
 body :is(.form,.team-field,.team-form,.studio-shell,.teams-page,.commerce-field,.commerce-filters,[data-slot=dialog-content],[data-slot=alert-dialog-content]) :is(input,select,textarea,[data-slot=select-trigger])[aria-invalid=true],
@@ -38,7 +39,7 @@ body .icy-field .icy-input {
   border-color: var(--control-border); background: var(--control-surface); box-shadow: none;
 }
 body .icy-field .icy-input:focus-within {
-  border-color: var(--control-border); outline: 2px solid #9c2d0f; outline-offset: 2px; box-shadow: none;
+  border-color: var(--control-border); outline: 2px solid var(--control-focus); outline-offset: 2px; box-shadow: none;
 }
 body .icy-field .icy-input:has(input[aria-invalid=true]) { border-color: #b42318; }
 body .icy-field .icy-input input {
@@ -54,7 +55,7 @@ body .icy-field [data-slot=input-otp-slot] {
   border-color: var(--control-border); box-shadow: none;
 }
 body .icy-field [data-slot=input-otp-slot][data-active=true] {
-  outline: 2px solid #9c2d0f; outline-offset: 2px; box-shadow: none;
+  outline: 2px solid var(--control-focus); outline-offset: 2px; box-shadow: none;
 }
 body .icy-field [data-slot=input-otp]:focus-visible { outline: none; box-shadow: none; }
 body .icy-field:has([data-slot=input-otp][aria-invalid=true]) [data-slot=input-otp-slot] { border-color: #b42318; }
@@ -64,7 +65,7 @@ body :is(.search,.browse-search,.dock-search,.market-search,.commerce-search>div
   outline: none; border-color: var(--control-border); box-shadow: none;
 }
 body :is(.search,.browse-search,.dock-search,.market-search,.commerce-search>div):has(input:focus-visible) {
-  outline: 2px solid #9c2d0f; outline-offset: 2px;
+  outline: 2px solid var(--control-focus); outline-offset: 2px;
 }
 body :is(.search,.browse-search,.dock-search,.market-search,.commerce-search>div) input:not([type=checkbox]):not([type=radio]):not([type=file]) {
   --field-surface: transparent; min-height: 44px; padding: 0; border: 0; box-shadow: none;
@@ -75,7 +76,7 @@ body .browse-sort select {
   min-width: 0; min-height: 44px; padding: 10px 12px; border: 1px solid var(--control-border) !important;
   background: var(--control-surface) !important; color: var(--foreground); border-radius: 12px; font-size: 16px;
 }
-body .browse-sort select:focus-visible { outline: 2px solid #9c2d0f; outline-offset: 2px; box-shadow: none; }
+body .browse-sort select:focus-visible { outline: 2px solid var(--control-focus); outline-offset: 2px; box-shadow: none; }
 
 /* Restore toggles and file controls after legacy width/min-height defaults. */
 body :is(.form,.team-field,.team-form,.studio-shell,.teams-page,.icy-auth,.demo-filters,.hosting-consent,.business-checks,[data-slot=dialog-content],[data-slot=alert-dialog-content]) input:is([type=checkbox],[type=radio]),
@@ -188,6 +189,7 @@ body .account-closure .form .button { justify-self: start; margin-top: 4px; }
   body :is(.icy-input,[data-slot=input],[data-slot=select-trigger]) { transition: none !important; }
 }
 @media(forced-colors:active) {
+  :root { --control-focus: Highlight; }
   body :is(.form,.team-field,.studio-shell,.icy-field,[data-slot=dialog-content]) :is(input,select,textarea,[data-slot=select-trigger]),
   body :is([data-slot=input],[data-slot=select-trigger]), body .icy-field .icy-input { --field-border: ButtonText; --invalid-control-border: ButtonText; border-color: ButtonText; }
   body :is(.form,.team-field,.studio-shell,.icy-auth,[data-slot=dialog-content],[data-slot=alert-dialog-content]) :focus-visible,
