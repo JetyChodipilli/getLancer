@@ -154,6 +154,10 @@ public class AccountService {
     result.put("maintenanceLedger",db.queryForList("SELECT l.id,l.period_id,l.kind,l.amount_minor,l.currency,l.created_at FROM maintenance_ledger l JOIN maintenance_periods p ON p.id=l.period_id JOIN maintenance_subscriptions s ON s.id=p.subscription_id JOIN maintenance_offers o ON o.id=s.offer_id WHERE s.payer_id=? OR o.seller_id=? OR o.buyer_id=?",id,id,id));
     result.put("maintenanceRequests",db.queryForList("SELECT id,subscription_id,period_id,title,description,status,delivery_note,delivery_url,response_due_at,created_at,resolved_at FROM maintenance_requests WHERE actor_id=?",id));
     result.put("maintenanceActions",db.queryForList("SELECT id,offer_id,kind,detail,created_at FROM maintenance_audit WHERE actor_id=?",id));
+    result.put("components",db.queryForList("SELECT * FROM component_entries WHERE owner_id=?",id));
+    result.put("collegeContext",db.queryForList("SELECT e.* FROM college_project_metadata e JOIN products p ON p.id=e.product_id WHERE p.owner_user_id=?",id));
+    result.put("componentSlotPurchases",db.queryForList("SELECT id,amount_minor,currency,mode,status,order_id,payment_id,refunded_minor,dispute_status,created_at FROM component_slot_purchases WHERE owner_id=?",id));
+    result.put("componentSlotLedger",db.queryForList("SELECT l.* FROM component_slot_ledger l JOIN component_slot_purchases p ON p.id=l.purchase_id WHERE p.owner_id=?",id));
     if (hosting != null) result.put("hostedDemos", hosting.export(id));
     return result;
   }

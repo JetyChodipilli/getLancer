@@ -23,7 +23,7 @@ export default function Header({preview=false}:{preview?:boolean}) {
  const authPage=path==='/login'||path==='/signup';
  if(authPage)return <a href="#main" className="skip">Skip to content</a>;
  const currentUser=preview||path.startsWith('/preview/')?null:me;
- const links=[{href:'/',label:'Explore projects',active:path==='/'},{href:'/templates',label:'Templates',active:path.startsWith('/templates')},{href:'/teams',label:'Teams',active:path.startsWith('/teams')},{href:'/saved',label:'Saved',active:path==='/saved'},currentUser?{href:'/workspace',label:'My workspace',active:path.startsWith('/workspace')}:{href:'/how-it-works',label:'How it works',active:path==='/how-it-works'}];
+ const links=[{href:'/',label:'Explore projects',active:path==='/'},{href:'/components',label:'Components',active:path.startsWith('/components')},{href:'/college-projects',label:'College projects',active:path.startsWith('/college-projects')},{href:'/templates',label:'Templates',active:path.startsWith('/templates')},{href:'/teams',label:'Teams',active:path.startsWith('/teams')},{href:'/saved',label:'Saved',active:path==='/saved'},currentUser?{href:'/workspace',label:'My workspace',active:path.startsWith('/workspace')}:{href:'/how-it-works',label:'How it works',active:path==='/how-it-works'}];
  return <><a href="#main" className="skip">Skip to content</a><header className={'site-header'+(path==='/'?' spectral-home-header':'')}><div className="topbar" ref={bar}>
   <Link className="spectral-brand" href="/" aria-label="getLancer home"><Brand/></Link>
   <div id="discovery-nav-slot" className="discovery-nav-slot"/>

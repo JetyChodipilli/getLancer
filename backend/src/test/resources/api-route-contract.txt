@@ -10,6 +10,8 @@ DELETE /api/v1/teams/{id}/projects/{productId}
 GET /api/v1/admin/accounts
 GET /api/v1/admin/appeals
 GET /api/v1/admin/audit
+GET /api/v1/admin/component-slot-purchases
+GET /api/v1/admin/components/review
 GET /api/v1/admin/concierge
 GET /api/v1/admin/concierge/{id}/matches
 GET /api/v1/admin/deletion-requests
@@ -45,6 +47,11 @@ GET /api/v1/businesses/{id}/requests/{requestId}/shortlist
 GET /api/v1/businesses/{id}/talent-lists
 GET /api/v1/businesses/{id}/talent-lists/{listId}/entries
 GET /api/v1/categories
+GET /api/v1/college-projects
+GET /api/v1/college-projects/{slug}
+GET /api/v1/components
+GET /api/v1/components/slots/pricing
+GET /api/v1/components/{slug}
 GET /api/v1/developer/analytics
 GET /api/v1/developer/inquiries
 GET /api/v1/developer/inquiries/{id}
@@ -64,6 +71,9 @@ GET /api/v1/maintenance/sources
 GET /api/v1/maintenance/{id}
 GET /api/v1/me
 GET /api/v1/me/appeals
+GET /api/v1/me/college-projects
+GET /api/v1/me/component-slot-purchases
+GET /api/v1/me/components
 GET /api/v1/me/export
 GET /api/v1/me/hosting
 GET /api/v1/me/hosting/sources
@@ -102,6 +112,10 @@ PATCH /api/v1/teams/{id}/roles/{roleId}
 PATCH /api/v1/teams/{id}/staffing/{staffingId}
 POST /api/v1/admin/accounts/{id}/{action}
 POST /api/v1/admin/appeals/{id}/decision
+POST /api/v1/admin/college-projects/{id}/review
+POST /api/v1/admin/component-slot-purchases/{id}/bind-order
+POST /api/v1/admin/component-slot-purchases/{id}/reconcile
+POST /api/v1/admin/components/{id}/review
 POST /api/v1/admin/concierge/{id}/shortlist
 POST /api/v1/admin/deletion-requests/{id}/review
 POST /api/v1/admin/delivery/disputes/{id}/resolve
@@ -150,6 +164,7 @@ POST /api/v1/businesses/{id}/requests/{requestId}/shortlist
 POST /api/v1/businesses/{id}/talent-lists
 POST /api/v1/businesses/{id}/talent-lists/{listId}/entries
 POST /api/v1/commerce/razorpay/webhook
+POST /api/v1/components/razorpay/webhook
 POST /api/v1/developer/products
 POST /api/v1/developer/products/{id}/access
 POST /api/v1/developer/products/{id}/verification
@@ -180,6 +195,11 @@ POST /api/v1/maintenance/{id}/billing/refresh
 POST /api/v1/maintenance/{id}/requests
 POST /api/v1/maintenance/{id}/requests/{requestId}/{action}
 POST /api/v1/maintenance/{id}/{action}
+POST /api/v1/me/component-slot-purchases
+POST /api/v1/me/component-slot-purchases/{id}/reconcile
+POST /api/v1/me/component-slot-purchases/{id}/verify
+POST /api/v1/me/components
+POST /api/v1/me/components/{id}/{action}
 POST /api/v1/me/hosting
 POST /api/v1/me/hosting/{id}/deploy
 POST /api/v1/me/hosting/{id}/reconcile
@@ -213,8 +233,12 @@ POST /api/v1/template-purchases/{id}/disputes
 POST /api/v1/template-purchases/{id}/reconcile
 POST /api/v1/template-purchases/{id}/verify
 POST /api/v1/templates/{id}/orders
+PUT /api/v1/admin/component-slot-pricing
 PUT /api/v1/businesses/{id}
 PUT /api/v1/businesses/{id}/requests/{requestId}
 PUT /api/v1/developer/availability
 PUT /api/v1/developer/profile
+PUT /api/v1/me/college-projects/{id}
 PUT /api/v1/teams/{id}
+PATCH /api/v1/me/components/{id}
+GET /api/v1/admin/components/{id}

@@ -1,3 +1,5 @@
+import {componentCatalog,collegeCatalog} from '@/lib/component-server';
+import {ComponentCard} from '@/app/components/component-library';
 import ExternalLink from '@/app/components/external-link';
 import StructuredData from '@/app/components/structured-data';
 import { backendOrigin, getCatalog } from '@/lib/server';
@@ -29,6 +31,8 @@ export default async function Builder({params}: {params: Promise<{slug: string}>
     if (p) profile = {displayName: p.builder, headline: 'Independent software builder', bio: 'Builds thoughtful software for everyday business problems.', availabilityStatus: p.availability};
   }
   if (!profile) notFound();
+  const proofParams=new URLSearchParams({builder:slug});
+  const [componentProof,collegeProof]=origin?await Promise.all([componentCatalog(proofParams),collegeCatalog(proofParams)]):[undefined,undefined];
   return <main className="wrap" id="main">{!catalog.preview&&<StructuredData data={{'@context':'https://schema.org','@type':'Person',name:profile.displayName,description:profile.headline}}/>}{profile.id&&<BuilderEvent id={profile.id}/>}<Link href="/" className="link">← Explore projects</Link>
     <div className="intro" style={{marginTop:30}}><div><span className="eyebrow">Builder profile</span><h1>{profile.displayName}</h1><p>{profile.headline}</p></div><p>{availabilityLabel(profile.availabilityStatus, profile.bookedUntil)}</p></div>
     <p className="prose">{profile.bio}</p><p className="muted">Availability last confirmed: {profile.availabilityConfirmedAt?new Date(profile.availabilityConfirmedAt).toLocaleDateString():'Not yet confirmed'}</p>{profile.responseRate!==undefined&&<p className="panel">Responded to {Math.round(profile.responseRate)}% of {profile.responseSample} qualified inquiries{profile.medianResponseHours!=null&&<> · Typical first response: {Math.round(profile.medianResponseHours)} hours</>}. Inquiries have at least 48 hours of observation; confirmed spam is excluded.</p>}
@@ -36,6 +40,8 @@ export default async function Builder({params}: {params: Promise<{slug: string}>
     {catalog.preview && <div className="samplebar">Illustrative builder profile.</div>}
     <h2 style={{margin:'30px 0'}}>Selected work</h2><div className="grid">{catalog.items.map(p => <article key={p.id}><Link href={'/products/' + p.slug} className="thumbnail"><Preview product={p}/></Link><h3 style={{marginTop:15}}><Link href={'/products/' + p.slug}>{p.title}</Link></h3><p className="summary">{p.summary}</p></article>)}</div>
     {!catalog.items.length && <p>No active public showcases at the moment.</p>}
+    {!!componentProof?.data.items.length&&<section className="kit-related"><h2>Component contributions</h2><div className="kit-grid related">{componentProof.data.items.map(c=><ComponentCard key={c.slug} item={c}/>)}</div><Link href={"/components?builder="+encodeURIComponent(slug)} className="button">All component contributions ↗</Link></section>}
+    {!!collegeProof?.data.items.length&&<section className="kit-info-panel"><h2>College project contributions</h2>{collegeProof.data.items.map(p=><p key={p.id}><Link className="link" href={"/college-projects/"+p.slug}>{p.title} · {p.education.language} ↗</Link></p>)}</section>}
     <PublicReviews slug={slug} initial={reviews}/>
   </main>;
 }
