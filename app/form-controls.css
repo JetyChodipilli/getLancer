@@ -15,7 +15,7 @@ body :is(.form,.team-field,.studio-shell,.icy-field,[data-slot=dialog-content]) 
 body [data-slot=input]::placeholder { color: #686b74; opacity: 1; }
 
 /* One focus indicator, with no Tailwind ring or orange field fill. */
-body :is(.form,.team-field,.team-form,.studio-shell,.teams-page,.icy-auth,.demo-filters,.commerce-field,.commerce-filters,.business-save-picker,.dock-options,[data-slot=dialog-content],[data-slot=alert-dialog-content]) :is(input,select,textarea,[data-slot=select-trigger],[data-slot=checkbox],[data-slot=dialog-close]):focus-visible,
+body :is(.form,.team-field,.team-form,.team-form .team-field,.studio-shell,.teams-page,.icy-auth,.demo-filters,.commerce-field,.commerce-filters,.business-save-picker,.dock-options,[data-slot=dialog-content],[data-slot=alert-dialog-content]) :is(input,select,textarea,[data-slot=select-trigger],[data-slot=checkbox],[data-slot=dialog-close]):focus-visible,
 body :is([data-slot=input],[data-slot=select-trigger]):focus-visible {
   outline: 2px solid #9c2d0f; outline-offset: 2px;
   box-shadow: none; --tw-ring-shadow: 0 0 #0000; --tw-ring-offset-shadow: 0 0 #0000;
@@ -105,7 +105,7 @@ body [data-slot=select-trigger] { min-height: 44px; height: auto; border-radius:
 body [data-slot=select-content], body [data-slot=popover-content] {
   background: #fdfdfc; color: #191b20; border: 1px solid var(--control-border);
   border-radius: 16px; box-shadow: 0 16px 48px #191b201c;
-  backdrop-filter: none; -webkit-backdrop-filter: none;
+  -webkit-backdrop-filter: none; backdrop-filter: none;
 }
 body [data-slot=select-item] { min-height: 44px; font-size: 16px; line-height: 1.4; }
 body [data-slot=select-item][data-highlighted] { background: #eeefed; color: #191b20; outline: none; }
@@ -116,7 +116,7 @@ body :is([data-slot=dialog-content],[data-slot=alert-dialog-content]) {
   width: calc(100vw - 32px); max-width: min(512px,calc(100vw - 32px)); max-height: calc(100dvh - 32px) !important;
   overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable;
   background: #fdfdfc; color: #191b20; border-color: var(--glass-line); border-radius: 24px !important;
-  box-shadow: 0 28px 100px #191b2030; backdrop-filter: none; -webkit-backdrop-filter: none;
+  box-shadow: 0 28px 100px #191b2030; -webkit-backdrop-filter: none; backdrop-filter: none;
 }
 body [data-slot=alert-dialog-content][data-size=sm] { max-width: min(320px,calc(100vw - 32px)); }
 body :is([data-slot=dialog-header],[data-slot=alert-dialog-header]) { min-width: 0; }

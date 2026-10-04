@@ -46,8 +46,8 @@ body .studio-shell .studio-rail {
   border-radius: 24px;
   background: var(--glass-chrome, #ffffffb3);
   box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
 }
 body .studio-shell .studio-rail-title { display: flex; align-items: center; gap: 10px; padding: 0 6px; }
 body .studio-shell .studio-rail-title > span { display: grid; place-items: center; flex-shrink: 0; width: 36px; height: 36px; border: 1px solid var(--studio-line); border-radius: 12px; background: var(--studio-record); color: var(--studio-blue); }
@@ -93,7 +93,7 @@ body .studio-shell :focus-visible { outline: 2px solid var(--ring); outline-offs
 body .studio-shell :is(button, a, input, select, textarea, summary, [role=tab]) { scroll-margin-top: calc(var(--nav-height, 76px) + 20px); }
 
 /* Sample disclosure stays visible with simulation controls closed. */
-body .studio-shell .studio-preview { margin: 0 0 20px; border: 1px solid var(--glass-line, var(--border)); border-radius: 16px; background: var(--glass-chrome, #ffffffb3); box-shadow: var(--glass-shadow); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); font-size: 12px; overflow: hidden; }
+body .studio-shell .studio-preview { margin: 0 0 20px; border: 1px solid var(--glass-line, var(--border)); border-radius: 16px; background: var(--glass-chrome, #ffffffb3); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); font-size: 12px; overflow: hidden; }
 body .studio-shell .studio-preview > summary { list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 48px; padding: 12px 16px; cursor: pointer; color: var(--studio-ink); }
 body .studio-shell .studio-preview > summary::-webkit-details-marker { display: none; }
 body .studio-shell .studio-preview > summary:focus-visible { border-radius: 15px; outline-offset: -3px; }
@@ -112,7 +112,7 @@ body .studio-shell .studio-preview-actions .button { font-size: 13px; }
 
 /* Tabs are opaque segmented controls, without another blurred layer. */
 body .studio-shell :is(.workspace-layout, .studio-tabset) { display: flex; flex-direction: column; align-items: stretch; gap: 0; min-width: 0; }
-body .studio-shell :is(.workspace-tabs, .studio-tabs) { position: static; display: flex; align-items: stretch; justify-content: flex-start; flex-wrap: nowrap; width: 100%; max-width: 100%; height: auto; gap: 4px; margin: 0 0 20px; padding: 4px; border: 1px solid var(--studio-line); border-radius: 16px; background: #eeefed; box-shadow: inset 0 1px 0 #ffffffc9; overflow-x: auto; scrollbar-width: thin; scroll-padding: 6px; backdrop-filter: none; -webkit-backdrop-filter: none; z-index: 1; }
+body .studio-shell :is(.workspace-tabs, .studio-tabs) { position: static; display: flex; align-items: stretch; justify-content: flex-start; flex-wrap: nowrap; width: 100%; max-width: 100%; height: auto; gap: 4px; margin: 0 0 20px; padding: 4px; border: 1px solid var(--studio-line); border-radius: 16px; background: #eeefed; box-shadow: inset 0 1px 0 #ffffffc9; overflow-x: auto; scrollbar-width: thin; scroll-padding: 6px; -webkit-backdrop-filter: none; backdrop-filter: none; z-index: 1; }
 body .studio-shell :is(.workspace-tabs, .studio-tabs) [role=tab] { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; height: auto; min-width: 44px; min-height: 44px; padding: 10px 14px; gap: 7px; border: 1px solid transparent; border-radius: 12px; background: transparent; box-shadow: none; color: var(--studio-muted); font-size: 14px; line-height: 22px; font-weight: 500; white-space: nowrap; outline-offset: -3px; transition: color 180ms, background 180ms, border-color 180ms, box-shadow 180ms; }
 body .studio-shell :is(.workspace-tabs, .studio-tabs) [role=tab]:hover { color: var(--studio-ink); background: #ffffff80; }
 body .studio-shell :is(.workspace-tabs, .studio-tabs) [role=tab][data-state=active] { color: var(--studio-blue-hover); border-color: var(--studio-line); background: var(--studio-record); box-shadow: 0 2px 5px #191b2008, inset 0 1px 0 #fff; }
@@ -131,16 +131,16 @@ body .studio-shell .studio-overview-grid > :is(section, aside) {
   border-radius: 20px;
   background: var(--studio-surface);
   box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
 }
 body .studio-shell :is(.panel, .team-section:not(.team-overview), .team-context, .business-section, .business-brief-panel, .business-shortlist, .business-candidate-section, .business-candidate, .delivery-detail, .commerce-section), body .studio-shell .studio-overview-grid > :is(section, aside) { padding: 20px; }
-body .studio-shell :is(.panel, [data-slot=card], .team-section:not(.team-overview), .business-section, .business-brief-panel, .business-shortlist, .business-candidate-section, .business-candidate, .delivery-list, .delivery-detail, .commerce-section, .studio-overview-grid > section, .studio-overview-grid > aside) :is(.panel, [data-slot=card], .demo-card, .team-card, .business-candidate, .delivery-milestone, .template-workspace-card, .commerce-section) { background: var(--studio-record); border-color: var(--studio-line); box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
-body .studio-shell .team-section.team-overview { padding: 0; border: 0; background: transparent; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
-body .studio-shell :is(.business-brief-facts, .business-facts, .business-candidate-evidence, .delivery-agreement, .delivery-payment-record, .template-facts) { border-color: var(--studio-line); background: #f1f2f0; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+body .studio-shell :is(.panel, [data-slot=card], .team-section:not(.team-overview), .business-section, .business-brief-panel, .business-shortlist, .business-candidate-section, .business-candidate, .delivery-list, .delivery-detail, .commerce-section, .studio-overview-grid > section, .studio-overview-grid > aside) :is(.panel, [data-slot=card], .demo-card, .team-card, .business-candidate, .delivery-milestone, .template-workspace-card, .commerce-section) { background: var(--studio-record); border-color: var(--studio-line); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+body .studio-shell .team-section.team-overview { padding: 0; border: 0; background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+body .studio-shell :is(.business-brief-facts, .business-facts, .business-candidate-evidence, .delivery-agreement, .delivery-payment-record, .template-facts) { border-color: var(--studio-line); background: #f1f2f0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
 body .studio-shell [data-slot=card] { gap: 16px; padding-block: 20px; }
 body .studio-shell [data-slot=card] > :is([data-slot=card-header], [data-slot=card-content], [data-slot=card-footer]) { padding-inline: 20px; }
-body .studio-shell :is(.care-requests > li, .hosting-chooser nav > button, .care-chooser nav > button, .commerce-template-item, .delivery-list-item, .business-brief-item) { background: var(--studio-record); backdrop-filter: none; -webkit-backdrop-filter: none; }
+body .studio-shell :is(.care-requests > li, .hosting-chooser nav > button, .care-chooser nav > button, .commerce-template-item, .delivery-list-item, .business-brief-item) { background: var(--studio-record); -webkit-backdrop-filter: none; backdrop-filter: none; }
 body .studio-shell :is(.hosting-chooser nav > button, .care-chooser nav > button, .commerce-template-item, .delivery-list-item, .business-brief-item)[aria-current=true] { background: var(--studio-blue-soft); }
 
 body .studio-shell :is(.studio-metrics, .workspace-overview) { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin: 0 0 20px; border: 0; border-radius: 0; background: transparent; box-shadow: none; overflow: visible; }
@@ -150,7 +150,7 @@ body .studio-shell .studio-metric [data-slot=card-header] svg { flex-shrink: 0; 
 body .studio-shell .studio-metric [data-slot=card-content] { padding: 12px 0 0; }
 body .studio-shell .studio-metric strong { display: block; font-size: 30px; line-height: 36px; font-weight: 600; letter-spacing: -.035em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; color: var(--studio-ink); }
 body .studio-shell .studio-metric p { margin: 8px 0 0; color: var(--studio-muted); font-size: 12px; line-height: 19px; overflow-wrap: anywhere; }
-body .studio-shell .overview-card { display: flex; flex-direction: column; align-items: stretch; position: relative; min-width: 0; min-height: 184px; padding: 20px; gap: 0; text-align: left; cursor: pointer; border: 1px solid var(--glass-line, var(--border)); border-radius: 20px; background: var(--studio-surface); box-shadow: var(--glass-shadow); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); transition: border-color 180ms, background 180ms, box-shadow 180ms, transform 180ms; }
+body .studio-shell .overview-card { display: flex; flex-direction: column; align-items: stretch; position: relative; min-width: 0; min-height: 184px; padding: 20px; gap: 0; text-align: left; cursor: pointer; border: 1px solid var(--glass-line, var(--border)); border-radius: 20px; background: var(--studio-surface); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); transition: border-color 180ms, background 180ms, box-shadow 180ms, transform 180ms; }
 body .studio-shell .overview-card-head { display: flex; justify-content: space-between; align-items: flex-start; width: 100%; gap: 10px; }
 body .studio-shell .overview-card-head > svg { flex-shrink: 0; margin-top: 1px; color: var(--studio-muted); }
 body .studio-shell .overview-label { padding: 0; color: var(--studio-muted); font-size: 14px; line-height: 20px; font-weight: 500; }
@@ -194,7 +194,7 @@ body .studio-shell .studio-overview-grid aside > h3 { margin: 18px 0 4px; font-s
 body .studio-shell .studio-overview-grid aside details { margin-top: 20px; }
 
 /* Productive search chrome, with opaque controls inside it. */
-body .studio-shell .browse-toolbar-sticky { top: calc(var(--nav-height, 76px) + 12px); margin: 0 0 20px; padding: 16px; border: 1px solid var(--glass-line, var(--border)); border-radius: 20px; background: var(--glass-chrome, #ffffffb3); box-shadow: var(--glass-shadow); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+body .studio-shell .browse-toolbar-sticky { top: calc(var(--nav-height, 76px) + 12px); margin: 0 0 20px; padding: 16px; border: 1px solid var(--glass-line, var(--border)); border-radius: 20px; background: var(--glass-chrome, #ffffffb3); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
 body .studio-shell .browse-toolbar { margin-bottom: 0; }
 body .studio-shell .browse-controls { gap: 12px; }
 body .studio-shell .browse-search { min-height: 48px; padding: 4px 4px 4px 12px; border-color: var(--studio-control); border-radius: 12px; background: var(--studio-record); box-shadow: none; }
@@ -207,7 +207,7 @@ body .studio-shell .browse-search-submit { min-height: 44px; border-radius: 10px
 body .studio-shell :is(.success, .team-success) { margin: 0 0 20px; padding: 12px 16px; border: 1px solid #cbe5d8; border-radius: 12px; background: #eaf6ef; color: #17634d; font-size: 14px; line-height: 22px; }
 body .studio-shell :is(.error, .team-error) { margin: 0 0 20px; padding: 12px 16px; border: 1px solid #f2d1cb; border-radius: 12px; background: #fff1f0; color: #b42318; font-size: 14px; line-height: 22px; }
 body .studio-shell .samplebar { padding: 12px 16px; border: 1px solid var(--studio-line); border-radius: 12px; color: var(--studio-muted); background: #eeefed; font-size: 12px; line-height: 20px; }
-body .studio-shell :is(.empty, .team-empty) { margin: 20px 0; padding: 32px 24px; border: 1px dashed #c4c6cd; border-radius: 20px; background: var(--studio-record); color: var(--studio-muted); text-align: center; backdrop-filter: none; -webkit-backdrop-filter: none; }
+body .studio-shell :is(.empty, .team-empty) { margin: 20px 0; padding: 32px 24px; border: 1px dashed #c4c6cd; border-radius: 20px; background: var(--studio-record); color: var(--studio-muted); text-align: center; -webkit-backdrop-filter: none; backdrop-filter: none; }
 body .studio-shell :is(.empty, .team-empty) h2 { margin: 16px 0 8px; color: var(--studio-ink); font-size: 21px; }
 body .studio-shell :is(.empty, .team-empty) p { max-width: 520px; margin: 8px auto 20px; font-size: 14px; line-height: 22px; }
 body .studio-shell .next-action { margin: 0 0 20px; padding: 16px 20px; border: 1px solid var(--studio-line); border-radius: 16px; background: #eeefed; box-shadow: none; }
@@ -371,14 +371,14 @@ body .studio-shell.trust-workspace .trust-project p { margin: 6px 0; font-size: 
   body .studio-shell :is(.studio-rail, .studio-preview, .browse-toolbar-sticky, .panel, .demo-card, [data-slot=card], .overview-card, .team-section:not(.team-overview), .team-context, .business-section, .business-brief-panel, .business-shortlist, .business-candidate-section, .business-request-list, .business-candidate, .delivery-list, .delivery-detail, .commerce-section, .commerce-template-list), body .studio-shell .studio-overview-grid > :is(section, aside) { background: #fafaf8; }
 }
 @media (prefers-reduced-transparency: reduce) {
-  body .studio-shell :is(.studio-rail, .studio-preview, .browse-toolbar-sticky, .panel, .demo-card, [data-slot=card], .overview-card, .team-section:not(.team-overview), .team-context, .business-section, .business-brief-panel, .business-shortlist, .business-candidate-section, .business-request-list, .business-candidate, .delivery-list, .delivery-detail, .commerce-section, .commerce-template-list), body .studio-shell .studio-overview-grid > :is(section, aside) { background: #fafaf8; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  body .studio-shell :is(.studio-rail, .studio-preview, .browse-toolbar-sticky, .panel, .demo-card, [data-slot=card], .overview-card, .team-section:not(.team-overview), .team-context, .business-section, .business-brief-panel, .business-shortlist, .business-candidate-section, .business-request-list, .business-candidate, .delivery-list, .delivery-detail, .commerce-section, .commerce-template-list), body .studio-shell .studio-overview-grid > :is(section, aside) { background: #fafaf8; -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .studio-shell *, :is(.workspace-dialog, .business-dialog, .delivery-dialog) * { animation: none !important; transition: none !important; }
   body .studio-shell .overview-card:is(:hover, :focus-visible), body .studio-shell .overview-card:is(:hover, :focus-visible) .overview-card-action svg { transform: none; }
 }
 @media (forced-colors: active) {
-  body .studio-shell :is(.studio-rail, .studio-preview, .browse-toolbar-sticky, .panel, .demo-card, [data-slot=card], .overview-card, .workspace-tabs, .studio-tabs, .team-section:not(.team-overview), .team-context, .business-section, .business-brief-panel, .business-shortlist, .business-candidate-section, .business-request-list, .business-candidate, .delivery-list, .delivery-detail, .commerce-section, .commerce-template-list), body .studio-shell .studio-overview-grid > :is(section, aside) { border-color: CanvasText; background: Canvas; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  body .studio-shell :is(.studio-rail, .studio-preview, .browse-toolbar-sticky, .panel, .demo-card, [data-slot=card], .overview-card, .workspace-tabs, .studio-tabs, .team-section:not(.team-overview), .team-context, .business-section, .business-brief-panel, .business-shortlist, .business-candidate-section, .business-request-list, .business-candidate, .delivery-list, .delivery-detail, .commerce-section, .commerce-template-list), body .studio-shell .studio-overview-grid > :is(section, aside) { border-color: CanvasText; background: Canvas; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
   body .studio-shell .studio-rail nav a[aria-current=page], body .studio-shell :is(.workspace-tabs, .studio-tabs) [role=tab][data-state=active] { outline: 1px solid Highlight; outline-offset: -1px; }
   body .studio-shell :focus-visible { outline-color: Highlight; }
   body .studio-shell :is(.studio-rail nav a, [role=tab]):focus-visible { outline: 2px solid Highlight; outline-offset: -3px; }

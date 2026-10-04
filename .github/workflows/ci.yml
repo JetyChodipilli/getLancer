@@ -99,7 +99,9 @@ jobs:
         if: always()
         with:
           name: liquid-design-evidence-${{ github.sha }}
-          path: test-results/liquid-design-*
+          path: |
+            test-results/liquid-design-*/**/*.png
+            test-results/liquid-design-*/**/error-context.md
           retention-days: 7
       - uses: actions/upload-artifact@v4
         with:

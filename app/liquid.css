@@ -22,8 +22,9 @@
   --studio-hover: #30323a;
 }
 body {
-  background: radial-gradient(ellipse at 88% 8%, #e6e9ef 0, transparent 40%),
-    radial-gradient(ellipse at 8% 55%, #eaebe8 0, transparent 48%), var(--background);
+  background-color: var(--background);
+  background-image: radial-gradient(ellipse at 88% 8%, #e6e9ef 0, transparent 40%),
+    radial-gradient(ellipse at 8% 55%, #eaebe8 0, transparent 48%);
   background-attachment: fixed;
   color: var(--foreground);
 }
@@ -40,14 +41,14 @@ body .teams-page:not(.studio-shell) .team-card {
   border: 1px solid var(--glass-line);
   border-radius: 20px;
   box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
 }
 body .panel .panel, body .commerce-operations .commerce-card,
 body .panel .empty {
   background: var(--control-surface);
-  backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   box-shadow: none;
 }
 body .panel p { color: var(--muted-foreground); }
@@ -93,8 +94,8 @@ body .account-popover, body .account-switch-popover {
   border-radius: 18px;
   color: var(--foreground);
   box-shadow: 0 16px 48px #191b201a, inset 0 1px var(--glass-rim);
-  backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
 }
 body .account-switch-popover { background: var(--control-surface); backdrop-filter: none; }
 body .account-popover [data-slot=dropdown-menu-item],
@@ -116,8 +117,8 @@ body .account-avatar { background: var(--accent); color: var(--accent-foreground
   :root { --glass-panel: #fdfdfc; --glass-chrome: #f7f7f5; }
   .dark { --glass-panel: #23252b; --glass-chrome: #23252b; }
   body :is(.panel,.empty,.commerce-card,.commerce-filters,.commerce-detail-proof,.commerce-operations,.team-card,.account-popover) {
-    backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 }
 @media (forced-colors: active) {

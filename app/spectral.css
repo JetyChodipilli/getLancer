@@ -84,7 +84,7 @@ body .site-header {
   top: 12px; width: calc(100% - 48px); max-width: 1336px; margin: 12px auto 0;
   border: 1px solid #fff; border-radius: 999px; background: #ffffffbf;
   box-shadow: 0 8px 28px #2021270a, inset 0 -1px 0 #d7d8dd66;
-  backdrop-filter: blur(20px) saturate(120%); -webkit-backdrop-filter: blur(20px) saturate(120%);
+  -webkit-backdrop-filter: blur(20px) saturate(120%); backdrop-filter: blur(20px) saturate(120%);
 }
 body .site-header .topbar { min-height: 70px; padding: 8px 24px; gap: 28px; }
 body .site-header .topnav { gap: 22px; margin-left: 16px; }
@@ -118,7 +118,7 @@ body .marketplace-hero .project-stack .stack-card {
   border: 1px solid #fffffff5; border-radius: 20px; background: #ffffffe0;
   box-shadow: 0 20px 45px #26252b1c, inset 0 1px #fff, inset 0 -1px #b9bdc580;
   transform: rotate(-7deg); z-index: 1; animation: spectral-enter 550ms both;
-  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
   transition: box-shadow 220ms, translate 220ms;
 }
 body .marketplace-hero .project-stack .stack-card-1 { left: 37%; top: 32px; width: 27%; transform: rotate(1deg); z-index: 3; animation-delay: 80ms; }

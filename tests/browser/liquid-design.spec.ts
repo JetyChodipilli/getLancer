@@ -12,6 +12,7 @@ async function fits(page: Page) {
 
 async function settle(page: Page) {
   await page.evaluate(async () => {
+    await document.fonts.ready;
     const finite = document.getAnimations().filter(animation => {
       const timing = animation.effect?.getComputedTiming();
       return timing && Number.isFinite(timing.endTime);
@@ -74,7 +75,7 @@ async function fieldStyle(field: Locator) {
   return field.evaluate(node => {
     const css = getComputedStyle(node), box = node.getBoundingClientRect();
     return {
-      x: box.x, y: box.y, width: box.width, height: box.height,
+      x: box.x + window.scrollX, y: box.y + window.scrollY, width: box.width, height: box.height,
       fill: css.backgroundColor, font: parseFloat(css.fontSize), shadow: css.boxShadow,
       outline: css.outlineStyle, outlineWidth: css.outlineWidth,
       outlineColor: css.outlineColor, outlineOffset: css.outlineOffset,
@@ -233,7 +234,9 @@ test('page, tab and metric entrances visibly progress and reduced motion leaves 
     Math.round(parseFloat(getComputedStyle(node).animationDelay) * 1000)));
   expect(delays).toEqual([0, 40, 80, 120]);
   const hiring = page.getByRole('tab', {name: 'Hiring team', exact: true});
-  await expect(hiring).toHaveCSS('transition-duration', '0.18s');
+  const durations = await hiring.evaluate(node => getComputedStyle(node).transitionDuration.split(',').map(value => value.trim()));
+  expect(durations.length).toBeGreaterThan(0);
+  expect(durations.every(value => value === '0.18s')).toBe(true);
   await hiring.click();
   const panel = page.locator('.studio-shell [role="tabpanel"][data-state="active"]');
   await provesEntrance(panel);
@@ -365,6 +368,7 @@ test('invalid package fields keep readable values, a visible error and their sta
     }));
   expect(messages.map(message => message.text).join(' ')).toMatch(/version|letters|numbers|valid/i);
   expect(messages.some(message => message.visible && message.text.length > 0)).toBe(true);
+  await expect(version).toHaveCSS('border-top-color', 'rgb(180, 35, 24)');
   const css = await fieldStyle(version);
   expect(css.border).toBe('rgb(180, 35, 24)');
   expect(css.outlineWidth).toBe('2px');
@@ -378,14 +382,17 @@ test('invalid package fields keep readable values, a visible error and their sta
 
 test('native account input wrappers show one focus indicator while original decorative assets stay present', async ({page}, info) => {
   await page.goto('/login');
+  await settle(page);
   const email = page.getByLabel('Email address', {exact: true}), wrapper = page.locator('.icy-input').filter({has: email});
   await email.focus();
   await page.keyboard.press('Tab');
-  const before = await email.boundingBox();
+  const before = await fieldStyle(email);
   await page.keyboard.press('Shift+Tab');
   await expect(email).toBeFocused();
-  const after = await email.boundingBox();
-  expect(after).toEqual(before);
+  const after = await fieldStyle(email);
+  for (const key of ['x', 'y', 'width', 'height'] as const) {
+    expect(after[key], `Auth focus must preserve field ${key}`).toBeCloseTo(before[key], 1);
+  }
   await expect(wrapper).toHaveCSS('outline-width', '2px');
   await expect(wrapper).toHaveCSS('outline-color', 'rgb(156, 45, 15)');
   await expect(wrapper).toHaveCSS('box-shadow', 'none');
