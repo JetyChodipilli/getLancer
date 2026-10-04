@@ -46,7 +46,7 @@
   --sidebar-accent: #43291f; --sidebar-accent-foreground: #ffad8c;
   --sidebar-border: #464851; --sidebar-ring: #ff976e;
 }
-body, body:has(.icy-auth) {
+body {
   color: var(--foreground);
   background: radial-gradient(ellipse at 50% 0%,#fff 0%,#f4f4f2 65%);
   background-attachment: fixed;

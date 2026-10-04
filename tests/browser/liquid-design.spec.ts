@@ -15,7 +15,9 @@ async function settle(page: Page) {
     await document.fonts.ready;
     const finite = document.getAnimations().filter(animation => {
       const timing = animation.effect?.getComputedTiming();
-      return timing && Number.isFinite(timing.endTime);
+      const target = animation.effect instanceof KeyframeEffect ? animation.effect.target : null;
+      return timing && Number.isFinite(timing.endTime) && animation.playState === 'running'
+        && target instanceof Element && target.checkVisibility({visibilityProperty: true});
     });
     await Promise.all(finite.map(animation => animation.finished.catch(() => {})));
     await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
@@ -74,8 +76,15 @@ async function glassCard(surface: Locator) {
 async function fieldStyle(field: Locator) {
   return field.evaluate(node => {
     const css = getComputedStyle(node), box = node.getBoundingClientRect();
+    let scrollX = window.scrollX, scrollY = window.scrollY;
+    for (let parent = node.parentElement; parent; parent = parent.parentElement) {
+      if (parent !== document.scrollingElement) {
+        scrollX += parent.scrollLeft;
+        scrollY += parent.scrollTop;
+      }
+    }
     return {
-      x: box.x + window.scrollX, y: box.y + window.scrollY, width: box.width, height: box.height,
+      x: box.x + scrollX, y: box.y + scrollY, width: box.width, height: box.height,
       fill: css.backgroundColor, font: parseFloat(css.fontSize), shadow: css.boxShadow,
       outline: css.outlineStyle, outlineWidth: css.outlineWidth,
       outlineColor: css.outlineColor, outlineOffset: css.outlineOffset,
@@ -382,8 +391,12 @@ test('invalid package fields keep readable values, a visible error and their sta
 
 test('native account input wrappers show one focus indicator while original decorative assets stay present', async ({page}, info) => {
   await page.goto('/login');
+  await expect(page.getByText('Checking account services…', {exact: true})).toHaveCount(0);
   await settle(page);
   const email = page.getByLabel('Email address', {exact: true}), wrapper = page.locator('.icy-input').filter({has: email});
+  await email.fill('focus-fixture@example.test');
+  await page.getByLabel('Password', {exact: true}).fill('Not-a-real-account-password');
+  // Hold validation state constant while measuring the keyboard focus treatment.
   await email.focus();
   await page.keyboard.press('Tab');
   const before = await fieldStyle(email);
