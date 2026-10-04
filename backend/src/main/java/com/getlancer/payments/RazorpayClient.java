@@ -86,6 +86,12 @@ public class RazorpayClient {
         "partial_payment",false,"transfers",List.of(Map.of("account",account,"amount",amount,"currency","INR","on_hold",false))));
   }
 
+  /** Platform publishing capacity is collected by the merchant, without a seller transfer. */
+  public JsonNode createPlatformOrder(UUID attempt, long amount) {
+    requireCollection();
+    return request("POST", "/v1/orders", Map.of("amount",amount,"currency","INR","receipt",attempt.toString(),"partial_payment",false));
+  }
+
   public JsonNode order(String id) { return request("GET","/v1/orders/"+providerId(id,"order_")+"?expand%5B%5D=transfers",null); }
   public JsonNode orderPayments(String id) { return request("GET","/v1/orders/"+providerId(id,"order_")+"/payments",null); }
   public JsonNode payment(String id) { return request("GET","/v1/payments/"+providerId(id,"pay_"),null); }

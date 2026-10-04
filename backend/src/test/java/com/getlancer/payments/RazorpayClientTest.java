@@ -78,4 +78,25 @@ class RazorpayClientTest {
   @Test void refundLookupUsesValidatedExactIdentifierAndCanonicalEndpoint()throws Exception{
     HttpServer server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);AtomicInteger hits=new AtomicInteger();server.createContext("/v1/refunds/rfnd_fixture123",exchange->{hits.incrementAndGet();assertEquals("GET",exchange.getRequestMethod());byte[] body="{\"id\":\"rfnd_fixture123\",\"entity\":\"refund\"}".getBytes(StandardCharsets.UTF_8);exchange.sendResponseHeaders(200,body.length);exchange.getResponseBody().write(body);exchange.close();});server.start();try{var client=client(URI.create("http://127.0.0.1:"+server.getAddress().getPort()),Duration.ofSeconds(2));assertEquals("rfnd_fixture123",client.refund("rfnd_fixture123").path("id").asText());assertThrows(ApiError.class,()->client.refund("rfnd_../../payment"));assertEquals(1,hits.get());}finally{server.stop(0);}
   }
+  @Test void publishingSlotOrderUsesPlatformReceiptWithoutSellerTransfers() throws Exception {
+    HttpServer server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);
+    var observed=new java.util.concurrent.atomic.AtomicReference<com.fasterxml.jackson.databind.JsonNode>();
+    var method=new java.util.concurrent.atomic.AtomicReference<String>();
+    server.createContext("/v1/orders",exchange->{
+      method.set(exchange.getRequestMethod());
+      observed.set(new ObjectMapper().readTree(exchange.getRequestBody().readNBytes(65536)));
+      byte[] body="{\"id\":\"order_fixture123\"}".getBytes(StandardCharsets.UTF_8);
+      exchange.getResponseHeaders().set("Content-Type","application/json");
+      exchange.sendResponseHeaders(200,body.length);exchange.getResponseBody().write(body);exchange.close();
+    });
+    server.start();
+    try {
+      UUID receipt=UUID.randomUUID();
+      var result=client(URI.create("http://127.0.0.1:"+server.getAddress().getPort()),Duration.ofSeconds(2)).createPlatformOrder(receipt,10000);
+      assertEquals("order_fixture123",result.path("id").asText());assertEquals("POST",method.get());
+      assertEquals(receipt.toString(),observed.get().path("receipt").asText());assertEquals(10000,observed.get().path("amount").asInt());
+      assertEquals("INR",observed.get().path("currency").asText());assertFalse(observed.get().path("partial_payment").asBoolean());assertFalse(observed.get().has("transfers"));
+    } finally {server.stop(0);}
+  }
+
 }
