@@ -46,7 +46,7 @@
   --sidebar-accent: #43291f; --sidebar-accent-foreground: #ffad8c;
   --sidebar-border: #464851; --sidebar-ring: #ff976e;
 }
-body, body:has(.icy-auth) {
+body {
   color: var(--foreground);
   background: radial-gradient(ellipse at 50% 0%,#fff 0%,#f4f4f2 65%);
   background-attachment: fixed;
@@ -84,7 +84,7 @@ body .site-header {
   top: 12px; width: calc(100% - 48px); max-width: 1336px; margin: 12px auto 0;
   border: 1px solid #fff; border-radius: 999px; background: #ffffffbf;
   box-shadow: 0 8px 28px #2021270a, inset 0 -1px 0 #d7d8dd66;
-  backdrop-filter: blur(20px) saturate(120%); -webkit-backdrop-filter: blur(20px) saturate(120%);
+  -webkit-backdrop-filter: blur(20px) saturate(120%); backdrop-filter: blur(20px) saturate(120%);
 }
 body .site-header .topbar { min-height: 70px; padding: 8px 24px; gap: 28px; }
 body .site-header .topnav { gap: 22px; margin-left: 16px; }
@@ -118,7 +118,7 @@ body .marketplace-hero .project-stack .stack-card {
   border: 1px solid #fffffff5; border-radius: 20px; background: #ffffffe0;
   box-shadow: 0 20px 45px #26252b1c, inset 0 1px #fff, inset 0 -1px #b9bdc580;
   transform: rotate(-7deg); z-index: 1; animation: spectral-enter 550ms both;
-  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
   transition: box-shadow 220ms, translate 220ms;
 }
 body .marketplace-hero .project-stack .stack-card-1 { left: 37%; top: 32px; width: 27%; transform: rotate(1deg); z-index: 3; animation-delay: 80ms; }
@@ -172,40 +172,10 @@ body .panel, body .empty { border-color: var(--border); border-radius: 20px; bac
 body .panel p { color: #585b64; }
 body .tag, body .samplebar { background: #f0f0ed; border-color: #d7d8dd; color: #585b64; }
 body .avatar { background: #ece5de; color: #754222; }
-body .form :is(input,select,textarea), .studio-shell :is(input:not([type=checkbox]):not([type=file]),select,textarea), :is(.workspace-dialog,.business-dialog,.delivery-dialog) :is(input:not([type=checkbox]),select,textarea) { border-color: var(--input); background: #fff; color: #191b20; font-size: 16px; min-height: 44px; border-radius: 12px; }
 body .form input::placeholder, body .form textarea::placeholder { color: #686b74; }
 body :is(.workspace-dialog,.business-dialog,.delivery-dialog) { border-color: #d7d8dd; background: #fdfdfc; box-shadow: 0 28px 100px #191b2030; border-radius: 24px; }
 body :is(.workspace-dialog,.business-dialog,.delivery-dialog) h2 { color: #191b20; }
-body :is(.workspace-dialog,.business-dialog,.delivery-dialog) :focus-visible, .studio-shell :focus-visible { outline: 3px solid var(--ring); outline-offset: 3px; }
-body .studio-shell { max-width: 1440px; padding: 28px 24px 56px; gap: 24px; background: transparent; }
-body .studio-rail { background: #ffffffb8; border: 1px solid #fff; border-radius: 24px; padding: 20px 14px; box-shadow: var(--glass-shadow); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
-body .studio-rail-title { border-color: var(--border); }
-body .studio-rail-title>span { background: #fff0e9; color: var(--primary); border-radius: 12px; }
-body .studio-rail-title strong { color: #191b20; }
-body .studio-rail-title small, body .studio-rail-label, body .studio-rail nav a, body .studio-rail-secondary a, body .studio-rail-foot { color: #585b64; }
-body .studio-rail nav a, body .studio-rail-secondary a { min-height: 44px; border-radius: 12px; }
-body .studio-rail nav a[aria-current=page] { color: #a92e0b; background: #fff0e9; box-shadow: none; }
-body .studio-rail nav a[aria-current=page]:before { background: var(--primary); }
-body .studio-rail a:hover { background: #f0f0ed; color: #191b20; }
-body .studio-rail-foot { background: #f4f4f1; border-color: var(--border); border-radius: 16px; }
-body .studio-rail-foot a { color: var(--accent-foreground); }
-body .studio-body { background: transparent; }
-body .studio-shell .studio-page-head h1 { color: #191b20; font-size: clamp(28px,2.7vw,38px); letter-spacing: -.045em; }
-body .studio-description, body .studio-breadcrumb { color: #585b64; }
-body .studio-shell p { font-size: 16px; }
-body .studio-metric[data-slot=card], body .studio-shell .overview-card { border: 1px solid #fff; background: #ffffffe6; border-radius: 20px; box-shadow: var(--glass-shadow); }
-body .studio-metric [data-slot=card-header] { color: #585b64; font-size: 14px; }
-body .studio-metric strong, body .studio-shell .overview-card strong { color: #191b20; }
-body .studio-metric p, body .studio-shell .overview-note { color: #585b64; font-size: 12px; }
-body .studio-shell .overview-icon { color: var(--primary); background: #fff0e9; }
-body .studio-shell .overview-card:hover { border-color: #e6c7b9; box-shadow: 0 10px 28px #191b2010; }
-body .studio-shell .overview-card-action { color: var(--accent-foreground); }
-body .studio-preview { border-color: var(--border); background: #efefec; border-radius: 16px; }
-body .studio-preview summary { color: #585b64; }
-body .studio-shell :is(.workspace-tabs,.studio-tabs) { background: #eaeae7; border-color: #deded9; border-radius: 14px; padding: 5px; }
-body .studio-shell :is(.workspace-tabs,.studio-tabs) [role=tab] { color: #585b64; border-radius: 10px; min-height: 44px; }
-body .studio-shell :is(.workspace-tabs,.studio-tabs) [role=tab][data-state=active] { color: #a92e0b; background: #fff; border-color: #fff; box-shadow: 0 2px 5px #191b200a; }
-body .studio-shell :is(.panel,.business-brief,.business-request,.business-candidate,.team-card,.delivery-list,.delivery-detail,.delivery-milestone,.template-workspace-card), body .studio-overview-grid>section, body .studio-overview-grid>aside { border-color: var(--border); border-radius: 20px; background: #fffffff2; box-shadow: 0 4px 18px #191b2004; }
+body :is(.workspace-dialog,.business-dialog,.delivery-dialog) :focus-visible { outline: 3px solid var(--ring); outline-offset: 3px; }
 body .business-request[aria-pressed=true] { border-color: #d98966; background: #fff5ef; }
 body :is(.business-facts,.business-candidate-evidence,.delivery-agreement,.delivery-payment-record,.template-facts) { background: #f4f4f1; border-color: var(--border); }
 body :is(.business-small,.team-muted,.delivery-small,.template-small) { color: #585b64; }
@@ -264,8 +234,6 @@ body .icy-auth :is(button,a):focus-visible { outline: 3px solid var(--ring); out
   body .marketplace-hero .project-stack .stack-card-1 { top: 42px; }
   body .marketplace-hero .stack-card-media { height: 185px; padding: 8px; }
   body .marketplace-hero .stack-card-1 .stack-card-media { height: 255px; padding: 12px; }
-  body .studio-shell { padding-inline: 24px; gap: 20px; }
-  body .studio-rail { padding: 10px; border-radius: 18px; }
 }
 @media(max-width:760px) {
   body .site-header { width: calc(100% - 24px); top: 8px; margin-top: 8px; }
@@ -316,24 +284,18 @@ body .icy-auth :is(button,a):focus-visible { outline: 3px solid var(--ring); out
   body .marketplace-hero .stack-card-media .mini-side { display: none; }
   body .marketplace-hero .stack-card-media .mini-main { padding: 6px; }
   body .marketplace-hero .stack-card-media .mini-main h3 { font-size: 9px; }
-  body .studio-shell { padding: 20px 16px 40px; }
-  body .studio-shell p { font-size: 15px; }
-  body .studio-rail { padding: 8px; }
-  body .studio-metric[data-slot=card], body .studio-shell .overview-card { border-radius: 16px; }
-  body .studio-metric [data-slot=card-header] { font-size: 12px; }
-  body .studio-shell :is(.panel,.business-brief,.business-candidate,.delivery-detail) { border-radius: 16px; }
 }
 @supports not (backdrop-filter:blur(1px)) {
-  body .site-header, body .studio-rail, body .marketplace-hero .project-stack .stack-card { background: #fff; }
+  body .site-header, body .marketplace-hero .project-stack .stack-card { background: #fff; }
 }
 @media(prefers-reduced-transparency:reduce) {
-  body .site-header, body .studio-rail, body .marketplace-hero .project-stack .stack-card { background: #fff; backdrop-filter: none; }
+  body .site-header, body .marketplace-hero .project-stack .stack-card { background: #fff; backdrop-filter: none; }
 }
 @media(prefers-reduced-motion:reduce) {
   body .marketplace-hero .project-stack .stack-card { animation: none; transition: none; }
   body .marketplace-hero .project-stack .stack-card:hover, body .marketplace-hero .project-stack .stack-card:focus-within { translate: none; }
 }
 @media(forced-colors:active) {
-  body .site-header, body .studio-rail, body .panel, body .marketplace-hero .project-stack .stack-card { border: 1px solid CanvasText; background: Canvas; box-shadow: none; }
+  body .site-header, body .panel, body .marketplace-hero .project-stack .stack-card { border: 1px solid CanvasText; background: Canvas; box-shadow: none; }
   .spectral-ribbon { display: none; }
 }
