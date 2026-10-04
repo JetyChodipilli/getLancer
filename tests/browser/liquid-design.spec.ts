@@ -140,6 +140,29 @@ test('every sample workspace renders shared glass, readable records and containe
       expect((await material(row)).blur, 'Nested records should not stack backdrop filters').toBe('none');
     }
     await evidence(page, info, `preview-${preview.route}`);
+    if (preview.route === 'maintenance') {
+      const create = page.getByRole('button', {name: 'Create support offer', exact: true});
+      await create.click();
+      const dialog = page.getByRole('dialog');
+      const price = page.getByLabel('Monthly price (INR)', {exact: true});
+      const quota = page.getByLabel('Requests per paid period', {exact: true});
+      await expect(price).toBeVisible();
+      await settle(page);
+      const a = (await price.boundingBox())!, b = (await quota.boundingBox())!;
+      if (page.viewportSize()!.width > 640) {
+        expect(a.y).toBeCloseTo(b.y, 1);
+        expect(b.x).toBeGreaterThan(a.x + a.width);
+      } else {
+        expect(a.x).toBeCloseTo(b.x, 1);
+        expect(b.y).toBeGreaterThan(a.y + a.height);
+      }
+      const bounds = (await dialog.boundingBox())!;
+      expect(bounds.y).toBeGreaterThanOrEqual(15);
+      expect(bounds.y + bounds.height).toBeLessThanOrEqual(page.viewportSize()!.height - 15);
+      await evidence(page, info, 'maintenance-compact-offer');
+      await price.press('Escape');
+      await expect(create).toBeFocused();
+    }
   }
   expect(errors).toEqual([]);
 });

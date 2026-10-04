@@ -8,11 +8,13 @@ Scope: all 34 App Router page entry points were mapped to their shared surface a
 |---|---|---|
 | Competing historical workspace/spectral rules flatten panels and active tabs | Workspace stylesheet is authoritative after the material layer; coherent page, tab, metric and rail geometry | app/layout.tsx; app/components/workspace.css |
 | Excessive horizontal inset from shell plus body padding | Single workspace gutter, bounded rail and tighter heading/section rhythm | app/components/workspace.css |
+| Old panel margins and trust-column padding create uneven vertical gaps | Reset inherited workspace panel margins and align trust columns with the content grid | app/components/workspace.css |
 | White search strip and mismatched blue Search button | Readable glass toolbar and existing orange action semantics | app/components/workspace.css; app/liquid.css |
 | Account/settings and demo cards use separate opaque white material | Shared pearl canvas, glass surface variables, menu/card/account parity | app/liquid.css; app/form-controls.css |
 | Focus stacks wrapper shadow, native outline and a 3px shadcn ring | One stable 2px outline with neutral field fill, wrapper-owned auth focus and no duplicate inner indicator | app/form-controls.css; components/ui/input.tsx; components/ui/select.tsx |
 | Checkbox/file controls inherit text-field geometry | Native geometry and explicit text/select/textarea scope | app/form-controls.css |
 | Portal controls miss workspace-specific styles | Semantic controls styled through dialog/data-slot and form classes | app/form-controls.css |
+| Shared team action-row rules stack care pricing/quota fields in half-width rows | Explicit two-column numeric group, with one column on phones | app/form-controls.css |
 | Dashboard transitions absent although hero/auth have motion | Short app entrances, bounded card stagger and interaction feedback, with reduced-motion override | app/motion.css |
 | Demo and real workspace styles diverge | One shared shell and top-level glass layer, nested records stay crisp | app/components/workspace-frame.tsx; app/components/workspace.css |
 
@@ -26,4 +28,6 @@ Glass uses restrained blur only on top-level surfaces. Dense records and control
 
 Before: screenshots from successful PR18 run 37162295064 confirm the white workspace toolbar, blue Search action, flat cards, excessive inset and inconsistent mobile support form. Browser sign-in to the live private Site was rejected by automatic approval review; no bypass was attempted. Isolated CI tests exercise the source separately and capture rendered evidence without private live-account access.
 
-After: production/type/Node checks and exact-head responsive and connected browser verification are recorded in the PR. The new browser spec measures actual animation progress, focus geometry and computed material, with screenshot evidence for every preview area at desktop/phone/tablet sizes. Review findings must be resolved before publication. No claim is made that all 34 routes were individually rendered; shared controls and representative pages are tested, with existing journey regressions covering service flows.
+After: local production/type/Node, targeted lint, whitespace and frontend asset security checks passed. An isolated supervised development preview is used for direct rendered review of the shared dashboard and demo pages and selected fields. This does not access a private live account. The support form grouping defect found during that review was corrected.
+
+Automated browser verification remains pending: GitHub run 37166176555 failed before any test steps executed, including one retry; no job logs or new screenshot artifacts were produced. The new spec defines 24 desktop/phone/tablet cases for animation progression, focus geometry, material and accessibility fallbacks. These cases and the connected suite are not claimed as executed for this change. The PR remains draft pending these checks; the owner-private preview is published for review. No claim is made that all 34 routes were individually rendered.
