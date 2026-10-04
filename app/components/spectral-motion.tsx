@@ -22,7 +22,8 @@ export default function SpectralMotion({children}:{children:ReactNode}) {
    const bounds=node.getBoundingClientRect();targetX=((event.clientX-bounds.left)/bounds.width-.5)*12;targetY=((event.clientY-bounds.top)/bounds.height-.5)*8;schedule();
   };
   const leave=()=>{targetX=targetY=0;schedule();};
-  const state=()=>{const running=visible&&!document.hidden&&!reduce.matches;node.dataset.motion=running?'running':'paused';if(!running){cancelAnimationFrame(frame);frame=0;reset();}};
+  // The requested card loop stays on; reduced motion only disables pointer parallax.
+  const state=()=>{const running=visible&&!document.hidden;node.dataset.motion=running?'running':'paused';if(!running||reduce.matches){cancelAnimationFrame(frame);frame=0;reset();}};
   const observer=new IntersectionObserver(entries=>{visible=entries[0].isIntersecting;state();},{threshold:.1});observer.observe(node);
   node.addEventListener('pointermove',pointer,{passive:true});node.addEventListener('pointerleave',leave);node.addEventListener('focusin',leave);
   document.addEventListener('visibilitychange',state);reduce.addEventListener('change',state);state();

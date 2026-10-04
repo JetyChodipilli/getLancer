@@ -1,5 +1,7 @@
 # Icy Wind authentication implementation
 
+Current motion policy (4 October 2026): the later approved login/signup composition uses the original laptop, chrome ring, bubbles and four revolving cards. At the owner's explicit request the decorative orbit runs continuously while visible, including during form use and when the browser reports reduced motion. Hidden tabs and hidden/narrow artwork still suspend frame work. There are no pause/resume controls. The historical arrow implementation and motion policy below are superseded by this composition.
+
 Implemented locally on 9 September 2026 from CODEX_CONTEXT.md and icy-wind-auth-reference.png. No deployment was requested or performed.
 
 ## Changes

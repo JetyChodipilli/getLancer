@@ -134,6 +134,9 @@ test('every sample workspace renders shared glass, readable records and containe
       await expect(search).toBeVisible();
       await expect(search).toHaveCSS('background-color', 'rgb(198, 56, 16)');
       expect((await search.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      const toolbar = (await page.locator('.browse-toolbar-sticky:visible').boundingBox())!;
+      const grid = (await page.locator('[role=tabpanel][data-state=active] > .grid').boundingBox())!;
+      expect(grid.y - toolbar.y - toolbar.height, 'Cards must be separated from search chrome').toBeGreaterThanOrEqual(19);
     }
     await chrome(page.locator('.studio-preview'));
     await glassCard(page.locator(preview.card).first());
@@ -170,6 +173,26 @@ test('every sample workspace renders shared glass, readable records and containe
     }
   }
   expect(errors).toEqual([]);
+});
+
+test('workspace search chrome stays clear of the floating navigation when scrolling', async ({page}, info) => {
+  await page.goto('/preview/workspace');
+  await expect(page.locator('.demo-card')).toHaveCount(6);
+  await settle(page);
+  const toolbar = page.locator('.browse-toolbar-sticky:visible');
+  if (page.viewportSize()!.width > 640) {
+    const before = (await toolbar.boundingBox())!;
+    await page.evaluate(top => window.scrollTo({top, behavior: 'instant'}), before.y);
+    await expect.poll(async () => {
+      const nav = (await page.locator('.site-header').boundingBox())!;
+      const search = (await toolbar.boundingBox())!;
+      return search.y - nav.y - nav.height;
+    }).toBeGreaterThanOrEqual(20);
+  } else {
+    await expect(toolbar).toHaveCSS('position', 'static');
+  }
+  await fits(page);
+  await evidence(page, info, 'workspace-navigation-clearance');
 });
 
 async function provesEntrance(surface: Locator) {

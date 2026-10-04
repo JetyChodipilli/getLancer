@@ -10,7 +10,7 @@ test('Spectral discovery keeps genuine project navigation, search and readable g
  await expect(page.locator('.site-header img')).toHaveAttribute('src','/brand/getlancer-logo.svg');
  await fits(page);await page.screenshot({path:info.outputPath('spectral-home.png'),fullPage:true});
  const project=page.getByRole('link',{name:'Explore Stockroom',exact:true});
- await project.focus();await expect(page.locator('.stack-float').first()).toHaveCSS('animation-play-state','paused');
+ await project.focus();await expect(page.locator('.stack-float').first()).toHaveCSS('animation-play-state','running');
  await project.click();await expect(page.getByRole('heading',{name:'Stockroom',exact:true})).toBeVisible();
  await page.goto('/');await page.getByRole('textbox',{name:'Search projects',exact:true}).fill('Stockroom');await page.locator('.market-search').getByRole('button',{name:'Search',exact:true}).click();
  await expect(page).toHaveURL(/q=Stockroom/);await expect(page.locator('.demo-gallery .project')).toHaveCount(1);await fits(page);
@@ -31,8 +31,30 @@ test('original auth cards rotate continuously during form use without pause cont
  await expect(scene).toHaveAttribute('data-running','true');
  const focused=await card.boundingBox();
  await expect.poll(async()=>Math.abs((await card.boundingBox())!.x-focused!.x)).toBeGreaterThan(.1);
- await page.emulateMedia({reducedMotion:'reduce'});await expect(scene).toHaveAttribute('data-running','false');
+ await page.emulateMedia({reducedMotion:'reduce'});await expect(scene).toHaveAttribute('data-running','true');
+ const reduced=await card.boundingBox();
+ await expect.poll(async()=>Math.abs((await card.boundingBox())!.x-reduced!.x)).toBeGreaterThan(.1);
+ await page.goto('/signup');await expect(scene).toHaveAttribute('data-running','true');
+ const signup=await card.boundingBox();
+ await expect.poll(async()=>Math.abs((await card.boundingBox())!.x-signup!.x)).toBeGreaterThan(.1);
  await fits(page);
+});
+test('hero cards keep visibly moving through hover, keyboard focus and reduced-motion settings',async({page})=>{
+ for(const reducedMotion of ['no-preference','reduce'] as const){
+  await page.emulateMedia({reducedMotion});await page.goto('/');
+  const scene=page.locator('.spectral-scene'),floats=page.locator('.stack-float');
+  await expect(scene).toHaveAttribute('data-motion','running');
+  await expect(floats).toHaveCount(3);
+  const project=page.getByRole('link',{name:'Explore Stockroom',exact:true});
+  await project.hover();await project.focus();
+  for(const card of await floats.all()){
+   await expect(card).toHaveCSS('animation-play-state','running');
+   await expect(card).toHaveCSS('animation-name','spectral-float');
+   const start=await card.boundingBox();
+   await expect.poll(async()=>Math.abs((await card.boundingBox())!.y-start!.y),{timeout:7000}).toBeGreaterThan(.5);
+  }
+  await fits(page);
+ }
 });
 test('authentication and public detail screens reflow and retain protected external links',async({page},info)=>{
  for(const route of ['/login','/signup','/products/stockroom','/builders/leah-morgan','/teams','/templates','/report']){
