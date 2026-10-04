@@ -103,6 +103,7 @@ public class RazorpayClient {
   public JsonNode subscription(String id) { return request("GET","/v1/subscriptions/"+providerId(id,"sub_"),null); }
   public JsonNode invoices(String subscription,int skip) { return request("GET","/v1/invoices?subscription_id="+providerId(subscription,"sub_")+"&count=100&skip="+pageOffset(skip),null); }
   public JsonNode refunds(String payment,int skip) { return request("GET","/v1/payments/"+providerId(payment,"pay_")+"/refunds?count=100&skip="+pageOffset(skip),null); }
+  public JsonNode refund(String id) { return request("GET","/v1/refunds/"+providerId(id,"rfnd_"),null); }
   public JsonNode disputes(int skip) { return request("GET","/v1/disputes?count=100&skip="+pageOffset(skip),null); }
   private static int pageOffset(int skip) { if(skip<0||skip>10000) throw new ApiError(409,"PROVIDER_INCOMPLETE","Provider collection requires operator review."); return skip; }
   public JsonNode createPaymentTransfer(String payment,String account,long amount,UUID key,String invoice) {

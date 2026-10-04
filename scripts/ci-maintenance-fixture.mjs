@@ -23,6 +23,9 @@ export async function maintenanceFixtures({query,builder,client,buyerId,sellerId
    query(`INSERT INTO getlancer.maintenance_periods(id,subscription_id,provider_invoice_id,payment_id,order_id,amount_minor,currency,period_start,period_end,transfer_key,transfer_state,transfer_id,transfer_status,reconciled_at) VALUES('${period}','${subscription}','inv_ci_fixture123','pay_ci_care123','order_ci_care123',10000,'INR',now()-interval '1 day',now()+interval '20 days','${randomUUID()}','CONFIRMED','trf_ci_fixture123','CREATED',now())`);
    query(`INSERT INTO getlancer.maintenance_requests(id,subscription_id,period_id,actor_id,request_key,title,description,response_due_at,status) VALUES('${request}','${subscription}','${period}','${buyerId}','${randomUUID()}','CI consumed slot','Synthetic retained request tests consumed quota across restore.',now()+interval '24 hours','CANCELLED')`);
    query(`INSERT INTO getlancer.maintenance_ledger(id,period_id,entry_key,kind,amount_minor) VALUES('${randomUUID()}','${period}','ci-retained-capture','CAPTURE',10000)`);
+   // Synthetic retained identities exercise the additive refund-reference migration and restore.
+   query(`INSERT INTO getlancer.maintenance_refunds(id,period_id,amount_minor,status) VALUES('rfnd_ciRetained123','${period}',500,'pending')`);
+   query(`INSERT INTO getlancer.maintenance_webhook_events(event_id,payload_hash,event_kind,payment_id,refund_id) VALUES('ci-retained-refund-event',repeat('a',64),'refund.created','pay_ci_care123','rfnd_ciRetained123')`);
    const care=await client('/api/v1/maintenance/'+offer.id);assert.equal(care.entitlement.available,false);assert.equal(care.entitlement.usedRequests,1);fixtures.restore={subscription,period,request};
   }
  }

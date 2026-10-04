@@ -59,6 +59,50 @@ class HostedDemoIntegrationTest {
     mvc.perform(as(get("/api/v1/me/hosting/"+demo),"outsider")).andExpect(status().isNotFound());mvc.perform(get("/api/v1/me/hosting/"+demo)).andExpect(status().isUnauthorized());mvc.perform(as(get(own("package")),"owner")).andExpect(status().isOk()).andExpect(content().bytes(zip)).andExpect(header().string("Content-Type","application/zip"));mvc.perform(as(get(own("package")),"outsider")).andExpect(status().isNotFound());mvc.perform(as(get("/api/v1/admin/hosting"),"owner")).andExpect(status().isForbidden());
     String export=json.writeValueAsString(repo.export(owner));assertTrue(export.contains("archiveSha256"));assertFalse(export.contains("storage_key"));assertFalse(repo.blocksAccountDeletion(owner));
   }
+  @Test void missingRequiredHostingMetadataReturnsValidationInsteadOfServerError()throws Exception{
+    clearInvocations(storage);
+    for(String missing:List.of("productId","title","version","rightsConsent")){
+      var request=multipart("/api/v1/me/hosting").file(new MockMultipartFile("file","frontend.zip","application/zip",zip));
+      var fields=Map.of("productId",product.toString(),"title","Reviewed static demo","version","2.0.0","rightsConsent","true");
+      fields.forEach((key,value)->{if(!key.equals(missing))request.param(key,value);});
+      request.header("Origin","http://localhost:3000").header("X-Requested-With","getlancer").cookie(new Cookie("gl_session","owner"));
+      mvc.perform(request).andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+    }
+    verify(storage,never()).put(any(),any(),anyString());
+  }
+  String retainedCare(UUID party,UUID payer)throws Exception{
+    String suffix=UUID.randomUUID().toString().replace("-","");
+    UUID counterparty=user("export-"+suffix,false);
+    UUID inquiry=UUID.randomUUID(),engagement=UUID.randomUUID(),offer=UUID.randomUUID(),subscription=UUID.randomUUID(),period=UUID.randomUUID();
+    db.update("INSERT INTO inquiries(id,reference_product_id,developer_user_id,client_email,client_name,request_type,description,budget_band,timeline_band,idempotency_key,request_hash,current_status,email_confirmed_at) VALUES(?,?,?,'export@example.test','Export buyer','CUSTOMIZE','Retained export fixture care','NEED_ESTIMATE','FLEXIBLE',?,'fixture','COMPLETED',now())",inquiry,product,party,UUID.randomUUID());
+    db.update("INSERT INTO delivery_engagements(id,source_inquiry_id,buyer_user_id,builder_user_id,title,created_by,status) VALUES(?,?,?,?,'Retained care export',?,'COMPLETED')",engagement,inquiry,counterparty,party,party);
+    db.update("INSERT INTO maintenance_offers(id,engagement_id,revision,status,title,scope,terms,amount_minor,requests_per_cycle,response_hours,total_cycles,seller_id,seller_consented_at,buyer_id,buyer_consented_at,digest) VALUES(?,?,1,'ACCEPTED','Retained care','Bounded retained support and fixes','Retained maintenance terms require distinct billing consent.',10000,1,24,12,?,now(),?,now(),repeat('a',64))",offer,engagement,party,counterparty);
+    db.update("INSERT INTO maintenance_subscriptions(id,engagement_id,offer_id,payer_id,request_key,amount_minor,currency,requests_per_cycle,response_hours,total_cycles,digest,account_id,mode,status,creation_step,plan_state,subscription_state,provider_plan_id,provider_subscription_id) VALUES(?,?,?,?,?,10000,'INR',1,24,12,repeat('a',64),'acc_exportfixture','test','ACTIVE','COMPLETE','CONFIRMED','CONFIRMED',?,?)",subscription,engagement,offer,payer,UUID.randomUUID(),"plan_"+suffix,"sub_"+suffix);
+    db.update("INSERT INTO maintenance_periods(id,subscription_id,provider_invoice_id,payment_id,order_id,amount_minor,currency,period_start,period_end,transfer_key) VALUES(?,?,?,?,?,10000,'INR',now()-interval '1 day',now()+interval '29 days',?)",period,subscription,"inv_"+suffix,"pay_"+suffix,"order_"+suffix,UUID.randomUUID());
+    db.update("INSERT INTO maintenance_provider_disputes(id,period_id,status,deducted_minor) VALUES(?,?,'open',1000)","disp_"+suffix,period);
+    db.update("INSERT INTO maintenance_refunds(id,period_id,amount_minor,status) VALUES(?,?,500,'pending')","rfnd_"+suffix,period);
+    // Exercise every independently supported event association without exporting its payload.
+    db.update("INSERT INTO maintenance_webhook_events(event_id,payload_hash,event_kind,subscription_id,payment_id,dispute_id,refund_id) VALUES(?,repeat('b',64),'subscription.updated',?,null,null,null),(?,repeat('c',64),'payment.captured',null,?,null,null),(?,repeat('d',64),'payment.dispute.created',null,null,?,null),(?,repeat('e',64),'refund.created',null,null,null,?)","evt_sub_"+suffix,"sub_"+suffix,"evt_pay_"+suffix,"pay_"+suffix,"evt_disp_"+suffix,"disp_"+suffix,"evt_rfnd_"+suffix,"rfnd_"+suffix);
+    return suffix;
+  }
+  @Test void maintenanceExportIncludesRetainedDisputesAndEventIdentitiesOnlyForOwnedAccounts()throws Exception{
+    String mine=retainedCare(owner,admin),theirs=retainedCare(outsider,outsider);
+    for(String actor:List.of("owner","admin","outsider","export-"+mine,"export-"+theirs)){
+      boolean other=actor.equals("outsider")||actor.equals("export-"+theirs);
+      String suffix=other?theirs:mine,foreign=other?mine:theirs;
+      var exported=json.readTree(mvc.perform(as(get("/api/v1/me/export"),actor)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+      assertEquals(1,exported.path("maintenanceDisputes").size());
+      assertEquals("disp_"+suffix,exported.path("maintenanceDisputes").get(0).path("id").asText());
+      assertEquals(1000,exported.path("maintenanceDisputes").get(0).path("deducted_minor").asLong());
+      assertEquals(4,exported.path("maintenanceEvents").size());
+      String events=exported.path("maintenanceEvents").toString();
+      assertTrue(events.contains("evt_rfnd_"+suffix));assertFalse(events.contains(foreign));
+      for(JsonNode event:exported.path("maintenanceEvents")){
+        assertEquals(Set.of("event_id","payload_hash","event_kind","received_at","processed_at","attempts"),json.convertValue(event,Map.class).keySet());
+      }
+      assertFalse(exported.toString().contains("private-challenge"));assertFalse(exported.toString().contains(HostingPublisherFixture.SECRET));
+    }
+  }
   @Test void consentZipValidationCurrentProofAndPostUploadRevocationPreventUnlinkedRecords()throws Exception{
     clearInvocations(storage);mvc.perform(uploadRequest("2.0.0","bad zip".getBytes(StandardCharsets.UTF_8),true)).andExpect(status().isBadRequest());mvc.perform(uploadRequest("2.0.0",zip,false)).andExpect(status().isBadRequest());verify(storage,never()).put(any(),any(),anyString());
     db.update("UPDATE repository_verifications SET status='REJECTED' WHERE product_id=?",product);mvc.perform(uploadRequest("2.0.0",zip,true)).andExpect(status().isConflict());mvc.perform(as(get("/api/v1/me/hosting/sources"),"owner")).andExpect(jsonPath("$.items.length()").value(0));db.update("UPDATE repository_verifications SET status='VERIFIED' WHERE product_id=?",product);

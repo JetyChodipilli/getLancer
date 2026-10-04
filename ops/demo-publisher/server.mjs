@@ -5,6 +5,7 @@ import * as fs from 'node:fs/promises';
 import path from 'node:path';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { spawn } from 'node:child_process';
 
 export const HARD_LIMITS = Object.freeze({ fileBytes: 5 * 1024 * 1024, expandedBytes: 10 * 1024 * 1024,
   files: 256, storageBytes: 500 * 1024 * 1024, identities: 1000, requestsPerMinute: 240,
@@ -168,26 +169,53 @@ async function processIdentity(pid) {
     throw error;
   }
 }
+async function acquireKernelWriter(root) {
+  // ponytail: Linux flock covers one local volume; replicas need a different storage architecture.
+  const file = await fs.open(path.join(root, 'writer.flock'), constants.O_RDWR | constants.O_CREAT | constants.O_NOFOLLOW, 0o600);
+  let child; let exited;
+  try {
+    if (!(await file.stat()).isFile()) throw new Error('Invalid publisher kernel lock file');
+    // flock locks the inherited open file description. Node retains it after the utility exits.
+    // Never unlink this inode: close or parent process death releases the kernel lock.
+    child = spawn('flock', ['-n', '-E', '75', '3'], { stdio: ['ignore', 'ignore', 'ignore', file.fd] });
+    exited = new Promise(resolve => child.once('close', code => resolve(code)));
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => { child.kill('SIGKILL'); reject(new Error('Publisher kernel lock startup timeout')); }, 5000);
+      child.once('error', error => { clearTimeout(timer); reject(error); });
+      exited.then(code => {
+        clearTimeout(timer);
+        if (code === 0) resolve();
+        else reject(new Error(code === 75 ? 'Publisher writer already running' : 'Publisher kernel lock unavailable'));
+      });
+    });
+    return () => file.close();
+  } catch (error) { if (child) { child.kill('SIGKILL'); await exited; } await file.close(); throw error; }
+}
 async function acquireWriter(root) {
-  const filename = path.join(root, 'writer.lock');
-  const selfPid = Number((await fs.readFile('/proc/self/stat', 'utf8')).split(' ')[0]);
-  const owner = { pid: selfPid, identity: await processIdentity(selfPid), token: randomUUID() };
-  if (!owner.identity) throw new Error('Linux /proc publisher process identity required');
-  try { await writeSynced(filename, JSON.stringify(owner)); }
-  catch (error) {
-    if (error.code !== 'EEXIST') throw error;
-    const previous = JSON.parse((await plainRead(root, 'writer.lock', 4096)).toString('utf8'));
-    if (!exactKeys(previous, ['pid', 'identity', 'token']) || !Number.isSafeInteger(previous.pid) || previous.pid < 1
-      || typeof previous.identity !== 'string' || typeof previous.token !== 'string') throw new Error('Invalid publisher writer lease');
-    if (await processIdentity(previous.pid) === previous.identity) throw new Error('Publisher writer already running');
-    await fs.unlink(filename); await writeSynced(filename, JSON.stringify(owner));
-  }
-  await syncDirectory(root);
-  return async () => {
-    const saved = JSON.parse((await plainRead(root, 'writer.lock', 4096)).toString('utf8'));
-    if (saved.token !== owner.token) throw new Error('Publisher writer lease changed');
-    await fs.unlink(filename); await syncDirectory(root);
-  };
+  const releaseKernel = await acquireKernelWriter(root);
+  try {
+    const filename = path.join(root, 'writer.lock');
+    const selfPid = Number((await fs.readFile('/proc/self/stat', 'utf8')).split(' ')[0]);
+    const owner = { pid: selfPid, identity: await processIdentity(selfPid), token: randomUUID() };
+    if (!owner.identity) throw new Error('Linux /proc publisher process identity required');
+    try { await writeSynced(filename, JSON.stringify(owner)); }
+    catch (error) {
+      if (error.code !== 'EEXIST') throw error;
+      const previous = JSON.parse((await plainRead(root, 'writer.lock', 4096)).toString('utf8'));
+      if (!exactKeys(previous, ['pid', 'identity', 'token']) || !Number.isSafeInteger(previous.pid) || previous.pid < 1
+        || typeof previous.identity !== 'string' || typeof previous.token !== 'string') throw new Error('Invalid publisher writer lease');
+      if (await processIdentity(previous.pid) === previous.identity) throw new Error('Publisher writer already running');
+      await fs.unlink(filename); await writeSynced(filename, JSON.stringify(owner));
+    }
+    await syncDirectory(root);
+    return async () => {
+      try {
+        const saved = JSON.parse((await plainRead(root, 'writer.lock', 4096)).toString('utf8'));
+        if (saved.token !== owner.token) throw new Error('Publisher writer lease changed');
+        await fs.unlink(filename); await syncDirectory(root);
+      } finally { await releaseKernel(); }
+    };
+  } catch (error) { await releaseKernel(); throw error; }
 }
 async function plainRead(root, relative, maximum) {
   let current = root;
@@ -236,20 +264,24 @@ async function readBody(request) {
     request.once('aborted', () => done(new HttpError(400, 'Incomplete request body')));
   });
 }
-function gatewayAllows(config, id) {
+function gatewayAllows(config, id, signal) {
   return new Promise((resolve) => {
-    let finished = false; const done = (value) => { if (!finished) { finished = true; clearTimeout(timer); resolve(value); } };
+    let finished = false; const done = (value) => {
+      if (finished) return; finished = true; clearTimeout(timer); signal.removeEventListener('abort', cancel); request.destroy(); resolve(value);
+    };
+    const cancel = () => done(false);
     const url = new URL(`${config.gateway.href}/${id}`);
     const client = url.protocol === 'https:' ? https : http;
     const request = client.request(url, { method: 'GET', headers: { 'X-GetLancer-Demo-Gateway': config.gatewaySecret, Accept: 'application/json' }, agent: false }, (response) => {
-      if (response.statusCode !== 200 || response.headers['content-type']?.split(';')[0].trim().toLowerCase() !== 'application/json') { response.resume(); done(false); return; }
-      let size = 0; const chunks = [];
-      response.on('data', (chunk) => { size += chunk.length; if (size > 4096) { request.destroy(); done(false); } else chunks.push(chunk); });
-      response.on('end', () => { try { const body = JSON.parse(Buffer.concat(chunks).toString('utf8')); done(exactKeys(body, ['allowed']) && body.allowed === true); } catch { done(false); } });
       response.on('error', () => done(false));
+      if (response.statusCode !== 200 || response.headers['content-type']?.split(';')[0].trim().toLowerCase() !== 'application/json') { done(false); return; }
+      let size = 0; const chunks = [];
+      response.on('data', (chunk) => { size += chunk.length; if (size > 4096) done(false); else chunks.push(chunk); });
+      response.on('end', () => { try { const body = JSON.parse(Buffer.concat(chunks).toString('utf8')); done(exactKeys(body, ['allowed']) && body.allowed === true); } catch { done(false); } });
     });
-    const timer = setTimeout(() => { request.destroy(); done(false); }, 2000);
-    request.on('error', () => done(false)); request.end();
+    const timer = setTimeout(() => done(false), 2000);
+    request.on('error', () => done(false)); signal.addEventListener('abort', cancel, { once: true });
+    if (signal.aborted) cancel(); else request.end();
   });
 }
 
@@ -259,10 +291,10 @@ export async function createPublisher(input) {
   const root = await fs.realpath(config.dataDir);
   if (openedDirectories.has(root)) throw new Error('Publisher data directory already open');
   openedDirectories.add(root);
-  let releaseWriter;
+  let releaseWriter; let unhealthy = false;
   try { releaseWriter = await acquireWriter(root); } catch (error) { openedDirectories.delete(root); throw error; }
   const identities = path.join(root, 'identities'); const staging = path.join(root, 'staging');
-  const records = new Map(); let totalBytes = 0; let pending = Promise.resolve(); let activeUploads = 0; let activePublic = 0; let unhealthy = false; let admissionClosed = false;
+  const records = new Map(); let totalBytes = 0; let pending = Promise.resolve(); let activeUploads = 0; let activePublic = 0; let admissionClosed = false;
   const serialized = (fn) => { const result = pending.then(() => {
     requireValue(!unhealthy, 'Publisher storage unavailable', 503); return fn();
   }).catch((error) => {
@@ -403,9 +435,21 @@ export async function createPublisher(input) {
       if (!hits || now - hits.start >= 60_000 || now < hits.start) { hits = { start: now, count: 0 }; traffic.set(id, hits); }
       requireValue(++hits.count <= config.requestsPerMinute, 'Demo request limit reached', 429);
       requireValue(activePublic < 8, 'Public concurrency limit', 503); activePublic++;
+      const gatewayCancellation = new AbortController();
+      let released = false; let responseDone = false; let workDone = false;
+      const deadline = setTimeout(() => response.destroy(), 10_000); deadline.unref();
+      const releasePublic = () => {
+        if (released || !responseDone || !workDone) return; released = true; activePublic--;
+      };
+      const responseSettled = () => {
+        if (responseDone) return; responseDone = true; gatewayCancellation.abort(); clearTimeout(deadline);
+        response.removeListener('finish', responseSettled); response.removeListener('close', responseSettled); releasePublic();
+      };
+      response.once('finish', responseSettled); response.once('close', responseSettled);
       try {
         // Every recognized static GET/HEAD checks the authority, including missing paths. No forwarded user headers or query.
-        requireValue(await gatewayAllows(config, id), 'Demo unavailable', 403);
+        requireValue(await gatewayAllows(config, id, gatewayCancellation.signal), 'Demo unavailable', 403);
+        if (response.destroyed) return;
         requireValue(!unhealthy, 'Publisher storage unavailable', 503);
         requireValue(records.get(id) === record && record.state === 'READY' && Date.parse(record.expiresAt) > config.now(), 'Not found', 404);
         let filename; try { filename = decodeURIComponent(target); } catch { throw new HttpError(400, 'Invalid encoded path'); }
@@ -413,11 +457,12 @@ export async function createPublisher(input) {
         filename = filename === '/' ? 'index.html' : filename.slice(1); if (filename.endsWith('/')) filename += 'index.html';
         validateFilePath(filename); const file = record.files.find((candidate) => candidate.path === filename); requireValue(file, 'Not found', 404);
         const bytes = await plainRead(path.join(identities, id, 'bundle'), filename, HARD_LIMITS.fileBytes);
+        if (response.destroyed) return;
         requireValue(bytes.length === file.sizeBytes && sha(bytes) === file.sha256, 'Stored content unavailable', 503);
         requireValue(records.get(id) === record && Date.parse(record.expiresAt) > config.now(), 'Not found', 404);
         requireValue(!unhealthy, 'Publisher storage unavailable', 503);
         response.writeHead(200, { 'Content-Type': validateFilePath(filename), 'Content-Length': bytes.length }); response.end(head ? undefined : bytes);
-      } finally { activePublic--; }
+      } finally { workDone = true; releasePublic(); }
     } catch (error) {
       if (!response.headersSent && !response.destroyed) {
         if (!request.complete) response.setHeader('Connection', 'close');

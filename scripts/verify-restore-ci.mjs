@@ -38,6 +38,8 @@ try{
  assert.equal(query(target,"SELECT count(*) FROM getlancer.maintenance_periods WHERE provider_invoice_id='inv_ci_fixture123' AND refunded_minor=0 AND transfer_state='CONFIRMED'"),'1');
  assert.equal(query(target,"SELECT count(*) FROM getlancer.maintenance_requests r JOIN getlancer.maintenance_periods p ON p.id=r.period_id WHERE p.provider_invoice_id='inv_ci_fixture123' AND r.status='CANCELLED'"),'1');
  assert.equal(query(target,"SELECT count(*) FROM getlancer.maintenance_ledger WHERE entry_key='ci-retained-capture'"),'1');
+ assert.equal(query(target,"SELECT count(*) FROM getlancer.maintenance_refunds WHERE id='rfnd_ciRetained123' AND amount_minor=500 AND status='pending'"),'1');
+ assert.equal(query(target,"SELECT count(*) FROM getlancer.maintenance_webhook_events WHERE event_id='ci-retained-refund-event' AND refund_id='rfnd_ciRetained123' AND payment_id='pay_ci_care123' AND processed_at IS NULL"),'1');
  assert.ok(Number(query(target,"SELECT count(*) FROM getlancer.hosted_demos"))>0);
  assert.ok(Number(query(target,"SELECT count(*) FROM getlancer.hosting_audit"))>0);
  console.log(`Disposable encrypted database restore passed: application row counts, migrations, sole admin, completed inquiry, published review and suspension; restore ${Date.now()-started}ms.`);

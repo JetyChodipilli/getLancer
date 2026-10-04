@@ -74,4 +74,8 @@ class RazorpayClientTest {
       assertEquals(0,forbidden.get());
     } finally {server.stop(0);}
   }
+
+  @Test void refundLookupUsesValidatedExactIdentifierAndCanonicalEndpoint()throws Exception{
+    HttpServer server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);AtomicInteger hits=new AtomicInteger();server.createContext("/v1/refunds/rfnd_fixture123",exchange->{hits.incrementAndGet();assertEquals("GET",exchange.getRequestMethod());byte[] body="{\"id\":\"rfnd_fixture123\",\"entity\":\"refund\"}".getBytes(StandardCharsets.UTF_8);exchange.sendResponseHeaders(200,body.length);exchange.getResponseBody().write(body);exchange.close();});server.start();try{var client=client(URI.create("http://127.0.0.1:"+server.getAddress().getPort()),Duration.ofSeconds(2));assertEquals("rfnd_fixture123",client.refund("rfnd_fixture123").path("id").asText());assertThrows(ApiError.class,()->client.refund("rfnd_../../payment"));assertEquals(1,hits.get());}finally{server.stop(0);}
+  }
 }
