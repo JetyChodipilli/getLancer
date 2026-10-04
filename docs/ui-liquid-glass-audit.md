@@ -17,6 +17,8 @@ Scope: all 34 App Router page entry points were mapped to their shared surface a
 | Shared team action-row rules stack care pricing/quota fields in half-width rows | Explicit two-column numeric group, with one column on phones | app/form-controls.css |
 | Dashboard transitions absent although hero/auth have motion | Short app entrances, bounded card stagger and interaction feedback, with reduced-motion override | app/motion.css |
 | Demo and real workspace styles diverge | One shared shell and top-level glass layer, nested records stay crisp | app/components/workspace-frame.tsx; app/components/workspace.css |
+| Hero/auth motion disappears under reduced-motion settings; hero loops pause on hover/focus | Explicit always-on decorative loops while visible, including during form use; pointer parallax and application entrances still respect reduced motion | app/components/auth-orbit.tsx; app/components/spectral-motion.tsx; app/spectral-hero.css |
+| Workspace search touches cards and sticky navigation | Remove the competing zero-margin rule; keep 20px between search and cards and reserve navigation top inset, border and clearance for sticky search/rail and scroll targets | app/components/workspace.css |
 
 ## Design references and constraints
 

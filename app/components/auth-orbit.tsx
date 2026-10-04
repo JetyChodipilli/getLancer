@@ -10,7 +10,7 @@ export default function AuthOrbit(){
  useEffect(()=>{
   const node=scene.current;if(!node)return;
   const images=Array.from(node.querySelectorAll<HTMLElement>('.auth-orbit-card'));
-  const reduced=matchMedia('(prefers-reduced-motion: reduce)'),compact=matchMedia('(max-width: 760px)');
+  const compact=matchMedia('(max-width: 760px)');
   let frame=0,last=0,inView=true,disposed=false,width=node.clientWidth,height=node.clientHeight;
   const paint=()=>images.forEach((image,index)=>{
    const initial=poseAt(index/4),pose=poseAt(elapsed.current/72000+index/4);
@@ -20,15 +20,14 @@ export default function AuthOrbit(){
   const sync=()=>{
    if(disposed)return;
    cancelAnimationFrame(frame);last=0;
-   const running=!reduced.matches&&!compact.matches&&!document.hidden&&inView;
+   const running=!compact.matches&&!document.hidden&&inView;
    node.dataset.running=String(running);
-   if(reduced.matches){elapsed.current=0;paint();}
    if(running)frame=requestAnimationFrame(tick);
   };
   const observer=new IntersectionObserver(entries=>{inView=entries[0].isIntersecting;sync();});observer.observe(node);
   const resize=new ResizeObserver(()=>{width=node.clientWidth;height=node.clientHeight;paint();});resize.observe(node);
-  document.addEventListener('visibilitychange',sync);reduced.addEventListener('change',sync);compact.addEventListener('change',sync);paint();sync();
-  return()=>{disposed=true;cancelAnimationFrame(frame);observer.disconnect();resize.disconnect();document.removeEventListener('visibilitychange',sync);reduced.removeEventListener('change',sync);compact.removeEventListener('change',sync);};
+  document.addEventListener('visibilitychange',sync);compact.addEventListener('change',sync);paint();sync();
+  return()=>{disposed=true;cancelAnimationFrame(frame);observer.disconnect();resize.disconnect();document.removeEventListener('visibilitychange',sync);compact.removeEventListener('change',sync);};
  },[]);
  return <div className="auth-scene" ref={scene} data-running="false">
   <div className="auth-scene-art" aria-hidden="true">

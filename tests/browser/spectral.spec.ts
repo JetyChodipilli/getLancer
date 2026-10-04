@@ -1,6 +1,22 @@
-import {test,expect,type Page} from '@playwright/test';
+import {test,expect,type Locator,type Page} from '@playwright/test';
 
 async function fits(page:Page){await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()!.width+1);}
+async function movingLinkPoint(link:Locator){
+ await expect(link).toBeVisible();
+ await link.evaluate(node=>node.scrollIntoView({block:'center',inline:'center',behavior:'instant'}));
+ // Always-on artwork never meets locator actions' stationary-element check.
+ // Use a real, unobstructed browser hit target; do not force or dispatch a click.
+ return link.evaluate(node=>{
+  const box=node.getBoundingClientRect();
+  for(const y of [.5,.25,.75,.1,.9])for(const x of [.5,.25,.75,.1,.9]){
+   const point={x:box.x+box.width*x,y:box.y+box.height*y};
+   if(point.x<0||point.y<0||point.x>=innerWidth||point.y>=innerHeight)continue;
+   const target=document.elementFromPoint(point.x,point.y);
+   if(target&&node.contains(target))return point;
+  }
+  throw new Error('Moving project link has no visible, unobstructed pointer target.');
+ });
+}
 test('Spectral discovery keeps genuine project navigation, search and readable glass chrome',async({page},info)=>{
  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
  await page.goto('/');await expect(page.getByRole('heading',{name:'Great work deserves to be seen.'})).toBeVisible();
@@ -10,8 +26,11 @@ test('Spectral discovery keeps genuine project navigation, search and readable g
  await expect(page.locator('.site-header img')).toHaveAttribute('src','/brand/getlancer-logo.svg');
  await fits(page);await page.screenshot({path:info.outputPath('spectral-home.png'),fullPage:true});
  const project=page.getByRole('link',{name:'Explore Stockroom',exact:true});
- await project.focus();await expect(page.locator('.stack-float').first()).toHaveCSS('animation-play-state','paused');
- await project.click();await expect(page.getByRole('heading',{name:'Stockroom',exact:true})).toBeVisible();
+ await project.focus();await expect(page.locator('.stack-float').first()).toHaveCSS('animation-play-state','running');
+ await project.press('Enter');await expect(page.getByRole('heading',{name:'Stockroom',exact:true})).toBeVisible();
+ await page.goto('/');
+ const pointer=await movingLinkPoint(project);await page.mouse.click(pointer.x,pointer.y);
+ await expect(page).toHaveURL(/\/products\/stockroom$/);await expect(page.getByRole('heading',{name:'Stockroom',exact:true})).toBeVisible();
  await page.goto('/');await page.getByRole('textbox',{name:'Search projects',exact:true}).fill('Stockroom');await page.locator('.market-search').getByRole('button',{name:'Search',exact:true}).click();
  await expect(page).toHaveURL(/q=Stockroom/);await expect(page.locator('.demo-gallery .project')).toHaveCount(1);await fits(page);
  await page.getByRole('link',{name:'Start a project request',exact:true}).click();await expect(page.getByRole('button',{name:'New project request',exact:true})).toBeVisible();
@@ -31,8 +50,32 @@ test('original auth cards rotate continuously during form use without pause cont
  await expect(scene).toHaveAttribute('data-running','true');
  const focused=await card.boundingBox();
  await expect.poll(async()=>Math.abs((await card.boundingBox())!.x-focused!.x)).toBeGreaterThan(.1);
- await page.emulateMedia({reducedMotion:'reduce'});await expect(scene).toHaveAttribute('data-running','false');
+ await page.emulateMedia({reducedMotion:'reduce'});await expect(scene).toHaveAttribute('data-running','true');
+ const reduced=await card.boundingBox();
+ await expect.poll(async()=>Math.abs((await card.boundingBox())!.x-reduced!.x)).toBeGreaterThan(.1);
+ await page.goto('/signup');await expect(scene).toHaveAttribute('data-running','true');
+ const signup=await card.boundingBox();
+ await expect.poll(async()=>Math.abs((await card.boundingBox())!.x-signup!.x)).toBeGreaterThan(.1);
  await fits(page);
+});
+test('hero cards keep visibly moving through hover, keyboard focus and reduced-motion settings',async({page})=>{
+ for(const reducedMotion of ['no-preference','reduce'] as const){
+  await page.emulateMedia({reducedMotion});await page.goto('/');
+  const scene=page.locator('.spectral-scene'),floats=page.locator('.stack-float');
+  await expect(scene).toHaveAttribute('data-motion','running');
+  await expect(floats).toHaveCount(3);
+  const project=page.getByRole('link',{name:'Explore Stockroom',exact:true});
+  const pointer=await movingLinkPoint(project);await page.mouse.move(pointer.x,pointer.y);
+  await expect.poll(()=>project.evaluate(node=>node.matches(':hover'))).toBe(true);
+  await project.focus();await expect(project).toBeFocused();
+  for(const card of await floats.all()){
+   await expect(card).toHaveCSS('animation-play-state','running');
+   await expect(card).toHaveCSS('animation-name','spectral-float');
+   const start=await card.boundingBox();
+   await expect.poll(async()=>Math.abs((await card.boundingBox())!.y-start!.y),{timeout:7000}).toBeGreaterThan(.5);
+  }
+  await fits(page);
+ }
 });
 test('authentication and public detail screens reflow and retain protected external links',async({page},info)=>{
  for(const route of ['/login','/signup','/products/stockroom','/builders/leah-morgan','/teams','/templates','/report']){

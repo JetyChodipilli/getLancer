@@ -15,6 +15,7 @@
 
 /* One compact shell, with a bounded rail and no second layer of main gutters. */
 body .studio-shell {
+  --studio-sticky-top: calc(var(--nav-height, 76px) + 36px);
   display: grid;
   grid-template-columns: 216px minmax(0, 1fr);
   align-items: start;
@@ -35,8 +36,8 @@ body .studio-shell .studio-rail {
   flex-direction: column;
   align-self: start;
   position: sticky;
-  top: calc(var(--nav-height, 76px) + 24px);
-  height: calc(100dvh - var(--nav-height, 76px) - 48px);
+  top: var(--studio-sticky-top);
+  height: calc(100dvh - var(--studio-sticky-top) - 24px);
   max-height: 880px;
   padding: 20px 12px 16px;
   gap: 24px;
@@ -90,7 +91,7 @@ body .studio-shell .button.danger { color: var(--destructive); }
 body .studio-shell .button:disabled { cursor: not-allowed; opacity: .6; }
 body .studio-shell .iconbutton { min-width: 44px; min-height: 44px; }
 body .studio-shell :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
-body .studio-shell :is(button, a, input, select, textarea, summary, [role=tab]) { scroll-margin-top: calc(var(--nav-height, 76px) + 20px); }
+body .studio-shell :is(button, a, input, select, textarea, summary, [role=tab], .studio-page-head, .studio-preview, [role=tabpanel]) { scroll-margin-top: var(--studio-sticky-top); }
 
 /* Sample disclosure stays visible with simulation controls closed. */
 body .studio-shell .studio-preview { margin: 0 0 20px; border: 1px solid var(--glass-line, var(--border)); border-radius: 16px; background: var(--glass-chrome, #ffffffb3); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); font-size: 12px; overflow: hidden; }
@@ -194,8 +195,8 @@ body .studio-shell .studio-overview-grid aside > h3 { margin: 18px 0 4px; font-s
 body .studio-shell .studio-overview-grid aside details { margin-top: 20px; }
 
 /* Productive search chrome, with opaque controls inside it. */
-body .studio-shell .browse-toolbar-sticky { top: calc(var(--nav-height, 76px) + 12px); margin: 0 0 20px; padding: 16px; border: 1px solid var(--glass-line, var(--border)); border-radius: 20px; background: var(--glass-chrome, #ffffffb3); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
-body .studio-shell .browse-toolbar { margin-bottom: 0; }
+body .studio-shell .browse-toolbar-sticky { top: var(--studio-sticky-top); margin: 0 0 20px; padding: 16px; border: 1px solid var(--glass-line, var(--border)); border-radius: 20px; background: var(--glass-chrome, #ffffffb3); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+body .studio-shell .browse-toolbar:not(.browse-toolbar-sticky) { margin-bottom: 0; }
 body .studio-shell .browse-controls { gap: 12px; }
 body .studio-shell .browse-search { min-height: 48px; padding: 4px 4px 4px 12px; border-color: var(--studio-control); border-radius: 12px; background: var(--studio-record); box-shadow: none; }
 body .studio-shell .browse-search input { min-height: 36px; padding: 0; border: 0; border-radius: 0; background: transparent; }
