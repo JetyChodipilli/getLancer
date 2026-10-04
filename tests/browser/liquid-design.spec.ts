@@ -76,15 +76,10 @@ async function glassCard(surface: Locator) {
 async function fieldStyle(field: Locator) {
   return field.evaluate(node => {
     const css = getComputedStyle(node), box = node.getBoundingClientRect();
-    let scrollX = window.scrollX, scrollY = window.scrollY;
-    for (let parent = node.parentElement; parent; parent = parent.parentElement) {
-      if (parent !== document.scrollingElement) {
-        scrollX += parent.scrollLeft;
-        scrollY += parent.scrollTop;
-      }
-    }
+    // Layout offsets are independent of native document, dialog and visual-viewport scrolling.
+    const field = node as HTMLElement;
     return {
-      x: box.x + scrollX, y: box.y + scrollY, width: box.width, height: box.height,
+      x: field.offsetLeft, y: field.offsetTop, width: box.width, height: box.height,
       fill: css.backgroundColor, font: parseFloat(css.fontSize), shadow: css.boxShadow,
       outline: css.outlineStyle, outlineWidth: css.outlineWidth,
       outlineColor: css.outlineColor, outlineOffset: css.outlineOffset,
