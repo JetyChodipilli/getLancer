@@ -1,0 +1,132 @@
+/* Spectral Studio material. Geometry belongs to the relevant page system. */
+:root {
+  --glass-panel: rgba(255, 255, 255, .82);
+  --glass-chrome: rgba(255, 255, 255, .70);
+  --glass-line: rgba(155, 160, 172, .38);
+  --glass-rim: rgba(255, 255, 255, .94);
+  --glass-shadow: 0 8px 28px rgba(31, 35, 46, .055), inset 0 1px 0 var(--glass-rim);
+  --glass-surface: var(--glass-panel);
+  --control-surface: #fcfcfb;
+  --control-border: #898d97;
+  --studio-surface: var(--glass-panel);
+  --studio-hover: #f0f1ef;
+}
+.dark {
+  --glass-panel: rgba(35, 37, 43, .90);
+  --glass-chrome: rgba(35, 37, 43, .82);
+  --glass-line: #575963;
+  --glass-rim: rgba(255, 255, 255, .09);
+  --glass-shadow: 0 8px 28px #0002, inset 0 1px 0 var(--glass-rim);
+  --control-surface: #23252b;
+  --control-border: #838692;
+  --studio-hover: #30323a;
+}
+body {
+  background: radial-gradient(ellipse at 88% 8%, #e6e9ef 0, transparent 40%),
+    radial-gradient(ellipse at 8% 55%, #eaebe8 0, transparent 48%), var(--background);
+  background-attachment: fixed;
+  color: var(--foreground);
+}
+.dark body { background: var(--background); }
+body .wrap:not(.marketplace), body .commerce-public, body .teams-page {
+  background-color: transparent;
+}
+
+/* A single material layer per surface; records and controls stay crisp. */
+body .panel, body .empty, body .commerce-card, body .commerce-filters,
+body .commerce-detail-proof, body .commerce-operations,
+body .teams-page:not(.studio-shell) .team-card {
+  background: var(--glass-panel);
+  border: 1px solid var(--glass-line);
+  border-radius: 20px;
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+body .panel .panel, body .commerce-operations .commerce-card,
+body .panel .empty {
+  background: var(--control-surface);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+body .panel p { color: var(--muted-foreground); }
+body .panel :is(h2,h3,strong) { color: var(--foreground); }
+body .panel > :last-child { margin-bottom: 0; }
+body .panel > :first-child { margin-top: 0; }
+body .commerce-filters { padding: 18px 20px; }
+body .commerce-empty { background: var(--glass-panel); border-color: var(--glass-line); }
+body .commerce-card:hover { border-color: #aeb2bc; box-shadow: 0 12px 32px #191b2010, inset 0 1px var(--glass-rim); }
+body .browse-search-submit { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); min-height: 44px; border-radius: 10px; }
+body .browse-search-submit:hover:not(:disabled) { background: var(--accent-foreground); border-color: var(--accent-foreground); }
+
+/* Product/demo cards keep their genuine artwork in a shared glass frame. */
+body .marketplace > .demo-gallery > .project,
+body .wrap > .grid > .project {
+  border: 1px solid var(--glass-line);
+  border-radius: 20px;
+  padding: 12px;
+  background: var(--glass-panel);
+  box-shadow: var(--glass-shadow);
+  overflow: hidden;
+}
+body .marketplace > .demo-gallery > .project .project-media,
+body .wrap > .grid > .project .thumbnail { border-radius: 12px; }
+body .marketplace > .demo-gallery > .project .project-meta { padding: 14px 4px 2px; }
+body .marketplace > .demo-gallery > .project:hover,
+body .marketplace > .demo-gallery > .project:focus-within {
+  border-color: #aeb2bc;
+  box-shadow: 0 12px 32px #191b2010, inset 0 1px var(--glass-rim);
+}
+body .market-sample { font-size: 13px; line-height: 1.6; }
+
+/* Account menus are part of the same material as the workspace rail. */
+body .account-trigger {
+  background: var(--glass-panel);
+  border: 1px solid var(--glass-line);
+  border-radius: 14px;
+  min-height: 44px;
+}
+body .account-popover, body .account-switch-popover {
+  background: var(--glass-panel);
+  border: 1px solid var(--glass-line);
+  border-radius: 18px;
+  color: var(--foreground);
+  box-shadow: 0 16px 48px #191b201a, inset 0 1px var(--glass-rim);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+body .account-switch-popover { background: var(--control-surface); backdrop-filter: none; }
+body .account-popover [data-slot=dropdown-menu-item],
+body .account-popover [data-slot=dropdown-menu-sub-trigger],
+body .account-switch-popover [data-slot=dropdown-menu-item] { min-height: 44px; border-radius: 10px; }
+body .account-menu-heading { display: grid; gap: 4px; padding: 12px; }
+body .account-menu-heading span, body .account-choice small { color: var(--muted-foreground); font-size: 12px; }
+body .account-avatar { background: var(--accent); color: var(--accent-foreground); }
+
+@media (max-width: 640px) {
+  body .panel, body .empty, body .commerce-filters { padding: 16px; border-radius: 16px; }
+  body .marketplace > .demo-gallery > .project, body .wrap > .grid > .project { border-radius: 16px; padding: 10px; }
+}
+@supports not (backdrop-filter: blur(1px)) {
+  :root { --glass-panel: #fdfdfc; --glass-chrome: #f7f7f5; }
+  .dark { --glass-panel: #23252b; --glass-chrome: #23252b; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root { --glass-panel: #fdfdfc; --glass-chrome: #f7f7f5; }
+  .dark { --glass-panel: #23252b; --glass-chrome: #23252b; }
+  body :is(.panel,.empty,.commerce-card,.commerce-filters,.commerce-detail-proof,.commerce-operations,.team-card,.account-popover) {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+@media (forced-colors: active) {
+  body { background: Canvas; }
+  body :is(.panel,.empty,.commerce-card,.commerce-filters,.commerce-operations,.project,.account-trigger,.account-popover,.account-switch-popover) {
+    background: Canvas;
+    color: CanvasText;
+    border: 1px solid CanvasText;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+}

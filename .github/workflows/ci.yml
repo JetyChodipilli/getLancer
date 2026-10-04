@@ -94,6 +94,13 @@ jobs:
           name: workspace-browser-evidence-${{ github.sha }}
           path: test-results
           retention-days: 7
+      - name: Retain focused liquid glass design review evidence
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: liquid-design-evidence-${{ github.sha }}
+          path: test-results/liquid-design-*
+          retention-days: 7
       - uses: actions/upload-artifact@v4
         with:
           name: frontend-build-${{ github.sha }}

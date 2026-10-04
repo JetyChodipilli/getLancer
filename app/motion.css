@@ -1,0 +1,112 @@
+/* Purposeful application motion. Import after material and field styles.
+   The original hero floats and 72-second auth orbit have their own motion. */
+:root {
+  --app-motion-ease: cubic-bezier(.22, 1, .36, 1);
+}
+
+@keyframes application-settle {
+  from { opacity: .48; translate: 0 8px; }
+  to { opacity: 1; translate: none; }
+}
+
+/* Content is readable even at the first frame; no script hides it before entry. */
+.studio-shell .studio-page-head,
+main.wrap:not(.marketplace) > :is(.intro, .panel, .detailgrid, h1),
+main.wrap:not(.marketplace) > .stack > .panel,
+main.wrap.teams-page > .team-hero,
+main.commerce-public > :is(.commerce-catalog-head, .commerce-detail-grid) {
+  animation: application-settle 480ms var(--app-motion-ease) backwards;
+}
+
+.studio-shell .studio-preview {
+  animation: application-settle 440ms var(--app-motion-ease) backwards;
+}
+
+/* Do not translate a tab container and its entering card grid simultaneously. */
+.studio-shell [role="tabpanel"][data-state="active"]:not(:has(.studio-metrics, .workspace-overview, .grid)),
+.studio-shell .studio-body > :is(.panel, [data-slot="card"]),
+.studio-shell .studio-overview-grid > :is(section, aside),
+.studio-shell .delivery-grid > :is(.delivery-list, .delivery-detail),
+.studio-shell :is(.care-layout, .hosting-layout) > [data-slot="card"],
+.studio-shell :is(.care-main, .hosting-main) > [data-slot="card"] {
+  animation: application-settle 520ms var(--app-motion-ease) backwards;
+}
+
+.studio-shell .studio-metrics > .studio-metric,
+.studio-shell .workspace-overview > .overview-card,
+.studio-shell .grid > :is(.project, .panel),
+main.wrap:not(.marketplace) > .grid > .project,
+main.wrap.teams-page > .team-grid > .team-card,
+main.commerce-public > .commerce-cards > .commerce-card {
+  animation: application-settle 480ms var(--app-motion-ease) backwards;
+  animation-delay: 0ms;
+}
+
+/* Only the first four siblings stagger; longer lists never accumulate delay. */
+:is(.studio-shell .studio-metrics, .studio-shell .workspace-overview,
+    .studio-shell .grid, main.wrap:not(.marketplace) > .grid,
+    main.wrap.teams-page > .team-grid, main.commerce-public > .commerce-cards)
+  > :is(.studio-metric, .overview-card, .project, .panel, .team-card, .commerce-card):nth-child(2) {
+  animation-delay: 40ms;
+}
+:is(.studio-shell .studio-metrics, .studio-shell .workspace-overview,
+    .studio-shell .grid, main.wrap:not(.marketplace) > .grid,
+    main.wrap.teams-page > .team-grid, main.commerce-public > .commerce-cards)
+  > :is(.studio-metric, .overview-card, .project, .panel, .team-card, .commerce-card):nth-child(3) {
+  animation-delay: 80ms;
+}
+:is(.studio-shell .studio-metrics, .studio-shell .workspace-overview,
+    .studio-shell .grid, main.wrap:not(.marketplace) > .grid,
+    main.wrap.teams-page > .team-grid, main.commerce-public > .commerce-cards)
+  > :is(.studio-metric, .overview-card, .project, .panel, .team-card, .commerce-card):nth-child(4) {
+  animation-delay: 120ms;
+}
+
+/* Feedback changes material, never field geometry or confirmation placement. */
+.studio-shell :is(.button, .iconbutton, .link, .overview-card, [role="tab"]),
+.studio-shell :is(.workspace-tabs, .studio-tabs) [role="tab"],
+.studio-shell .studio-rail a,
+.studio-shell .studio-preview > summary,
+main.wrap:not(.marketplace) :is(.button, .iconbutton, .link),
+main.commerce-public :is(.button, .iconbutton, .link),
+:is(.workspace-dialog, .demo-dialog, .business-dialog, .delivery-dialog,
+    .care-dialog, .hosting-dialog, .commerce-dialog) :is(.button, .iconbutton),
+:is(.studio-shell, main.wrap:not(.marketplace), main.commerce-public, .workspace-dialog, .demo-dialog,
+    .business-dialog, .delivery-dialog, .care-dialog, .hosting-dialog, .commerce-dialog)
+  :is(input, select, textarea, [data-slot="select-trigger"]) {
+  transition-property: background-color, border-color, color, box-shadow;
+  transition-duration: 180ms;
+  transition-timing-function: var(--app-motion-ease);
+}
+
+.studio-shell .overview-card-action svg {
+  transition: transform 180ms var(--app-motion-ease);
+}
+.studio-shell .overview-card:focus-visible .overview-card-action svg {
+  transform: translate(1px, -1px);
+}
+
+.studio-shell :is(.button, .iconbutton):is(:hover, :focus-visible, :active),
+main.wrap:not(.marketplace) :is(.button, .iconbutton):is(:hover, :focus-visible, :active),
+main.commerce-public :is(.button, .iconbutton):is(:hover, :focus-visible, :active),
+:is(.workspace-dialog, .demo-dialog, .business-dialog, .delivery-dialog,
+    .care-dialog, .hosting-dialog, .commerce-dialog)
+  :is(.button, .iconbutton):is(:hover, :focus-visible, :active) {
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.studio-shell, main.wrap:not(.marketplace), main.commerce-public, .workspace-dialog, .demo-dialog,
+      .business-dialog, .delivery-dialog, .care-dialog, .hosting-dialog, .commerce-dialog),
+  :is(.studio-shell, main.wrap:not(.marketplace), main.commerce-public, .workspace-dialog, .demo-dialog,
+      .business-dialog, .delivery-dialog, .care-dialog, .hosting-dialog, .commerce-dialog) * {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+  .studio-shell .overview-card:is(:hover, :focus-visible),
+  main.wrap:not(.marketplace) .project:is(:hover, :focus-within) {
+    transform: none !important;
+    translate: none !important;
+  }
+}
