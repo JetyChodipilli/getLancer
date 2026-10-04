@@ -16,7 +16,7 @@ export function componentZip(files: Record<string, string>): Uint8Array {
   const u16 = (view: DataView, at: number, n: number) => view.setUint16(at, n, true), u32 = (view: DataView, at: number, n: number) => view.setUint32(at, n, true);
   const crc = (bytes: Uint8Array) => { let value = 0xffffffff; for (const b of bytes) { value ^= b; for (let i = 0; i < 8; i++)value = (value >>> 1) ^ ((value & 1) ? 0xedb88320 : 0); } return (value ^ 0xffffffff) >>> 0; };
   const entries = Object.entries(files); if (entries.length !== 3 || !['index.html', 'README.md', 'LICENSE'].every(k => k in files)) throw Error('The curated source manifest is incomplete.');
-  for (const [name, content] of entries) {    
+  for (const [name, content] of entries) {
 const path = encoder.encode(name), data = encoder.encode(content); if (data.length > 100000) throw Error('Source file exceeds its reviewed limit.'); const checksum = crc(data), header = new Uint8Array(30 + path.length), h = new DataView(header.buffer); u32(h, 0, 0x04034b50); u16(h, 4, 20); u16(h, 6, 0x800); u16(h, 12, 0x21); u32(h, 14, checksum); u32(h, 18, data.length); u32(h, 22, data.length); u16(h, 26, path.length); header.set(path, 30); chunks.push(header, data);
     const directory = new Uint8Array(46 + path.length), d = new DataView(directory.buffer); u32(d, 0, 0x02014b50); u16(d, 4, 20); u16(d, 6, 20); u16(d, 8, 0x800); u16(d, 14, 0x21); u32(d, 16, checksum); u32(d, 20, data.length); u32(d, 24, data.length); u16(d, 28, path.length); u32(d, 42, offset); directory.set(path, 46); central.push(directory); offset += header.length + data.length;
   }

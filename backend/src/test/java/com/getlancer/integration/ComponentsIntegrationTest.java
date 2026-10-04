@@ -66,12 +66,14 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
   MockHttpServletRequestBuilder approve(UUID id)throws Exception{
     return body(post("/api/v1/admin/components/"+id+"/review"),"admin",Map.of("revision",db.queryForObject("SELECT revision FROM component_entries WHERE id=?",Long.class,id),"decision","APPROVE","reason","Reviewed original curated recipe and explicit attribution."));
   }
+  @AfterEach void cleanup(){db.execute("TRUNCATE users CASCADE");}
   @BeforeEach void setup(){
     reset(provider);
     db.execute("TRUNCATE users CASCADE");
     db.execute("TRUNCATE rate_buckets,component_slot_events");
     db.update("UPDATE component_slot_pricing SET amount_minor=NULL,enabled=false");
     builder=user("builder",true);
+    db.update("INSERT INTO showcase_entitlements(user_id) VALUES(?)",builder);
     other=user("other",true);
     admin=user("admin",false);
     db.update("INSERT INTO user_roles(user_id,role) VALUES(?,'ADMIN')",admin);
