@@ -27,6 +27,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
   @Autowired JdbcTemplate db;
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper json;
+  @Autowired org.springframework.transaction.PlatformTransactionManager transactionManager;
   @MockBean RazorpayClient provider;
   UUID builder,other,admin,product;
   JsonNode order;
@@ -500,5 +501,26 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     db.update("INSERT INTO publishing_capacity_grants(owner_id,pool,slots,reason) VALUES(?,'TEMPLATE',2,'Existing active template capacity before V25')",builder);
     assertEquals(5,publishing().path("TEMPLATE").path("limit").asInt());assertEquals(6,publishing().path("PROJECT").path("limit").asInt());assertEquals(3,publishing().path("COMPONENT").path("limit").asInt());
     assertThrows(org.springframework.dao.DataAccessException.class,()->db.update("UPDATE publishing_capacity_grants SET slots=10 WHERE owner_id=?",builder));
+  }
+  @Test void migrationPreservesExistingComponentReceiptsAndRetainsOnlyActiveLegacyTemplateCapacity()throws Exception{
+    String schema="publishing_migration_"+UUID.randomUUID().toString().replace("-","");
+    String migration;
+    try(var input=getClass().getResourceAsStream("/db/migration/V25__shared_publishing_capacity.sql")){migration=new String(Objects.requireNonNull(input).readAllBytes(),java.nio.charset.StandardCharsets.UTF_8);}
+    UUID receipt=UUID.randomUUID();
+    new org.springframework.transaction.support.TransactionTemplate(transactionManager).executeWithoutResult(status->{
+      db.execute("CREATE SCHEMA "+schema);db.execute("SET LOCAL search_path = "+schema+",getlancer_test");
+      db.execute("CREATE TABLE users(id uuid PRIMARY KEY)");db.update("INSERT INTO users(id) VALUES(?)",builder);
+      db.execute("CREATE TABLE component_slot_pricing(id boolean PRIMARY KEY DEFAULT true CHECK(id),amount_minor bigint,enabled boolean DEFAULT false,updated_at timestamptz DEFAULT now())");db.update("INSERT INTO component_slot_pricing(id,amount_minor,enabled) VALUES(true,10000,true)");
+      db.execute("CREATE TABLE component_slot_purchases(id uuid PRIMARY KEY,owner_id uuid,idempotency_key uuid,amount_minor bigint,currency varchar(3),mode varchar(4),status varchar(20),refunded_minor bigint DEFAULT 0,order_id varchar(40),payment_id varchar(40),created_at timestamptz DEFAULT now())");
+      db.execute("CREATE UNIQUE INDEX component_slot_unresolved ON component_slot_purchases(owner_id,mode) WHERE status IN ('CREATING','UNKNOWN','ORDER_CREATED')");
+      db.update("INSERT INTO component_slot_purchases(id,owner_id,idempotency_key,amount_minor,currency,mode,status,order_id,payment_id) VALUES(?,?,?,10000,'INR','live','CAPTURED','order_existing123','pay_existing123')",receipt,builder,UUID.randomUUID());
+      db.execute("CREATE TABLE source_templates(id uuid PRIMARY KEY,seller_id uuid,status varchar(20),created_at timestamptz DEFAULT now())");
+      for(int i=0;i<6;i++)db.update("INSERT INTO source_templates(id,seller_id,status) VALUES(?,?,?)",UUID.randomUUID(),builder,i==5?"ARCHIVED":"ACTIVE");
+      db.execute(migration);
+      var p=db.queryForMap("SELECT * FROM component_slot_purchases WHERE id=?",receipt);assertEquals("COMPONENT",p.get("pool"));assertEquals(10000L,p.get("amount_minor"));assertEquals("order_existing123",p.get("order_id"));assertEquals("pay_existing123",p.get("payment_id"));assertEquals("CAPTURED",p.get("status"));
+      assertEquals(2L,db.queryForObject("SELECT slots FROM publishing_capacity_grants WHERE owner_id=?",Long.class,builder));
+      assertEquals(10000L,db.queryForObject("SELECT amount_minor FROM component_slot_pricing WHERE pool='COMPONENT'",Long.class));assertEquals(2,db.queryForObject("SELECT count(*) FROM component_slot_pricing WHERE pool<>'COMPONENT' AND amount_minor IS NULL AND NOT enabled",Integer.class));
+      status.setRollbackOnly(); // Isolated migration rehearsal leaves the shared test schema untouched.
+    });
   }
 }
