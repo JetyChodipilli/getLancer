@@ -128,7 +128,7 @@ class TrustTest {
     when(security.developer(request, true)).thenReturn(owner);
     when(products.owned(product, owner)).thenThrow(new ApiError(404, "NOT_FOUND", "Not found"));
     assertThrows(
-        ApiError.class, () -> new TrustService(db, security, products).request(product, request));
+        ApiError.class, () -> new TrustService(db, security, products, mock(com.getlancer.publishing.PublishingCapacity.class)).request(product, request));
     verifyNoInteractions(db);
   }
 
@@ -144,7 +144,7 @@ class TrustTest {
         assertThrows(
                 ApiError.class,
                 () ->
-                    new TrustService(db, security, mock(ProductService.class))
+                    new TrustService(db, security, mock(ProductService.class), mock(com.getlancer.publishing.PublishingCapacity.class))
                         .award(
                             UUID.randomUUID(),
                             Map.of("reason", "Reviewed client-confirmed completion"),
