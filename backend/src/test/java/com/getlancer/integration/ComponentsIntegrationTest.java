@@ -27,7 +27,6 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
   @Autowired JdbcTemplate db;
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper json;
-  @Autowired org.springframework.transaction.PlatformTransactionManager transactionManager;
   @MockBean RazorpayClient provider;
   UUID builder,other,admin,product;
   JsonNode order;
@@ -507,7 +506,11 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     String migration;
     try(var input=getClass().getResourceAsStream("/db/migration/V25__shared_publishing_capacity.sql")){migration=new String(Objects.requireNonNull(input).readAllBytes(),java.nio.charset.StandardCharsets.UTF_8);}
     UUID receipt=UUID.randomUUID();
-    new org.springframework.transaction.support.TransactionTemplate(transactionManager).executeWithoutResult(status->{
+    var source=Objects.requireNonNull(db.getDataSource()).unwrap(com.zaxxer.hikari.HikariDataSource.class);
+    // A schema-changing rehearsal must not reuse the application's prepared-statement cache.
+    try(var connection=java.sql.DriverManager.getConnection(source.getJdbcUrl(),source.getUsername(),source.getPassword())){
+      connection.setAutoCommit(false);
+      var db=new JdbcTemplate(new org.springframework.jdbc.datasource.SingleConnectionDataSource(connection,true));
       db.execute("CREATE SCHEMA "+schema);db.execute("SET LOCAL search_path = "+schema+",getlancer_test");
       db.execute("CREATE TABLE users(id uuid PRIMARY KEY)");db.update("INSERT INTO users(id) VALUES(?)",builder);
       db.execute("CREATE TABLE component_slot_pricing(id boolean PRIMARY KEY DEFAULT true CHECK(id),amount_minor bigint,enabled boolean DEFAULT false,updated_at timestamptz DEFAULT now())");db.update("INSERT INTO component_slot_pricing(id,amount_minor,enabled) VALUES(true,10000,true)");
@@ -520,7 +523,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
       var p=db.queryForMap("SELECT * FROM component_slot_purchases WHERE id=?",receipt);assertEquals("COMPONENT",p.get("pool"));assertEquals(10000L,p.get("amount_minor"));assertEquals("order_existing123",p.get("order_id"));assertEquals("pay_existing123",p.get("payment_id"));assertEquals("CAPTURED",p.get("status"));
       assertEquals(2L,db.queryForObject("SELECT slots FROM publishing_capacity_grants WHERE owner_id=?",Long.class,builder));
       assertEquals(10000L,db.queryForObject("SELECT amount_minor FROM component_slot_pricing WHERE pool='COMPONENT'",Long.class));assertEquals(2,db.queryForObject("SELECT count(*) FROM component_slot_pricing WHERE pool<>'COMPONENT' AND amount_minor IS NULL AND NOT enabled",Integer.class));
-      status.setRollbackOnly(); // Isolated migration rehearsal leaves the shared test schema untouched.
-    });
+      connection.rollback(); // Isolated migration rehearsal leaves the shared test schema untouched.
+    }
   }
 }
