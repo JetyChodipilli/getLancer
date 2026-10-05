@@ -449,6 +449,12 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     response(body(put("/api/v1/me/college-projects/"+product),"builder",context));
     assertEquals(0,publishing().path("PROJECT").path("regular").path("used").asInt());assertEquals(3,publishing().path("PROJECT").path("college").path("used").asInt());
   }
+  @Test void collegeDraftContextDoesNotReserveOrRequireAnActiveSlot()throws Exception{
+    for(int i=0;i<3;i++)project(true,"ACTIVE");UUID draft=project(false,"DRAFT");
+    response(body(put("/api/v1/me/college-projects/"+draft),"builder",Map.of("category","FULL_STACK","language","Java","problem","A documented original student problem.","outcome","A measured and reproducible student outcome.","prerequisites","Java and local setup.","contribution","Implemented the original application modules.","rightsConsent",true)));
+    assertEquals(3,publishing().path("PROJECT").path("college").path("used").asInt());
+    mvc.perform(activateProject(draft)).andExpect(status().isConflict());
+  }
   @Test void concurrentProjectActivationCannotOccupyTheLastFreePlaceTwice()throws Exception{
     project(false,"ACTIVE");UUID a=project(false,"DRAFT"),b=project(false,"DRAFT");var ready=new CountDownLatch(2);var start=new CountDownLatch(1);var workers=Executors.newFixedThreadPool(2);
     try{var results=new ArrayList<Future<Integer>>();for(UUID id:List.of(a,b))results.add(workers.submit(()->{ready.countDown();assertTrue(start.await(10,TimeUnit.SECONDS));return mvc.perform(activateProject(id)).andReturn().getResponse().getStatus();}));assertTrue(ready.await(10,TimeUnit.SECONDS));start.countDown();var statuses=new ArrayList<Integer>();for(var f:results)statuses.add(f.get(20,TimeUnit.SECONDS));Collections.sort(statuses);assertEquals(List.of(204,409),statuses);assertEquals(3,publishing().path("PROJECT").path("regular").path("used").asInt());}finally{workers.shutdownNow();}

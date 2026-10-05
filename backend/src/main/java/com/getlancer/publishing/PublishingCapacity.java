@@ -67,6 +67,9 @@ public class PublishingCapacity {
     return projectsFit(regular,college,((Number)cap.get("extraLimit")).intValue());
   }
   public void requireCollegeMove(UUID owner,UUID product) {
+    // Draft context does not reserve active capacity; activation performs the quota check.
+    var row=db.queryForMap("SELECT lifecycle_status FROM products WHERE id=? AND owner_user_id=?",product,owner);
+    if(!"ACTIVE".equals(row.get("lifecycle_status")))return;
     if(!projectFits(owner,product,true))throw new ApiError(409,"SLOT_LIMIT_REACHED","All three free college project slots and shared extra project slots are in use. Archive a college project or buy another project slot.");
   }
   public void requireTemplate(UUID owner,UUID template) {
