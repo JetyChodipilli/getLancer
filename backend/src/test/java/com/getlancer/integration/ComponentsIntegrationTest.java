@@ -390,4 +390,109 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
   mvc.perform(get("/api/v1/components/remix-"+id)).andExpect(status().isNotFound());mvc.perform(as(get("/api/v1/admin/components/"+id),"builder")).andExpect(status().isForbidden());assertEquals(original.path("files"),response(as(get("/api/v1/admin/components/"+id),"admin")).path("files"));db.update("UPDATE sessions SET mfa_verified=false WHERE user_id=?",admin);mvc.perform(as(get("/api/v1/admin/components/"+id),"admin")).andExpect(status().isForbidden());
  }
 
+  void slotPrice(String pool,long amount)throws Exception{
+    response(body(put("/api/v1/admin/publishing-slots/"+pool+"/pricing"),"admin",Map.of("amountMinor",amount,"enabled",true)));
+  }
+  MockHttpServletRequestBuilder poolBuy(String pool,String key,long amount)throws Exception{
+    return body(post("/api/v1/me/publishing-slot-purchases"),"builder",Map.of("pool",pool,"amountMinor",amount,"purchaseConsent",true)).header("Idempotency-Key",key);
+  }
+  JsonNode publishing()throws Exception{return response(as(get("/api/v1/me/publishing-slots"),"builder")).path("capacities");}
+  UUID project(boolean college,String state){
+    UUID id=UUID.randomUUID();
+    db.update("INSERT INTO products(id,owner_user_id,slug,title,summary,description,project_type,category,technology,contribution_text,approval_status,lifecycle_status,visibility) VALUES(?,?,?,'Capacity proof','A useful project','A documented project with evidence','LEARNING','CRM','React','Built the project','APPROVED',?,'PUBLIC')",id,builder,id.toString(),state);
+    if(college)db.update("INSERT INTO college_project_metadata(product_id,category,language,problem,outcome,prerequisites,contribution) VALUES(?,'FULL_STACK','Java','A specific educational problem','A reproducible educational result','Local prerequisites','Implemented the documented system')",id);
+    return id;
+  }
+  MockHttpServletRequestBuilder activateProject(UUID id)throws Exception{return body(post("/api/v1/developer/products/"+id+"/activate"),"builder",Map.of());}
+  void fillProjects(){for(int i=0;i<2;i++)project(false,"ACTIVE");for(int i=0;i<3;i++)project(true,"ACTIVE");}
+  UUID sourceTemplate(String state){
+    UUID id=UUID.randomUUID(),version=UUID.randomUUID();
+    db.update("UPDATE products SET repository_url='https://github.com/example/proof' WHERE id=?",product);
+    db.update("INSERT INTO repository_verifications(product_id,repository_url,challenge,status) VALUES(?,'https://github.com/example/proof','challenge','VERIFIED') ON CONFLICT(product_id) DO NOTHING",product);
+    db.update("INSERT INTO source_templates(id,seller_id,product_id,slug,title,summary,description,price_minor,license_terms,status) VALUES(?,?,?,?,'Template proof','An approved source template','A documented source template',10000,'One commercial end product; notices retained',?)",id,builder,product,id.toString(),state);
+    db.update("INSERT INTO source_versions(id,template_id,version,release_notes,storage_key,sha256,size_bytes,entry_count,license_terms,manifest_files,rights_consented_at,status) VALUES(?,?,'1.0','Reviewed release',? ,?,100,3,'One commercial end product','README.md\nLICENSE\npackage.json',now(),?)",version,id,"commerce/"+id+"/"+version+".zip","a".repeat(64),state.equals("ACTIVE")?"APPROVED":"PENDING");
+    return id;
+  }
+  MockHttpServletRequestBuilder approveTemplate(UUID id)throws Exception{
+    UUID version=db.queryForObject("SELECT id FROM source_versions WHERE template_id=?",UUID.class,id);
+    return body(post("/api/v1/admin/templates/"+id+"/versions/"+version+"/review"),"admin",Map.of("action","APPROVE","reason","Inspected source, license and documentation.","rightsReviewed",true,"packageReviewed",true));
+  }
+  @Test void eachProjectCategoryHasThreeFreePlacesAndCannotBorrowTheOthersUnusedFreePlaces()throws Exception{
+    fillProjects();var caps=publishing();
+    assertEquals(3,caps.path("PROJECT").path("regular").path("free").asInt());assertEquals(3,caps.path("PROJECT").path("college").path("free").asInt());assertEquals(6,caps.path("PROJECT").path("used").asInt());
+    assertEquals(3,caps.path("TEMPLATE").path("free").asInt());assertEquals(3,caps.path("COMPONENT").path("free").asInt());
+    UUID regular=project(false,"DRAFT"),college=project(true,"DRAFT");
+    mvc.perform(activateProject(regular)).andExpect(status().isConflict());mvc.perform(activateProject(college)).andExpect(status().isConflict());
+    mvc.perform(body(post("/api/v1/developer/products/"+product+"/archive"),"builder",Map.of())).andExpect(status().isNoContent());
+    mvc.perform(activateProject(college)).andExpect(status().isConflict());mvc.perform(activateProject(regular)).andExpect(status().isNoContent());
+    assertEquals(0,publishing().path("PROJECT").path("extraUsed").asInt());
+  }
+  @Test void onePaidProjectExtraCanServeEitherCategoryButOnlyOneActiveProjectAtATime()throws Exception{
+    fillProjects();slotPrice("PROJECT",10000);var p=response(poolBuy("PROJECT",UUID.randomUUID().toString(),10000));captured=true;
+    response(body(post("/api/v1/me/publishing-slot-purchases/"+p.path("id").asText()+"/reconcile"),"builder",Map.of()));
+    UUID college=project(true,"DRAFT"),regular=project(false,"DRAFT");mvc.perform(activateProject(college)).andExpect(status().isNoContent());mvc.perform(activateProject(regular)).andExpect(status().isConflict());
+    assertEquals(1,publishing().path("PROJECT").path("extraUsed").asInt());assertEquals(3,publishing().path("COMPONENT").path("limit").asInt());
+    mvc.perform(body(post("/api/v1/developer/products/"+college+"/archive"),"builder",Map.of())).andExpect(status().isNoContent());mvc.perform(activateProject(regular)).andExpect(status().isNoContent());
+  }
+  @Test void earnedProjectCapacitySurvivesAndDoesNotAddTemplateOrComponentPlaces()throws Exception{
+    fillProjects();db.update("UPDATE showcase_entitlements SET active_slot_limit=4 WHERE user_id=?",builder);
+    mvc.perform(activateProject(project(false,"DRAFT"))).andExpect(status().isNoContent());
+    var c=publishing();assertEquals(1,c.path("PROJECT").path("earned").asInt());assertEquals(3,c.path("TEMPLATE").path("limit").asInt());assertEquals(3,c.path("COMPONENT").path("limit").asInt());
+  }
+  @Test void collegeConversionChecksCollegeCapacityBeforeChangingTheActiveProject()throws Exception{
+    for(int i=0;i<3;i++)project(true,"ACTIVE");
+    Map<String,Object> context=Map.of("category","FULL_STACK","language","Java","problem","A documented original student problem.","outcome","A measured and reproducible student outcome.","prerequisites","Java and local setup.","contribution","Implemented the original application modules.","rightsConsent",true);
+    mvc.perform(body(put("/api/v1/me/college-projects/"+product),"builder",context)).andExpect(status().isConflict());
+    assertEquals(0,db.queryForObject("SELECT count(*) FROM college_project_metadata WHERE product_id=?",Integer.class,product));
+    UUID college=db.queryForObject("SELECT product_id FROM college_project_metadata LIMIT 1",UUID.class);
+    mvc.perform(body(post("/api/v1/developer/products/"+college+"/archive"),"builder",Map.of())).andExpect(status().isNoContent());
+    response(body(put("/api/v1/me/college-projects/"+product),"builder",context));
+    assertEquals(0,publishing().path("PROJECT").path("regular").path("used").asInt());assertEquals(3,publishing().path("PROJECT").path("college").path("used").asInt());
+  }
+  @Test void concurrentProjectActivationCannotOccupyTheLastFreePlaceTwice()throws Exception{
+    project(false,"ACTIVE");UUID a=project(false,"DRAFT"),b=project(false,"DRAFT");var ready=new CountDownLatch(2);var start=new CountDownLatch(1);var workers=Executors.newFixedThreadPool(2);
+    try{var results=new ArrayList<Future<Integer>>();for(UUID id:List.of(a,b))results.add(workers.submit(()->{ready.countDown();assertTrue(start.await(10,TimeUnit.SECONDS));return mvc.perform(activateProject(id)).andReturn().getResponse().getStatus();}));assertTrue(ready.await(10,TimeUnit.SECONDS));start.countDown();var statuses=new ArrayList<Integer>();for(var f:results)statuses.add(f.get(20,TimeUnit.SECONDS));Collections.sort(statuses);assertEquals(List.of(204,409),statuses);assertEquals(3,publishing().path("PROJECT").path("regular").path("used").asInt());}finally{workers.shutdownNow();}
+  }
+  @Test void templatesConsumeThreeIndependentPlacesAndArchiveAllowsReviewedReactivation()throws Exception{
+    UUID first=null;for(int i=0;i<3;i++){UUID t=sourceTemplate("DRAFT");response(approveTemplate(t));if(first==null)first=t;}
+    UUID fourth=sourceTemplate("DRAFT");mvc.perform(approveTemplate(fourth)).andExpect(status().isConflict());
+    response(body(post("/api/v1/me/templates/"+first+"/archive"),"builder",Map.of()));response(approveTemplate(fourth));
+    mvc.perform(body(post("/api/v1/me/templates/"+first+"/activate"),"builder",Map.of())).andExpect(status().isConflict());
+    response(body(post("/api/v1/me/templates/"+fourth+"/archive"),"builder",Map.of()));response(body(post("/api/v1/me/templates/"+first+"/activate"),"builder",Map.of()));
+    assertEquals(3,publishing().path("TEMPLATE").path("used").asInt());assertEquals(1,publishing().path("PROJECT").path("regular").path("used").asInt());
+  }
+  @Test void concurrentTemplateReviewsCannotPublishBeyondCapacity()throws Exception{
+    for(int i=0;i<2;i++)sourceTemplate("ACTIVE");UUID a=sourceTemplate("DRAFT"),b=sourceTemplate("DRAFT");var start=new CountDownLatch(1);var workers=Executors.newFixedThreadPool(2);
+    try{var results=new ArrayList<Future<Integer>>();for(UUID id:List.of(a,b))results.add(workers.submit(()->{assertTrue(start.await(10,TimeUnit.SECONDS));return mvc.perform(approveTemplate(id)).andReturn().getResponse().getStatus();}));start.countDown();var statuses=new ArrayList<Integer>();for(var f:results)statuses.add(f.get(20,TimeUnit.SECONDS));Collections.sort(statuses);assertEquals(List.of(200,409),statuses);assertEquals(3,publishing().path("TEMPLATE").path("used").asInt());}finally{workers.shutdownNow();}
+  }
+  @Test void administratorPricesAreIndependentAndUnauthorizedPricingIsRejected()throws Exception{
+    slotPrice("PROJECT",10000);slotPrice("TEMPLATE",20000);slotPrice("COMPONENT",30000);
+    var prices=response(get("/api/v1/publishing-slots/pricing"));assertEquals(10000,prices.path("PROJECT").path("amountMinor").asInt());assertEquals(20000,prices.path("TEMPLATE").path("amountMinor").asInt());assertEquals(30000,prices.path("COMPONENT").path("amountMinor").asInt());
+    mvc.perform(body(put("/api/v1/admin/publishing-slots/TEMPLATE/pricing"),"builder",Map.of("amountMinor",10000,"enabled",true))).andExpect(status().isForbidden());
+    mvc.perform(body(put("/api/v1/admin/publishing-slots/COLLEGE/pricing"),"admin",Map.of("amountMinor",10000,"enabled",true))).andExpect(status().isBadRequest());
+  }
+  @Test void paidPoolsFreezeCategoryAndPriceAndCannotReuseACheckoutKeyAcrossCategories()throws Exception{
+    slotPrice("PROJECT",10000);slotPrice("TEMPLATE",20000);String key=UUID.randomUUID().toString();var p=response(poolBuy("PROJECT",key,10000));assertEquals("PROJECT",p.path("pool").asText());slotPrice("PROJECT",15000);
+    assertEquals(p.path("id").asText(),response(poolBuy("PROJECT",key,15000)).path("id").asText());assertEquals(10000,response(poolBuy("PROJECT",key,15000)).path("amountMinor").asLong());
+    mvc.perform(poolBuy("TEMPLATE",key,20000)).andExpect(status().isConflict());
+    when(provider.createPlatformOrder(any(UUID.class),anyLong())).thenAnswer(i->{UUID id=i.getArgument(0);return json.valueToTree(Map.of("id","order_template123","receipt",id.toString(),"amount",20000,"currency","INR","partial_payment",false));});
+    var template=response(poolBuy("TEMPLATE",UUID.randomUUID().toString(),20000));assertEquals("TEMPLATE",template.path("pool").asText());
+    assertEquals(1,response(as(get("/api/v1/me/publishing-slot-purchases?pool=PROJECT"),"builder")).path("items").size());assertEquals(1,response(as(get("/api/v1/me/publishing-slot-purchases?pool=TEMPLATE"),"builder")).path("items").size());
+    assertThrows(org.springframework.dao.DataAccessException.class,()->db.update("UPDATE component_slot_purchases SET pool='COMPONENT' WHERE id=?",UUID.fromString(p.path("id").asText())));
+  }
+  @Test void projectRefundRemovesOnlySharedExtrasAndRetainsThreeFreePerProjectCategory()throws Exception{
+    fillProjects();for(int i=0;i<3;i++)sourceTemplate("ACTIVE");slotPrice("PROJECT",10000);var p=response(poolBuy("PROJECT",UUID.randomUUID().toString(),10000));captured=true;String path="/api/v1/me/publishing-slot-purchases/"+p.path("id").asText()+"/reconcile";response(body(post(path),"builder",Map.of()));
+    mvc.perform(activateProject(project(true,"DRAFT"))).andExpect(status().isNoContent());refunded=1;response(body(post(path),"builder",Map.of()));var c=publishing();assertEquals(3,c.path("PROJECT").path("regular").path("used").asInt());assertEquals(3,c.path("PROJECT").path("college").path("used").asInt());assertEquals(3,c.path("TEMPLATE").path("used").asInt());assertEquals(3,c.path("COMPONENT").path("limit").asInt());assertEquals(0,c.path("PROJECT").path("purchased").asInt());
+  }
+  @Test void templateRefundDoesNotConsumeOrArchiveProjectCapacity()throws Exception{
+    for(int i=0;i<3;i++)sourceTemplate("ACTIVE");slotPrice("TEMPLATE",10000);var p=response(poolBuy("TEMPLATE",UUID.randomUUID().toString(),10000));captured=true;String path="/api/v1/me/publishing-slot-purchases/"+p.path("id").asText()+"/reconcile";response(body(post(path),"builder",Map.of()));response(approveTemplate(sourceTemplate("DRAFT")));assertEquals(4,publishing().path("TEMPLATE").path("used").asInt());refunded=10000;response(body(post(path),"builder",Map.of()));assertEquals(3,publishing().path("TEMPLATE").path("used").asInt());assertEquals(1,publishing().path("PROJECT").path("used").asInt());
+  }
+  @Test void paidTemplateAndProjectTestCapturesNeverGrantLivePlaces()throws Exception{
+    when(provider.mode()).thenReturn("test");when(provider.configuration()).thenReturn(Map.of("enabled",true,"mode","test","reason",""));slotPrice("TEMPLATE",10000);var p=response(poolBuy("TEMPLATE",UUID.randomUUID().toString(),10000));captured=true;assertFalse(response(body(post("/api/v1/me/publishing-slot-purchases/"+p.path("id").asText()+"/reconcile"),"builder",Map.of())).path("grantsSlot").asBoolean());assertEquals(3,publishing().path("TEMPLATE").path("limit").asInt());assertEquals(6,publishing().path("PROJECT").path("limit").asInt());
+  }
+  @Test void retainedTemplateCapacityIsImmutableAndOnlyAppliesToTemplates()throws Exception{
+    db.update("INSERT INTO publishing_capacity_grants(owner_id,pool,slots,reason) VALUES(?,'TEMPLATE',2,'Existing active template capacity before V25')",builder);
+    assertEquals(5,publishing().path("TEMPLATE").path("limit").asInt());assertEquals(6,publishing().path("PROJECT").path("limit").asInt());assertEquals(3,publishing().path("COMPONENT").path("limit").asInt());
+    assertThrows(org.springframework.dao.DataAccessException.class,()->db.update("UPDATE publishing_capacity_grants SET slots=10 WHERE owner_id=?",builder));
+  }
 }

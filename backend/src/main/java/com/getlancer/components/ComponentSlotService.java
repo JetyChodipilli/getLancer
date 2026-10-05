@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.getlancer.payments.RazorpayClient;
 import com.getlancer.security.Security;
+import com.getlancer.publishing.PublishingCapacity;
 import com.getlancer.shared.ApiError;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
@@ -20,37 +21,42 @@ public class ComponentSlotService {
   final RazorpayClient provider;
   final ObjectMapper json;
   final TransactionTemplate transaction;
-  public ComponentSlotService(JdbcTemplate db,Security security,RazorpayClient provider,ObjectMapper json,PlatformTransactionManager manager){
+  final PublishingCapacity publishing;
+  public ComponentSlotService(JdbcTemplate db,Security security,RazorpayClient provider,ObjectMapper json,PlatformTransactionManager manager,PublishingCapacity publishing){
     this.db=db;
     this.security=security;
     this.provider=provider;
     this.json=json;
+    this.publishing=publishing;
     transaction=new TransactionTemplate(manager);
   }
   <T>T tx(Supplier<T> work){
     return transaction.execute(s->work.get());
   }
   void lock(UUID owner){
-    db.queryForMap("SELECT id FROM users WHERE id=? FOR UPDATE",owner);
+    publishing.lock(owner);
   }
   void audit(UUID actor,UUID target,String kind,String detail){
     db.update("INSERT INTO component_audit(id,actor_id,target_id,kind,detail) VALUES(?,?,?,?,?)",id(),actor,target,kind,detail);
   }
-  public Map<String,Object> capacity(UUID owner){
-    int paid=db.queryForObject("SELECT count(*) FROM component_slot_purchases WHERE owner_id=? AND mode='live' AND status='CAPTURED' AND refunded_minor=0 AND (dispute_status IS NULL OR dispute_status='won')",Integer.class,owner);
-    int used=db.queryForObject("SELECT count(*) FROM component_entries WHERE owner_id=? AND status='ACTIVE'",Integer.class,owner);
-    return Map.of("free",3,"purchased",paid,"limit",3+paid,"used",used);
+  public Map<String,Object> capacity(UUID owner){ return publishing.capacity(owner,"COMPONENT"); }
+  public Map<String,Object> pricing(){ return pricing("COMPONENT"); }
+  public Map<String,Object> allPricing(){
+    return Map.of("PROJECT",pricing("PROJECT"),"TEMPLATE",pricing("TEMPLATE"),"COMPONENT",pricing("COMPONENT"));
   }
-  public Map<String,Object> pricing(){
-    var p=db.queryForMap("SELECT * FROM component_slot_pricing WHERE id=true");
+  public Map<String,Object> pricing(String requested){
+    String pool=PublishingCapacity.pool(requested);
+    var p=db.queryForMap("SELECT * FROM component_slot_pricing WHERE pool=?",pool);
+    var config=provider.configuration();
     var out=new LinkedHashMap<String,Object>();
+    out.put("pool",pool);
     out.put("amountMinor",p.get("amount_minor"));
     out.put("currency","INR");
-    out.put("enabled",Boolean.TRUE.equals(p.get("enabled"))&&Boolean.TRUE.equals(provider.configuration().get("enabled")));
+    out.put("enabled",Boolean.TRUE.equals(p.get("enabled"))&&Boolean.TRUE.equals(config.get("enabled")));
     out.put("configured",p.get("amount_minor")!=null);
     out.put("salesEnabled",p.get("enabled"));
-    out.put("mode",provider.configuration().get("mode"));
-    out.put("reason",Boolean.TRUE.equals(p.get("enabled"))?provider.configuration().get("reason"):"Additional slots are not available yet. The administrator sets their price.");
+    out.put("mode",config.get("mode"));
+    out.put("reason",Boolean.TRUE.equals(p.get("enabled"))?config.get("reason"):"Additional slots are not available yet. The administrator sets their price.");
     return out;
   }
   static long amount(Object value){
@@ -59,12 +65,15 @@ public class ComponentSlotService {
     if(n<100||n>1000000000)throw new ApiError(400,"VALIDATION_ERROR","Use an INR price between ₹1 and ₹1,00,00,000.");
     return n;
   }
-  public Object setPrice(Map<String,Object>b,HttpServletRequest r){
+  public Object setPrice(Map<String,Object>b,HttpServletRequest r){ return setPrice("COMPONENT",b,r); }
+  public Object setPrice(String requested,Map<String,Object>b,HttpServletRequest r){
+    String pool=PublishingCapacity.pool(requested);
     return tx(()->{
-      UUID admin=security.admin(r);long value=amount(b.get("amountMinor"));boolean enabled=Boolean.TRUE.equals(b.get("enabled"));db.queryForMap("SELECT * FROM component_slot_pricing WHERE id=true FOR UPDATE");
-      security.admin(r);db.update("UPDATE component_slot_pricing SET amount_minor=?,enabled=?,updated_at=now() WHERE id=true",value,enabled);audit(admin,null,"SLOT_PRICE_CHANGED","INR minor units: "+value+"; new orders enabled: "+enabled+". Existing reservations unchanged.");return pricing();
-    }
-    );
+      UUID admin=security.admin(r);long value=amount(b.get("amountMinor"));boolean enabled=Boolean.TRUE.equals(b.get("enabled"));
+      db.queryForMap("SELECT * FROM component_slot_pricing WHERE pool=? FOR UPDATE",pool);
+      security.admin(r);db.update("UPDATE component_slot_pricing SET amount_minor=?,enabled=?,updated_at=now() WHERE pool=?",value,enabled,pool);
+      audit(admin,null,"SLOT_PRICE_CHANGED",pool+" INR minor units: "+value+"; new orders enabled: "+enabled+". Existing reservations unchanged.");return pricing(pool);
+    });
   }
   Map<String,Object> purchase(UUID id){
     var rows=db.queryForList("SELECT * FROM component_slot_purchases WHERE id=?",id);
@@ -80,6 +89,7 @@ public class ComponentSlotService {
   Map<String,Object> summary(Map<String,Object>p){
     var out=new LinkedHashMap<String,Object>();
     out.put("id",p.get("id"));
+    out.put("pool",p.get("pool"));
     out.put("amountMinor",p.get("amount_minor"));
     out.put("currency","INR");
     out.put("mode",p.get("mode"));
@@ -101,25 +111,34 @@ public class ComponentSlotService {
   void mode(Map<String,Object>p){
     if(!provider.mode().equals(p.get("mode")))throw new ApiError(409,"PAYMENT_MODE_MISMATCH","Reconcile this purchase using its original provider mode.");
   }
-  public Object history(HttpServletRequest r){
-    UUID owner=security.developer(r,false);
-    return Map.of("items",db.queryForList("SELECT * FROM component_slot_purchases WHERE owner_id=? ORDER BY created_at DESC LIMIT 100",owner).stream().map(this::summary).toList(),"capacity",capacity(owner),"pricing",pricing());
-  }
-  public Object attention(HttpServletRequest r){
-    security.admin(r);
-    var page=com.getlancer.shared.Pages.query(db,r,"SELECT * FROM component_slot_purchases ORDER BY CASE WHEN status IN ('CREATING','UNKNOWN','ORDER_CREATED') THEN 0 ELSE 1 END,created_at DESC,id");
+  public Object history(HttpServletRequest r){ return history("COMPONENT",r); }
+  public Object history(String requested,HttpServletRequest r){
+    String pool=PublishingCapacity.pool(requested);UUID owner=security.developer(r,false);
+    var page=com.getlancer.shared.Pages.query(db,r,"SELECT * FROM component_slot_purchases WHERE owner_id=? AND pool=? ORDER BY created_at DESC,id",owner,pool);
     page.put("items",com.getlancer.shared.Pages.items(page).stream().map(this::summary).toList());
-    page.put("pricing",pricing());
-    return page;
+    page.put("capacity",publishing.capacity(owner,pool));page.put("pricing",pricing(pool));return page;
   }
-  public Object order(Map<String,Object>b,HttpServletRequest r){
+  public Object overview(HttpServletRequest r){
+    UUID owner=security.developer(r,false);return Map.of("capacities",publishing.all(owner),"prices",allPricing());
+  }
+  public Object attention(HttpServletRequest r){ return attention("COMPONENT",r); }
+  public Object attention(String requested,HttpServletRequest r){
+    String pool=PublishingCapacity.pool(requested);security.admin(r);
+    var page=com.getlancer.shared.Pages.query(db,r,"SELECT * FROM component_slot_purchases WHERE pool=? ORDER BY CASE WHEN status IN ('CREATING','UNKNOWN','ORDER_CREATED') THEN 0 ELSE 1 END,created_at DESC,id",pool);
+    page.put("items",com.getlancer.shared.Pages.items(page).stream().map(this::summary).toList());
+    page.put("pricing",pricing(pool));return page;
+  }
+  public Object order(Map<String,Object>b,HttpServletRequest r){ return order("COMPONENT",b,r); }
+  public Object order(String requested,Map<String,Object>b,HttpServletRequest r){
+    String pool=PublishingCapacity.pool(requested);
     UUID key=uuid(r.getHeader("Idempotency-Key"));
     provider.requireCollection();
     var reservation=tx(()->{
-      UUID owner=security.developer(r,true);lock(owner);security.developer(r,true);       var prior=db.queryForList("SELECT * FROM component_slot_purchases WHERE owner_id=? AND idempotency_key=?",owner,key);       if(prior.isEmpty())prior=db.queryForList("SELECT * FROM component_slot_purchases WHERE owner_id=? AND mode=? AND status IN ('CREATING','UNKNOWN','ORDER_CREATED')",owner,provider.mode());       if(!prior.isEmpty()){
+      UUID owner=security.developer(r,true);lock(owner);security.developer(r,true);       var prior=db.queryForList("SELECT * FROM component_slot_purchases WHERE owner_id=? AND idempotency_key=?",owner,key);       if(!prior.isEmpty()&&!pool.equals(prior.get(0).get("pool")))throw new ApiError(409,"IDEMPOTENCY_CONFLICT","This purchase key belongs to another slot category.");
+      if(prior.isEmpty())prior=db.queryForList("SELECT * FROM component_slot_purchases WHERE owner_id=? AND pool=? AND mode=? AND status IN ('CREATING','UNKNOWN','ORDER_CREATED')",owner,pool,provider.mode());       if(!prior.isEmpty()){
         mode(prior.get(0));return new LinkedHashMap<>(prior.get(0));
       }
-      var price=db.queryForMap("SELECT * FROM component_slot_pricing WHERE id=true FOR SHARE");if(!Boolean.TRUE.equals(price.get("enabled"))||price.get("amount_minor")==null)throw new ApiError(409,"SLOT_SALES_DISABLED","The administrator has not enabled additional publishing slots.");       long expected=amount(b.get("amountMinor")),value=number(price,"amount_minor");if(expected!=value)throw new ApiError(409,"SLOT_PRICE_CHANGED","The slot price changed. Review the current price before buying.");       if(!Boolean.TRUE.equals(b.get("purchaseConsent")))throw new ApiError(400,"PURCHASE_CONSENT_REQUIRED","Confirm one reusable publishing slot and the displayed price.");       if(((Number)capacity(owner).get("limit")).intValue()>=100)throw new ApiError(409,"SLOT_LIMIT","This account has the maximum 100 active publishing slots.");       UUID id=id();db.update("INSERT INTO component_slot_purchases(id,owner_id,idempotency_key,amount_minor,mode,status) VALUES(?,?,?,?,?,'CREATING')",id,owner,key,value,provider.mode());audit(owner,id,"SLOT_RESERVED","One reusable publishing slot; frozen INR minor amount "+value+". Provider capture required.");var out=new LinkedHashMap<>(purchase(id));out.put("create",true);return out;
+      var price=db.queryForMap("SELECT * FROM component_slot_pricing WHERE pool=? FOR SHARE",pool);if(!Boolean.TRUE.equals(price.get("enabled"))||price.get("amount_minor")==null)throw new ApiError(409,"SLOT_SALES_DISABLED","The administrator has not enabled additional publishing slots.");       long expected=amount(b.get("amountMinor")),value=number(price,"amount_minor");if(expected!=value)throw new ApiError(409,"SLOT_PRICE_CHANGED","The slot price changed. Review the current price before buying.");       if(!Boolean.TRUE.equals(b.get("purchaseConsent")))throw new ApiError(400,"PURCHASE_CONSENT_REQUIRED","Confirm one reusable publishing slot and the displayed price.");       if(((Number)publishing.capacity(owner,pool).get("limit")).intValue()>=100)throw new ApiError(409,"SLOT_LIMIT","This account has the maximum 100 active publishing slots.");       UUID id=id();db.update("INSERT INTO component_slot_purchases(id,owner_id,pool,idempotency_key,amount_minor,mode,status) VALUES(?,?,?,?,?,?,'CREATING')",id,owner,pool,key,value,provider.mode());audit(owner,id,"SLOT_RESERVED",pool+" reusable publishing slot; frozen INR minor amount "+value+". Provider capture required.");var out=new LinkedHashMap<>(purchase(id));out.put("create",true);return out;
     }
     );
     UUID id=(UUID)reservation.get("id");
@@ -213,7 +232,7 @@ public class ComponentSlotService {
       String dispute=p.get("dispute_id")==null?null:verifiedDispute(p,Objects.toString(p.get("dispute_id")),payment);
       return tx(()->{
         lock((UUID)p.get("owner_id"));if(r!=null)current((UUID)p.get("id"),r,admin);var row=purchase((UUID)p.get("id"));if(row.get("payment_id")!=null&&!payment.equals(row.get("payment_id")))throw mismatch();       // A concurrently recorded dispute cannot be cleared by a payment-only observation.
-        String ds=Objects.equals(row.get("dispute_id"),p.get("dispute_id"))&&Objects.equals(row.get("dispute_status"),p.get("dispute_status"))?dispute:Objects.toString(row.get("dispute_status"),null);       long total=Math.max(refunded,number(row,"refunded_minor"));String status=total>0?"REFUNDED":ds!=null&&!ds.equals("won")?"DISPUTED":"CAPTURED";       db.update("INSERT INTO component_slot_ledger(id,purchase_id,entry_key,kind,amount_minor) VALUES(?,?,?,'CAPTURE',?) ON CONFLICT(purchase_id,entry_key) DO NOTHING",id(),row.get("id"),"capture:"+payment,number(row,"amount_minor"));       if(total>number(row,"refunded_minor"))db.update("INSERT INTO component_slot_ledger(id,purchase_id,entry_key,kind,amount_minor) VALUES(?,?,?,'REFUND',?) ON CONFLICT(purchase_id,entry_key) DO NOTHING",id(),row.get("id"),"refund-total:"+total,total-number(row,"refunded_minor"));       db.update("UPDATE component_slot_purchases SET payment_id=?,refunded_minor=?,dispute_status=?,status=?,updated_at=now() WHERE id=?",payment,total,ds,status,row.get("id"));       if(!status.equals(row.get("status"))||total!=number(row,"refunded_minor"))audit((UUID)row.get("owner_id"),(UUID)row.get("id"),"SLOT_"+status,"Authoritative provider reconciliation; refunded minor units "+total+"; mode "+row.get("mode"));trim((UUID)row.get("owner_id"));return summary(purchase((UUID)p.get("id")));
+        String ds=Objects.equals(row.get("dispute_id"),p.get("dispute_id"))&&Objects.equals(row.get("dispute_status"),p.get("dispute_status"))?dispute:Objects.toString(row.get("dispute_status"),null);       long total=Math.max(refunded,number(row,"refunded_minor"));String status=total>0?"REFUNDED":ds!=null&&!ds.equals("won")?"DISPUTED":"CAPTURED";       db.update("INSERT INTO component_slot_ledger(id,purchase_id,entry_key,kind,amount_minor) VALUES(?,?,?,'CAPTURE',?) ON CONFLICT(purchase_id,entry_key) DO NOTHING",id(),row.get("id"),"capture:"+payment,number(row,"amount_minor"));       if(total>number(row,"refunded_minor"))db.update("INSERT INTO component_slot_ledger(id,purchase_id,entry_key,kind,amount_minor) VALUES(?,?,?,'REFUND',?) ON CONFLICT(purchase_id,entry_key) DO NOTHING",id(),row.get("id"),"refund-total:"+total,total-number(row,"refunded_minor"));       db.update("UPDATE component_slot_purchases SET payment_id=?,refunded_minor=?,dispute_status=?,status=?,updated_at=now() WHERE id=?",payment,total,ds,status,row.get("id"));       if(!status.equals(row.get("status"))||total!=number(row,"refunded_minor"))audit((UUID)row.get("owner_id"),(UUID)row.get("id"),"SLOT_"+status,"Authoritative provider reconciliation; refunded minor units "+total+"; mode "+row.get("mode"));publishing.trim((UUID)row.get("owner_id"),Objects.toString(row.get("pool")));return summary(purchase((UUID)p.get("id")));
       }
       );
     }
@@ -227,14 +246,6 @@ public class ComponentSlotService {
     long value=integer(d,"amount"),deducted=integer(d,"amount_deducted");
     if(!id.equals(d.path("id").asText())||!payment.equals(d.path("payment_id").asText())||!"INR".equals(d.path("currency").asText())||value<=0||value>number(p,"amount_minor")||deducted<0||deducted>value||!Set.of("open","under_review","action_required","lost","closed","won").contains(state))throw mismatch();
     return state;
-  }
-  void trim(UUID owner){
-    int limit=((Number)capacity(owner).get("limit")).intValue();
-    var overflow=db.queryForList("SELECT id FROM component_entries WHERE owner_id=? AND status='ACTIVE' ORDER BY published_at,id OFFSET ?",owner,limit);
-    for(var c:overflow){
-      db.update("UPDATE component_entries SET status='ARCHIVED',revision=revision+1,updated_at=now() WHERE id=?",c.get("id"));
-      audit(owner,(UUID)c.get("id"),"CAPACITY_ARCHIVED","Capacity reduced after refund or dispute. Published free source and licence remain available.");
-    }
   }
   public Object bind(UUID id,Map<String,Object>b,HttpServletRequest r){
     var p=current(id,r,true);

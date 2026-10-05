@@ -68,10 +68,15 @@ An archived product remains referenced by historical inquiries/reviews.
 Suspended products cannot be publicly opened except by authorized owner/admin views.
 5. Showcase Entitlement Rules
 Free Builder
-Default active limit: 3.
+Current V4.5: 3 free regular projects, 3 free college projects, 3 free templates and 3 free components.
+Paid project extras can serve either regular or college projects. Earned showcase extras remain reusable project extras. Template and component purchases grant only their own capacity.
+Three administrator prices apply to PROJECT, TEMPLATE and COMPONENT extras.
 Slot Calculation
 active_usage = count(products where owner = developer and lifecycle_status = ACTIVE)
-can_activate = active_usage < active_slot_limit
+project_extras_used = max(regular_active - 3, 0) + max(college_active - 3, 0)
+can_activate_project = resulting_project_extras_used <= purchased_live_project_extras + earned_project_extras
+can_activate_template_or_component = active_usage < 3 + valid_purchased_extras + retained_legacy_template_capacity
+No unused free place from another category may bypass this calculation.
 Atomic Activation Rule
 The backend must perform entitlement check and activation inside one transaction/lock to prevent concurrent requests from exceeding capacity.
 Future Unlocks

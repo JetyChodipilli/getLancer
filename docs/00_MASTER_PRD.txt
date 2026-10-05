@@ -94,7 +94,7 @@ Pricing mode | Optional: Starting From / Typical Range / Custom Quote.
 Visibility | Public / private case study / NDA-safe.
 Approval status | Draft / pending / changes requested / approved / rejected / archived.
 2.5 Active Showcase Slot System
-Every approved builder receives 3 active showcase slots in V1. Archived projects do not consume active capacity.
+Current V4.5 policy: three free active slots EACH for regular projects, college projects, templates and components. Purchased project extras can serve either project category; template/component extras are separate, with administrator-set prices. See docs/V4_5_PUBLISHING_SLOTS.md. Archiving frees capacity. Existing earned and purchased allowances remain valid.
 ☒ 3 active showcase slots for a newly approved builder.
 ☒ Unlimited drafts.
 ☒ Archived showcases are retained in the dashboard and can be reactivated if a slot is available.
@@ -462,7 +462,7 @@ Stable human-readable URLs.
 Area | Acceptance Condition
 Developer onboarding | Developer can register, verify email, complete profile, and reach approval state.
 Product publishing | Approved developer can create draft, submit, receive admin decision, and activate within slot limit.
-Showcase slots | 3 active limit is enforced; archiving frees a slot.
+Publishing slots | 3 free per category; paid project extras shared across regular/college, template/component extras independent; archiving frees a slot.
 Public discovery | Client can browse/search approved active products without logging in.
 Product proof | Product page shows screenshots/video/live link where provided and contribution details.
 Inquiry | Client can submit requirement tied to a product; inquiry persists before developer notification.

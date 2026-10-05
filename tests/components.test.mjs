@@ -17,8 +17,8 @@ test('source ZIPs round-trip through an independent standard-library decoder inc
  assert.throws(()=>componentZip({'../wrong':'no'}),/manifest/);assert.throws(()=>componentZip({'index.html':'a'.repeat(100001),'README.md':'setup',LICENSE:'MIT'}),/limit/);
  const bytes=componentZip(componentSeeds[0].files),bad=bytes.slice();bad[50]^=1;assert.throws(()=>execFileSync('python3',['-c',"import sys,io,zipfile; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); assert z.testzip() is None"],{input:bad,stdio:['pipe','pipe','pipe']}));
 });
-test('free source does not change the positive-price source-commerce or existing full-project capacity contract',()=>{
- const migration=readFileSync('backend/src/main/resources/db/migration/V24__components_college_and_publishing_slots.sql','utf8'),slots=readFileSync('backend/src/main/java/com/getlancer/components/ComponentSlotService.java','utf8');
+test('free source does not change the positive-price source-commerce or immutable receipt contract',()=>{
+ const migration=readFileSync('backend/src/main/resources/db/migration/V24__components_college_and_publishing_slots.sql','utf8'),slots=readFileSync('backend/src/main/java/com/getlancer/publishing/PublishingCapacity.java','utf8');
  assert.match(migration,/CHECK\(amount_minor BETWEEN 100 AND 1000000000\)/);assert.match(migration,/UNIQUE\(owner_id,idempotency_key\)/);assert.match(migration,/component_slot_purchase_immutable/);assert.match(slots,/"free",3/);assert.match(slots,/mode='live' AND status='CAPTURED' AND refunded_minor=0/);assert.doesNotMatch(slots,/UPDATE showcase_entitlements/);
  const ui=readFileSync('app/components/component-library.tsx','utf8');assert.match(ui,/sandbox="allow-scripts allow-forms"/);assert.doesNotMatch(ui,/allow-same-origin|allow-top-navigation|allow-popups/);
 });

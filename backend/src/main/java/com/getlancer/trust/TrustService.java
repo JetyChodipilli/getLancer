@@ -18,11 +18,13 @@ public class TrustService {
   final JdbcTemplate db;
   final Security security;
   final ProductService products;
+  final com.getlancer.publishing.PublishingCapacity publishing;
 
-  public TrustService(JdbcTemplate db, Security security, ProductService products) {
+  public TrustService(JdbcTemplate db, Security security, ProductService products, com.getlancer.publishing.PublishingCapacity publishing) {
     this.db = db;
     this.security = security;
     this.products = products;
+    this.publishing = publishing;
   }
 
   static boolean githubRepository(String raw) {
@@ -55,6 +57,7 @@ public class TrustService {
             "SELECT active_slot_limit FROM showcase_entitlements WHERE user_id=?",
             Integer.class,
             u));
+    result.put("publishingCapacity",publishing.capacity(u,"PROJECT"));
     result.put(
         "projects",
         db.queryForList(
@@ -215,6 +218,7 @@ public class TrustService {
           409, "OUTCOME_NOT_ELIGIBLE", "A clear, client-confirmed completion is required.");
     UUID owner = (UUID) rows.get(0).get("developer_user_id");
     if (admin.equals(owner)) throw new ApiError(403, "FORBIDDEN", "Self awards are not allowed.");
+    publishing.lock(owner);
     db.queryForMap("SELECT * FROM showcase_entitlements WHERE user_id=? FOR UPDATE", owner);
     int added =
         db.update(

@@ -96,6 +96,7 @@ public class AdminService {
     var owners = db.queryForList("SELECT owner_user_id FROM products WHERE id=?", id);
     if (owners.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Project not found.");
     UUID owner = (UUID) owners.get(0).get("owner_user_id");
+    products.lockOwner(owner);
     db.queryForMap("SELECT * FROM showcase_entitlements WHERE user_id=? FOR UPDATE", owner);
     var p = db.queryForMap("SELECT * FROM products WHERE id=? FOR UPDATE", id);
     String reason = text(b, "reason", 3, 2000);
