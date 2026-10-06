@@ -47,7 +47,7 @@ for (const mode of ['unknown', 'incomplete']) test(mode + ' orders prevent check
   const f = await fixture(page); f.state.orderMode = mode; await page.goto('/workspace/slots'); await page.getByRole('button', { name: 'Review price & buy one slot', exact: true }).click();
   const dialog = page.getByRole('dialog'), proceed = dialog.getByRole('button', { name: 'Continue to secure checkout', exact: true }); await dialog.getByRole('checkbox').check();
   const message = mode === 'unknown' ? 'Order creation is uncertain. Reconcile before paying again.' : 'Order creation is unresolved. Reconcile this receipt before paying again.';
-  await proceed.click(); await expect(page.getByText(message, { exact: true })).toBeVisible(); expect(await page.evaluate(() => (window as unknown as TestWindow).checkoutOpens)).toBe(0);
+  await proceed.click(); await expect(dialog.getByText(message, { exact: true })).toBeVisible(); expect(await page.evaluate(() => (window as unknown as TestWindow).checkoutOpens)).toBe(0);
   await proceed.click(); await expect.poll(() => f.orders.length).toBe(2); await expect(proceed).toBeEnabled(); expect(f.orders[1].key).toBe(f.orders[0].key);
   f.state.orderMode = 'normal'; await proceed.click(); await expect(dialog).not.toBeVisible(); await expect.poll(() => page.evaluate(() => (window as unknown as TestWindow).checkoutOpens)).toBe(1);
   expect(f.orders[2].key).toBe(f.orders[0].key);
