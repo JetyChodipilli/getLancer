@@ -111,7 +111,10 @@ public class ComponentSlotService {
   void mode(Map<String,Object>p){
     if(!provider.mode().equals(p.get("mode")))throw new ApiError(409,"PAYMENT_MODE_MISMATCH","Reconcile this purchase using its original provider mode.");
   }
-  public Object history(HttpServletRequest r){ return history("COMPONENT",r); }
+  public Object history(HttpServletRequest r){
+    UUID owner=security.developer(r,false);
+    return Map.of("items",db.queryForList("SELECT * FROM component_slot_purchases WHERE owner_id=? AND pool='COMPONENT' ORDER BY created_at DESC,id LIMIT 100",owner).stream().map(this::summary).toList(),"capacity",publishing.capacity(owner,"COMPONENT"),"pricing",pricing());
+  }
   public Object history(String requested,HttpServletRequest r){
     String pool=PublishingCapacity.pool(requested);UUID owner=security.developer(r,false);
     var page=com.getlancer.shared.Pages.query(db,r,"SELECT * FROM component_slot_purchases WHERE owner_id=? AND pool=? ORDER BY created_at DESC,id",owner,pool);

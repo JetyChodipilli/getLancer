@@ -439,6 +439,23 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     mvc.perform(activateProject(project(false,"DRAFT"))).andExpect(status().isNoContent());
     var c=publishing();assertEquals(1,c.path("PROJECT").path("earned").asInt());assertEquals(3,c.path("TEMPLATE").path("limit").asInt());assertEquals(3,c.path("COMPONENT").path("limit").asInt());
   }
+  @Test void legacyComponentHistoryRetainsOneHundredReceiptDefaultWhileNewHistoryPages()throws Exception{
+    for(int i=0;i<51;i++)db.update("INSERT INTO component_slot_purchases(id,owner_id,idempotency_key,pool,amount_minor,currency,mode,status) VALUES(?,?,?,'COMPONENT',10000,'INR','live','REJECTED')",UUID.randomUUID(),builder,UUID.randomUUID());
+    assertEquals(51,response(as(get("/api/v1/me/component-slot-purchases"),"builder")).path("items").size());
+    var first=response(as(get("/api/v1/me/publishing-slot-purchases?pool=COMPONENT"),"builder"));assertEquals(50,first.path("items").size());assertTrue(first.path("hasMore").asBoolean());
+    assertEquals(1,response(as(get("/api/v1/me/publishing-slot-purchases?pool=COMPONENT&page=1"),"builder")).path("items").size());
+  }
+  @Test void templateReactivationRejectsOtherOwnersIneligibleSellersAndUnapprovedListingsWithoutSideEffects()throws Exception{
+    UUID approved=sourceTemplate("ACTIVE"),pending=sourceTemplate("ARCHIVED"),suspended=sourceTemplate("SUSPENDED");db.update("UPDATE source_templates SET status='ARCHIVED' WHERE id=?",approved);
+    mvc.perform(body(post("/api/v1/me/templates/"+approved+"/activate"),"other",Map.of())).andExpect(status().isNotFound());
+    db.update("UPDATE developer_profiles SET approval_status='DRAFT' WHERE user_id=?",builder);
+    mvc.perform(body(post("/api/v1/me/templates/"+approved+"/activate"),"builder",Map.of())).andExpect(status().isForbidden());
+    db.update("UPDATE developer_profiles SET approval_status='APPROVED' WHERE user_id=?",builder);
+    mvc.perform(body(post("/api/v1/me/templates/"+pending+"/activate"),"builder",Map.of())).andExpect(status().isConflict());
+    mvc.perform(body(post("/api/v1/me/templates/"+suspended+"/activate"),"builder",Map.of())).andExpect(status().isConflict());
+    assertEquals("ARCHIVED",db.queryForObject("SELECT status FROM source_templates WHERE id=?",String.class,approved));assertEquals("ARCHIVED",db.queryForObject("SELECT status FROM source_templates WHERE id=?",String.class,pending));assertEquals("SUSPENDED",db.queryForObject("SELECT status FROM source_templates WHERE id=?",String.class,suspended));
+    assertEquals(0,db.queryForObject("SELECT count(*) FROM commerce_audit WHERE kind='TEMPLATE_ACTIVATED'",Integer.class));
+  }
   @Test void collegeConversionChecksCollegeCapacityBeforeChangingTheActiveProject()throws Exception{
     for(int i=0;i<3;i++)project(true,"ACTIVE");
     Map<String,Object> context=Map.of("category","FULL_STACK","language","Java","problem","A documented original student problem.","outcome","A measured and reproducible student outcome.","prerequisites","Java and local setup.","contribution","Implemented the original application modules.","rightsConsent",true);
@@ -483,12 +500,14 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     mvc.perform(poolBuy("TEMPLATE",key,20000)).andExpect(status().isConflict());
     when(provider.createPlatformOrder(any(UUID.class),anyLong())).thenAnswer(i->{UUID id=i.getArgument(0);return json.valueToTree(Map.of("id","order_template123","receipt",id.toString(),"amount",20000,"currency","INR","partial_payment",false));});
     var template=response(poolBuy("TEMPLATE",UUID.randomUUID().toString(),20000));assertEquals("TEMPLATE",template.path("pool").asText());
+    var exported=response(as(get("/api/v1/me/export"),"builder")).path("componentSlotPurchases");assertEquals(2,exported.size());var exportedPools=new HashSet<String>();exported.forEach(row->exportedPools.add(row.path("pool").asText()));assertEquals(Set.of("PROJECT","TEMPLATE"),exportedPools);
     assertEquals(1,response(as(get("/api/v1/me/publishing-slot-purchases?pool=PROJECT"),"builder")).path("items").size());assertEquals(1,response(as(get("/api/v1/me/publishing-slot-purchases?pool=TEMPLATE"),"builder")).path("items").size());
     assertThrows(org.springframework.dao.DataAccessException.class,()->db.update("UPDATE component_slot_purchases SET pool='COMPONENT' WHERE id=?",UUID.fromString(p.path("id").asText())));
   }
   @Test void projectRefundRemovesOnlySharedExtrasAndRetainsThreeFreePerProjectCategory()throws Exception{
     fillProjects();for(int i=0;i<3;i++)sourceTemplate("ACTIVE");slotPrice("PROJECT",10000);var p=response(poolBuy("PROJECT",UUID.randomUUID().toString(),10000));captured=true;String path="/api/v1/me/publishing-slot-purchases/"+p.path("id").asText()+"/reconcile";response(body(post(path),"builder",Map.of()));
     mvc.perform(activateProject(project(true,"DRAFT"))).andExpect(status().isNoContent());refunded=1;response(body(post(path),"builder",Map.of()));var c=publishing();assertEquals(3,c.path("PROJECT").path("regular").path("used").asInt());assertEquals(3,c.path("PROJECT").path("college").path("used").asInt());assertEquals(3,c.path("TEMPLATE").path("used").asInt());assertEquals(3,c.path("COMPONENT").path("limit").asInt());assertEquals(0,c.path("PROJECT").path("purchased").asInt());
+    assertEquals(1,db.queryForObject("SELECT count(*) FROM analytics_events WHERE event_name='product_archived' AND context->>'builderId'=? AND context->>'activeCount'='6'",Integer.class,builder.toString()));
   }
   @Test void templateRefundDoesNotConsumeOrArchiveProjectCapacity()throws Exception{
     for(int i=0;i<3;i++)sourceTemplate("ACTIVE");slotPrice("TEMPLATE",10000);var p=response(poolBuy("TEMPLATE",UUID.randomUUID().toString(),10000));captured=true;String path="/api/v1/me/publishing-slot-purchases/"+p.path("id").asText()+"/reconcile";response(body(post(path),"builder",Map.of()));response(approveTemplate(sourceTemplate("DRAFT")));assertEquals(4,publishing().path("TEMPLATE").path("used").asInt());refunded=10000;response(body(post(path),"builder",Map.of()));assertEquals(3,publishing().path("TEMPLATE").path("used").asInt());assertEquals(1,publishing().path("PROJECT").path("used").asInt());

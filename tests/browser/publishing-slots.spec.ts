@@ -7,6 +7,7 @@ type TestWindow = { checkoutOpens: number; checkoutOptions: CheckoutOptions; Raz
 async function noOverflow(page: Page) { await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()!.width + 1); }
 async function fixture(page: Page, admin = false, resumedAmount?: number) {
   const data = samplePublishing(), orders: Record<string, unknown>[] = [], prices: Record<string, unknown>[] = [];
+  const state = { actor: 'builder-fixture', orderMode: 'normal' };
   for (const [index, pool] of (['PROJECT', 'TEMPLATE', 'COMPONENT'] as SlotPool[]).entries()) data.prices[pool] = { ...data.prices[pool], amountMinor: (index + 1) * 10000, enabled: true, configured: true, salesEnabled: true, mode: 'live', reason: '' };
   await page.addInitScript(() => {
     (window as unknown as TestWindow).checkoutOpens = 0;
@@ -14,13 +15,14 @@ async function fixture(page: Page, admin = false, resumedAmount?: number) {
   });
   await page.route('**/api/v1/**', async route => {
     const request = route.request(), url = new URL(request.url()), path = url.pathname.replace('/api/v1', ''), method = request.method();
-    if (path === '/me') return route.fulfill({ json: { id: 'builder-fixture', roles: admin ? ['ADMIN', 'DEVELOPER'] : ['DEVELOPER'], displayName: 'Test builder', emailVerified: true, profile: { approval_status: 'APPROVED' } } });
+    if (path === '/me') return route.fulfill({ json: { id: state.actor, roles: admin ? ['ADMIN', 'DEVELOPER'] : ['DEVELOPER'], displayName: 'Test builder', emailVerified: true, profile: { approval_status: 'APPROVED' } } });
     if (path === '/me/publishing-slots') return route.fulfill({ json: data });
     if (path === '/publishing-slots/pricing') return route.fulfill({ json: data.prices });
     if ((path === '/me/publishing-slot-purchases' || path === '/admin/publishing-slot-purchases') && method === 'GET') return route.fulfill({ json: { items: [], page: 0, hasMore: false } });
     if (path === '/me/publishing-slot-purchases' && method === 'POST') {
       const body = request.postDataJSON(); orders.push({ ...body, key: request.headers()['idempotency-key'] });
-      return route.fulfill({ json: { id: 'receipt-' + body.pool, pool: body.pool, amountMinor: resumedAmount ?? body.amountMinor, mode: 'live', status: 'ORDER_CREATED', refundedMinor: 0, grantsSlot: false, orderId: 'order_' + body.pool, keyId: 'rzp_live_fixture' } });
+      if (state.orderMode === 'unknown') return route.fulfill({ status: 409, json: { error: { code: 'PAYMENT_ORDER_UNKNOWN', message: 'Order creation is uncertain. Reconcile before paying again.' } } });
+      return route.fulfill({ json: { id: 'receipt-' + body.pool, pool: body.pool, amountMinor: resumedAmount ?? body.amountMinor, mode: 'live', status: 'ORDER_CREATED', refundedMinor: 0, grantsSlot: false, orderId: state.orderMode === 'incomplete' ? null : 'order_' + body.pool, keyId: 'rzp_live_fixture' } });
     }
     if (path.endsWith('/verify')) {
       const pool = path.split('/').at(-2)!.replace('receipt-', '') as SlotPool; data.capacities[pool].purchased++; data.capacities[pool].limit++;
@@ -30,8 +32,26 @@ async function fixture(page: Page, admin = false, resumedAmount?: number) {
     if (path.startsWith('/admin/publishing-slots/') && method === 'PUT') { const pool = path.split('/')[3] as SlotPool, body = request.postDataJSON(); prices.push({ pool, ...body }); data.prices[pool] = { ...data.prices[pool], amountMinor: body.amountMinor, enabled: body.enabled, salesEnabled: body.enabled }; return route.fulfill({ json: data.prices[pool] }); }
     return route.fulfill({ status: 503, json: { error: { code: 'FIXTURE_UNAVAILABLE', message: 'This isolated fixture does not implement that service.' } } });
   });
-  return { data, orders, prices };
+  return { data, orders, prices, state };
 }
+
+test('an account change before purchasing clears the quote and prevents gateway or order creation', async ({ page }) => {
+  const f = await fixture(page); await page.goto('/workspace/slots'); await page.getByRole('button', { name: 'Review price & buy one slot', exact: true }).click();
+  const dialog = page.getByRole('dialog'); await dialog.getByRole('checkbox').check(); f.state.actor = 'another-account';
+  await dialog.getByRole('button', { name: 'Continue to secure checkout', exact: true }).click();
+  await expect(dialog).not.toBeVisible(); await expect(page.getByText('The account changed. Reload publishing slots before purchasing.', { exact: true })).toBeVisible();
+  expect(f.orders).toHaveLength(0); expect(await page.evaluate(() => (window as unknown as TestWindow).checkoutOpens)).toBe(0);
+});
+
+for (const mode of ['unknown', 'incomplete']) test(mode + ' orders prevent checkout and preserve the key during recovery', async ({ page }) => {
+  const f = await fixture(page); f.state.orderMode = mode; await page.goto('/workspace/slots'); await page.getByRole('button', { name: 'Review price & buy one slot', exact: true }).click();
+  const dialog = page.getByRole('dialog'), proceed = dialog.getByRole('button', { name: 'Continue to secure checkout', exact: true }); await dialog.getByRole('checkbox').check();
+  const message = mode === 'unknown' ? 'Order creation is uncertain. Reconcile before paying again.' : 'Order creation is unresolved. Reconcile this receipt before paying again.';
+  await proceed.click(); await expect(page.getByText(message, { exact: true })).toBeVisible(); expect(await page.evaluate(() => (window as unknown as TestWindow).checkoutOpens)).toBe(0);
+  await proceed.click(); await expect.poll(() => f.orders.length).toBe(2); await expect(proceed).toBeEnabled(); expect(f.orders[1].key).toBe(f.orders[0].key);
+  f.state.orderMode = 'normal'; await proceed.click(); await expect(dialog).not.toBeVisible(); await expect.poll(() => page.evaluate(() => (window as unknown as TestWindow).checkoutOpens)).toBe(1);
+  expect(f.orders[2].key).toBe(f.orders[0].key);
+});
 
 test('four free allowances are visible in preview and every slot purchase stays disabled', async ({ page }, info) => {
   const requests: string[] = []; page.on('request', r => { if (r.url().includes('/api/v1/') || r.url().includes('razorpay.com')) requests.push(r.url()); });

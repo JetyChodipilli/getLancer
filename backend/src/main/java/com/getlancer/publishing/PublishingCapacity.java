@@ -94,6 +94,7 @@ public class PublishingCapacity {
         if(isCollege?college<=3:regular<=3)continue;
         db.update("UPDATE products SET lifecycle_status='ARCHIVED',updated_at=now() WHERE id=?",row.get("id"));
         if(isCollege)college--;else regular--;
+        db.update("INSERT INTO analytics_events(id,event_name,entity_id,context) VALUES(?,'product_archived',?,jsonb_build_object('builderId',?::text,'activeCount',?::integer))",UUID.randomUUID(),row.get("id"),owner.toString(),regular+college);
         audit(owner,(UUID)row.get("id"),"Shared project capacity reduced after refund or dispute. Existing source purchases remain pinned.");
       }
     } else {
