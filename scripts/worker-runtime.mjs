@@ -13,5 +13,5 @@ export function createBuiltWorker({bindings={},assetsFetch,port,host='127.0.0.1'
  return new Miniflare(convertV4MiniflareOptions({...(port===undefined?{}:{port,host}),workers:[worker]}));
 }
 export function runtimeBindings(env=process.env){
- return Object.fromEntries(['BACKEND_URL','DEMO_MODE','APP_BASE_URL','INDEX_PUBLIC_PAGES','BACKEND_PROXY_SECRET'].filter(key=>env[key]!==undefined).map(key=>[key,env[key]]));
+ return Object.fromEntries(['APP_ENV','BACKEND_URL','DEMO_MODE','APP_BASE_URL','INDEX_PUBLIC_PAGES','BACKEND_PROXY_SECRET','DEMO_PUBLIC_URL_TEMPLATE'].filter(key=>env[key]!==undefined).map(key=>[key,env[key]]));
 }

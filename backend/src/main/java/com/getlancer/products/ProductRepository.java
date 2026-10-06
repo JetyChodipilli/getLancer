@@ -1,6 +1,9 @@
 package com.getlancer.products;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -16,7 +19,7 @@ public class ProductRepository {
       "p.approval_status='APPROVED' AND p.lifecycle_status='ACTIVE' AND p.visibility='PUBLIC' AND"
           + " u.account_status='ACTIVE' AND d.approval_status='APPROVED'";
   public static final String SELECT =
-      "SELECT p.*,d.display_name AS builder,d.slug AS builder_slug,d.availability_status AS"
+      "SELECT p.id,p.owner_user_id,p.slug,p.title,p.summary,p.description,p.project_type,p.category,p.technology,p.visibility,p.contribution_text,p.available_for_similar_work,p.approval_status,p.lifecycle_status,p.live_url,p.video_url,p.moderation_reason,p.rights_confirmed,p.created_at,p.updated_at,p.repository_url,p.pricing_note,p.demo_health,p.demo_checked_at,p.demo_checked_url,p.pricing_mode,p.price_min_minor,p.price_max_minor,p.currency_code,d.display_name AS builder,d.slug AS builder_slug,d.availability_status AS"
           + " availability,d.booked_until,u.account_status AS owner_status,d.approval_status AS"
           + " profile_status FROM products p JOIN users u ON u.id=p.owner_user_id JOIN"
           + " developer_profiles d ON d.user_id=u.id";
@@ -39,7 +42,7 @@ public class ProductRepository {
 
   List<Map<String, Object>> findOwnedForUpdate(UUID p, UUID u) {
     return db.queryForList(
-        "SELECT * FROM products WHERE id=? AND owner_user_id=? FOR UPDATE", p, u);
+        "SELECT id,owner_user_id,slug,title,summary,description,project_type,category,technology,visibility,contribution_text,available_for_similar_work,approval_status,lifecycle_status,live_url,video_url,moderation_reason,rights_confirmed,created_at,updated_at,repository_url,pricing_note,demo_health,demo_checked_at,demo_checked_url,pricing_mode,price_min_minor,price_max_minor,currency_code FROM products WHERE id=? AND owner_user_id=? FOR UPDATE", p, u);
   }
 
   List<Map<String, Object>> findPublic(String slug) {

@@ -1,30 +1,36 @@
 package com.getlancer.accounts;
 
-import static com.getlancer.shared.Support.*;
+import static com.getlancer.shared.Support.id;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.getlancer.hosting.HostingRepository;
+import com.getlancer.responses.AccountExportResponse;
 import com.getlancer.security.Security;
 import com.getlancer.shared.ApiError;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.*;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-@org.springframework.stereotype.Service
+@Service
 public class AccountService {
   final JdbcTemplate db;
   final Security security;
-  private com.getlancer.hosting.HostingRepository hosting;
+  private final HostingRepository hosting;
+  private final ObjectMapper json;
 
-  @org.springframework.beans.factory.annotation.Autowired
-  public void setHostingRepository(com.getlancer.hosting.HostingRepository hosting) { this.hosting = hosting; }
-
-  public AccountService(JdbcTemplate db, Security security) {
+  public AccountService(JdbcTemplate db, Security security, HostingRepository hosting, ObjectMapper json) {
     this.db = db;
     this.security = security;
+    this.hosting = hosting;
+    this.json = json;
   }
 
   @Transactional(readOnly = true)
-  public Map<String, Object> export(HttpServletRequest request) {
+  public AccountExportResponse export(HttpServletRequest request) {
     var user = security.principal(request);
     UUID id = (UUID) user.get("id");
     if (user.get("email_verified_at") == null)
@@ -34,7 +40,7 @@ public class AccountService {
     result.put(
         "account",
         db.queryForMap("SELECT id,email,email_verified_at,created_at FROM users WHERE id=?", id));
-    result.put("profile", db.queryForMap("SELECT * FROM developer_profiles WHERE user_id=?", id));
+    result.put("profile", db.queryForMap("SELECT user_id,slug,display_name,headline,bio,technology,category,availability_status,booked_until,github_url,linkedin_url,approval_status,moderation_reason,updated_at,website_url,country,time_zone,languages,availability_confirmed_at FROM developer_profiles WHERE user_id=?", id));
     result.put(
         "products",
         db.queryForList(
@@ -154,12 +160,12 @@ public class AccountService {
     result.put("maintenanceLedger",db.queryForList("SELECT l.id,l.period_id,l.kind,l.amount_minor,l.currency,l.created_at FROM maintenance_ledger l JOIN maintenance_periods p ON p.id=l.period_id JOIN maintenance_subscriptions s ON s.id=p.subscription_id JOIN maintenance_offers o ON o.id=s.offer_id WHERE s.payer_id=? OR o.seller_id=? OR o.buyer_id=?",id,id,id));
     result.put("maintenanceRequests",db.queryForList("SELECT id,subscription_id,period_id,title,description,status,delivery_note,delivery_url,response_due_at,created_at,resolved_at FROM maintenance_requests WHERE actor_id=?",id));
     result.put("maintenanceActions",db.queryForList("SELECT id,offer_id,kind,detail,created_at FROM maintenance_audit WHERE actor_id=?",id));
-    result.put("components",db.queryForList("SELECT * FROM component_entries WHERE owner_id=?",id));
-    result.put("collegeContext",db.queryForList("SELECT e.* FROM college_project_metadata e JOIN products p ON p.id=e.product_id WHERE p.owner_user_id=?",id));
+    result.put("components",db.queryForList("SELECT id,owner_id,recipe_slug,slug,title,summary,contribution,revision,status,review_reason,published_at,published_source,published_context,created_at,updated_at FROM component_entries WHERE owner_id=?",id));
+    result.put("collegeContext",db.queryForList("SELECT e.product_id,e.category,e.language,e.problem,e.outcome,e.prerequisites,e.contribution,e.institution,e.academic_year,e.branch,e.share_academic_details,e.revision,e.status,e.review_reason,e.updated_at FROM college_project_metadata e JOIN products p ON p.id=e.product_id WHERE p.owner_user_id=?",id));
     result.put("componentSlotPurchases",db.queryForList("SELECT id,pool,amount_minor,currency,mode,status,order_id,payment_id,refunded_minor,dispute_status,created_at FROM component_slot_purchases WHERE owner_id=?",id));
-    result.put("componentSlotLedger",db.queryForList("SELECT l.* FROM component_slot_ledger l JOIN component_slot_purchases p ON p.id=l.purchase_id WHERE p.owner_id=?",id));
-    if (hosting != null) result.put("hostedDemos", hosting.export(id));
-    return result;
+    result.put("componentSlotLedger",db.queryForList("SELECT l.id,l.purchase_id,l.entry_key,l.kind,l.amount_minor,l.created_at FROM component_slot_ledger l JOIN component_slot_purchases p ON p.id=l.purchase_id WHERE p.owner_id=?",id));
+    result.put("hostedDemos", hosting.export(id));
+    return AccountExportResponse.from(result, json);
   }
 
   public Map<String, Object> read(UUID id, HttpServletRequest request) {

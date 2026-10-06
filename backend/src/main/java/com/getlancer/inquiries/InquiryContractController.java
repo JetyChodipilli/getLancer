@@ -1,10 +1,21 @@
 package com.getlancer.inquiries;
 
+import com.getlancer.dto.InquiryRequests;
+import com.getlancer.shared.TypedInputs;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.*;
+import jakarta.validation.Valid;
+import java.util.Map;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
 
+@PreAuthorize("@authorization.routeAllowed(authentication)")
 @RestController
 @RequestMapping("/api/v1/inquiries")
 public class InquiryContractController {
@@ -17,9 +28,9 @@ public class InquiryContractController {
   @PostMapping({"/{id}/confirm-hire", "/{id}/confirm-completion"})
   public Map<String, Object> confirm(
       @PathVariable UUID id,
-      @RequestBody(required = false) Map<String, Object> raw,
+      @Valid @RequestBody(required = false) InquiryRequests.Confirmation raw,
       HttpServletRequest request) {
-    return service.confirm(id, raw, request);
+    return service.confirm(id, TypedInputs.map(raw), request);
   }
 
   @PostMapping("/{id}/not-hired")
@@ -30,7 +41,7 @@ public class InquiryContractController {
   @PostMapping("/{id}/review")
   @ResponseStatus(HttpStatus.CREATED)
   public Map<String, Object> review(
-      @PathVariable UUID id, @RequestBody Map<String, Object> body, HttpServletRequest request) {
-    return service.review(id, body, request);
+      @PathVariable UUID id, @Valid @RequestBody InquiryRequests.Review body, HttpServletRequest request) {
+    return service.review(id, TypedInputs.map(body), request);
   }
 }

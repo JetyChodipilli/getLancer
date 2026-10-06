@@ -1,12 +1,20 @@
 package com.getlancer.commerce;
 
-import static com.getlancer.shared.Support.*;
+import static com.getlancer.shared.Support.id;
+import static com.getlancer.shared.Support.text;
+import static com.getlancer.shared.Support.uuid;
+
 import com.getlancer.security.Security;
 import com.getlancer.shared.ApiError;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
-import java.util.*;
-import org.springframework.http.*;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;

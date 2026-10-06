@@ -1,9 +1,21 @@
 package com.getlancer.trust;
 
+import com.getlancer.dto.TrustRequests;
+import com.getlancer.shared.TypedInputs;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.*;
-import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
+import java.util.Map;
+import java.util.UUID;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
+@PreAuthorize("@authorization.routeAllowed(authentication)")
 @RestController
 @RequestMapping("/api/v1")
 public class TrustController {
@@ -20,8 +32,8 @@ public class TrustController {
 
   @PutMapping("/developer/availability")
   public Map<String, Object> availability(
-      @RequestBody Map<String, Object> b, HttpServletRequest r) {
-    return service.availability(b, r);
+      @Valid @RequestBody TrustRequests.Availability b, HttpServletRequest r) {
+    return service.availability(TypedInputs.map(b), r);
   }
 
   @PostMapping("/developer/products/{id}/verification")
@@ -38,15 +50,15 @@ public class TrustController {
   public Map<String, Object> review(
       @PathVariable UUID id,
       @PathVariable String action,
-      @RequestBody Map<String, Object> b,
+      @Valid @RequestBody TrustRequests.Reason b,
       HttpServletRequest r) {
-    return service.review(id, action, b, r);
+    return service.review(id, action, TypedInputs.map(b), r);
   }
 
   @PostMapping("/admin/earned-capacity/{id}")
   public Map<String, Object> award(
-      @PathVariable UUID id, @RequestBody Map<String, Object> b, HttpServletRequest r) {
-    return service.award(id, b, r);
+      @PathVariable UUID id, @Valid @RequestBody TrustRequests.Reason b, HttpServletRequest r) {
+    return service.award(id, TypedInputs.map(b), r);
   }
 
   @GetMapping("/products/{slug}/similar-builders")

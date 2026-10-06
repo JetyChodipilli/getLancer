@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {createBuiltWorker,runtimeBindings} from './worker-runtime.mjs';
 assert.equal(process.env.CI,'true');
 assert.match(process.env.COMPOSE_PROJECT_NAME||'',/^getlancer-ci-[0-9]+$/);
+process.env.APP_ENV='local';
 process.env.BACKEND_URL='http://localhost:8080';
 process.env.DEMO_MODE='true'; // Connecting Java must supersede a preview flag.
 const runtime=createBuiltWorker({bindings:runtimeBindings(),assetsFetch:async()=>new Response('Not found',{status:404})});

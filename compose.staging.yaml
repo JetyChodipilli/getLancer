@@ -2,9 +2,60 @@
 services:
   api:
     image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE to the reviewed image digest or commit tag}
-    env_file: .env.staging
+    user: getlancer
     environment:
+      SPRING_PROFILES_ACTIVE: staging
       APP_ENV: staging
+      APP_BASE_URL: ${APP_BASE_URL:?Set the HTTPS frontend origin}
+      BACKEND_URL: ${BACKEND_URL:?Set the HTTPS backend origin}
+      DEMO_MODE: 'false'
+      DB_URL: ${DB_URL:?Set a verify-full TLS JDBC URL}
+      DB_USERNAME: getlancer_runtime
+      DB_PASSWORD: ${DB_PASSWORD:?Inject runtime database credentials}
+      DB_SCHEMA: ${DB_SCHEMA:?Set the private provisioned schema}
+      BACKEND_PROXY_SECRET: ${BACKEND_PROXY_SECRET:?Inject the authenticated proxy secret}
+      MFA_ACTIVE_KEY_ID: ${MFA_ACTIVE_KEY_ID:?Select the externally managed MFA key}
+      MFA_KEYRING: ${MFA_KEYRING:?Inject the MFA encryption keyring}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_DISPLAY_NAME: ${ADMIN_DISPLAY_NAME:-Administrator}
+      ADMIN_BOOTSTRAP_PASSWORD: ${ADMIN_BOOTSTRAP_PASSWORD:-}
+      ADMIN_TOTP_SECRET: ${ADMIN_TOTP_SECRET:-}
+      SMTP_HOST: ${SMTP_HOST:?Set the TLS mail provider}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_AUTH: ${SMTP_AUTH:-true}
+      SMTP_USERNAME: ${SMTP_USERNAME:?Inject SMTP username}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:?Inject SMTP password}
+      SMTP_TLS: ${SMTP_TLS:-true}
+      SMTP_SSL: ${SMTP_SSL:-false}
+      EMAIL_FROM_ADDRESS: ${EMAIL_FROM_ADDRESS:?Set operator mail sender}
+      OBJECT_STORAGE_ENDPOINT: ${OBJECT_STORAGE_ENDPOINT:?Set HTTPS storage endpoint}
+      OBJECT_STORAGE_UPLOAD_ENDPOINT: ${OBJECT_STORAGE_UPLOAD_ENDPOINT:?Set HTTPS upload endpoint}
+      OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:?Set private bucket}
+      OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:?Set storage region}
+      OBJECT_STORAGE_ACCESS_KEY: ${OBJECT_STORAGE_ACCESS_KEY:?Inject restricted storage key}
+      OBJECT_STORAGE_SECRET_KEY: ${OBJECT_STORAGE_SECRET_KEY:?Inject restricted storage secret}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      ANALYTICS_ENABLED: ${ANALYTICS_ENABLED:-false}
+      ANALYTICS_HASH_SALT: ${ANALYTICS_HASH_SALT:-}
+      HOSTED_DEMOS_ENABLED: ${HOSTED_DEMOS_ENABLED:-false}
+      DEMO_PUBLIC_URL_TEMPLATE: ${DEMO_PUBLIC_URL_TEMPLATE:-}
+      DEMO_PUBLISHER_URL: ${DEMO_PUBLISHER_URL:-}
+      DEMO_PUBLISHER_SECRET: ${DEMO_PUBLISHER_SECRET:-}
+      DEMO_GATEWAY_SECRET: ${DEMO_GATEWAY_SECRET:-}
+      PAYMENTS_ENABLED: ${PAYMENTS_ENABLED:-false}
+      RAZORPAY_MODE: ${RAZORPAY_MODE:-test}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+      RAZORPAY_COMMERCE_WEBHOOK_SECRET: ${RAZORPAY_COMMERCE_WEBHOOK_SECRET:-}
+      RAZORPAY_ROUTE_APPROVED: ${RAZORPAY_ROUTE_APPROVED:-false}
+      POLICIES_APPROVED: ${POLICIES_APPROVED:-false}
+      MAINTENANCE_ENABLED: ${MAINTENANCE_ENABLED:-false}
+      RAZORPAY_SUBSCRIPTIONS_APPROVED: ${RAZORPAY_SUBSCRIPTIONS_APPROVED:-false}
+      RAZORPAY_MAINTENANCE_WEBHOOK_SECRET: ${RAZORPAY_MAINTENANCE_WEBHOOK_SECRET:-}
       SECURE_COOKIES: 'true'
     ports: ['127.0.0.1:8080:8080']
     volumes:
@@ -18,6 +69,9 @@ services:
     tmpfs: ['/tmp:rw,noexec,nosuid,size=128m']
     cap_drop: [ALL]
     security_opt: ['no-new-privileges:true']
+    pids_limit: 128
+    mem_limit: 1g
+    cpus: 2
     init: true
     restart: unless-stopped
     stop_grace_period: 35s

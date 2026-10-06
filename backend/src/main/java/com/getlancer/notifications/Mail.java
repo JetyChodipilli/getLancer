@@ -1,8 +1,12 @@
 package com.getlancer.notifications;
 
-import static com.getlancer.shared.Support.*;
+import static com.getlancer.shared.Support.email;
+import static com.getlancer.shared.Support.hash;
+import static com.getlancer.shared.Support.id;
+import static com.getlancer.shared.Support.randomToken;
 
-import java.util.*;
+import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mail.SimpleMailMessage;
@@ -14,25 +18,27 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 public class Mail {
-  @Value("${app.jobs-enabled:true}")
-  boolean jobsEnabled;
+  final boolean jobsEnabled;
 
   final JdbcTemplate db;
   final JavaMailSender sender;
   final TransactionTemplate tx;
   final String origin, from;
 
-  public Mail(
-      JdbcTemplate db,
-      JavaMailSender sender,
-      PlatformTransactionManager tm,
-      @Value("${app.origin}") String origin,
-      @Value("${app.email-from}") String from) {
+  public Mail(JdbcTemplate db, JavaMailSender sender, PlatformTransactionManager tm, String origin, String from) {
+    this(db, sender, tm, origin, from, false);
+  }
+
+  @Autowired
+  public Mail(JdbcTemplate db, JavaMailSender sender, PlatformTransactionManager tm,
+      @Value("${app.origin}") String origin, @Value("${app.email-from}") String from,
+      @Value("${app.jobs-enabled:true}") boolean jobsEnabled) {
     this.db = db;
     this.sender = sender;
     tx = new TransactionTemplate(tm);
     this.origin = origin;
     this.from = from;
+    this.jobsEnabled = jobsEnabled;
   }
 
   public void enqueue(String recipient, String subject, String body) {
@@ -104,7 +110,7 @@ public class Mail {
         s -> {
           var jobs =
               db.queryForList(
-                  "SELECT * FROM email_outbox WHERE sent_at IS NULL AND attempts<8 AND"
+                  "SELECT id,recipient,subject,body,attempts,next_attempt_at,sent_at,created_at FROM email_outbox WHERE sent_at IS NULL AND attempts<8 AND"
                       + " next_attempt_at<=now() ORDER BY created_at LIMIT 10 FOR UPDATE SKIP"
                       + " LOCKED");
           for (var j : jobs) {

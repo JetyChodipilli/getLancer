@@ -1,9 +1,21 @@
 package com.getlancer.admin;
 
+import com.getlancer.dto.AdminRequests;
+import com.getlancer.shared.TypedInputs;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.*;
-import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
+import java.util.Map;
+import java.util.UUID;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
+@PreAuthorize("@authorization.routeAllowed(authentication)")
 @RestController
 @RequestMapping("/api/v1/admin")
 public class AdminController {
@@ -19,17 +31,17 @@ public class AdminController {
   }
 
   @GetMapping("/profiles/pending")
-  public Map<String, Object> profiles(HttpServletRequest r) {
+  public Object profiles(HttpServletRequest r) {
     return service.profiles(r);
   }
 
   @GetMapping("/reports")
-  public Map<String, Object> reports(HttpServletRequest r) {
+  public Object reports(HttpServletRequest r) {
     return service.reports(r);
   }
 
   @GetMapping("/reviews")
-  public Map<String, Object> reviews(HttpServletRequest r) {
+  public Object reviews(HttpServletRequest r) {
     return service.reviews(r);
   }
 
@@ -37,18 +49,18 @@ public class AdminController {
   public Map<String, Object> productAction(
       @PathVariable UUID id,
       @PathVariable String action,
-      @RequestBody Map<String, Object> b,
+      @Valid @RequestBody AdminRequests.Reason b,
       HttpServletRequest r) {
-    return service.productAction(id, action, b, r);
+    return service.productAction(id, action, TypedInputs.map(b), r);
   }
 
   @PostMapping("/profiles/{id}/{action}")
   public Map<String, Object> profileAction(
       @PathVariable UUID id,
       @PathVariable String action,
-      @RequestBody Map<String, Object> b,
+      @Valid @RequestBody AdminRequests.Reason b,
       HttpServletRequest r) {
-    return service.profileAction(id, action, b, r);
+    return service.profileAction(id, action, TypedInputs.map(b), r);
   }
 
   @GetMapping("/reports/{id}")
@@ -58,33 +70,33 @@ public class AdminController {
 
   @PostMapping("/reports/{id}/resolve")
   public Map<String, Object> resolve(
-      @PathVariable UUID id, @RequestBody Map<String, Object> body, HttpServletRequest request) {
-    return service.resolve(id, body, request);
+      @PathVariable UUID id, @Valid @RequestBody AdminRequests.Resolve body, HttpServletRequest request) {
+    return service.resolve(id, TypedInputs.map(body), request);
   }
 
   @PostMapping("/reviews/{id}/{action}")
   public Map<String, Object> reviewAction(
       @PathVariable UUID id,
       @PathVariable String action,
-      @RequestBody Map<String, Object> b,
+      @Valid @RequestBody AdminRequests.Reason b,
       HttpServletRequest r) {
-    return service.reviewAction(id, action, b, r);
+    return service.reviewAction(id, action, TypedInputs.map(b), r);
   }
 
   @PostMapping("/{kind:categories|technologies}")
   public Map<String, Object> taxonomy(
-      @PathVariable String kind, @RequestBody Map<String, Object> b, HttpServletRequest r) {
-    return service.taxonomy(kind, b, r);
+      @PathVariable String kind, @Valid @RequestBody AdminRequests.Taxonomy b, HttpServletRequest r) {
+    return service.taxonomy(kind, TypedInputs.map(b), r);
   }
 
   @GetMapping("/audit")
-  public Map<String, Object> history(
+  public Object history(
       @RequestParam(required = false) UUID targetId, HttpServletRequest r) {
     return service.history(targetId, r);
   }
 
   @GetMapping("/accounts")
-  public Map<String, Object> accounts(
+  public Object accounts(
       @RequestParam(defaultValue = "") String q, HttpServletRequest r) {
     return service.accounts(q, r);
   }
@@ -93,22 +105,22 @@ public class AdminController {
   public Map<String, Object> accountAction(
       @PathVariable UUID id,
       @PathVariable String action,
-      @RequestBody Map<String, Object> b,
+      @Valid @RequestBody AdminRequests.Reason b,
       HttpServletRequest r) {
-    return service.accountAction(id, action, b, r);
+    return service.accountAction(id, action, TypedInputs.map(b), r);
   }
 
   @PostMapping("/inquiries/{id}/{action}")
   public Map<String, Object> inquiryAction(
       @PathVariable UUID id,
       @PathVariable String action,
-      @RequestBody Map<String, Object> b,
+      @Valid @RequestBody AdminRequests.Reason b,
       HttpServletRequest r) {
-    return service.inquiryAction(id, action, b, r);
+    return service.inquiryAction(id, action, TypedInputs.map(b), r);
   }
 
   @GetMapping("/{kind:categories|technologies}")
-  public Map<String, Object> allTaxonomy(@PathVariable String kind, HttpServletRequest r) {
+  public Object allTaxonomy(@PathVariable String kind, HttpServletRequest r) {
     return service.allTaxonomy(kind, r);
   }
 

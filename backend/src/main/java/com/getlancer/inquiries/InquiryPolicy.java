@@ -1,7 +1,8 @@
 package com.getlancer.inquiries;
 
 import com.getlancer.shared.ApiError;
-import java.util.*;
+import java.util.Map;
+import java.util.Objects;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 public final class InquiryPolicy {

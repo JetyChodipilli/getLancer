@@ -4,6 +4,7 @@ import {readEnvironment,localDatabase,placeholder} from './local-config.mjs';
 
 const file=new URL('../.env',import.meta.url);
 try {
+  if(['staging','production'].includes(process.env.APP_ENV))throw Error('Local setup cannot modify hosted configuration.');
   if(!existsSync(file))copyFileSync(new URL('../.env.example',import.meta.url),file);
   const values=readEnvironment(file);localDatabase(values);
   for(const key of ['SMTP_HOST','OBJECT_STORAGE_ENDPOINT','OBJECT_STORAGE_UPLOAD_ENDPOINT']) {
@@ -12,8 +13,16 @@ try {
   }
   const alphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
   const base32=()=>Array.from(randomBytes(32),byte=>alphabet[byte&31]).join('');
-  const generators={ADMIN_BOOTSTRAP_PASSWORD:()=>randomBytes(24).toString('base64url'),ADMIN_TOTP_SECRET:base32,OBJECT_STORAGE_ACCESS_KEY:()=>randomBytes(12).toString('hex'),OBJECT_STORAGE_SECRET_KEY:()=>randomBytes(24).toString('hex')};
+  const generators={OBJECT_STORAGE_ACCESS_KEY:()=>randomBytes(12).toString('hex'),OBJECT_STORAGE_SECRET_KEY:()=>randomBytes(24).toString('hex')};
   const updates={};
+  if(values.ADMIN_EMAIL||values.ADMIN_BOOTSTRAP_PASSWORD||values.ADMIN_TOTP_SECRET) {
+    generators.ADMIN_BOOTSTRAP_PASSWORD=()=>randomBytes(24).toString('base64url');
+    generators.ADMIN_TOTP_SECRET=base32;
+  }
+  if(!values.MFA_KEYRING&&!values.MFA_ACTIVE_KEY_ID) {
+    updates.MFA_ACTIVE_KEY_ID='local-v1';
+    updates.MFA_KEYRING='local-v1:'+randomBytes(32).toString('base64');
+  }else if(!values.MFA_KEYRING||!values.MFA_ACTIVE_KEY_ID)throw Error('Configure MFA_KEYRING and MFA_ACTIVE_KEY_ID together; existing keys are never replaced.');
   const docker=process.argv.includes('--docker');
   if(docker){
     Object.assign(updates,{DB_URL:'jdbc:postgresql://localhost:5433/getLancer',DB_USERNAME:'postgres',BACKEND_URL:'http://localhost:8080'});
@@ -25,6 +34,6 @@ try {
   for(const [key,value]of Object.entries(updates))if(!found.has(key))lines.push(key+'='+value);
   writeFileSync(file,lines.join('\n').replace(/\n*$/,'\n'));chmodSync(file,0o600);
   console.log(docker?'Docker configuration prepared for getLancer on localhost:5433. Existing passwords and administrator keys were preserved.':'Local configuration prepared. Existing database and administrator values were preserved.');
-  console.log('Generated secrets, if missing, are in .env. Add ADMIN_TOTP_SECRET to your authenticator using a time-based setup key.');
+  console.log('Generated secrets stay in .env and existing values are preserved. Set ADMIN_EMAIL explicitly to enable local administrator bootstrap. Back up the local MFA key before storing administrator TOTP data.');
   console.log(docker?'Next: npm run services:docker, then npm run dev:local. Startup creates records only after the database is healthy.':'Next: npm run services:local, then npm run doctor:local. No database records have been created.');
 }catch(error){console.error(error.code==='ENOENT'?'Configuration file unavailable.':error.message);process.exitCode=1}

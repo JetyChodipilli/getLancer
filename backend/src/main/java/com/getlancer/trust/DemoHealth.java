@@ -3,12 +3,30 @@ package com.getlancer.trust;
 import com.getlancer.products.ProductRepository;
 import com.getlancer.shared.Rules;
 import jakarta.annotation.PreDestroy;
-import java.io.*;
-import java.net.*;
+import java.io.ByteArrayOutputStream;
+import java.io.EOFException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
-import java.util.concurrent.*;
-import javax.net.ssl.*;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import javax.net.ssl.SNIHostName;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -57,11 +75,13 @@ public class DemoHealth {
     }
   }
 
-  @Value("${app.demo-health-enabled:false}")
-  boolean enabled;
+  final boolean enabled;
 
-  public DemoHealth(JdbcTemplate db) {
-    this.db = db;
+  public DemoHealth(JdbcTemplate db) { this(db, false); }
+
+  @Autowired
+  public DemoHealth(JdbcTemplate db, @Value("${app.demo-health-enabled:false}") boolean enabled) {
+    this.db = db; this.enabled = enabled;
   }
 
   static URI target(String raw) {

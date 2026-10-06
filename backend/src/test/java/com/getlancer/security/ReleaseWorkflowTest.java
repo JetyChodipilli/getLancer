@@ -23,8 +23,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 class ReleaseWorkflowTest {
   @Test
   void forgedProxyHeadersDoNotChangeRateIdentity() {
-    var security = new Security(mock(JdbcTemplate.class), "https://example.com", 30);
-    security.proxySecret = "a-long-private-proxy-token-value";
+    var security = new Security(mock(JdbcTemplate.class), "https://example.com", 30, mock(RateLimits.class), "a-long-private-proxy-token-value", 10, 3, 300, true);
     var r = new MockHttpServletRequest();
     r.setRemoteAddr("192.0.2.1");
     r.addHeader("X-GetLancer-Client-IP", "203.0.113.5");
@@ -34,8 +33,7 @@ class ReleaseWorkflowTest {
 
   @Test
   void trustedProxyIdentityIsUsedAndMalformedInputRejected() {
-    var security = new Security(mock(JdbcTemplate.class), "https://example.com", 30);
-    security.proxySecret = "a-long-private-proxy-token-value";
+    var security = new Security(mock(JdbcTemplate.class), "https://example.com", 30, mock(RateLimits.class), "a-long-private-proxy-token-value", 10, 3, 300, true);
     var r = new MockHttpServletRequest();
     r.setRemoteAddr("192.0.2.1");
     r.addHeader("X-GetLancer-Proxy", security.proxySecret);

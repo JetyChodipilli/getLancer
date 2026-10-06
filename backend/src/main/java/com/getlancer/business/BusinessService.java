@@ -1,11 +1,17 @@
 package com.getlancer.business;
 
-import static com.getlancer.business.BusinessRepository.*;
-import static com.getlancer.shared.Support.*;
+import static com.getlancer.business.BusinessRepository.BUSINESS;
+import static com.getlancer.business.BusinessRepository.choice;
+import static com.getlancer.shared.Support.email;
+import static com.getlancer.shared.Support.id;
+import static com.getlancer.shared.Support.text;
 
 import com.getlancer.shared.ApiError;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -170,7 +176,7 @@ public class BusinessService {
     repo.one("SELECT id FROM businesses WHERE id=? FOR UPDATE", business);
     var i =
         repo.one(
-            "SELECT *,expires_at>now() AS valid FROM business_invitations WHERE id=? AND user_id=?"
+            "SELECT id,business_id,user_id,status,expires_at,created_at,expires_at>now() AS valid FROM business_invitations WHERE id=? AND user_id=?"
                 + " FOR UPDATE",
             invitation,
             u);

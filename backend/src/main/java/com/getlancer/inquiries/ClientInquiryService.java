@@ -1,6 +1,7 @@
 package com.getlancer.inquiries;
 
-import static com.getlancer.shared.Support.*;
+import static com.getlancer.shared.Support.id;
+import static com.getlancer.shared.Support.text;
 
 import com.getlancer.notifications.Mail;
 import com.getlancer.security.Security;
@@ -9,11 +10,14 @@ import com.getlancer.shared.Pages;
 import com.getlancer.shared.Rules;
 import com.getlancer.shared.Support;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.*;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-@org.springframework.stereotype.Service
+@Service
 public class ClientInquiryService {
   final JdbcTemplate db;
   final Security security;
@@ -39,7 +43,7 @@ public class ClientInquiryService {
   Map<String, Object> owned(UUID id, Map<String, Object> client, boolean lock) {
     var rows =
         db.queryForList(
-            "SELECT * FROM inquiries WHERE id=? AND client_email=?" + (lock ? " FOR UPDATE" : ""),
+            "SELECT id,reference_product_id,developer_user_id,client_email,client_name,company_name,request_type,description,budget_band,timeline_band,current_status,email_confirmed_at,idempotency_key,request_hash,created_at,updated_at,moderation_status,moderation_reason,reported_value,reported_currency,acquisition_source FROM inquiries WHERE id=? AND client_email=?" + (lock ? " FOR UPDATE" : ""),
             id,
             client.get("email"));
     if (rows.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Request not found.");

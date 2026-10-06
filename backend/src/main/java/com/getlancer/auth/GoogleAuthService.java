@@ -1,23 +1,34 @@
 package com.getlancer.auth;
 
-import static com.getlancer.shared.Support.*;
+import static com.getlancer.shared.Support.hash;
+import static com.getlancer.shared.Support.randomToken;
+import static com.getlancer.shared.Support.text;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.getlancer.security.SessionCookies;
 import com.getlancer.shared.ApiError;
-import jakarta.servlet.http.*;
-import java.net.*;
-import java.net.http.*;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Duration;
-import java.util.*;
+import java.util.Base64;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
 
-@org.springframework.stereotype.Service
+@Service
 public class GoogleAuthService {
   final JdbcTemplate db;
   final AuthService auth;

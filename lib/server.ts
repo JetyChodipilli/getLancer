@@ -2,12 +2,13 @@ import { examples, type Product } from './catalog';
 import { emptyFilters, filterExamples, filterParams, type Filters } from './discovery';
 import { resolveBackendOrigin, type DeploymentMode } from './deployment-mode';
 export async function backendOrigin() {
-  const config: DeploymentMode = { BACKEND_URL: process.env.BACKEND_URL, DEMO_MODE: process.env.DEMO_MODE };
+  const config: DeploymentMode = { BACKEND_URL: process.env.BACKEND_URL, DEMO_MODE: process.env.DEMO_MODE, APP_ENV: process.env.APP_ENV };
   try {
     const { env } = await import('cloudflare:workers');
     const runtime = env as DeploymentMode;
-    config.BACKEND_URL = runtime.BACKEND_URL || config.BACKEND_URL;
+    config.BACKEND_URL = runtime.BACKEND_URL ?? config.BACKEND_URL;
     config.DEMO_MODE = runtime.DEMO_MODE ?? config.DEMO_MODE;
+    config.APP_ENV = runtime.APP_ENV ?? config.APP_ENV;
   } catch {}
   return resolveBackendOrigin(config);
 }

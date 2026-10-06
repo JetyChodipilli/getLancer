@@ -1,19 +1,27 @@
 package com.getlancer.analytics;
 
-import static com.getlancer.shared.Support.*;
+import static com.getlancer.shared.Support.hash;
+import static com.getlancer.shared.Support.id;
+import static com.getlancer.shared.Support.text;
+import static com.getlancer.shared.Support.uuid;
 
 import com.getlancer.products.ProductRepository;
 import com.getlancer.shared.ApiError;
-import java.util.*;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
 
-@org.springframework.stereotype.Service
+@Service
 public class AnalyticsService {
-  @org.springframework.beans.factory.annotation.Value("${app.analytics-enabled:false}")
-  boolean enabled;
+  final boolean enabled;
 
-  @org.springframework.beans.factory.annotation.Value("${app.analytics-salt:}")
-  String salt = "";
+  final String salt;
 
   public static final Set<String> CHANNELS =
       Set.of(
@@ -26,8 +34,12 @@ public class AnalyticsService {
           "agency_referral");
   final JdbcTemplate db;
 
-  public AnalyticsService(JdbcTemplate db) {
-    this.db = db;
+  public AnalyticsService(JdbcTemplate db) { this(db, false, ""); }
+
+  @Autowired
+  public AnalyticsService(JdbcTemplate db, @Value("${app.analytics-enabled:false}") boolean enabled,
+      @Value("${app.analytics-salt:}") String salt) {
+    this.db = db; this.enabled = enabled; this.salt = salt;
   }
 
   public Map<String, Object> record(Map<String, Object> body) {

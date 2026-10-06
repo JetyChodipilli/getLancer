@@ -5,6 +5,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.getlancer.config.Bootstrap;
+import com.getlancer.auth.MfaSecrets;
+import org.junit.jupiter.api.AfterEach;
 import com.getlancer.jobs.Maintenance;
 import com.getlancer.moderation.ModerationService;
 import com.getlancer.products.ProductService;
@@ -29,6 +31,9 @@ import org.springframework.transaction.support.TransactionTemplate;
     properties = {
       "app.environment=local",
       "app.jobs-enabled=false",
+      "app.admin-email=operator@example.test",
+      "app.mfa.active-key-id=v1",
+      "app.mfa.keyring=v1:AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=",
       "app.admin-password=",
       "app.admin-totp=",
       "spring.config.import=",
@@ -92,7 +97,7 @@ class MarketplaceIntegrationTest {
                         "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567",
                         "production",
                         "https://getlancer.example.test",
-                        true)
+                        true,new MfaSecrets("v1", "v1:AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=", "local"), "Administrator")
                     .run(null));
     assertEquals(1, db.queryForObject("SELECT count(*) FROM users", Integer.class));
     assertEquals(0, db.queryForObject("SELECT count(*) FROM products", Integer.class));
@@ -105,6 +110,9 @@ class MarketplaceIntegrationTest {
         .andExpect(jsonPath("$.items").isEmpty());
     mvc.perform(get("/api/v1/me")).andExpect(status().isUnauthorized());
   }
+
+  @AfterEach
+  void clearAdminFixtures() { db.execute("TRUNCATE users CASCADE"); }
 
   @BeforeEach
   void prepare() {
@@ -443,14 +451,14 @@ class MarketplaceIntegrationTest {
                 .header("X-Requested-With", "getlancer")
                 .contentType("application/json")
                 .content(
-                    "{\"email\":\"jetychodipilli@gmail.com\",\"password\":\"test-password-long-enough\",\"displayName\":\"Attempted"
+                    "{\"email\":\"operator@example.test\",\"password\":\"test-password-long-enough\",\"displayName\":\"Attempted"
                         + " signup\"}"))
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.error.code").value("EMAIL_UNAVAILABLE"));
     assertEquals(
         0,
         db.queryForObject(
-            "SELECT count(*) FROM users WHERE email='jetychodipilli@gmail.com'", Integer.class));
+            "SELECT count(*) FROM users WHERE email='operator@example.test'", Integer.class));
   }
 
   @Test
@@ -1048,7 +1056,7 @@ class MarketplaceIntegrationTest {
             "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP",
             "local",
             "http://localhost:3000",
-            false);
+            false,new MfaSecrets("v1", "v1:AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=", "local"), "Administrator");
     var tx = new TransactionTemplate(tm);
     tx.executeWithoutResult(status -> bootstrap.run(null));
     String stored =
@@ -1065,7 +1073,7 @@ class MarketplaceIntegrationTest {
                     "KRUGS4ZANFZSAYJAON2HE2LOM4QHI2DF",
                     "local",
                     "http://localhost:3000",
-                    false)
+                    false,new MfaSecrets("v1", "v1:AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=", "local"), "Administrator")
                 .run(null));
     assertEquals(
         stored,

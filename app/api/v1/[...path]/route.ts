@@ -18,6 +18,7 @@ async function readBody(request: Request) {
   return bytes;
 }
 async function proxy(req: Request, {params}: {params: Promise<{path: string[]}>}) {
+  const requestId=crypto.randomUUID();
   const origin = await backendOrigin();
   if (!origin) return Response.json({error: {code: 'BACKEND_NOT_CONFIGURED', message: 'Account and inquiry services are not available in this design preview.'}}, {status: 503});
   const {path} = await params; const url = new URL(req.url);
@@ -27,7 +28,7 @@ async function proxy(req: Request, {params}: {params: Promise<{path: string[]}>}
   let proxySecret=process.env.BACKEND_PROXY_SECRET;
   try{const {env}=await import('cloudflare:workers');proxySecret=(env as {BACKEND_PROXY_SECRET?:string}).BACKEND_PROXY_SECRET||proxySecret}catch{}
   const clientIp=req.headers.get('cf-connecting-ip');
-  if(proxySecret&&clientIp&&/^[0-9a-fA-F:.]{3,45}$/.test(clientIp)){headers.set('X-GetLancer-Proxy',proxySecret);headers.set('X-GetLancer-Client-IP',clientIp)}
+  if(proxySecret){headers.set('X-GetLancer-Proxy',proxySecret);headers.set('X-GetLancer-Request-ID',requestId);if(clientIp&&/^[0-9a-fA-F:.]{3,45}$/.test(clientIp))headers.set('X-GetLancer-Client-IP',clientIp)}
   for (const key of ['cookie', 'idempotency-key']) { const value = req.headers.get(key); if (value) headers.set(key, value); }
   try {
     const response = await fetch(origin + '/api/v1/' + path.map(encodeURIComponent).join('/') + url.search, {

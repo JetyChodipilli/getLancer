@@ -2,11 +2,15 @@ package com.getlancer.hosting;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.getlancer.shared.*;
+import com.getlancer.shared.ApiError;
+import com.getlancer.shared.Pages;
 import jakarta.servlet.http.HttpServletRequest;
 import java.sql.Timestamp;
 import java.time.Instant;
-import java.util.*;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -16,7 +20,7 @@ public class HostingRepository {
   private static final String ELIGIBLE="u.account_status='ACTIVE' AND u.email_verified_at IS NOT NULL AND d.approval_status='APPROVED' AND EXISTS(SELECT 1 FROM user_roles r WHERE r.user_id=u.id AND r.role='DEVELOPER') AND p.owner_user_id=u.id AND p.approval_status='APPROVED' AND p.lifecycle_status='ACTIVE' AND p.visibility='PUBLIC' AND EXISTS(SELECT 1 FROM repository_verifications rv WHERE rv.product_id=p.id AND rv.status='VERIFIED' AND rv.repository_url=p.repository_url)";
   private static final String CURRENT="EXISTS(SELECT 1 FROM products p JOIN users u ON u.id=h.owner_id JOIN developer_profiles d ON d.user_id=u.id WHERE p.id=h.product_id AND "+ELIGIBLE+")";
   private static final String SERVABLE="h.status='APPROVED' AND h.deployment_state='READY' AND h.desired_state='PUBLISHED' AND h.expires_at>now() AND "+CURRENT;
-  private static final String VIEW="SELECT h.*,p.title AS product_title,("+SERVABLE+") AS servable FROM hosted_demos h JOIN products p ON p.id=h.product_id ";
+  private static final String VIEW="SELECT h.id,h.product_id,h.title,h.version,h.archive_sha256,h.manifest_sha256,h.size_bytes,h.expanded_bytes,h.file_count,h.files,h.rights_consent_at,h.status,h.deployment_state,h.desired_state,h.deployment_id,h.expires_at,h.review_reason,h.created_at,h.updated_at,p.title AS product_title,("+SERVABLE+") AS servable FROM hosted_demos h JOIN products p ON p.id=h.product_id ";
   public HostingRepository(JdbcTemplate db,HostingConfiguration config,ObjectMapper json){this.db=db;this.config=config;this.json=json;}
   private static ApiError missing(){return new ApiError(404,"NOT_FOUND","Hosted demo not found.");}
   public void lockOwner(UUID owner){db.queryForList("SELECT id FROM users WHERE id=? FOR SHARE",owner);db.queryForObject("SELECT pg_advisory_xact_lock(hashtextextended(?,0))",Object.class,"hosting-owner:"+owner);lockActor(owner);}
@@ -27,7 +31,7 @@ public class HostingRepository {
   }
   public void capacity(UUID owner,boolean reservation){int count=db.queryForObject(reservation?"SELECT count(*) FROM hosted_demos WHERE owner_id=? AND deployment_state IN ('CREATING','UNKNOWN','READY','DELETE_PENDING')":"SELECT count(*) FROM hosted_demos WHERE owner_id=?",Integer.class,owner);if(count>=(reservation?3:10))throw new ApiError(409,reservation?"HOSTING_ACTIVE_LIMIT":"HOSTING_RECORD_LIMIT",reservation?"Withdraw and confirm a deployment before creating another; at most three unresolved deployments are allowed.":"At most ten immutable hosted package records are retained per builder.");}
   public boolean versionExists(UUID owner,UUID product,String version){return db.queryForObject("SELECT count(*) FROM hosted_demos WHERE owner_id=? AND product_id=? AND version=?",Integer.class,owner,product,version)>0;}
-  public Map<String,Object> record(UUID id,boolean lock){var rows=db.queryForList("SELECT * FROM hosted_demos WHERE id=?"+(lock?" FOR UPDATE":""),id);if(rows.isEmpty())throw missing();return rows.get(0);}
+  public Map<String,Object> record(UUID id,boolean lock){var rows=db.queryForList("SELECT id,owner_id,product_id,title,version,storage_key,archive_sha256,manifest_sha256,size_bytes,expanded_bytes,file_count,files,rights_consent_at,status,deployment_state,desired_state,deployment_id,expires_at,submitted_at,reviewed_at,reviewed_by,review_reason,created_at,updated_at FROM hosted_demos WHERE id=?"+(lock?" FOR UPDATE":""),id);if(rows.isEmpty())throw missing();return rows.get(0);}
   public UUID owner(UUID id){return (UUID)record(id,false).get("owner_id");}
   public Map<String,Object> owned(UUID id,UUID owner,boolean lock){var row=record(id,lock);if(!owner.equals(row.get("owner_id")))throw missing();return row;}
   public void insert(UUID id,UUID owner,UUID product,String title,String version,String storage,StaticArchive.Inspection archive){try{db.update("INSERT INTO hosted_demos(id,owner_id,product_id,title,version,storage_key,archive_sha256,manifest_sha256,size_bytes,expanded_bytes,file_count,files) VALUES(?,?,?,?,?,?,?,?,?,?,?,?::jsonb)",id,owner,product,title,version,storage,archive.archiveSha256(),archive.manifestSha256(),archive.sizeBytes(),archive.expandedBytes(),archive.files().size(),json.writeValueAsString(archive.manifest()));}catch(com.fasterxml.jackson.core.JsonProcessingException e){throw new IllegalStateException(e);}}

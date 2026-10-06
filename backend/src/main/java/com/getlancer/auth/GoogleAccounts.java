@@ -1,11 +1,16 @@
 package com.getlancer.auth;
 
-import static com.getlancer.shared.Support.*;
+import static com.getlancer.shared.Support.email;
+import static com.getlancer.shared.Support.id;
+import static com.getlancer.shared.Support.randomToken;
 
 import com.getlancer.notifications.Mail;
 import com.getlancer.security.Security;
 import com.getlancer.shared.ApiError;
-import java.util.*;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -15,20 +20,22 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class GoogleAccounts {
-  @org.springframework.beans.factory.annotation.Value("${app.legal-version:v1-draft}")
-  String legalVersion = "v1-draft";
+  final String legalVersion;
 
   final JdbcTemplate db;
   final Security security;
   final Mail mail;
   final String adminEmail;
 
-  public GoogleAccounts(
-      JdbcTemplate db,
-      Security security,
-      Mail mail,
-      @Value("${app.admin-email}") String adminEmail) {
+  public GoogleAccounts(JdbcTemplate db, Security security, Mail mail, String adminEmail) {
+    this(db, security, mail, adminEmail, "v1-draft");
+  }
+
+  @Autowired
+  public GoogleAccounts(JdbcTemplate db, Security security, Mail mail, @Value("${app.admin-email}") String adminEmail,
+      @Value("${app.legal-version:v1-draft}") String legalVersion) {
     this.db = db;
+    this.legalVersion = legalVersion;
     this.security = security;
     this.mail = mail;
     this.adminEmail = adminEmail.toLowerCase(Locale.ROOT).trim();
@@ -44,7 +51,7 @@ public class GoogleAccounts {
     db.queryForList("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", "google:" + subject);
     var linked =
         db.queryForList(
-            "SELECT u.* FROM users u JOIN oauth_identities i ON i.user_id=u.id WHERE"
+            "SELECT u.id,u.email,u.account_status FROM users u JOIN oauth_identities i ON i.user_id=u.id WHERE"
                 + " i.provider='google' AND i.subject=? FOR UPDATE OF u",
             subject);
     if (!linked.isEmpty()) {

@@ -1,6 +1,7 @@
 package com.getlancer.jobs;
 
 import com.getlancer.shared.Support;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -9,16 +10,18 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Component
 public class Maintenance {
-  @Value("${app.analytics-retention-days:90}")
-  int analyticsRetentionDays = 90;
+  final int analyticsRetentionDays;
 
   final JdbcTemplate db;
 
-  @Value("${app.jobs-enabled:true}")
-  boolean enabled;
+  final boolean enabled;
 
-  public Maintenance(JdbcTemplate db) {
-    this.db = db;
+  public Maintenance(JdbcTemplate db) { this(db,90,true); }
+
+  @Autowired
+  public Maintenance(JdbcTemplate db, @Value("${app.analytics-retention-days:90}") int analyticsRetentionDays,
+      @Value("${app.jobs-enabled:true}") boolean enabled) {
+    this.db = db; this.analyticsRetentionDays=analyticsRetentionDays; this.enabled=enabled;
   }
 
   @Scheduled(fixedDelay = 60000)

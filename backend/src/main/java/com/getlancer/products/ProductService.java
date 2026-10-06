@@ -1,23 +1,38 @@
 package com.getlancer.products;
 
-import static com.getlancer.products.ProductRepository.*;
-import static com.getlancer.shared.Support.*;
+import static com.getlancer.products.ProductRepository.PUBLIC;
+import static com.getlancer.products.ProductRepository.SELECT;
+import static com.getlancer.shared.Support.id;
+import static com.getlancer.shared.Support.text;
+import static com.getlancer.shared.Support.uuid;
 
 import com.getlancer.notifications.Mail;
+import com.getlancer.responses.ProjectResponses;
 import com.getlancer.security.Security;
 import com.getlancer.shared.ApiError;
 import com.getlancer.shared.Pages;
 import com.getlancer.shared.Rules;
 import com.getlancer.shared.Support;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-@org.springframework.stereotype.Service
+@Service
 public class ProductService {
-  @org.springframework.beans.factory.annotation.Value("${app.reliability-min-sample:10}")
-  int reliabilityMinimum = 10;
+  final int reliabilityMinimum;
 
   final JdbcTemplate db;
   private final ProductRepository repository;
@@ -26,14 +41,23 @@ public class ProductService {
   private final ShowcaseMeasurements measurements;
   private final com.getlancer.publishing.PublishingCapacity publishing;
 
+  public ProductService(JdbcTemplate db, Security security, Mail mail, ProductRepository repository,
+      ShowcaseMeasurements measurements, com.getlancer.publishing.PublishingCapacity publishing) {
+    this(db, security, mail, repository, measurements, publishing, 10);
+  }
+
+  @Autowired
   public ProductService(
-      JdbcTemplate db, Security security, Mail mail, ProductRepository repository, ShowcaseMeasurements measurements, com.getlancer.publishing.PublishingCapacity publishing) {
+      JdbcTemplate db, Security security, Mail mail, ProductRepository repository, ShowcaseMeasurements measurements,
+      com.getlancer.publishing.PublishingCapacity publishing,
+      @Value("${app.reliability-min-sample:10}") int reliabilityMinimum) {
     this.db = db;
     this.security = security;
     this.mail = mail;
     this.repository = repository;
     this.measurements = measurements;
     this.publishing = publishing;
+    this.reliabilityMinimum = reliabilityMinimum;
   }
 
   public Map<String, Object> dto(Map<String, Object> p) {
@@ -273,7 +297,7 @@ public class ProductService {
         slug);
   }
 
-  public Map<String, Object> own(HttpServletRequest r) {
+  public ProjectResponses.Owned own(HttpServletRequest r) {
     UUID u = security.developer(r, false);
     String sql = SELECT + " WHERE p.owner_user_id=?";
     List<Object> args = new ArrayList<>();
@@ -309,7 +333,7 @@ public class ProductService {
             "SELECT count(*) FROM products WHERE owner_user_id=? AND lifecycle_status='ACTIVE'",
             Integer.class,
             u));
-    return result;
+    return ProjectResponses.Owned.from(result);
   }
 
   @Transactional
@@ -434,7 +458,7 @@ public class ProductService {
   public Map<String, Object> action(UUID id, String action, HttpServletRequest r) {
     UUID u = security.developer(r, true);
     publishing.lock(u);
-    db.queryForMap("SELECT * FROM showcase_entitlements WHERE user_id=? FOR UPDATE", u);
+    db.queryForMap("SELECT user_id,active_slot_limit,source FROM showcase_entitlements WHERE user_id=? FOR UPDATE", u);
     var p = owned(id, u);
     switch (action) {
       case "submit" -> {
@@ -480,8 +504,8 @@ public class ProductService {
 
   public void activate(UUID p, UUID u, boolean fail) {
     publishing.lock(u);
-    db.queryForMap("SELECT * FROM showcase_entitlements WHERE user_id=? FOR UPDATE", u);
-    var product = db.queryForMap("SELECT * FROM products WHERE id=? FOR UPDATE", p);
+    db.queryForMap("SELECT user_id,active_slot_limit,source FROM showcase_entitlements WHERE user_id=? FOR UPDATE", u);
+    var product = db.queryForMap("SELECT id,owner_user_id,slug,title,summary,description,project_type,category,technology,visibility,contribution_text,available_for_similar_work,approval_status,lifecycle_status,live_url,video_url,moderation_reason,rights_confirmed,created_at,updated_at,repository_url,pricing_note,demo_health,demo_checked_at,demo_checked_url,pricing_mode,price_min_minor,price_max_minor,currency_code FROM products WHERE id=? FOR UPDATE", p);
     if (!product.get("approval_status").equals("APPROVED"))
       throw new ApiError(409, "INVALID_STATE_TRANSITION", "Product approval is required.");
     if (product.get("lifecycle_status").equals("ACTIVE")) return;
@@ -585,11 +609,11 @@ public class ProductService {
 
   public Map<String, Object> categories() {
     return Map.of(
-        "items", db.queryForList("SELECT * FROM categories WHERE active=true ORDER BY name"));
+        "items", db.queryForList("SELECT slug,name,active FROM categories WHERE active=true ORDER BY name"));
   }
 
   public Map<String, Object> technologies() {
     return Map.of(
-        "items", db.queryForList("SELECT * FROM technologies WHERE active=true ORDER BY name"));
+        "items", db.queryForList("SELECT slug,name,active FROM technologies WHERE active=true ORDER BY name"));
   }
 }

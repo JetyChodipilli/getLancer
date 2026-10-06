@@ -2,13 +2,30 @@
 services:
   mail:
     image: axllent/mailpit:v1.27
+    user: '1000:1000'
+    read_only: true
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=64m']
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    mem_limit: 256m
+    cpus: 1
     ports: ['127.0.0.1:1025:1025', '127.0.0.1:8025:8025']
   storage:
     build:
       context: ./ops/minio
       target: server
+    user: storage
+    read_only: true
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=64m']
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 512m
+    cpus: 1
     command: server /data --console-address ':9001'
     environment:
+      MC_CONFIG_DIR: /tmp/mc
       MINIO_ROOT_USER: ${OBJECT_STORAGE_ACCESS_KEY:?Run npm run setup:local}
       MINIO_ROOT_PASSWORD: ${OBJECT_STORAGE_SECRET_KEY:?Run npm run setup:local}
     ports: ['127.0.0.1:9000:9000', '127.0.0.1:9001:9001']
@@ -17,6 +34,14 @@ services:
     build:
       context: ./ops/minio
       target: client
+    user: storage
+    read_only: true
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=32m']
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 32
+    mem_limit: 128m
+    cpus: 0.5
     depends_on: [storage]
     environment:
       MINIO_ROOT_USER: ${OBJECT_STORAGE_ACCESS_KEY:?Run npm run setup:local}

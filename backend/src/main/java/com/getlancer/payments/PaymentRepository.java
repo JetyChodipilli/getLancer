@@ -1,7 +1,11 @@
 package com.getlancer.payments;
 
+import com.getlancer.responses.PaymentResponses;
 import com.getlancer.shared.ApiError;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -15,20 +19,20 @@ public class PaymentRepository {
   }
 
   Map<String,Object> attempt(UUID id,boolean lock) {
-    var rows=db.queryForList("SELECT * FROM payment_attempts WHERE id=?"+(lock?" FOR UPDATE":""),id);
+    var rows=db.queryForList("SELECT id,milestone_id,payer_user_id,amount_minor,currency,account_id,mode,status,order_id,payment_id,refunded_minor,transfer_status,settlement_status,attention_reason,dispute_status FROM payment_attempts WHERE id=?"+(lock?" FOR UPDATE":""),id);
     if (rows.isEmpty()) throw new ApiError(404,"NOT_FOUND","Payment not found.");
     return rows.get(0);
   }
   Map<String,Object> byOrder(String order) {
-    var rows=db.queryForList("SELECT * FROM payment_attempts WHERE order_id=?",order);
+    var rows=db.queryForList("SELECT id,milestone_id,payer_user_id,amount_minor,currency,account_id,mode,status,order_id,payment_id,refunded_minor,transfer_status,settlement_status,attention_reason,dispute_status FROM payment_attempts WHERE order_id=?",order);
     return rows.isEmpty()?null:rows.get(0);
   }
   Map<String,Object> byKey(UUID payer,UUID key) {
-    var rows=db.queryForList("SELECT * FROM payment_attempts WHERE payer_user_id=? AND idempotency_key=?",payer,key);
+    var rows=db.queryForList("SELECT id,milestone_id,payer_user_id,amount_minor,currency,account_id,mode,status,order_id,payment_id,refunded_minor,transfer_status,settlement_status,attention_reason,dispute_status FROM payment_attempts WHERE payer_user_id=? AND idempotency_key=?",payer,key);
     return rows.isEmpty()?null:rows.get(0);
   }
   Map<String,Object> active(UUID milestone) {
-    var rows=db.queryForList("SELECT * FROM payment_attempts WHERE milestone_id=? AND status<>'REJECTED'",milestone);
+    var rows=db.queryForList("SELECT id,milestone_id,payer_user_id,amount_minor,currency,account_id,mode,status,order_id,payment_id,refunded_minor,transfer_status,settlement_status,attention_reason,dispute_status FROM payment_attempts WHERE milestone_id=? AND status<>'REJECTED'",milestone);
     return rows.isEmpty()?null:rows.get(0);
   }
   public String payee(Map<String,Object> milestone,String mode) {
@@ -52,16 +56,13 @@ public class PaymentRepository {
   void bind(UUID attempt,String order,String transfer,String settlement) {
     db.update("UPDATE payment_attempts SET order_id=?,status='ORDER_CREATED',transfer_status=?,settlement_status=?,attention_reason=null,updated_at=now() WHERE id=?",order,transfer,settlement,attempt);
   }
-  List<Map<String,Object>> summaries(UUID engagement) {
-    return db.queryForList("SELECT p.id,p.milestone_id AS \"milestoneId\",p.status,p.amount_minor AS \"amountMinor\",p.currency,p.mode,p.order_id AS \"orderId\",p.payment_id AS \"paymentId\",p.refunded_minor AS \"refundedMinor\",p.transfer_status AS \"transferStatus\",p.settlement_status AS \"settlementStatus\",p.attention_reason AS \"attentionReason\" FROM payment_attempts p JOIN delivery_milestones m ON m.id=p.milestone_id WHERE m.engagement_id=? ORDER BY p.created_at DESC",engagement);
+  List<PaymentResponses.Summary> summaries(UUID engagement) {
+    return db.queryForList("SELECT p.id,p.milestone_id AS \"milestoneId\",p.status,p.amount_minor AS \"amountMinor\",p.currency,p.mode,p.order_id AS \"orderId\",p.payment_id AS \"paymentId\",p.refunded_minor AS \"refundedMinor\",p.transfer_status AS \"transferStatus\",p.settlement_status AS \"settlementStatus\",p.attention_reason AS \"attentionReason\" FROM payment_attempts p JOIN delivery_milestones m ON m.id=p.milestone_id WHERE m.engagement_id=? ORDER BY p.created_at DESC",engagement).stream().map(PaymentResponses.Summary::fromSummaryRow).toList();
   }
-  static Map<String,Object> summary(Map<String,Object> p) {
-    var result=new LinkedHashMap<String,Object>();
-    result.put("id",p.get("id")); result.put("milestoneId",p.get("milestone_id")); result.put("status",p.get("status"));
-    result.put("amountMinor",p.get("amount_minor")); result.put("currency",p.get("currency")); result.put("mode",p.get("mode")); result.put("orderId",p.get("order_id")); result.put("paymentId",p.get("payment_id"));
-    result.put("refundedMinor",p.get("refunded_minor")); result.put("transferStatus",p.get("transfer_status")); result.put("settlementStatus",p.get("settlement_status")); result.put("attentionReason",p.get("attention_reason"));
-    return result;
+  static PaymentResponses.Summary summary(Map<String,Object> row) {
+    return PaymentResponses.Summary.fromPaymentRow(row);
   }
+
   void captured(UUID id,String payment,long refunded,String transfer,String settlement) {
     var prior=attempt(id,false);
     String status=refunded==0?"CAPTURED":refunded==number(attempt(id,false),"amount_minor")?"REFUNDED":"PARTIALLY_REFUNDED";
@@ -88,8 +89,8 @@ public class PaymentRepository {
     var hashes=db.queryForList("SELECT payload_hash FROM payment_webhook_events WHERE event_id=?",String.class,id);
     return hashes.isEmpty()?null:hashes.get(0);
   }
-  List<Map<String,Object>> accounts() {
-    return db.queryForList("SELECT id,builder_user_id AS \"builderUserId\",team_id AS \"teamId\",account_id AS \"accountId\",mode,provider_status AS \"providerStatus\",verified_at AS \"verifiedAt\" FROM payment_accounts ORDER BY verified_at DESC");
+  List<PaymentResponses.Account> accounts() {
+    return db.queryForList("SELECT id,builder_user_id AS \"builderUserId\",team_id AS \"teamId\",account_id AS \"accountId\",mode,provider_status AS \"providerStatus\",verified_at AS \"verifiedAt\" FROM payment_accounts ORDER BY verified_at DESC").stream().map(PaymentResponses.Account::from).toList();
   }
   void mapAccount(UUID builder,UUID team,String account,String mode,UUID admin) {
     if (builder!=null) {
@@ -99,7 +100,7 @@ public class PaymentRepository {
       var allowed=db.queryForList("SELECT t.id FROM teams t JOIN users u ON u.id=t.owner_id JOIN developer_profiles d ON d.user_id=u.id JOIN team_members m ON m.team_id=t.id AND m.user_id=t.owner_id WHERE t.id=? AND t.status='ACTIVE' AND u.account_status='ACTIVE' AND u.email_verified_at IS NOT NULL AND d.approval_status='APPROVED' AND m.role='OWNER' AND (m.expires_at IS NULL OR m.expires_at>now()) FOR UPDATE OF t",team);
       if (allowed.isEmpty()) throw new ApiError(404,"NOT_FOUND","Current approved team owner not found.");
     }
-    var existing=db.queryForList("SELECT * FROM payment_accounts WHERE builder_user_id=? OR team_id=? FOR UPDATE",builder,team);
+    var existing=db.queryForList("SELECT id,account_id FROM payment_accounts WHERE builder_user_id=? OR team_id=? FOR UPDATE",builder,team);
     UUID id=existing.isEmpty()?UUID.randomUUID():(UUID)existing.get(0).get("id");
     String previous=existing.isEmpty()?null:Objects.toString(existing.get(0).get("account_id"));
     if (db.queryForObject("SELECT count(*) FROM payment_accounts WHERE account_id=? AND id<>?",Integer.class,account,id)>0)
@@ -108,8 +109,8 @@ public class PaymentRepository {
     else db.update("UPDATE payment_accounts SET account_id=?,mode=?,provider_status='created',activation_confirmed=true,verified_by=?,verified_at=now() WHERE id=?",account,mode,admin,id);
     db.update("INSERT INTO payment_account_audit(id,account_mapping_id,actor_id,previous_account_id,account_id) VALUES(?,?,?,?,?)",UUID.randomUUID(),id,admin,previous,account);
   }
-  List<Map<String,Object>> attention() {
-    return db.queryForList("SELECT p.id,p.milestone_id AS \"milestoneId\",m.engagement_id AS \"engagementId\",p.status,p.amount_minor AS \"amountMinor\",p.currency,p.mode,p.order_id AS \"orderId\",p.account_id AS \"accountId\",p.attention_reason AS \"attentionReason\",p.transfer_status AS \"transferStatus\",p.settlement_status AS \"settlementStatus\",p.created_at AS \"createdAt\" FROM payment_attempts p JOIN delivery_milestones m ON m.id=p.milestone_id JOIN delivery_engagements e ON e.id=m.engagement_id WHERE p.status IN ('UNKNOWN','CREATING') OR p.attention_reason IS NOT NULL OR p.status='DISPUTED' OR e.status='DISPUTED' ORDER BY p.created_at");
+  List<PaymentResponses.Attention> attention() {
+    return db.queryForList("SELECT p.id,p.milestone_id AS \"milestoneId\",m.engagement_id AS \"engagementId\",p.status,p.amount_minor AS \"amountMinor\",p.currency,p.mode,p.order_id AS \"orderId\",p.account_id AS \"accountId\",p.attention_reason AS \"attentionReason\",p.transfer_status AS \"transferStatus\",p.settlement_status AS \"settlementStatus\",p.created_at AS \"createdAt\" FROM payment_attempts p JOIN delivery_milestones m ON m.id=p.milestone_id JOIN delivery_engagements e ON e.id=m.engagement_id WHERE p.status IN ('UNKNOWN','CREATING') OR p.attention_reason IS NOT NULL OR p.status='DISPUTED' OR e.status='DISPUTED' ORDER BY p.created_at").stream().map(PaymentResponses.Attention::from).toList();
   }
   static long number(Map<String,Object> row,String key) { return ((Number)row.get(key)).longValue(); }
 }

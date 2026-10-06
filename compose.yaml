@@ -1,6 +1,14 @@
 services:
   db:
     image: postgres:16-alpine
+    user: postgres
+    read_only: true
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=64m', '/var/run/postgresql:rw,nosuid,size=16m,mode=0777']
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 512m
+    cpus: 1
     environment:
       POSTGRES_DB: getLancer
       POSTGRES_USER: postgres
@@ -15,11 +23,27 @@ services:
       retries: 10
   mail:
     image: axllent/mailpit:v1.27
+    user: '1000:1000'
+    read_only: true
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=64m']
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    mem_limit: 256m
+    cpus: 1
     ports: ['127.0.0.1:1025:1025', '127.0.0.1:8025:8025']
   storage:
     build:
       context: ./ops/minio
       target: server
+    user: storage
+    read_only: true
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=64m']
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 512m
+    cpus: 1
     command: server /data --console-address ':9001'
     environment:
       MINIO_ROOT_USER: ${OBJECT_STORAGE_ACCESS_KEY:?Set OBJECT_STORAGE_ACCESS_KEY}
@@ -30,8 +54,17 @@ services:
     build:
       context: ./ops/minio
       target: client
+    user: storage
+    read_only: true
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=32m']
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 32
+    mem_limit: 128m
+    cpus: 0.5
     depends_on: [storage]
     environment:
+      MC_CONFIG_DIR: /tmp/mc
       MINIO_ROOT_USER: ${OBJECT_STORAGE_ACCESS_KEY:?Run npm run setup:docker}
       MINIO_ROOT_PASSWORD: ${OBJECT_STORAGE_SECRET_KEY:?Run npm run setup:docker}
       BUCKET: ${OBJECT_STORAGE_BUCKET:-getlancer}
@@ -47,8 +80,18 @@ services:
         mc mb --ignore-existing "local/$$BUCKET" && mc anonymous set none "local/$$BUCKET"
   api:
     build: ./backend
+    user: getlancer
+    read_only: true
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=128m']
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 1g
+    cpus: 2
+    init: true
     env_file: .env
     environment:
+      SPRING_PROFILES_ACTIVE: local
       APP_ENV: local
       DB_URL: jdbc:postgresql://db:5432/getLancer
       PAYMENTS_ENABLED: ${PAYMENTS_ENABLED:-false}
@@ -89,6 +132,7 @@ services:
   demo-publisher:
     profiles: [hosting]
     build: ./ops/demo-publisher
+    user: node
     environment:
       DEMO_PUBLISHER_PORT: 8090
       DEMO_PUBLISHER_ADMIN_HOST: demo-publisher:8090
@@ -109,11 +153,18 @@ services:
   test-db:
     profiles: [test]
     image: postgres:16-alpine
+    user: postgres
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 512m
+    cpus: 1
     environment:
       POSTGRES_DB: getlancer_test
       POSTGRES_USER: getlancer
       POSTGRES_PASSWORD: disposable-test-only
-    tmpfs: [/var/lib/postgresql/data]
+    tmpfs: ['/var/lib/postgresql/data:rw,nosuid,size=256m,uid=70,gid=70,mode=0700', '/tmp:rw,noexec,nosuid,size=64m', '/var/run/postgresql:rw,nosuid,size=16m,mode=0777']
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U getlancer -d getlancer_test']
       interval: 5s

@@ -6,7 +6,7 @@ import worker from './helpers/built-worker.mjs';
 
 // An HTTP fixture for the frontend contract only. Java/PostgreSQL and SMTP/S3
 // behavior are verified separately by Maven integration tests and Docker CI.
-const previous={BACKEND_URL:process.env.BACKEND_URL,DEMO_MODE:process.env.DEMO_MODE};
+const previous={APP_ENV:process.env.APP_ENV,BACKEND_URL:process.env.BACKEND_URL,DEMO_MODE:process.env.DEMO_MODE};
 const env={ASSETS:{fetch:async()=>new Response('Not found',{status:404})}};
 const ctx={waitUntil(){},passThroughOnException(){}};
 let failure=false;
@@ -23,6 +23,7 @@ const server=createServer((req,res)=>{
 before(async()=>{
   server.listen(0,'127.0.0.1');await once(server,'listening');
   process.env.BACKEND_URL=`http://127.0.0.1:${server.address().port}`;
+  process.env.APP_ENV='test';
   process.env.DEMO_MODE='true'; // A flag retained from the cloud preview must not hide real services.
 });
 after(async()=>{

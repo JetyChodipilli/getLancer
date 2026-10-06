@@ -1,0 +1,160 @@
+package com.getlancer.config;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.Statement;
+import java.util.List;
+import java.util.UUID;
+import org.flywaydb.core.Flyway;
+import org.junit.jupiter.api.*;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.mock.env.MockEnvironment;
+
+/** Real PostgreSQL identities, all migrations, and production runtime permission failures. */
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+class DatabaseRoleGuardIntegrationTest {
+  private static final String SCHEMA = "getlancer_roles_test";
+  private String url, admin, adminPassword;
+  private final String runtimePassword = "synthetic-runtime-" + UUID.randomUUID();
+  private final String migrationPassword = "synthetic-migration-" + UUID.randomUUID();
+  private final String backupPassword = "synthetic-backup-" + UUID.randomUUID();
+  private final String readonlyPassword = "synthetic-readonly-" + UUID.randomUUID();
+  private JdbcTemplate runtime;
+
+  @BeforeAll void prepare() throws Exception {
+    url = System.getenv().getOrDefault("TEST_DB_URL", "jdbc:postgresql://localhost:5432/getlancer_test");
+    admin = System.getenv().getOrDefault("TEST_DB_USERNAME", "postgres");
+    adminPassword = System.getenv().getOrDefault("TEST_DB_PASSWORD", "");
+    assertEquals("true", System.getenv("TEST_DATABASE_RESET"), "Role tests require explicit disposable database authorization");
+    assertTrue(url.matches("jdbc:postgresql://[^/?#]+/getlancer_test(?:\\?[^#]*)?"), "Role tests require the disposable getlancer_test database");
+    adminSql("DROP SCHEMA IF EXISTS " + SCHEMA + " CASCADE");
+    adminSql("DO $$ BEGIN IF NOT EXISTS(SELECT FROM pg_roles WHERE rolname='anon') THEN CREATE ROLE anon NOLOGIN; END IF; IF NOT EXISTS(SELECT FROM pg_roles WHERE rolname='authenticated') THEN CREATE ROLE authenticated NOLOGIN; END IF; END $$");
+    provision("00_roles.sql");
+    adminSql("ALTER ROLE getlancer_runtime LOGIN PASSWORD '" + runtimePassword + "'");
+    adminSql("ALTER ROLE getlancer_migration LOGIN PASSWORD '" + migrationPassword + "'");
+    adminSql("ALTER ROLE getlancer_backup LOGIN PASSWORD '" + backupPassword + "'");
+    adminSql("ALTER ROLE getlancer_readonly LOGIN PASSWORD '" + readonlyPassword + "'");
+    Flyway.configure().dataSource(url, "getlancer_migration", migrationPassword).schemas(SCHEMA)
+        .defaultSchema(SCHEMA).createSchemas(false).load().migrate();
+    provision("10_permissions.sql"); provision("10_permissions.sql"); // Idempotent on real migrations.
+    runtime = jdbc("getlancer_runtime", runtimePassword);
+  }
+
+  @AfterAll void cleanup() throws Exception {
+    if (url != null && "true".equals(System.getenv("TEST_DATABASE_RESET"))) {
+      adminSql("DROP SCHEMA IF EXISTS " + SCHEMA + " CASCADE");
+      adminSql("ALTER ROLE getlancer_runtime NOLOGIN PASSWORD NULL");
+      adminSql("ALTER ROLE getlancer_migration NOLOGIN PASSWORD NULL");
+      adminSql("ALTER ROLE getlancer_backup NOLOGIN PASSWORD NULL");
+      adminSql("ALTER ROLE getlancer_readonly NOLOGIN PASSWORD NULL");
+    }
+  }
+
+  private JdbcTemplate jdbc(String user, String password) {
+    DriverManagerDataSource source = new DriverManagerDataSource(url, user, password);
+    source.setConnectionProperties(new java.util.Properties() {{ setProperty("currentSchema", SCHEMA); }});
+    return new JdbcTemplate(source);
+  }
+  private void guard(JdbcTemplate connection) {
+    new DatabaseRoleGuard(connection, new MockEnvironment().withProperty("app.environment", "production")
+        .withProperty("spring.datasource.hikari.schema", SCHEMA)).run(null);
+  }
+  private void adminSql(String sql) throws Exception {
+    try (Connection connection = DriverManager.getConnection(url, admin, adminPassword); Statement statement = connection.createStatement()) {
+      statement.execute(sql);
+    }
+  }
+  private void provision(String name) throws Exception {
+    Path root = Files.exists(Path.of("ops/database")) ? Path.of("ops/database") : Path.of("../ops/database");
+    try (Connection connection = DriverManager.getConnection(url, admin, adminPassword); Statement statement = connection.createStatement()) {
+      statement.execute("SET getlancer.app_schema='" + SCHEMA + "'");
+      statement.execute(Files.readString(root.resolve(name)));
+    }
+  }
+
+  @Test void reviewedRuntimeCanExecuteApplicationOperationsAndReadRlsTables() throws Exception {
+    assertDoesNotThrow(() -> guard(runtime));
+    List<String> tables = runtime.queryForList("SELECT tablename FROM pg_tables WHERE schemaname=? AND tablename<>'flyway_schema_history'", String.class, SCHEMA);
+    assertTrue(tables.size() >= 90);
+    for (String table : tables) assertDoesNotThrow(() -> runtime.queryForObject("SELECT count(*) FROM " + table, Integer.class), table);
+    UUID user = UUID.randomUUID();
+    runtime.update("INSERT INTO users(id,email,password_hash) VALUES(?,?,?)", user, user + "@example.test", "synthetic-hash");
+    runtime.update("INSERT INTO user_roles(user_id,role) VALUES(?,'CLIENT')", user);
+    runtime.update("INSERT INTO sessions(token_hash,user_id,expires_at) VALUES(?,?,now()+interval '1 hour')", UUID.randomUUID().toString(), user);
+    assertEquals(1, runtime.update("UPDATE users SET email_verified_at=now() WHERE id=?", user));
+    assertEquals(1, runtime.update("DELETE FROM sessions WHERE user_id=?", user));
+    runtime.update("INSERT INTO component_audit(id,kind,detail) VALUES(?,'ROLE_TEST','Synthetic permission fixture')", UUID.randomUUID());
+    assertThrows(org.springframework.dao.DataAccessException.class, () -> runtime.update("UPDATE component_audit SET detail='changed'"));
+    assertThrows(org.springframework.dao.DataAccessException.class, () -> runtime.update("DELETE FROM component_audit"));
+    assertThrows(org.springframework.dao.DataAccessException.class, () -> runtime.update("DELETE FROM payment_ledger"));
+    assertThrows(org.springframework.dao.DataAccessException.class, () -> runtime.execute("TRUNCATE component_audit"));
+    assertThrows(org.springframework.dao.DataAccessException.class, () -> runtime.execute("CREATE TABLE forbidden_ddl(id int)"));
+    assertThrows(org.springframework.dao.DataAccessException.class, () -> runtime.execute("ALTER TABLE users DISABLE ROW LEVEL SECURITY"));
+    assertThrows(org.springframework.dao.DataAccessException.class, () -> runtime.execute("SET ROLE getlancer_migration"));
+    for (String readRole : List.of("getlancer_backup", "getlancer_readonly")) {
+      JdbcTemplate reader = jdbc(readRole, readRole.equals("getlancer_backup") ? backupPassword : readonlyPassword);
+      assertDoesNotThrow(() -> reader.queryForObject("SELECT count(*) FROM users", Integer.class));
+      assertDoesNotThrow(() -> reader.queryForObject("SELECT count(*) FROM flyway_schema_history", Integer.class));
+      assertThrows(org.springframework.dao.DataAccessException.class, () -> reader.update("INSERT INTO users(id,email,password_hash) VALUES(?,?,?)", UUID.randomUUID(), "denied@example.test", "synthetic-hash"));
+      assertThrows(org.springframework.dao.DataAccessException.class, () -> reader.execute("CREATE TABLE forbidden_reader_ddl(id int)"));
+      assertEquals(Boolean.TRUE, runtime.queryForObject("SELECT has_table_privilege(?,?,'SELECT')", Boolean.class, readRole, SCHEMA+".users"));
+      assertEquals(Boolean.FALSE, runtime.queryForObject("SELECT has_table_privilege(?,?,'INSERT')", Boolean.class, readRole, SCHEMA+".users"));
+    }
+    for (String directRole : List.of("anon", "authenticated")) {
+      try (Connection connection = DriverManager.getConnection(url, admin, adminPassword); Statement statement = connection.createStatement()) {
+        statement.execute("SET ROLE " + directRole);
+        assertThrows(java.sql.SQLException.class, () -> statement.executeQuery("SELECT count(*) FROM " + SCHEMA + ".users"));
+      }
+    }
+  }
+
+  @Test void everyElevatedActualRoleAttributeAndOwnershipFailsHostedGuard() throws Exception {
+    assertThrows(IllegalStateException.class, () -> guard(jdbc(admin, adminPassword)));
+    assertThrows(IllegalStateException.class, () -> guard(jdbc("getlancer_migration", migrationPassword)));
+    for (String attribute : List.of("SUPERUSER", "CREATEDB", "CREATEROLE", "REPLICATION", "BYPASSRLS")) {
+      try { adminSql("ALTER ROLE getlancer_runtime " + attribute); assertThrows(IllegalStateException.class, () -> guard(runtime), attribute); }
+      finally { adminSql("ALTER ROLE getlancer_runtime NO" + attribute); }
+    }
+    try { adminSql("GRANT getlancer_migration TO getlancer_runtime"); assertThrows(IllegalStateException.class, () -> guard(runtime)); }
+    finally { adminSql("REVOKE getlancer_migration FROM getlancer_runtime"); }
+    try { adminSql("GRANT getlancer_runtime TO anon"); assertThrows(IllegalStateException.class, () -> guard(runtime)); }
+    finally { adminSql("REVOKE getlancer_runtime FROM anon"); }
+    try { adminSql("ALTER TABLE " + SCHEMA + ".users OWNER TO getlancer_runtime"); assertThrows(IllegalStateException.class, () -> guard(runtime)); }
+    finally { adminSql("ALTER TABLE " + SCHEMA + ".users OWNER TO getlancer_migration"); }
+    try { adminSql("GRANT CREATE ON SCHEMA " + SCHEMA + " TO getlancer_runtime"); assertThrows(IllegalStateException.class, () -> guard(runtime)); }
+    finally { adminSql("REVOKE CREATE ON SCHEMA " + SCHEMA + " FROM getlancer_runtime"); }
+    try { adminSql("ALTER SCHEMA " + SCHEMA + " OWNER TO getlancer_runtime"); assertThrows(IllegalStateException.class, () -> guard(runtime)); }
+    finally { adminSql("ALTER SCHEMA " + SCHEMA + " OWNER TO getlancer_migration"); }
+    try { adminSql("GRANT TEMP ON DATABASE getlancer_test TO getlancer_runtime"); assertThrows(IllegalStateException.class, () -> guard(runtime)); }
+    finally { adminSql("REVOKE TEMP ON DATABASE getlancer_test FROM getlancer_runtime"); }
+    String databaseOwner = jdbc(admin, adminPassword).queryForObject("SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname='getlancer_test'", String.class);
+    try { adminSql("ALTER DATABASE getlancer_test OWNER TO getlancer_runtime"); assertThrows(IllegalStateException.class, () -> guard(runtime)); }
+    finally { adminSql("ALTER DATABASE getlancer_test OWNER TO \"" + databaseOwner.replace("\"", "\"\"") + "\""); }
+    try { adminSql("GRANT UPDATE ON " + SCHEMA + ".payment_ledger TO getlancer_runtime"); assertThrows(IllegalStateException.class, () -> guard(runtime)); }
+    finally { adminSql("REVOKE UPDATE ON " + SCHEMA + ".payment_ledger FROM getlancer_runtime"); }
+    JdbcTemplate migration = jdbc("getlancer_migration", migrationPassword);
+    try {
+      migration.execute("CREATE FUNCTION dangerous_role_fixture() RETURNS integer LANGUAGE sql SECURITY DEFINER AS 'SELECT 1'");
+      migration.execute("GRANT EXECUTE ON FUNCTION dangerous_role_fixture() TO getlancer_runtime");
+      assertThrows(IllegalStateException.class, () -> guard(runtime));
+    } finally { migration.execute("DROP FUNCTION dangerous_role_fixture()"); }
+    assertDoesNotThrow(() -> guard(runtime));
+  }
+
+  @Test void newMigrationTablesStayDeniedAndRequirePermissionReviewBeforeStartup() throws Exception {
+    JdbcTemplate migration = jdbc("getlancer_migration", migrationPassword);
+    try {
+      migration.execute("CREATE TABLE future_role_fixture(id uuid PRIMARY KEY)");
+      assertThrows(org.springframework.dao.DataAccessException.class, () -> runtime.queryForObject("SELECT count(*) FROM future_role_fixture", Integer.class));
+      assertThrows(IllegalStateException.class, () -> guard(runtime));
+      assertThrows(Exception.class, () -> provision("10_permissions.sql"));
+      assertDoesNotThrow(() -> runtime.queryForObject("SELECT count(*) FROM users", Integer.class));
+    } finally { migration.execute("DROP TABLE future_role_fixture"); }
+    provision("10_permissions.sql"); assertDoesNotThrow(() -> guard(runtime));
+  }
+}

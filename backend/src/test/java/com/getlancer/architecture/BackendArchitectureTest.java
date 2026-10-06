@@ -87,7 +87,7 @@ class BackendArchitectureTest {
         var route = AnnotatedElementUtils.findMergedAnnotation(method, RequestMapping.class);
         if (route == null) continue;
         for (String root : roots)
-          for (String path : route.path())
+          for (String path : route.path().length == 0 ? new String[] {""} : route.path())
             for (var verb : route.method()) actual.add(verb.name() + " " + root + path);
       }
     }

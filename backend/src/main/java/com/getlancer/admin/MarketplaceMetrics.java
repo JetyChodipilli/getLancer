@@ -1,8 +1,8 @@
 package com.getlancer.admin;
 
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.sql.Timestamp;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -33,7 +33,7 @@ public class MarketplaceMetrics {
           WHERE d.approval_status='APPROVED' AND u.account_status='ACTIVE'
             AND u.email_verified_at IS NOT NULL
         ), public_proof AS (
-          SELECT p.* FROM products p JOIN builders b ON b.user_id=p.owner_user_id
+          SELECT p.id,p.owner_user_id,p.live_url,p.video_url FROM products p JOIN builders b ON b.user_id=p.owner_user_id
           WHERE p.approval_status='APPROVED' AND p.lifecycle_status='ACTIVE' AND p.visibility='PUBLIC'
         )
         SELECT (SELECT count(*) FROM builders) AS "approvedBuilders",

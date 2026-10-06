@@ -1,19 +1,30 @@
 package com.getlancer.components;
-import static com.getlancer.shared.Support.*;
+
+import static com.getlancer.shared.Support.id;
+import static com.getlancer.shared.Support.text;
+import static com.getlancer.shared.Support.uuid;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.getlancer.payments.RazorpayClient;
-import com.getlancer.security.Security;
 import com.getlancer.publishing.PublishingCapacity;
+import com.getlancer.security.Security;
 import com.getlancer.shared.ApiError;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
-import java.util.*;
+import java.util.HexFormat;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import java.util.function.Supplier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+
 @Service
 public class ComponentSlotService {
   final JdbcTemplate db;
@@ -46,7 +57,7 @@ public class ComponentSlotService {
   }
   public Map<String,Object> pricing(String requested){
     String pool=PublishingCapacity.pool(requested);
-    var p=db.queryForMap("SELECT * FROM component_slot_pricing WHERE pool=?",pool);
+    var p=db.queryForMap("SELECT id,amount_minor,enabled,updated_at,pool FROM component_slot_pricing WHERE pool=?",pool);
     var config=provider.configuration();
     var out=new LinkedHashMap<String,Object>();
     out.put("pool",pool);
@@ -70,13 +81,13 @@ public class ComponentSlotService {
     String pool=PublishingCapacity.pool(requested);
     return tx(()->{
       UUID admin=security.admin(r);long value=amount(b.get("amountMinor"));boolean enabled=Boolean.TRUE.equals(b.get("enabled"));
-      db.queryForMap("SELECT * FROM component_slot_pricing WHERE pool=? FOR UPDATE",pool);
+      db.queryForMap("SELECT id,amount_minor,enabled,updated_at,pool FROM component_slot_pricing WHERE pool=? FOR UPDATE",pool);
       security.admin(r);db.update("UPDATE component_slot_pricing SET amount_minor=?,enabled=?,updated_at=now() WHERE pool=?",value,enabled,pool);
       audit(admin,null,"SLOT_PRICE_CHANGED",pool+" INR minor units: "+value+"; new orders enabled: "+enabled+". Existing reservations unchanged.");return pricing(pool);
     });
   }
   Map<String,Object> purchase(UUID id){
-    var rows=db.queryForList("SELECT * FROM component_slot_purchases WHERE id=?",id);
+    var rows=db.queryForList("SELECT id,owner_id,idempotency_key,amount_minor,currency,mode,status,order_id,payment_id,refunded_minor,dispute_id,dispute_status,created_at,updated_at,pool FROM component_slot_purchases WHERE id=?",id);
     if(rows.isEmpty())throw new ApiError(404,"NOT_FOUND","Slot purchase not found.");
     return rows.get(0);
   }
@@ -113,11 +124,11 @@ public class ComponentSlotService {
   }
   public Object history(HttpServletRequest r){
     UUID owner=security.developer(r,false);
-    return Map.of("items",db.queryForList("SELECT * FROM component_slot_purchases WHERE owner_id=? AND pool='COMPONENT' ORDER BY created_at DESC,id LIMIT 100",owner).stream().map(this::summary).toList(),"capacity",publishing.capacity(owner,"COMPONENT"),"pricing",pricing());
+    return Map.of("items",db.queryForList("SELECT id,owner_id,idempotency_key,amount_minor,currency,mode,status,order_id,payment_id,refunded_minor,dispute_id,dispute_status,created_at,updated_at,pool FROM component_slot_purchases WHERE owner_id=? AND pool='COMPONENT' ORDER BY created_at DESC,id LIMIT 100",owner).stream().map(this::summary).toList(),"capacity",publishing.capacity(owner,"COMPONENT"),"pricing",pricing());
   }
   public Object history(String requested,HttpServletRequest r){
     String pool=PublishingCapacity.pool(requested);UUID owner=security.developer(r,false);
-    var page=com.getlancer.shared.Pages.query(db,r,"SELECT * FROM component_slot_purchases WHERE owner_id=? AND pool=? ORDER BY created_at DESC,id",owner,pool);
+    var page=com.getlancer.shared.Pages.query(db,r,"SELECT id,owner_id,idempotency_key,amount_minor,currency,mode,status,order_id,payment_id,refunded_minor,dispute_id,dispute_status,created_at,updated_at,pool FROM component_slot_purchases WHERE owner_id=? AND pool=? ORDER BY created_at DESC,id",owner,pool);
     page.put("items",com.getlancer.shared.Pages.items(page).stream().map(this::summary).toList());
     page.put("capacity",publishing.capacity(owner,pool));page.put("pricing",pricing(pool));return page;
   }
@@ -127,7 +138,7 @@ public class ComponentSlotService {
   public Object attention(HttpServletRequest r){ return attention("COMPONENT",r); }
   public Object attention(String requested,HttpServletRequest r){
     String pool=PublishingCapacity.pool(requested);security.admin(r);
-    var page=com.getlancer.shared.Pages.query(db,r,"SELECT * FROM component_slot_purchases WHERE pool=? ORDER BY CASE WHEN status IN ('CREATING','UNKNOWN','ORDER_CREATED') THEN 0 ELSE 1 END,created_at DESC,id",pool);
+    var page=com.getlancer.shared.Pages.query(db,r,"SELECT id,owner_id,idempotency_key,amount_minor,currency,mode,status,order_id,payment_id,refunded_minor,dispute_id,dispute_status,created_at,updated_at,pool FROM component_slot_purchases WHERE pool=? ORDER BY CASE WHEN status IN ('CREATING','UNKNOWN','ORDER_CREATED') THEN 0 ELSE 1 END,created_at DESC,id",pool);
     page.put("items",com.getlancer.shared.Pages.items(page).stream().map(this::summary).toList());
     page.put("pricing",pricing(pool));return page;
   }
@@ -137,11 +148,11 @@ public class ComponentSlotService {
     UUID key=uuid(r.getHeader("Idempotency-Key"));
     provider.requireCollection();
     var reservation=tx(()->{
-      UUID owner=security.developer(r,true);lock(owner);security.developer(r,true);       var prior=db.queryForList("SELECT * FROM component_slot_purchases WHERE owner_id=? AND idempotency_key=?",owner,key);       if(!prior.isEmpty()&&!pool.equals(prior.get(0).get("pool")))throw new ApiError(409,"IDEMPOTENCY_CONFLICT","This purchase key belongs to another slot category.");
-      if(prior.isEmpty())prior=db.queryForList("SELECT * FROM component_slot_purchases WHERE owner_id=? AND pool=? AND mode=? AND status IN ('CREATING','UNKNOWN','ORDER_CREATED')",owner,pool,provider.mode());       if(!prior.isEmpty()){
+      UUID owner=security.developer(r,true);lock(owner);security.developer(r,true);       var prior=db.queryForList("SELECT id,owner_id,idempotency_key,amount_minor,currency,mode,status,order_id,payment_id,refunded_minor,dispute_id,dispute_status,created_at,updated_at,pool FROM component_slot_purchases WHERE owner_id=? AND idempotency_key=?",owner,key);       if(!prior.isEmpty()&&!pool.equals(prior.get(0).get("pool")))throw new ApiError(409,"IDEMPOTENCY_CONFLICT","This purchase key belongs to another slot category.");
+      if(prior.isEmpty())prior=db.queryForList("SELECT id,owner_id,idempotency_key,amount_minor,currency,mode,status,order_id,payment_id,refunded_minor,dispute_id,dispute_status,created_at,updated_at,pool FROM component_slot_purchases WHERE owner_id=? AND pool=? AND mode=? AND status IN ('CREATING','UNKNOWN','ORDER_CREATED')",owner,pool,provider.mode());       if(!prior.isEmpty()){
         mode(prior.get(0));return new LinkedHashMap<>(prior.get(0));
       }
-      var price=db.queryForMap("SELECT * FROM component_slot_pricing WHERE pool=? FOR SHARE",pool);if(!Boolean.TRUE.equals(price.get("enabled"))||price.get("amount_minor")==null)throw new ApiError(409,"SLOT_SALES_DISABLED","The administrator has not enabled additional publishing slots.");       long expected=amount(b.get("amountMinor")),value=number(price,"amount_minor");if(expected!=value)throw new ApiError(409,"SLOT_PRICE_CHANGED","The slot price changed. Review the current price before buying.");       if(!Boolean.TRUE.equals(b.get("purchaseConsent")))throw new ApiError(400,"PURCHASE_CONSENT_REQUIRED","Confirm one reusable publishing slot and the displayed price.");       if(((Number)publishing.capacity(owner,pool).get("limit")).intValue()>=100)throw new ApiError(409,"SLOT_LIMIT","This account has the maximum 100 active publishing slots.");       UUID id=id();db.update("INSERT INTO component_slot_purchases(id,owner_id,pool,idempotency_key,amount_minor,mode,status) VALUES(?,?,?,?,?,?,'CREATING')",id,owner,pool,key,value,provider.mode());audit(owner,id,"SLOT_RESERVED",pool+" reusable publishing slot; frozen INR minor amount "+value+". Provider capture required.");var out=new LinkedHashMap<>(purchase(id));out.put("create",true);return out;
+      var price=db.queryForMap("SELECT id,amount_minor,enabled,updated_at,pool FROM component_slot_pricing WHERE pool=? FOR SHARE",pool);if(!Boolean.TRUE.equals(price.get("enabled"))||price.get("amount_minor")==null)throw new ApiError(409,"SLOT_SALES_DISABLED","The administrator has not enabled additional publishing slots.");       long expected=amount(b.get("amountMinor")),value=number(price,"amount_minor");if(expected!=value)throw new ApiError(409,"SLOT_PRICE_CHANGED","The slot price changed. Review the current price before buying.");       if(!Boolean.TRUE.equals(b.get("purchaseConsent")))throw new ApiError(400,"PURCHASE_CONSENT_REQUIRED","Confirm one reusable publishing slot and the displayed price.");       if(((Number)publishing.capacity(owner,pool).get("limit")).intValue()>=100)throw new ApiError(409,"SLOT_LIMIT","This account has the maximum 100 active publishing slots.");       UUID id=id();db.update("INSERT INTO component_slot_purchases(id,owner_id,pool,idempotency_key,amount_minor,mode,status) VALUES(?,?,?,?,?,?,'CREATING')",id,owner,pool,key,value,provider.mode());audit(owner,id,"SLOT_RESERVED",pool+" reusable publishing slot; frozen INR minor amount "+value+". Provider capture required.");var out=new LinkedHashMap<>(purchase(id));out.put("create",true);return out;
     }
     );
     UUID id=(UUID)reservation.get("id");
@@ -303,9 +314,9 @@ public class ComponentSlotService {
         else if(kind.startsWith("refund.")){
           payment=payload.path("refund").path("entity").path("payment_id").asText();order=provider.payment(payment).path("order_id").asText();
         }
-        var matches=order.isBlank()?List.<Map<String,Object>>of():db.queryForList("SELECT * FROM component_slot_purchases WHERE order_id=?",order);       // Recover a committed reservation from authoritative receipt facts before recording an unmatched event.
+        var matches=order.isBlank()?List.<Map<String,Object>>of():db.queryForList("SELECT id,owner_id,idempotency_key,amount_minor,currency,mode,status,order_id,payment_id,refunded_minor,dispute_id,dispute_status,created_at,updated_at,pool FROM component_slot_purchases WHERE order_id=?",order);       // Recover a committed reservation from authoritative receipt facts before recording an unmatched event.
         JsonNode providerOrder=null;       if(matches.isEmpty()&&!order.isBlank()){
-          providerOrder=provider.order(RazorpayClient.providerId(order,"order_"));String receipt=providerOrder.path("receipt").asText();if(receipt.matches("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"))matches=db.queryForList("SELECT * FROM component_slot_purchases WHERE id=?",UUID.fromString(receipt));
+          providerOrder=provider.order(RazorpayClient.providerId(order,"order_"));String receipt=providerOrder.path("receipt").asText();if(receipt.matches("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"))matches=db.queryForList("SELECT id,owner_id,idempotency_key,amount_minor,currency,mode,status,order_id,payment_id,refunded_minor,dispute_id,dispute_status,created_at,updated_at,pool FROM component_slot_purchases WHERE id=?",UUID.fromString(receipt));
         }
         if(!matches.isEmpty()){
           var p=matches.get(0);mode(p);validateOrder(p,providerOrder==null?provider.order(order):providerOrder);lock((UUID)p.get("owner_id"));p=purchase((UUID)p.get("id"));if(p.get("order_id")!=null&&!order.equals(p.get("order_id")))throw mismatch();if(p.get("order_id")==null){

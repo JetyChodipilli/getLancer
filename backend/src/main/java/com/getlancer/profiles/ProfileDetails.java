@@ -1,12 +1,16 @@
 package com.getlancer.profiles;
 
-import static com.getlancer.shared.Support.*;
+import static com.getlancer.shared.Support.text;
 
 import com.getlancer.shared.ApiError;
 import com.getlancer.shared.Rules;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.*;
+import java.util.Date;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 public record ProfileDetails(String websiteUrl, String country, String timeZone, String languages) {
   public static ProfileDetails read(Map<String, Object> body, Map<String, Object> previous) {

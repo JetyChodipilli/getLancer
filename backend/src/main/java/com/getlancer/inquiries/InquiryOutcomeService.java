@@ -1,11 +1,15 @@
 package com.getlancer.inquiries;
 
-import static com.getlancer.shared.Support.*;
+import static com.getlancer.shared.Support.id;
+import static com.getlancer.shared.Support.text;
 
 import com.getlancer.notifications.Mail;
 import com.getlancer.shared.ApiError;
 import com.getlancer.shared.Rules;
-import java.util.*;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
