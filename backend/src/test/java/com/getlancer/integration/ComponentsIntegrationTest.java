@@ -27,6 +27,8 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
   @Autowired JdbcTemplate db;
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper json;
+  @Autowired org.springframework.transaction.PlatformTransactionManager transactionManager;
+  @Autowired com.getlancer.publishing.PublishingCapacity capacity;
   @MockBean RazorpayClient provider;
   UUID builder,other,admin,product;
   JsonNode order;
@@ -471,6 +473,27 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     response(body(put("/api/v1/me/college-projects/"+draft),"builder",Map.of("category","FULL_STACK","language","Java","problem","A documented original student problem.","outcome","A measured and reproducible student outcome.","prerequisites","Java and local setup.","contribution","Implemented the original application modules.","rightsConsent",true)));
     assertEquals(3,publishing().path("PROJECT").path("college").path("used").asInt());
     mvc.perform(activateProject(draft)).andExpect(status().isConflict());
+  }
+  @Test void editingAnActiveProjectSerializesWithRefundTrimmingAndKeepsItsNewDraftState()throws Exception{
+    project(false,"ACTIVE");project(false,"ACTIVE");UUID editing=project(false,"ACTIVE");db.update("UPDATE products SET updated_at=now()+interval '1 second' WHERE id=?",editing);
+    var request=body(patch("/api/v1/developer/products/"+editing),"builder",Map.of("title","Edited original project","summary","A useful edited project","description","A documented original project with updated evidence.","projectType","LEARNING","category","CRM","technology","React","visibility","PUBLIC","contribution","Implemented the updated project modules.","rightsConfirmed",true));
+    var workers=Executors.newSingleThreadExecutor();var pending=new java.util.concurrent.atomic.AtomicReference<Future<Integer>>();
+    try{
+      new org.springframework.transaction.support.TransactionTemplate(transactionManager).executeWithoutResult(status->{
+        capacity.lock(builder);pending.set(workers.submit(()->mvc.perform(request).andReturn().getResponse().getStatus()));
+        boolean waiting=false;
+        for(int i=0;i<500;i++){if(db.queryForObject("SELECT count(*) FROM pg_locks WHERE locktype='advisory' AND NOT granted",Integer.class)>0){waiting=true;break;}if(pending.get().isDone())break;try{Thread.sleep(10);}catch(InterruptedException e){Thread.currentThread().interrupt();throw new RuntimeException(e);}}
+        assertTrue(waiting,"Project edits must wait for the same owner capacity transaction as refunds.");assertEquals("ACTIVE",db.queryForObject("SELECT lifecycle_status FROM products WHERE id=?",String.class,editing));
+        capacity.trim(builder,"PROJECT");assertEquals("ARCHIVED",db.queryForObject("SELECT lifecycle_status FROM products WHERE id=?",String.class,editing));
+      });
+      assertEquals(200,pending.get().get(10,TimeUnit.SECONDS));assertEquals("DRAFT",db.queryForObject("SELECT lifecycle_status FROM products WHERE id=?",String.class,editing));assertEquals(3,publishing().path("PROJECT").path("regular").path("used").asInt());
+    }finally{workers.shutdownNow();}
+  }
+  @Test void administratorMetricsUseSixFreeProjectPlacesAndOnlySharedLiveProjectExtras()throws Exception{
+    fillProjects();var slots=response(as(get("/api/v1/admin/metrics"),"admin")).path("marketplace").path("slots");assertEquals(6,slots.path("totalCapacity").asInt());assertEquals(6,slots.path("activeUsage").asInt());assertEquals(0,slots.path("overCapacityBuilders").asInt());assertEquals(100,slots.path("utilisationPercent").asInt());
+    slotPrice("PROJECT",10000);var receipt=response(poolBuy("PROJECT",UUID.randomUUID().toString(),10000));captured=true;response(body(post("/api/v1/me/publishing-slot-purchases/"+receipt.path("id").asText()+"/reconcile"),"builder",Map.of()));db.update("UPDATE showcase_entitlements SET active_slot_limit=4 WHERE user_id=?",builder);project(false,"ACTIVE");project(false,"ACTIVE");
+    slots=response(as(get("/api/v1/admin/metrics"),"admin")).path("marketplace").path("slots");assertEquals(8,slots.path("totalCapacity").asInt());assertEquals(8,slots.path("activeUsage").asInt());assertEquals(0,slots.path("overCapacityBuilders").asInt());assertEquals(0,slots.path("availableCapacity").asInt());
+    project(false,"ACTIVE");slots=response(as(get("/api/v1/admin/metrics"),"admin")).path("marketplace").path("slots");assertEquals(1,slots.path("overCapacityBuilders").asInt());
   }
   @Test void concurrentProjectActivationCannotOccupyTheLastFreePlaceTwice()throws Exception{
     project(false,"ACTIVE");UUID a=project(false,"DRAFT"),b=project(false,"DRAFT");var ready=new CountDownLatch(2);var start=new CountDownLatch(1);var workers=Executors.newFixedThreadPool(2);

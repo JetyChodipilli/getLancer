@@ -337,6 +337,7 @@ public class ProductService {
   @Transactional
   public Map<String, Object> edit(UUID id, Map<String, Object> b, HttpServletRequest r) {
     UUID u = security.developer(r, true);
+    publishing.lock(u);
     owned(id, u);
     save(id, b, u);
     return Map.of("ok", true);
