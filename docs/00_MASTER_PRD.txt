@@ -95,7 +95,7 @@ Visibility | Public / private case study / NDA-safe.
 Approval status | Draft / pending / changes requested / approved / rejected / archived.
 2.5 Active Showcase Slot System
 Current V4.5 policy: three free active slots EACH for regular projects, college projects, templates and components. Purchased project extras can serve either project category; template/component extras are separate, with administrator-set prices. See docs/V4_5_PUBLISHING_SLOTS.md. Archiving frees capacity. Existing earned and purchased allowances remain valid.
-☒ 3 active showcase slots for a newly approved builder.
+☒ Original V1 baseline: 3 active showcase slots; current V4.5 uses the separate allowances above.
 ☒ Unlimited drafts.
 ☒ Archived showcases are retained in the dashboard and can be reactivated if a slot is available.
 ☒ Archiving an active showcase immediately frees one active slot.
