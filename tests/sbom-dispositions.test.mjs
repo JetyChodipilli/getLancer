@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,mkdirSync,writeFileSync,utimesSync,rmSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,readdirSync,utimesSync,rmSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {assessBackendFindings} from '../scripts/sbom-dispositions.mjs';
@@ -18,7 +18,12 @@ function fixture(t){
  const passed='<testcase name="mvcHandlersDoNotExposeXsltViewRendering" classname="com.getlancer.integration.ComponentsIntegrationTest" time="0.1"/>';
  writeFileSync(join(root,'pom.xml'),'<project/>');
  writeFileSync(join(root,'src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java'),'class ComponentsIntegrationTest {}');
- const saveReport=evidence=>{writeFileSync(report,evidence);utimesSync(report,now,now);};
+ const saveReport=evidence=>{
+  // Keep fixture clocks independent of when CI runs; the assessment date is fixed.
+  const before=new Date(now.getTime()-1000);
+  for(const relative of ['pom.xml','src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java',...readdirSync(join(root,'src/main')).map(name=>'src/main/'+name)])utimesSync(join(root,relative),before,before);
+  writeFileSync(report,evidence);utimesSync(report,now,now);
+ };
  saveReport(passed);
  return {root,report,passed,saveReport};
 }
