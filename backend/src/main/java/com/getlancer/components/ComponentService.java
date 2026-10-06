@@ -17,17 +17,19 @@ public class ComponentService {
   final ObjectMapper json;
   final Security security;
   final ComponentSlotService slots;
+  final com.getlancer.publishing.PublishingCapacity publishing;
   final ProductService products;
   final List<Map<String,Object>> recipes;
   static final Set<String> CATEGORIES=Set.of("NAVBAR","SIDEBAR","FORM","CARD","AUTH","DASHBOARD");
   static final Set<String> COLLEGE=Set.of("FULL_STACK","DATA_ANALYTICS","AI_ML","IOT");
   static final String JOIN=" FROM component_entries c JOIN users u ON u.id=c.owner_id JOIN developer_profiles d ON d.user_id=u.id";
   static final String ELIGIBLE="u.account_status='ACTIVE' AND u.email_verified_at IS NOT NULL AND d.approval_status='APPROVED'";
-  public ComponentService(JdbcTemplate db,Security security,ComponentSlotService slots,ProductService products,ObjectMapper json) throws java.io.IOException {
+  public ComponentService(JdbcTemplate db,Security security,ComponentSlotService slots,ProductService products,ObjectMapper json,com.getlancer.publishing.PublishingCapacity publishing) throws java.io.IOException {
     this.db=db;
     this.json=json;
     this.security=security;
     this.slots=slots;
+    this.publishing=publishing;
     this.products=products;
     try(var input=Objects.requireNonNull(getClass().getResourceAsStream("/catalog/components.json"))) {
       recipes=json.readValue(input,new TypeReference<List<Map<String,Object>>>() {
@@ -286,6 +288,7 @@ public class ComponentService {
     if(!Boolean.TRUE.equals(b.get("rightsConsent")))throw new ApiError(400,"RIGHTS_CONSENT_REQUIRED","Confirm your contribution and permission to showcase this work.");
     String category=text(b,"category",3,20);
     if(!COLLEGE.contains(category))throw new ApiError(400,"VALIDATION_ERROR","Choose a college category.");
+    publishing.requireCollegeMove(owner,product);
     db.update("INSERT INTO college_project_metadata(product_id,category,language,problem,outcome,prerequisites,contribution,institution,academic_year,branch,share_academic_details) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(product_id) DO UPDATE SET category=excluded.category,language=excluded.language,problem=excluded.problem,outcome=excluded.outcome,prerequisites=excluded.prerequisites,contribution=excluded.contribution,institution=excluded.institution,academic_year=excluded.academic_year,branch=excluded.branch,share_academic_details=excluded.share_academic_details,status='PENDING',revision=college_project_metadata.revision+1,review_reason=NULL,updated_at=now()",product,category,text(b,"language",1,100),text(b,"problem",20,2000),text(b,"outcome",20,2000),text(b,"prerequisites",10,2000),text(b,"contribution",20,2000),text(b,"institution",0,160),text(b,"academicYear",0,40),text(b,"branch",0,100),Boolean.TRUE.equals(b.get("shareAcademicDetails")));
     slots.audit(owner,product,"COLLEGE_SUBMITTED","Educational metadata queued for independent review; academic visibility consent recorded.");
     return Map.of("status","PENDING");

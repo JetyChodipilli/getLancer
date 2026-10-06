@@ -4,7 +4,7 @@ import { ArrowUpRight, BriefcaseBusiness, ChevronDown, Code2, Compass, FlaskConi
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
-type Section = 'personal' | 'trust' | 'teams' | 'business' | 'delivery' | 'templates' | 'maintenance' | 'hosting' | 'components' | 'college';
+type Section = 'personal' | 'trust' | 'teams' | 'business' | 'delivery' | 'templates' | 'maintenance' | 'hosting' | 'components' | 'college' | 'slots';
 
 export function WorkspaceFrame({ children, title, description, section, preview = false, actions, className }: {
   children: ReactNode; title: string; description: string; section: Section;
@@ -14,6 +14,7 @@ export function WorkspaceFrame({ children, title, description, section, preview 
   const links = [
     { section: 'personal', title: 'Personal workspace', href: preview ? root + '/workspace' : root, Icon: BriefcaseBusiness },
     { section: 'components', title: 'Components & slots', href: root + '/components', Icon: Code2 },
+    { section: 'slots', title: 'Publishing slots', href: root + '/slots', Icon: Layers },
     { section: 'college', title: 'College projects', href: root + '/college-projects', Icon: Layers },
     { section: 'trust', title: 'Trust & reliability', href: root + '/trust', Icon: ShieldCheck },
     { section: 'teams', title: 'Teams & studios', href: root + '/teams', Icon: Users },

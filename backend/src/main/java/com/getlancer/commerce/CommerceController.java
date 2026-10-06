@@ -18,6 +18,7 @@ public class CommerceController {
   @PostMapping("/me/templates") @ResponseStatus(HttpStatus.CREATED) public Map<String,Object> create(@RequestBody Map<String,Object> b,HttpServletRequest r) {return sources.create(b,r);}
   @PostMapping(value="/me/templates/{id}/versions",consumes=MediaType.MULTIPART_FORM_DATA_VALUE) @ResponseStatus(HttpStatus.CREATED) public Map<String,Object> upload(@PathVariable UUID id,@RequestParam MultipartFile file,@RequestParam String version,@RequestParam String releaseNotes,@RequestParam boolean rightsConsent,HttpServletRequest r) throws IOException {return sources.upload(id,file,version,releaseNotes,rightsConsent,r);}
   @PostMapping("/me/templates/{id}/versions/{version}/submit") public Map<String,Object> submit(@PathVariable UUID id,@PathVariable UUID version,@RequestBody Map<String,Object> b,HttpServletRequest r) {return sources.submit(id,version,b,r);}
+  @PostMapping("/me/templates/{id}/activate") public Map<String,Object> activate(@PathVariable UUID id,HttpServletRequest r) {return sources.activate(id,r);}
   @PostMapping("/me/templates/{id}/archive") public Map<String,Object> archive(@PathVariable UUID id,HttpServletRequest r) {return sources.archive(id,r);}
   @GetMapping("/me/templates/{id}/versions/{version}/package") public ResponseEntity<byte[]> ownerPackage(@PathVariable UUID id,@PathVariable UUID version,HttpServletRequest r) {return sources.packageDownload(id,version,r,false);}
   @GetMapping("/admin/templates") public Map<String,Object> admin(HttpServletRequest r) {return sources.admin(r);}

@@ -156,7 +156,7 @@ public class AccountService {
     result.put("maintenanceActions",db.queryForList("SELECT id,offer_id,kind,detail,created_at FROM maintenance_audit WHERE actor_id=?",id));
     result.put("components",db.queryForList("SELECT * FROM component_entries WHERE owner_id=?",id));
     result.put("collegeContext",db.queryForList("SELECT e.* FROM college_project_metadata e JOIN products p ON p.id=e.product_id WHERE p.owner_user_id=?",id));
-    result.put("componentSlotPurchases",db.queryForList("SELECT id,amount_minor,currency,mode,status,order_id,payment_id,refunded_minor,dispute_status,created_at FROM component_slot_purchases WHERE owner_id=?",id));
+    result.put("componentSlotPurchases",db.queryForList("SELECT id,pool,amount_minor,currency,mode,status,order_id,payment_id,refunded_minor,dispute_status,created_at FROM component_slot_purchases WHERE owner_id=?",id));
     result.put("componentSlotLedger",db.queryForList("SELECT l.* FROM component_slot_ledger l JOIN component_slot_purchases p ON p.id=l.purchase_id WHERE p.owner_id=?",id));
     if (hosting != null) result.put("hostedDemos", hosting.export(id));
     return result;

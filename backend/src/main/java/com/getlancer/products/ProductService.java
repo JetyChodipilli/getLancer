@@ -24,14 +24,16 @@ public class ProductService {
   final Security security;
   final Mail mail;
   private final ShowcaseMeasurements measurements;
+  private final com.getlancer.publishing.PublishingCapacity publishing;
 
   public ProductService(
-      JdbcTemplate db, Security security, Mail mail, ProductRepository repository, ShowcaseMeasurements measurements) {
+      JdbcTemplate db, Security security, Mail mail, ProductRepository repository, ShowcaseMeasurements measurements, com.getlancer.publishing.PublishingCapacity publishing) {
     this.db = db;
     this.security = security;
     this.mail = mail;
     this.repository = repository;
     this.measurements = measurements;
+    this.publishing = publishing;
   }
 
   public Map<String, Object> dto(Map<String, Object> p) {
@@ -300,6 +302,7 @@ public class ProductService {
         "totalOwned",
         db.queryForObject("SELECT count(*) FROM products WHERE owner_user_id=?", Integer.class, u));
     result.put("items", managementDtos(Pages.items(result)));
+    result.put("capacity", publishing.capacity(u,"PROJECT"));
     result.put(
         "activeCount",
         db.queryForObject(
@@ -334,6 +337,7 @@ public class ProductService {
   @Transactional
   public Map<String, Object> edit(UUID id, Map<String, Object> b, HttpServletRequest r) {
     UUID u = security.developer(r, true);
+    publishing.lock(u);
     owned(id, u);
     save(id, b, u);
     return Map.of("ok", true);
@@ -429,6 +433,7 @@ public class ProductService {
   @Transactional
   public Map<String, Object> action(UUID id, String action, HttpServletRequest r) {
     UUID u = security.developer(r, true);
+    publishing.lock(u);
     db.queryForMap("SELECT * FROM showcase_entitlements WHERE user_id=? FOR UPDATE", u);
     var p = owned(id, u);
     switch (action) {
@@ -471,8 +476,11 @@ public class ProductService {
     return Map.of("ok", true);
   }
 
+  public void lockOwner(UUID owner) { publishing.lock(owner); }
+
   public void activate(UUID p, UUID u, boolean fail) {
-    var ent = db.queryForMap("SELECT * FROM showcase_entitlements WHERE user_id=? FOR UPDATE", u);
+    publishing.lock(u);
+    db.queryForMap("SELECT * FROM showcase_entitlements WHERE user_id=? FOR UPDATE", u);
     var product = db.queryForMap("SELECT * FROM products WHERE id=? FOR UPDATE", p);
     if (!product.get("approval_status").equals("APPROVED"))
       throw new ApiError(409, "INVALID_STATE_TRANSITION", "Product approval is required.");
@@ -490,10 +498,10 @@ public class ProductService {
             "SELECT count(*) FROM products WHERE owner_user_id=? AND lifecycle_status='ACTIVE'",
             Integer.class,
             u);
-    if (!Rules.canActivate(true, approved, count, (Integer) ent.get("active_slot_limit"))) {
-      if (approved && count >= (Integer) ent.get("active_slot_limit")) measurements.blocked(u, p, count);
+    if (!approved || !publishing.projectFits(u,p,false)) {
+      if (approved) measurements.blocked(u, p, count);
       if (fail)
-        throw new ApiError(409, "SLOT_LIMIT_REACHED", "Archive an active showcase to make room.");
+        throw new ApiError(409, "SLOT_LIMIT_REACHED", "All slots for this project category are in use. Archive a project in this category or buy another project slot.");
       return;
     }
     db.update("UPDATE products SET lifecycle_status='ACTIVE',updated_at=now() WHERE id=?", p);

@@ -12,6 +12,7 @@ GET /api/v1/admin/appeals
 GET /api/v1/admin/audit
 GET /api/v1/admin/component-slot-purchases
 GET /api/v1/admin/components/review
+GET /api/v1/admin/components/{id}
 GET /api/v1/admin/concierge
 GET /api/v1/admin/concierge/{id}/matches
 GET /api/v1/admin/deletion-requests
@@ -25,6 +26,7 @@ GET /api/v1/admin/payments/accounts
 GET /api/v1/admin/payments/attention
 GET /api/v1/admin/products/pending
 GET /api/v1/admin/profiles/pending
+GET /api/v1/admin/publishing-slot-purchases
 GET /api/v1/admin/reports
 GET /api/v1/admin/reports/{id}
 GET /api/v1/admin/reviews
@@ -81,6 +83,8 @@ GET /api/v1/me/hosting/{id}
 GET /api/v1/me/hosting/{id}/package
 GET /api/v1/me/inquiries/{id}
 GET /api/v1/me/moderation-decisions
+GET /api/v1/me/publishing-slot-purchases
+GET /api/v1/me/publishing-slots
 GET /api/v1/me/saved-products
 GET /api/v1/me/teams
 GET /api/v1/me/template-purchases
@@ -94,6 +98,7 @@ GET /api/v1/private/products/{id}
 GET /api/v1/products
 GET /api/v1/products/{slug}
 GET /api/v1/products/{slug}/similar-builders
+GET /api/v1/publishing-slots/pricing
 GET /api/v1/teams
 GET /api/v1/teams/{id}
 GET /api/v1/teams/{id}/candidates
@@ -105,6 +110,7 @@ GET /api/v1/templates/{slug}
 PATCH /api/v1/admin/concierge/{id}
 PATCH /api/v1/developer/products/{id}
 PATCH /api/v1/developer/products/{product}/media
+PATCH /api/v1/me/components/{id}
 PATCH /api/v1/notifications/{id}/read
 PATCH /api/v1/teams/{id}/leads/{leadId}
 PATCH /api/v1/teams/{id}/members/{userId}
@@ -131,6 +137,8 @@ POST /api/v1/admin/payments/{id}/bind-order
 POST /api/v1/admin/payments/{id}/reconcile
 POST /api/v1/admin/products/{id}/{action}
 POST /api/v1/admin/profiles/{id}/{action}
+POST /api/v1/admin/publishing-slot-purchases/{id}/bind-order
+POST /api/v1/admin/publishing-slot-purchases/{id}/reconcile
 POST /api/v1/admin/reports/{id}/resolve
 POST /api/v1/admin/reports/{id}/triage
 POST /api/v1/admin/reviews/{id}/{action}
@@ -209,7 +217,11 @@ POST /api/v1/me/inquiries/{id}/confirmation-link
 POST /api/v1/me/inquiries/{id}/decision
 POST /api/v1/me/inquiries/{id}/not-hired
 POST /api/v1/me/inquiries/{id}/review
+POST /api/v1/me/publishing-slot-purchases
+POST /api/v1/me/publishing-slot-purchases/{id}/reconcile
+POST /api/v1/me/publishing-slot-purchases/{id}/verify
 POST /api/v1/me/templates
+POST /api/v1/me/templates/{id}/activate
 POST /api/v1/me/templates/{id}/archive
 POST /api/v1/me/templates/{id}/versions
 POST /api/v1/me/templates/{id}/versions/{version}/submit
@@ -234,11 +246,10 @@ POST /api/v1/template-purchases/{id}/reconcile
 POST /api/v1/template-purchases/{id}/verify
 POST /api/v1/templates/{id}/orders
 PUT /api/v1/admin/component-slot-pricing
+PUT /api/v1/admin/publishing-slots/{pool}/pricing
 PUT /api/v1/businesses/{id}
 PUT /api/v1/businesses/{id}/requests/{requestId}
 PUT /api/v1/developer/availability
 PUT /api/v1/developer/profile
 PUT /api/v1/me/college-projects/{id}
 PUT /api/v1/teams/{id}
-PATCH /api/v1/me/components/{id}
-GET /api/v1/admin/components/{id}

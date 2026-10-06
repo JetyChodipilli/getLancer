@@ -1,3 +1,5 @@
+Current slot policy: see [V4_5_PUBLISHING_SLOTS.md](V4_5_PUBLISHING_SLOTS.md). This supersedes the original shared three-showcase allowance: regular and college projects now each receive three free active places.
+
 # V4.5: components, college discovery and publishing capacity
 
 The 4 October amendment supersedes the planning pack's proposed component capacity: each approved builder receives **three free active component slots**. Buying one additional slot increases reusable publishing capacity by one. Component previews and licensed source remain free to visitors without login. Full-project showcase capacity remains independent.
@@ -23,7 +25,7 @@ College metadata belongs to existing product IDs and retains existing showcase s
 
 ## Operations and rollback
 
-Apply Flyway V24 with the normal backend migration process. Configure the slot price through the admin workspace and the existing payment settings separately. Disable pricing to stop new orders without preventing reconciliation. Suspend a recipe remix or educational record through MFA review. Frontend preview mode offers clearly labelled sample records and never opens a payment gateway or returns a successful purchase. Connected backend errors never fall back to sample success.
+Apply Flyway V24 and V25 with the normal backend migration process. Configure the slot price through the admin workspace and the existing payment settings separately. Disable pricing to stop new orders without preventing reconciliation. Suspend a recipe remix or educational record through MFA review. Frontend preview mode offers clearly labelled sample records and never opens a payment gateway or returns a successful purchase. Connected backend errors never fall back to sample success.
 
 Rollback the frontend/backend release together; retain V24 and payment/audit records. Do not erase reservations or downgrade the database after orders exist. The source-only language and future-runtime boundaries remain visible.
 

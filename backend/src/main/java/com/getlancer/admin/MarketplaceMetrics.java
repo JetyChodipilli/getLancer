@@ -91,18 +91,24 @@ public class MarketplaceMetrics {
         FROM qualified
         """, to, from, to, to, to, to, to, to, from, to));
     Map<String, Object> slots = db.queryForMap("""
-        WITH usage AS (
-          SELECT d.user_id,s.active_slot_limit,count(p.id) AS used
+        WITH eligible AS (
+          SELECT d.user_id,greatest(s.active_slot_limit-3,0)+(SELECT count(*) FROM component_slot_purchases c
+            WHERE c.owner_id=d.user_id AND c.pool='PROJECT' AND c.mode='live' AND c.status='CAPTURED'
+              AND c.refunded_minor=0 AND (c.dispute_status IS NULL OR c.dispute_status='won')) AS extras
           FROM developer_profiles d JOIN users u ON u.id=d.user_id
           JOIN showcase_entitlements s ON s.user_id=d.user_id
-          LEFT JOIN products p ON p.owner_user_id=d.user_id AND p.lifecycle_status='ACTIVE'
           WHERE d.approval_status='APPROVED' AND u.account_status='ACTIVE' AND u.email_verified_at IS NOT NULL
-          GROUP BY d.user_id,s.active_slot_limit
+        ), usage AS (
+          SELECT d.user_id,d.extras,count(p.id) FILTER(WHERE e.product_id IS NULL) AS regular,
+            count(p.id) FILTER(WHERE e.product_id IS NOT NULL) AS college
+          FROM eligible d LEFT JOIN products p ON p.owner_user_id=d.user_id AND p.lifecycle_status='ACTIVE'
+          LEFT JOIN college_project_metadata e ON e.product_id=p.id GROUP BY d.user_id,d.extras
         )
-        SELECT count(*) AS "eligibleBuilders",coalesce(sum(active_slot_limit),0) AS "totalCapacity",
-          coalesce(sum(used),0) AS "activeUsage",coalesce(sum(greatest(active_slot_limit-used,0)),0) AS "availableCapacity",
-          count(*) FILTER(WHERE used>active_slot_limit) AS "overCapacityBuilders",
-          round(100.0 * sum(used) / nullif(sum(active_slot_limit),0),2) AS "utilisationPercent"
+        SELECT count(*) AS "eligibleBuilders",coalesce(sum(6+extras),0) AS "totalCapacity",
+          coalesce(sum(regular+college),0) AS "activeUsage",
+          coalesce(sum(greatest(3-regular,0)+greatest(3-college,0)+greatest(extras-greatest(regular-3,0)-greatest(college-3,0),0)),0) AS "availableCapacity",
+          count(*) FILTER(WHERE greatest(regular-3,0)+greatest(college-3,0)>extras) AS "overCapacityBuilders",
+          round(100.0 * sum(regular+college) / nullif(sum(6+extras),0),2) AS "utilisationPercent"
         FROM usage
         """);
     slots.putAll(db.queryForMap("""

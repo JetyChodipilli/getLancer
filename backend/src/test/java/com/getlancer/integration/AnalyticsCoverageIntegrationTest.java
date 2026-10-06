@@ -141,7 +141,7 @@ class AnalyticsCoverageIntegrationTest {
     assertEquals(2,m.at("/outcomes/confirmedHires").asInt());assertEquals(1,m.at("/outcomes/confirmedCompletions").asInt());assertEquals(50,m.at("/outcomes/inquiryToHirePercent").asDouble());assertEquals(50,m.at("/outcomes/hireToCompletionPercent").asDouble());
     assertEquals(3,m.at("/outcomes/uniqueClients").asInt());assertEquals(1,m.at("/outcomes/repeatClients").asInt());assertEquals(1,m.at("/outcomes/repeatHiredClients").asInt());assertEquals(1,m.at("/outcomes/verifiedReviews").asInt());
     assertEquals(2,m.at("/outcomes/leadRecipients").asInt());assertEquals(1,m.at("/outcomes/topBuilderCount").asInt());assertEquals(3,m.at("/outcomes/topBuilderLeadCount").asInt());assertEquals(75,m.at("/outcomes/top10LeadSharePercent").asDouble());
-    assertEquals(6,m.at("/slots/totalCapacity").asInt());assertEquals(4,m.at("/slots/activeUsage").asInt());assertEquals(2,m.at("/slots/availableCapacity").asInt());assertEquals(66.67,m.at("/slots/utilisationPercent").asDouble(),0.01);
+    assertEquals(12,m.at("/slots/totalCapacity").asInt());assertEquals(4,m.at("/slots/activeUsage").asInt());assertEquals(8,m.at("/slots/availableCapacity").asInt());assertEquals(33.33,m.at("/slots/utilisationPercent").asDouble(),0.01);
     assertEquals(2,m.at("/slots/activationEvents").asInt());assertEquals(1,m.at("/slots/archiveEvents").asInt());assertEquals(1,m.at("/slots/repeatActivationProducts").asInt());
     assertEquals(2,m.get("portfolioCohorts").size());assertEquals(1,m.get("portfolioCohorts").get(0).get("activeShowcaseCohort").asInt());assertEquals(3,m.get("portfolioCohorts").get(1).get("activeShowcaseCohort").asInt());
   }
