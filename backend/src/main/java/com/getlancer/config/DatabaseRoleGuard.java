@@ -66,6 +66,23 @@ public class DatabaseRoleGuard implements ApplicationRunner {
           AND (has_table_privilege(current_user,c.oid,'UPDATE') OR has_any_column_privilege(current_user,c.oid,'UPDATE')
             OR has_table_privilege(current_user,c.oid,'DELETE'))
         """, Integer.class, schema);
+    Integer unsafeLocks = db.queryForObject("""
+        SELECT count(*) FROM (VALUES ('user_roles','user_id'),('sessions','token_hash'),
+          ('business_members','business_id')) AS lock_requirement(table_name,column_name)
+        LEFT JOIN pg_namespace n ON n.nspname=?
+        LEFT JOIN pg_class c ON c.relnamespace=n.oid AND c.relname=lock_requirement.table_name AND c.relkind='r'
+        WHERE c.oid IS NULL OR has_table_privilege(current_user,c.oid,'UPDATE')
+          OR NOT has_column_privilege(current_user,c.oid,lock_requirement.column_name,'UPDATE')
+          OR EXISTS(SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+            AND a.attname<>lock_requirement.column_name AND has_column_privilege(current_user,c.oid,a.attnum,'UPDATE'))
+          OR NOT EXISTS(SELECT 1 FROM pg_policy p WHERE p.polrelid=c.oid
+            AND p.polname='getlancer_service_update' AND p.polcmd='w' AND p.polpermissive
+            AND p.polroles=ARRAY[(SELECT oid FROM pg_roles WHERE rolname=current_user)]
+            AND pg_get_expr(p.polqual,p.polrelid)='true' AND pg_get_expr(p.polwithcheck,p.polrelid)='false')
+          OR EXISTS(SELECT 1 FROM pg_policy p WHERE p.polrelid=c.oid AND p.polpermissive
+            AND p.polcmd IN ('*','w') AND p.polname<>'getlancer_service_update'
+            AND (0::oid=ANY(p.polroles) OR (SELECT oid FROM pg_roles WHERE rolname=current_user)=ANY(p.polroles)))
+        """, Integer.class, schema);
     Boolean exists = db.queryForObject("SELECT to_regclass(?) IS NOT NULL", Boolean.class, schema+".users");
     Integer dangerousFunctions = db.queryForObject("""
         SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
@@ -73,7 +90,7 @@ public class DatabaseRoleGuard implements ApplicationRunner {
           AND p.prosecdef AND has_function_privilege(current_user,p.oid,'EXECUTE')
         """, Integer.class);
     if (mutation == null || mutation != 0 || !Boolean.TRUE.equals(exists)
-        || dangerousFunctions == null || dangerousFunctions != 0) reject();
+        || dangerousFunctions == null || dangerousFunctions != 0 || unsafeLocks == null || unsafeLocks != 0) reject();
   }
 
   private static void reject() {

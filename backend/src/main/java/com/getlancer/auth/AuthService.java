@@ -33,6 +33,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.http.ResponseCookie;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -48,8 +49,8 @@ public class AuthService {
   private final HostingRepository hosting;
   private final SecurityAudit audit;
 
-  private void audit(UUID actor, String event, String target, String result) {
-    if (audit != null) audit.record(actor, event, target, result);
+  private void audit(HttpServletRequest request, UUID actor, String event, String target, String result) {
+    if (audit != null && request != null) audit.defer(request, event, actor, target, result);
   }
 
   final boolean secure;
@@ -93,6 +94,39 @@ public class AuthService {
     this.legalVersion = legalVersion;
   }
 
+  /** Apply persistent abuse counters before any domain transaction borrows a connection. */
+  @Transactional(propagation = Propagation.NEVER)
+  public void preflightLogin(Map<String, Object> body) {
+    security.limitIdentity(email(body, "email"), "login");
+  }
+
+  @Transactional(propagation = Propagation.NEVER)
+  public void preflightMfa(HttpServletRequest request) {
+    String challenge = SessionCookies.read(request, "gl_mfa");
+    if (challenge.isEmpty()) return;
+    var users = db.queryForList(
+        "SELECT c.user_id FROM login_challenges c JOIN users u ON u.id=c.user_id"
+            + " WHERE c.token_hash=? AND c.expires_at>now() AND c.attempts<5"
+            + " AND u.account_status='ACTIVE'", UUID.class, hash(challenge));
+    if (!users.isEmpty() && security.role(users.get(0), "ADMIN"))
+      security.limitIdentity(users.get(0).toString(), "mfa");
+  }
+
+  @Transactional(propagation = Propagation.NEVER)
+  public void preflightReset(Map<String, Object> body) {
+    security.limitIdentity(email(body, "email"), "reset");
+  }
+
+  @Transactional(propagation = Propagation.NEVER)
+  public void preflightResend(HttpServletRequest request) {
+    security.limitIdentity((String) security.principal(request).get("email"), "verification");
+  }
+
+  @Transactional(propagation = Propagation.NEVER)
+  public void preflightDeletion(HttpServletRequest request) {
+    security.limitIdentity((String) security.principal(request).get("email"), "deletion");
+  }
+
   @Transactional
   public Map<String, Object> signup(Map<String, Object> b) {
     String email = email(b, "email"), password = password(b);
@@ -130,7 +164,6 @@ public class AuthService {
   @Transactional
   public Map<String, Object> login(Map<String, Object> b, HttpServletRequest req, HttpServletResponse res) {
     String email = email(b, "email"), password = Objects.toString(b.get("password"), "");
-    security.limitIdentity(email, "login");
     var users =
         db.queryForList("SELECT id,password_hash FROM users WHERE email=? AND account_status='ACTIVE' FOR UPDATE", email);
     String dummy = "$2a$12$R9h/cIPz0gi.URNNX3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW";
@@ -138,12 +171,12 @@ public class AuthService {
     if (password.length() > 72
         || password.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72
         || !passwords.matches(password, stored) || users.isEmpty()) {
-      audit(null, "LOGIN_FAILURE", "AUTH", "FAILURE");
+      audit(req, null, "LOGIN_FAILURE", "AUTH", "FAILURE");
       throw new ApiError(401, "UNAUTHENTICATED", "Email or password is incorrect.");
     }
     UUID user = (UUID) users.get(0).get("id");
-    revokeBrowserSession(req);
     if (security.role(user, "ADMIN")) {
+      revokeBrowserSession(req);
       db.update("DELETE FROM login_challenges WHERE user_id=? OR expires_at<now()", user);
       String challenge = randomToken();
       db.update(
@@ -153,13 +186,10 @@ public class AuthService {
           user);
       authCookie(res, "gl_session", "", 0);
       authCookie(res, "gl_mfa", challenge, 300);
-      audit(user, "MFA_CHALLENGE", user.toString(), "SUCCESS");
+      audit(req, user, "MFA_CHALLENGE", user.toString(), "SUCCESS");
       return Map.of("mfaRequired", true);
     }
-    db.update("DELETE FROM login_challenges WHERE token_hash=?",
-        hash(req == null ? "" : SessionCookies.read(req, "gl_mfa")));
-    authCookie(res, "gl_mfa", "", 0);
-    issueSession(user, false, Boolean.TRUE.equals(b.get("rememberMe")), res);
+    issueSession(user, false, Boolean.TRUE.equals(b.get("rememberMe")), req, res, false);
     return Map.of("id", user);
   }
 
@@ -174,7 +204,7 @@ public class AuthService {
                 + " u.id=c.user_id WHERE c.token_hash=? FOR UPDATE OF u",
             hash(challenge));
     if (rows.isEmpty()) {
-      audit(null, "MFA_FAILURE", "AUTH", "FAILURE");
+      audit(req, null, "MFA_FAILURE", "AUTH", "FAILURE");
       throw new ApiError(401, "MFA_EXPIRED", "Please sign in again.");
     }
     // The first statement acquires the user lock. Re-read and lock the challenge in a
@@ -185,7 +215,7 @@ public class AuthService {
             + " u.id=c.user_id WHERE c.token_hash=? FOR UPDATE OF c",
         hash(challenge));
     if (rows.isEmpty()) {
-      audit(null, "MFA_FAILURE", "AUTH", "FAILURE");
+      audit(req, null, "MFA_FAILURE", "AUTH", "FAILURE");
       throw new ApiError(401, "MFA_EXPIRED", "Please sign in again.");
     }
     var row = rows.get(0);
@@ -197,11 +227,10 @@ public class AuthService {
         || !security.role(user, "ADMIN")) {
       db.update("DELETE FROM login_challenges WHERE token_hash=?", hash(challenge));
       authCookie(res, "gl_mfa", "", 0);
-      audit(user, attemptsLocked ? "MFA_LOCKED" : "MFA_FAILURE", user.toString(),
+      audit(req, user, attemptsLocked ? "MFA_LOCKED" : "MFA_FAILURE", user.toString(),
           attemptsLocked ? "LOCKED" : "FAILURE");
       throw new ApiError(401, "MFA_EXPIRED", "Please sign in again.");
     }
-    security.limitIdentity(user.toString(), "mfa");
     String secret;
     try {
       secret = mfaSecrets.decrypt(user, (String) row.get("admin_totp_key_version"),
@@ -209,7 +238,7 @@ public class AuthService {
     } catch (MfaSecrets.SecretUnavailable unavailable) {
       db.update("DELETE FROM login_challenges WHERE token_hash=?", hash(challenge));
       authCookie(res, "gl_mfa", "", 0);
-      audit(user, "MFA_LOCKED", user.toString(), "LOCKED");
+      audit(req, user, "MFA_LOCKED", user.toString(), "LOCKED");
       throw new ApiError(401, "MFA_EXPIRED", "Please sign in again or contact the operator.");
     }
     if (!totp(secret, Objects.toString(body.get("totp"), ""))) {
@@ -220,7 +249,7 @@ public class AuthService {
         db.update("DELETE FROM login_challenges WHERE token_hash=?", hash(challenge));
         authCookie(res, "gl_mfa", "", 0);
       }
-      audit(user, locked ? "MFA_LOCKED" : "MFA_FAILURE", user.toString(),
+      audit(req, user, locked ? "MFA_LOCKED" : "MFA_FAILURE", user.toString(),
           locked ? "LOCKED" : "FAILURE");
       throw new ApiError(
           401,
@@ -229,13 +258,11 @@ public class AuthService {
     }
     if (db.update("DELETE FROM login_challenges WHERE token_hash=?", hash(challenge)) != 1) {
       authCookie(res, "gl_mfa", "", 0);
-      audit(user, "MFA_FAILURE", user.toString(), "FAILURE");
+      audit(req, user, "MFA_FAILURE", user.toString(), "FAILURE");
       throw new ApiError(401, "MFA_EXPIRED", "Please sign in again.");
     }
-    authCookie(res, "gl_mfa", "", 0);
-    revokeBrowserSession(req);
-    issueSession(user, true, res);
-    audit(user, "MFA_SUCCESS", user.toString(), "SUCCESS");
+    issueSession(user, true, false, req, res, true);
+    audit(req, user, "MFA_SUCCESS", user.toString(), "SUCCESS");
     return Map.of("id", user);
   }
 
@@ -244,18 +271,28 @@ public class AuthService {
   }
 
   public void issueSession(UUID user, boolean admin, boolean remember, HttpServletResponse res) {
+    HttpServletRequest request = null;
     if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes)
-      revokeBrowserSession(attributes.getRequest());
+      request = attributes.getRequest();
+    issueSession(user, admin, remember, request, res, false);
+  }
+
+  private void issueSession(UUID user, boolean admin, boolean remember, HttpServletRequest request,
+      HttpServletResponse res, boolean challengeConsumed) {
+    revokeBrowserSession(request);
+    if (!challengeConsumed && request != null) {
+      String challenge = SessionCookies.read(request, "gl_mfa");
+      if (!challenge.isEmpty())
+        db.update("DELETE FROM login_challenges WHERE token_hash=?", hash(challenge));
+    }
     String token = randomToken();
     long ttl = admin ? 3600 : 86400;
     db.update(
         "INSERT INTO sessions(token_hash,user_id,expires_at,mfa_verified) VALUES(?,?,?,?)",
-        hash(token),
-        user,
-        Timestamp.from(Instant.now().plusSeconds(ttl)),
-        admin);
+        hash(token), user, Timestamp.from(Instant.now().plusSeconds(ttl)), admin);
     writeCookie(res, "gl_session", token, admin || remember ? ttl : null);
-    audit(user, "LOGIN_SUCCESS", user.toString(), "SUCCESS");
+    authCookie(res, "gl_mfa", "", 0);
+    audit(request, user, "LOGIN_SUCCESS", user.toString(), "SUCCESS");
   }
 
   public void authCookie(HttpServletResponse res, String name, String value, long seconds) {
@@ -296,7 +333,7 @@ public class AuthService {
     authCookie(res, "gl_mfa", "", 0);
     authCookie(res, "gl_session", "", 0);
     if (revoked > 0)
-      audit(actor, "SESSION_REVOKED", actor == null ? "AUTH" : actor.toString(), "SUCCESS");
+      audit(req, actor, "SESSION_REVOKED", actor == null ? "AUTH" : actor.toString(), "SUCCESS");
     return Map.of("ok", true);
   }
 
@@ -325,7 +362,6 @@ public class AuthService {
   @Transactional
   public Map<String, Object> reset(Map<String, Object> b) {
     String e = email(b, "email");
-    security.limitIdentity(e, "reset");
     var rows = db.queryForList("SELECT id FROM users WHERE email=? AND account_status='ACTIVE'", e);
     if (!rows.isEmpty()) mail.token("PASSWORD_RESET", (UUID) rows.get(0).get("id"), null, e);
     return Map.of("message", "If an account exists, a reset email will be sent.");
@@ -411,7 +447,7 @@ public class AuthService {
             != 1) throw new ApiError(409, "ACCOUNT_UNAVAILABLE", "This account is unavailable.");
         db.update("DELETE FROM sessions WHERE user_id=?", user);
         db.update("DELETE FROM login_challenges WHERE user_id=?", user);
-        audit(user, "PASSWORD_RESET", user.toString(), "SUCCESS");
+        audit(request, user, "PASSWORD_RESET", user.toString(), "SUCCESS");
         db.update(
             "UPDATE account_tokens SET used_at=now() WHERE user_id=? AND kind='PASSWORD_RESET'",
             user);
@@ -435,7 +471,7 @@ public class AuthService {
         db.update("DELETE FROM login_challenges WHERE user_id=?", user);
         db.update("UPDATE account_tokens SET used_at=now() WHERE user_id=?", user);
         event("account_deletion_requested", user);
-        audit(user, "ACCOUNT_DELETED", user.toString(), "SUCCESS");
+        audit(request, user, "ACCOUNT_DELETED", user.toString(), "SUCCESS");
       }
       case "CLIENT_INQUIRY_CONFIRMATION" -> {
         var inquiry = db.queryForMap("SELECT id,developer_user_id,reference_product_id,client_email,current_status,moderation_status FROM inquiries WHERE id=? FOR UPDATE", inquiryId);
@@ -487,7 +523,6 @@ public class AuthService {
   @Transactional
   public Map<String, Object> resend(HttpServletRequest request) {
     var user = security.principal(request);
-    security.limitIdentity((String) user.get("email"), "verification");
     if (user.get("email_verified_at") == null)
       mail.token("EMAIL_VERIFICATION", (UUID) user.get("id"), null, (String) user.get("email"));
     return Map.of("ok", true);
@@ -512,7 +547,6 @@ public class AuthService {
           409,
           "ADMIN_ACCOUNT_PROTECTED",
           "The sole administrator cannot close their account through self-service.");
-    security.limitIdentity((String) principal.get("email"), "deletion");
     db.queryForMap("SELECT id FROM users WHERE id=? FOR UPDATE", user);
     db.update(
         "UPDATE account_tokens SET used_at=now() WHERE user_id=? AND kind='ACCOUNT_DELETION' AND"

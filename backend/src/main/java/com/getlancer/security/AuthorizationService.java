@@ -62,7 +62,8 @@ public class AuthorizationService {
       case PUBLIC, CAPABILITY, SIGNED_WEBHOOK -> true; // Domain handlers validate capabilities/signatures.
       case SESSION -> user != null;
       case DEVELOPER -> user != null && user.roles().contains("DEVELOPER");
-      case ADMIN_MFA -> user != null && user.roles().contains("ADMIN") && user.mfaVerified();
+      case ADMIN_MFA -> user != null && user.roles().contains("ADMIN") && user.mfaVerified()
+          && (!recentMfaRequired(route) || user.recentMfa());
       case SERVICE -> hosting.gateway(request.getHeader("X-GetLancer-Demo-Gateway"));
       case HEALTH -> List.of("127.0.0.1", "::1", "0:0:0:0:0:0:0:1").contains(request.getRemoteAddr());
     };
@@ -71,5 +72,11 @@ public class AuthorizationService {
   public boolean signedWebhook(HttpServletRequest request) {
     var route = route(request.getMethod(), request.getRequestURI());
     return route != null && route.policy() == Policy.SIGNED_WEBHOOK;
+  }
+
+  /** Privileged writes and private package exports require MFA within the past fifteen minutes. */
+  public static boolean recentMfaRequired(Route route) {
+    return route.policy() == Policy.ADMIN_MFA
+        && (!List.of("GET", "HEAD", "OPTIONS").contains(route.method()) || route.path().endsWith("/package"));
   }
 }

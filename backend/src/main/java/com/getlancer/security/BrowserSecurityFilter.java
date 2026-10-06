@@ -57,7 +57,11 @@ public final class BrowserSecurityFilter extends OncePerRequestFilter {
           && authorization.route(requested, request.getRequestURI()) != null
           && (headers == null || java.util.Arrays.stream(headers.split(","))
               .allMatch(header -> CORS_HEADERS.contains(header.trim().toLowerCase(java.util.Locale.ROOT))));
-      if (!valid) { writeError(request, response, 403, "FORBIDDEN", "Invalid request origin."); return; }
+      if (!valid) {
+        writeError(request, response, 403, "FORBIDDEN", "Invalid request origin.");
+        audit.record(null, "AUTHORIZATION_DENIED", "PREFLIGHT", "FAILURE", RequestIds.get(request));
+        return;
+      }
       response.setHeader("Access-Control-Allow-Headers", "Content-Type,X-Requested-With,Idempotency-Key");
       response.setHeader("Access-Control-Allow-Methods", "GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS");
       response.setStatus(204); return;
@@ -85,7 +89,9 @@ public final class BrowserSecurityFilter extends OncePerRequestFilter {
       boolean webhook = authorization.signedWebhook(request);
       if (!webhook && (!security.origin.equals(request.getHeader("Origin"))
           || !"getlancer".equals(request.getHeader("X-Requested-With")))) {
-        writeError(request, response, 403, "FORBIDDEN", "Invalid request origin."); return;
+        writeError(request, response, 403, "FORBIDDEN", "Invalid request origin.");
+        audit.record(null, "AUTHORIZATION_DENIED", target, "FAILURE", RequestIds.get(request));
+        return;
       }
       long cap = webhook ? 64 * 1024 : 6 * 1024 * 1024;
       if (request.getContentLengthLong() > cap) {
@@ -106,6 +112,11 @@ public final class BrowserSecurityFilter extends OncePerRequestFilter {
     catch (BoundedRequest.TooLarge exception) {
       if (!response.isCommitted()) writeError(request, response, 413, "PAYLOAD_TOO_LARGE", "Request too large.");
       else throw exception;
+    } finally {
+      // Controller transaction interceptors have completed before control returns here.
+      // Authentication never allocates an audit connection while holding its user row lock.
+      for (var pending : audit.drain(request))
+        audit.record(pending.actor(), pending.event(), pending.target(), pending.result(), pending.requestId());
     }
     var authentication = SecurityContextHolder.getContext().getAuthentication();
     var actor = authentication != null && authentication.getPrincipal() instanceof GetLancerPrincipal principal

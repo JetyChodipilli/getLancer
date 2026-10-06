@@ -16,7 +16,7 @@ SELECT admin_totp_key_version,count(*) FROM users
  WHERE admin_totp_key_version IS NOT NULL GROUP BY admin_totp_key_version;
 ```
 
-The first result must be zero. Do not print ciphertext or keys during validation. For datasets over the startup bound, arrange an offline, reviewed migration using the same encryption implementation before startup. The runtime database role needs only the documented user/session/challenge permissions; Flyway runs with the separate migration role.
+The first result must be zero. Do not print ciphertext or keys during validation. V28 adds session issuance timestamps and revokes existing MFA-verified sessions because their historical authentication time cannot be established. Every administrator must sign in again with password and TOTP after that upgrade. For datasets over the startup bound, arrange an offline, reviewed migration using the same encryption implementation before startup. The runtime database role needs only the documented user/session/challenge permissions; Flyway runs with the separate migration role.
 
 ## Rotation
 

@@ -33,12 +33,15 @@ public class AuthController {
   @PostMapping("/auth/login")
   public Map<String, Object> login(@Valid @RequestBody AuthRequests.Login body,
       HttpServletRequest req, HttpServletResponse res) {
-    return service.login(TypedInputs.map(body), req, res);
+    var input = TypedInputs.map(body);
+    service.preflightLogin(input);
+    return service.login(input, req, res);
   }
 
   @PostMapping("/auth/login/mfa")
   public Map<String, Object> mfa(@Valid @RequestBody AuthRequests.Mfa body,
       HttpServletRequest req, HttpServletResponse res) {
+    service.preflightMfa(req);
     return service.mfa(TypedInputs.map(body), req, res);
   }
 
@@ -53,7 +56,9 @@ public class AuthController {
 
   @PostMapping("/auth/password-reset/request")
   public Map<String, Object> reset(@Valid @RequestBody AuthRequests.Reset body) {
-    return service.reset(TypedInputs.map(body));
+    var input = TypedInputs.map(body);
+    service.preflightReset(input);
+    return service.reset(input);
   }
 
   @PostMapping("/auth/confirmation")
@@ -74,9 +79,15 @@ public class AuthController {
   }
 
   @PostMapping("/auth/resend-verification")
-  public Map<String, Object> resend(HttpServletRequest request) { return service.resend(request); }
+  public Map<String, Object> resend(HttpServletRequest request) {
+    service.preflightResend(request);
+    return service.resend(request);
+  }
 
   @DeleteMapping("/me")
   @ResponseStatus(HttpStatus.ACCEPTED)
-  public Map<String, Object> deletion(HttpServletRequest request) { return service.deletion(request); }
+  public Map<String, Object> deletion(HttpServletRequest request) {
+    service.preflightDeletion(request);
+    return service.deletion(request);
+  }
 }

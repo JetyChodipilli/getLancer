@@ -32,6 +32,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 class AuthFlowTest {
   final JdbcTemplate db = mock(JdbcTemplate.class);
@@ -73,9 +75,9 @@ class AuthFlowTest {
             "SELECT id,password_hash FROM users WHERE email=? AND account_status='ACTIVE' FOR UPDATE", "absent@example.com"))
         .thenReturn(List.of());
     var res = new MockHttpServletResponse();
-    assertThrows(
-        ApiError.class,
-        () -> auth.login(Map.of("email", "absent@example.com", "password", "wrong"), res));
+    var body = Map.<String, Object>of("email", "absent@example.com", "password", "wrong");
+    auth.preflightLogin(body);
+    assertThrows(ApiError.class, () -> auth.login(body, res));
     assertNull(res.getHeader("Set-Cookie"));
     verify(security).limitIdentity(anyString(), eq("login"));
     verify(security, never()).role(any(), eq("ADMIN"));
@@ -240,6 +242,49 @@ class AuthFlowTest {
     assertNull(replay.getHeader("Set-Cookie"));
   }
 
+  @Test
+  void mfaPreflightLimitsTheLiveServerUserBeforeTheTransaction() {
+    UUID user = UUID.randomUUID();
+    var request = new MockHttpServletRequest();
+    request.setCookies(new Cookie("gl_mfa", "preflight"));
+    when(db.queryForList(
+        "SELECT c.user_id FROM login_challenges c JOIN users u ON u.id=c.user_id"
+            + " WHERE c.token_hash=? AND c.expires_at>now() AND c.attempts<5"
+            + " AND u.account_status='ACTIVE'", UUID.class, Support.hash("preflight")))
+        .thenReturn(List.of(user));
+    when(security.role(user, "ADMIN")).thenReturn(true);
+    auth.preflightMfa(request);
+    verify(security).limitIdentity(user.toString(), "mfa");
+    verify(db, never()).update(anyString(), any(Object[].class));
+  }
+
+  @Test
+  void invalidMfaPreflightDoesNotTrustACookieAsAUserIdentity() {
+    var request = new MockHttpServletRequest();
+    request.setCookies(new Cookie("gl_mfa", "unknown"));
+    auth.preflightMfa(request);
+    verify(security, never()).limitIdentity(anyString(), anyString());
+  }
+
+  @Test
+  void oauthSessionIssuanceRevokesPreviousBrowserSessionAndPendingMfa() {
+    var request = new MockHttpServletRequest();
+    request.setCookies(new Cookie("gl_session", "prior-session"), new Cookie("gl_mfa", "prior-challenge"));
+    var response = new MockHttpServletResponse();
+    RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+    try {
+      auth.issueSession(UUID.randomUUID(), false, response);
+    } finally {
+      RequestContextHolder.resetRequestAttributes();
+    }
+    verify(db).update("DELETE FROM sessions WHERE token_hash=?", Support.hash("prior-session"));
+    verify(db).update("DELETE FROM login_challenges WHERE token_hash=?", Support.hash("prior-challenge"));
+    assertTrue(response.getHeaders("Set-Cookie").stream()
+        .anyMatch(cookie -> cookie.startsWith("__Host-gl_mfa=") && cookie.contains("Max-Age=0")));
+    assertTrue(response.getHeaders("Set-Cookie").stream()
+        .anyMatch(cookie -> cookie.startsWith("__Host-gl_session=") && !cookie.contains("Max-Age=0")));
+  }
+
   AuthService withAudit(SecurityAudit audit) {
     return new AuthService(db, security, mail, true, "admin@example.com",
         new InquiryOutcomeService(db, mail), secrets, audit, null, "v1-draft");
@@ -269,7 +314,7 @@ class AuthFlowTest {
         .thenReturn(1, 0);
     audited.logout(request, new MockHttpServletResponse());
     audited.logout(request, new MockHttpServletResponse());
-    verify(audit).record(user, "SESSION_REVOKED", user.toString(), "SUCCESS");
+    verify(audit).defer(request, "SESSION_REVOKED", user, user.toString(), "SUCCESS");
     org.mockito.Mockito.verifyNoMoreInteractions(audit);
   }
 
@@ -284,7 +329,7 @@ class AuthFlowTest {
     when(db.update("DELETE FROM login_challenges WHERE token_hash=?", Support.hash("real-challenge")))
         .thenReturn(1);
     withAudit(audit).logout(request, new MockHttpServletResponse());
-    verify(audit).record(user, "SESSION_REVOKED", user.toString(), "SUCCESS");
+    verify(audit).defer(request, "SESSION_REVOKED", user, user.toString(), "SUCCESS");
   }
 
   @Test
@@ -298,7 +343,7 @@ class AuthFlowTest {
             "expires_at", Timestamp.from(Instant.now().plusSeconds(300)))));
     assertThrows(ApiError.class,
         () -> withAudit(audit).mfa(Map.of("totp", "123456"), request, new MockHttpServletResponse()));
-    verify(audit).record(user, "MFA_LOCKED", user.toString(), "LOCKED");
+    verify(audit).defer(request, "MFA_LOCKED", user, user.toString(), "LOCKED");
   }
 
   GoogleAuthService google(String id, String secret) {

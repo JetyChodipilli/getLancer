@@ -139,7 +139,7 @@ class ReleaseWorkflowTest {
     var r = new MockHttpServletRequest();
     UUID user = UUID.randomUUID(), decision = UUID.randomUUID();
     when(security.user(r)).thenReturn(user);
-    when(db.queryForList("SELECT * FROM moderation_actions WHERE id=?", decision))
+    when(db.queryForList("SELECT id,admin_id,target_type,target_id,action,reason,created_at FROM moderation_actions WHERE id=?", decision))
         .thenReturn(List.of(Map.of("target_id", UUID.randomUUID(), "target_type", "ACCOUNT")));
     var workflow = new ModerationService(db, security, mock(AdminService.class), mock(Mail.class));
     assertEquals(
@@ -151,6 +151,7 @@ class ReleaseWorkflowTest {
                         Map.of("decisionId", decision, "statement", "Please review this decision"),
                         r))
             .code);
+    verify(db).queryForList("SELECT id,admin_id,target_type,target_id,action,reason,created_at FROM moderation_actions WHERE id=?", decision);
     verify(db, never()).update(anyString(), any(Object[].class));
   }
 }

@@ -11,7 +11,10 @@ DECLARE
   read_only_tables text[] := ARRAY['analytics_instrumentation','publishing_capacity_grants'];
   update_tables text[] := ARRAY['categories','technologies','product_access_grants','request_shortlist','account_tokens','business_invitations','business_requests','businesses','college_project_metadata','commerce_disputes','commerce_provider_disputes','component_entries','component_slot_pricing','component_slot_purchases','concierge_requests','deletion_requests','delivery_disputes','delivery_engagements','delivery_milestones','delivery_proposals','developer_profiles','email_outbox','hosted_demos','inquiries','login_challenges','maintenance_offers','maintenance_periods','maintenance_provider_disputes','maintenance_refunds','maintenance_requests','maintenance_subscriptions','maintenance_webhook_events','media_uploads','moderation_appeals','notifications','oauth_pending','payment_accounts','payment_attempts','payment_provider_disputes','product_media','products','rate_buckets','reports','repository_verifications','reviews','showcase_entitlements','source_templates','source_versions','team_applications','team_invitations','team_leads','team_members','team_roles','team_staffing','teams','template_purchases','users'];
   delete_tables text[] := ARRAY['account_tokens','analytics_events','business_members','login_challenges','media_uploads','notifications','oauth_identities','oauth_pending','product_access_grants','product_categories','product_media','product_technologies','rate_buckets','repository_verifications','request_shortlist','saved_products','sessions','storage_deletions','talent_entries','team_members','team_projects'];
-  object record; table_name text; operation text; role_name text;
+  -- PostgreSQL row locking needs UPDATE on at least one column, even for SELECT FOR SHARE.
+  lock_tables text[] := ARRAY['user_roles','sessions','business_members'];
+  lock_columns text[] := ARRAY['user_id','token_hash','business_id'];
+  object record; table_name text; operation text; role_name text; lock_column text;
 BEGIN
   IF schema_name IS NULL OR schema_name !~ '^[a-z][a-z0-9_]{0,62}$' OR schema_name='public' THEN
     RAISE EXCEPTION 'Set a safe private getlancer.app_schema';
@@ -35,6 +38,7 @@ BEGIN
   FOR object IN SELECT c.relname,c.relkind FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
       WHERE n.nspname=schema_name AND c.relkind IN ('r','p','S') LOOP
     EXECUTE format('ALTER %s %I.%I OWNER TO getlancer_migration', CASE WHEN object.relkind='S' THEN 'SEQUENCE' ELSE 'TABLE' END,schema_name,object.relname);
+    -- Table REVOKE also resets corresponding column privileges before the narrow lock grants are rebuilt.
     EXECUTE format('REVOKE ALL ON %I.%I FROM PUBLIC,getlancer_runtime,getlancer_backup,getlancer_readonly',schema_name,object.relname);
     FOREACH role_name IN ARRAY ARRAY['anon','authenticated'] LOOP
       IF EXISTS(SELECT FROM pg_roles WHERE rolname=role_name) THEN
@@ -61,6 +65,11 @@ BEGIN
     IF table_name=ANY(update_tables) THEN
       EXECUTE format('GRANT UPDATE ON %I.%I TO getlancer_runtime',schema_name,table_name);
       EXECUTE format('CREATE POLICY getlancer_service_update ON %I.%I FOR UPDATE TO getlancer_runtime USING (true) WITH CHECK (true)',schema_name,table_name);
+    ELSIF table_name=ANY(lock_tables) THEN
+      lock_column := lock_columns[array_position(lock_tables,table_name)];
+      EXECUTE format('GRANT UPDATE (%I) ON %I.%I TO getlancer_runtime',lock_column,schema_name,table_name);
+      -- USING permits locking the existing row. WITH CHECK false rejects every actual UPDATE.
+      EXECUTE format('CREATE POLICY getlancer_service_update ON %I.%I FOR UPDATE TO getlancer_runtime USING (true) WITH CHECK (false)',schema_name,table_name);
     END IF;
     IF table_name=ANY(delete_tables) THEN
       EXECUTE format('GRANT DELETE ON %I.%I TO getlancer_runtime',schema_name,table_name);

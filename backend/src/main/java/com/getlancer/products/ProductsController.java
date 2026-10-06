@@ -1,6 +1,7 @@
 package com.getlancer.products;
 
 import com.getlancer.dto.ProductRequests;
+import com.getlancer.responses.ProjectResponses;
 import com.getlancer.shared.TypedInputs;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -61,7 +62,7 @@ public class ProductsController {
   }
 
   @GetMapping("/developer/products")
-  public Map<String, Object> own(HttpServletRequest r) {
+  public ProjectResponses.Owned own(HttpServletRequest r) {
     return service.own(r);
   }
 

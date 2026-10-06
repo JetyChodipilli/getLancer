@@ -15,8 +15,13 @@ import com.getlancer.config.MfaStorageUpgrade;
 import com.getlancer.shared.Support;
 import com.getlancer.testing.TestDatabaseGuard;
 import jakarta.servlet.http.Cookie;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.List;
@@ -31,6 +36,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
@@ -39,11 +45,12 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @ContextConfiguration(initializers = TestDatabaseGuard.class)
-@SpringBootTest(properties = {
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
     "app.environment=local", "app.jobs-enabled=false", "app.admin-email=operator@example.test",
     "app.admin-password=", "app.admin-totp=", "spring.config.import=",
-    "app.mfa.active-key-id=v1", "app.auth-rate-limit=100",
-    "spring.datasource.hikari.maximum-pool-size=32", "spring.datasource.hikari.minimum-idle=1",
+    "app.mfa.active-key-id=v1", "app.auth-rate-limit=10",
+    "spring.datasource.hikari.maximum-pool-size=10", "spring.datasource.hikari.minimum-idle=1",
+    "spring.datasource.hikari.connection-timeout=3000",
     "app.mfa.keyring=v1:AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=",
     "spring.datasource.url=${TEST_DB_URL:jdbc:postgresql://localhost:5432/getlancer_test}",
     "spring.datasource.username=${TEST_DB_USERNAME:postgres}",
@@ -54,6 +61,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 })
 @AutoConfigureMockMvc
 class AuthenticationHardeningIntegrationTest {
+  @LocalServerPort int port;
   @Autowired JdbcTemplate db;
   @Autowired MockMvc mvc;
   @Autowired MfaSecrets secrets;
@@ -111,6 +119,54 @@ class AuthenticationHardeningIntegrationTest {
     int offset = digest[digest.length - 1] & 15;
     int value = ByteBuffer.wrap(digest, offset, 4).getInt() & 0x7fffffff;
     return String.format("%06d", value % 1000000);
+  }
+
+  HttpRequest loginRequest(String password) {
+    return HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/v1/auth/login"))
+        .timeout(Duration.ofSeconds(25)).header("Origin", "http://localhost:3000")
+        .header("X-Requested-With", "getlancer").header("Content-Type", "application/json")
+        .POST(HttpRequest.BodyPublishers.ofString("{\"email\":\"member@example.test\",\"password\":\"" + password + "\"}"))
+        .build();
+  }
+
+  @Test
+  void tenRealHttpLoginsCompleteWithProductionPoolAndFailedAuditSurvivesRollback() throws Exception {
+    UUID id = user("member@example.test", false);
+    var client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+    var start = new CountDownLatch(1);
+    var executor = Executors.newFixedThreadPool(10);
+    try {
+      var futures = new java.util.ArrayList<java.util.concurrent.Future<HttpResponse<String>>>();
+      for (int i = 0; i < 10; i++) futures.add(executor.submit(() -> {
+        start.await(10, TimeUnit.SECONDS);
+        return client.send(loginRequest("test-password-12345"), HttpResponse.BodyHandlers.ofString());
+      }));
+      start.countDown();
+      var successfulRequestIds = new java.util.ArrayList<String>();
+      for (var future : futures) {
+        var response = future.get(30, TimeUnit.SECONDS);
+        assertEquals(200, response.statusCode(), response.body());
+        assertFalse(response.body().contains("timeout"));
+        assertFalse(response.body().contains("password_hash"));
+        successfulRequestIds.add(response.headers().firstValue("X-Request-ID").orElseThrow());
+      }
+      assertEquals(10, db.queryForObject("SELECT count(*) FROM sessions WHERE user_id=?", Integer.class, id));
+      for (String requestId : successfulRequestIds)
+        assertEquals(1, db.queryForObject("SELECT count(*) FROM security_audit_events WHERE event='LOGIN_SUCCESS' AND actor_id=? AND request_id=?",
+            Integer.class, id, requestId));
+      var limited = client.send(loginRequest("test-password-12345"), HttpResponse.BodyHandlers.ofString());
+      assertEquals(429, limited.statusCode(), limited.body());
+      assertEquals(10, db.queryForObject("SELECT count(*) FROM sessions WHERE user_id=?", Integer.class, id));
+      db.execute("TRUNCATE rate_buckets");
+      var failed = client.send(loginRequest("incorrect-password-12345"), HttpResponse.BodyHandlers.ofString());
+      assertEquals(401, failed.statusCode(), failed.body());
+      String failedRequestId = failed.headers().firstValue("X-Request-ID").orElseThrow();
+      assertEquals(1, db.queryForObject("SELECT count(*) FROM security_audit_events WHERE event='LOGIN_FAILURE' AND result='FAILURE' AND request_id=?",
+          Integer.class, failedRequestId));
+      assertEquals(10, db.queryForObject("SELECT count(*) FROM sessions WHERE user_id=?", Integer.class, id));
+    } finally {
+      executor.shutdownNow();
+    }
   }
 
   @Test

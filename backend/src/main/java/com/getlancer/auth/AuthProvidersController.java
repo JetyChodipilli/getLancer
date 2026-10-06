@@ -1,6 +1,6 @@
 package com.getlancer.auth;
 
-import java.util.Map;
+import com.getlancer.responses.AuthProvidersResponse;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -15,7 +15,7 @@ public class AuthProvidersController {
   }
 
   @GetMapping("/api/v1/auth/providers")
-  public Map<String, Object> providers() {
+  public AuthProvidersResponse providers() {
     return service.providers();
   }
 }

@@ -44,7 +44,7 @@ export function AuthForm({signup=false,preview=false}:{signup?:boolean;preview?:
   setBusy(true);
   try{
    const path=mode==='mfa'?'/auth/login/mfa':mode==='reset'?'/auth/password-reset/request':'/auth/'+mode;
-   const result=await api(path,{method:'POST',body:JSON.stringify(mode==='mfa'?{totp}:{email:email.trim(),rememberMe:remember,...(mode!=='reset'?{password}:{}),...(mode==='signup'?{displayName:name.trim(),acceptedTerms:true}:{})})});
+   const result=await api(path,{method:'POST',body:JSON.stringify(mode==='mfa'?{totp}:{email:email.trim(),...(mode==='login'?{rememberMe:remember}:{}),...(mode!=='reset'?{password}:{}),...(mode==='signup'?{displayName:name.trim(),acceptedTerms:true}:{})})});
    if(result.mfaRequired){switchMode('mfa');return}
    if(mode==='login'||mode==='mfa'){setPassword('');window.location.assign('/workspace');return}
    setPassword('');setSuccess(mode==='reset'?'If an account exists for this email, you’ll receive a link to reset your password.':'Your account is created. Open the confirmation email to verify your address and get started.');

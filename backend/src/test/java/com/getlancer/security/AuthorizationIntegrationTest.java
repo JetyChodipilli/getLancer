@@ -98,6 +98,23 @@ class AuthorizationIntegrationTest {
     assertEquals(1, db.queryForObject("SELECT count(*) FROM security_audit_events WHERE event='AUTHORIZATION_DENIED' AND target LIKE '%categories|technologies%'", Integer.class));
   }
 
+  @Test void privilegedWritesRequireRecentMfaWhileReadOnlyAdministrationRemainsAvailable() throws Exception {
+    UUID admin = user("admin", true, true);
+    db.update("UPDATE sessions SET issued_at=now()-interval '16 minutes' WHERE user_id=?", admin);
+    mvc.perform(get("/api/v1/admin/accounts").cookie(new Cookie("gl_session", "admin")))
+        .andExpect(status().isOk());
+    mvc.perform(post("/api/v1/admin/categories").cookie(new Cookie("gl_session", "admin"))
+        .header("Origin", "http://localhost:3000").header("X-Requested-With", "getlancer")
+        .contentType("application/json").content("{\"name\":\"Stale MFA category\"}"))
+        .andExpect(status().isForbidden());
+    db.execute("TRUNCATE rate_buckets");
+    db.update("UPDATE sessions SET issued_at=now() WHERE user_id=?", admin);
+    mvc.perform(post("/api/v1/admin/categories").cookie(new Cookie("gl_session", "admin"))
+        .header("Origin", "http://localhost:3000").header("X-Requested-With", "getlancer")
+        .contentType("application/json").content("{\"name\":\"Fresh MFA category\"}"))
+        .andExpect(status().isOk());
+  }
+
   @Test void browserMutationsAndPreflightRejectSiblingOriginsAndMissingNonSimpleHeader() throws Exception {
     mvc.perform(post("/api/v1/auth/logout").header("Origin", "http://localhost:3000"))
         .andExpect(status().isForbidden());

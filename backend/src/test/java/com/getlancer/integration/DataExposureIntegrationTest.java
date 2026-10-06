@@ -11,7 +11,6 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -30,6 +29,8 @@ import com.getlancer.testing.TestDatabaseGuard;
 import jakarta.servlet.http.Cookie;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -37,17 +38,21 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @ContextConfiguration(initializers = TestDatabaseGuard.class)
 @SpringBootTest(properties = {
@@ -71,16 +76,22 @@ class DataExposureIntegrationTest {
   @Autowired DeliveryRepository delivery;
   @Autowired Security security;
   @Autowired PlatformTransactionManager transactions;
+  @Autowired Environment environment;
   UUID owner, buyer, outsider, admin, product, privateProduct, engagement, milestone, payment;
+  private boolean committedFixture;
 
   @BeforeEach
   void prepare() {
+    committedFixture = !TransactionSynchronizationManager.isActualTransactionActive();
+    if (committedFixture) TestDatabaseGuard.validate(environment);
     db.execute("TRUNCATE users CASCADE");
     db.execute("TRUNCATE rate_buckets");
     // Transactional DDL rolls back after each test: simulate future migrations adding secret columns.
-    for (String table : List.of("users", "developer_profiles", "products", "reports", "inquiries",
-        "component_entries", "payment_attempts", "product_access_grants")) {
-      db.execute("ALTER TABLE " + table + " ADD COLUMN fixture_secret_canary text DEFAULT '" + CANARY + "'");
+    if (!committedFixture) {
+      for (String table : List.of("users", "developer_profiles", "products", "reports", "inquiries",
+          "component_entries", "payment_attempts", "product_access_grants")) {
+        db.execute("ALTER TABLE " + table + " ADD COLUMN fixture_secret_canary text DEFAULT '" + CANARY + "'");
+      }
     }
     owner = user("owner", true); buyer = user("buyer", false); outsider = user("outsider", true);
     admin = user("admin", false);
@@ -95,6 +106,16 @@ class DataExposureIntegrationTest {
     db.update("INSERT INTO delivery_milestones(id,engagement_id,ordinal,title,description,amount_minor,due_date,status,accepted_by,accepted_at) VALUES(?,?,1,'Milestone','Accepted deliverable',10000,current_date+1,'ACCEPTED',?,now())", milestone, engagement, buyer);
     db.update("INSERT INTO payment_attempts(id,milestone_id,payer_user_id,idempotency_key,amount_minor,account_id,mode,status,attention_reason) VALUES(?,?,?,?,10000,'acc_fixture','test','UNKNOWN','Reconciliation pending')", payment, milestone, buyer, UUID.randomUUID());
     db.update("INSERT INTO reports(id,reporter_id,target_type,target_id,reason,detail) VALUES(?,?,'PRODUCT',?,'SPAM','Review fixture evidence')", UUID.randomUUID(), buyer, product);
+  }
+
+  @AfterEach
+  void cleanCommittedFixtures() {
+    if (!committedFixture) return;
+    TestDatabaseGuard.validate(environment);
+    assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
+    // These tests commit provider effects; clear their rows only in the guarded disposable schema.
+    db.execute("TRUNCATE getlancer_test.users CASCADE");
+    db.execute("TRUNCATE getlancer_test.rate_buckets");
   }
 
   private UUID user(String name, boolean developer) {
@@ -217,12 +238,14 @@ class DataExposureIntegrationTest {
   }
 
   @Test
-  void providerOrderIsRecordedButRevokedBuyerReceivesNoCheckout() {
+  @Transactional(propagation = Propagation.NOT_SUPPORTED)
+  void providerOrderIsRecordedButRevokedBuyerReceivesNoCheckout() throws SQLException {
     UUID extraMilestone=UUID.randomUUID();
     db.update("INSERT INTO delivery_milestones(id,engagement_id,ordinal,title,description,amount_minor,due_date,status,accepted_by,accepted_at) VALUES(?,?,2,'Second milestone','Accepted deliverable',10000,current_date+1,'ACCEPTED',?,now())",extraMilestone,engagement,buyer);
     db.update("INSERT INTO payment_accounts(id,builder_user_id,account_id,mode,provider_status,activation_confirmed,verified_by) VALUES(?,?,'acc_fixture','test','created',true,?)",UUID.randomUUID(),owner,admin);
     var provider=spyProvider();
     doAnswer(call -> {
+      assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
       UUID reserved=call.getArgument(0);
       db.update("DELETE FROM sessions WHERE user_id=?",buyer);
       return orderFacts(reserved,"order_fixture123456");
@@ -230,15 +253,16 @@ class DataExposureIntegrationTest {
     var request=request("buyer"); request.addHeader("Idempotency-Key",UUID.randomUUID().toString());
     ApiError denied=assertThrows(ApiError.class,()->paymentService(provider).order(extraMilestone,request));
     assertEquals(401,denied.status);
-    assertEquals("order_fixture123456",db.queryForObject("SELECT order_id FROM payment_attempts WHERE milestone_id=?",String.class,extraMilestone));
-    assertEquals("ORDER_CREATED",db.queryForObject("SELECT status FROM payment_attempts WHERE milestone_id=?",String.class,extraMilestone));
+    assertCommittedPayment(extraMilestone,"ORDER_CREATED",0);
   }
 
   @Test
-  void providerCaptureLedgerSurvivesBuyerRevocationWithoutExposingResult() {
+  @Transactional(propagation = Propagation.NOT_SUPPORTED)
+  void providerCaptureLedgerSurvivesBuyerRevocationWithoutExposingResult() throws SQLException {
     db.update("UPDATE payment_attempts SET order_id='order_fixture123456' WHERE id=?",payment);
     var provider=spyProvider();
     doAnswer(call -> {
+      assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
       db.update("DELETE FROM sessions WHERE user_id=?",buyer);
       return json.readTree("{\"id\":\"pay_fixture123456\",\"order_id\":\"order_fixture123456\",\"amount\":10000,\"currency\":\"INR\",\"status\":\"captured\",\"captured\":true,\"amount_refunded\":0}");
     }).when(provider).payment("pay_fixture123456");
@@ -249,8 +273,7 @@ class DataExposureIntegrationTest {
     doReturn(json.createObjectNode().set("items",json.createArrayNode().add(json.createObjectNode().put("id","pay_fixture123456").put("status","captured")))).when(provider).orderPayments("order_fixture123456");
     ApiError denied=assertThrows(ApiError.class,()->paymentService(provider).reconcile(payment,request("buyer")));
     assertEquals(401,denied.status);
-    assertEquals("CAPTURED",db.queryForObject("SELECT status FROM payment_attempts WHERE id=?",String.class,payment));
-    assertEquals(1,db.queryForObject("SELECT count(*) FROM payment_ledger WHERE attempt_id=? AND kind='CAPTURE'",Integer.class,payment));
+    assertCommittedPayment(milestone,"CAPTURED",1);
   }
 
   @Test
@@ -266,17 +289,43 @@ class DataExposureIntegrationTest {
   }
 
   @Test
-  void recoveredBindingRemainsRecordedIfAdministratorMfaIsRevokedDuringFinalRead() {
+  @Transactional(propagation = Propagation.NOT_SUPPORTED)
+  void recoveredBindingRemainsRecordedIfAdministratorMfaIsRevokedDuringFinalRead() throws SQLException {
     var provider=spyProvider();
     doReturn(orderFacts(payment,"order_fixture123456")).when(provider).order("order_fixture123456");
     doAnswer(call -> {
+      assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
       db.update("UPDATE sessions SET mfa_verified=false WHERE user_id=?",admin);
       return json.createObjectNode().set("items",json.createArrayNode());
     }).when(provider).orderPayments("order_fixture123456");
     ApiError denied=assertThrows(ApiError.class,()->paymentService(provider).bind(payment,Map.of("orderId","order_fixture123456"),request("admin")));
     assertEquals(403,denied.status);
-    assertEquals("order_fixture123456",db.queryForObject("SELECT order_id FROM payment_attempts WHERE id=?",String.class,payment));
-    assertEquals("ORDER_CREATED",db.queryForObject("SELECT status FROM payment_attempts WHERE id=?",String.class,payment));
+    assertCommittedPayment(milestone,"ORDER_CREATED",0);
+  }
+
+  private void assertCommittedPayment(UUID milestoneId,String expectedStatus,long expectedCaptures)
+      throws SQLException {
+    TestDatabaseGuard.validate(environment);
+    assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
+    // Bypass Spring and the pool so an independent PostgreSQL connection can see only committed state.
+    try (var connection=DriverManager.getConnection(
+        environment.getRequiredProperty("spring.datasource.url"),
+        environment.getRequiredProperty("spring.datasource.username"),
+        environment.getProperty("spring.datasource.password",""))) {
+      connection.setSchema("getlancer_test");
+      assertTrue(connection.getAutoCommit());
+      try (var statement=connection.prepareStatement(
+          "SELECT p.order_id,p.status,(SELECT count(*) FROM payment_ledger l WHERE l.attempt_id=p.id AND l.kind='CAPTURE') AS captures FROM payment_attempts p WHERE p.milestone_id=?")) {
+        statement.setObject(1,milestoneId);
+        try (var result=statement.executeQuery()) {
+          assertTrue(result.next(),"Committed payment attempt is missing");
+          assertEquals("order_fixture123456",result.getString("order_id"));
+          assertEquals(expectedStatus,result.getString("status"));
+          assertEquals(expectedCaptures,result.getLong("captures"));
+          assertFalse(result.next(),"Milestone has multiple payment attempts");
+        }
+      }
+    }
   }
 
   private static Set<String> keys(JsonNode node) {

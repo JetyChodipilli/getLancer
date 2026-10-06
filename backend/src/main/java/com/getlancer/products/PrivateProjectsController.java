@@ -1,10 +1,10 @@
 package com.getlancer.products;
 
 import com.getlancer.dto.ProductRequests;
+import com.getlancer.responses.ProjectResponses;
 import com.getlancer.shared.TypedInputs;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import java.util.Map;
 import java.util.UUID;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -43,7 +43,7 @@ public class PrivateProjectsController {
   }
 
   @GetMapping("/private/products/{id}")
-  public Map<String, Object> preview(@PathVariable UUID id, HttpServletRequest r) {
+  public ProjectResponses.Project preview(@PathVariable UUID id, HttpServletRequest r) {
     return service.preview(id, r);
   }
 }

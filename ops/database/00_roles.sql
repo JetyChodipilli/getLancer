@@ -28,6 +28,9 @@ BEGIN
   -- Future objects have no service privileges until the reviewed provisioning script is rerun.
   EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE getlancer_migration IN SCHEMA %I REVOKE ALL ON TABLES FROM PUBLIC,getlancer_runtime,getlancer_backup,getlancer_readonly',schema_name);
   EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE getlancer_migration IN SCHEMA %I REVOKE ALL ON SEQUENCES FROM PUBLIC,getlancer_runtime,getlancer_backup,getlancer_readonly',schema_name);
-  EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE getlancer_migration IN SCHEMA %I REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC',schema_name);
+  -- Function EXECUTE defaults come from the global setting; a per-schema REVOKE cannot remove them.
+  ALTER DEFAULT PRIVILEGES FOR ROLE getlancer_migration REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC,getlancer_runtime,getlancer_backup,getlancer_readonly;
+  -- Also undo any previously added per-schema function grants.
+  EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE getlancer_migration IN SCHEMA %I REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC,getlancer_runtime,getlancer_backup,getlancer_readonly',schema_name);
 END $roles$;
 COMMIT;

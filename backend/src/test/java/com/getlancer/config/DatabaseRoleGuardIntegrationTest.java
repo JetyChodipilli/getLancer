@@ -13,6 +13,13 @@ import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import com.getlancer.commerce.CommerceRepository;
+import com.getlancer.hosting.HostingConfiguration;
+import com.getlancer.hosting.HostingRepository;
+import com.getlancer.maintenance.MaintenanceRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.mock.env.MockEnvironment;
 
 /** Real PostgreSQL identities, all migrations, and production runtime permission failures. */
@@ -111,6 +118,73 @@ class DatabaseRoleGuardIntegrationTest {
         assertThrows(java.sql.SQLException.class, () -> statement.executeQuery("SELECT count(*) FROM " + SCHEMA + ".users"));
       }
     }
+  }
+
+  @Test void runtimeCanLockAuthenticationAndMembershipRowsWithoutBeingAbleToUpdateThem() throws Exception {
+    UUID user = UUID.randomUUID(), business = UUID.randomUUID(), product = UUID.randomUUID(), request = UUID.randomUUID(), engagement = UUID.randomUUID();
+    String token = UUID.randomUUID().toString();
+    runtime.update("INSERT INTO users(id,email,password_hash,email_verified_at) VALUES(?,?,?,now())", user, user+"@example.test", "synthetic-hash");
+    runtime.update("INSERT INTO user_roles(user_id,role) VALUES(?,'DEVELOPER')", user);
+    runtime.update("INSERT INTO developer_profiles(user_id,slug,approval_status) VALUES(?,?,'APPROVED')", user, "role-lock-"+user);
+    runtime.update("INSERT INTO sessions(token_hash,user_id,expires_at) VALUES(?,?,now()+interval '1 hour')", token,user);
+    runtime.update("INSERT INTO businesses(id,name,summary,owner_id) VALUES(?,'Role test business','Synthetic business fixture',?)", business,user);
+    runtime.update("INSERT INTO business_members(business_id,user_id,role) VALUES(?,?,'OWNER')", business,user);
+    runtime.update("INSERT INTO business_requests(id,business_id,created_by,title,description,category,technology,budget,timeline) VALUES(?,?,?,'Role lock request','Synthetic request description','Inventory','Java','Synthetic budget','Synthetic timeline')",request,business,user);
+    runtime.update("INSERT INTO delivery_engagements(id,business_request_id,business_id,builder_user_id,title,created_by) VALUES(?,?,?,?,'Role lock engagement',?)",engagement,request,business,user,user);
+    runtime.update("INSERT INTO products(id,owner_user_id,slug,title,summary,description,project_type,category,technology,contribution_text,approval_status,lifecycle_status) VALUES(?,?,?,'Role test product','Synthetic summary','Synthetic description','SAAS','Inventory','Java','Synthetic contribution','APPROVED','ACTIVE')", product,user,"role-lock-"+product);
+    TransactionTemplate transactions = new TransactionTemplate(new DataSourceTransactionManager(runtime.getDataSource()));
+    transactions.executeWithoutResult(tx -> {
+      assertEquals(1, runtime.queryForList("SELECT u.id FROM users u JOIN user_roles r ON r.user_id=u.id JOIN sessions s ON s.user_id=u.id JOIN business_members m ON m.user_id=u.id WHERE u.id=? AND m.business_id=? FOR SHARE OF u,r,s,m", user,business).size());
+      assertEquals(1, runtime.queryForList("SELECT user_id FROM user_roles WHERE user_id=? FOR SHARE",user).size());
+      assertEquals(1, runtime.queryForList("SELECT token_hash FROM sessions WHERE token_hash=? FOR SHARE",token).size());
+      assertEquals(1, runtime.queryForList("SELECT user_id FROM business_members WHERE business_id=? FOR SHARE",business).size());
+      new HostingRepository(runtime,new HostingConfiguration(false,"","","","",7,5000,"https://app.example.test"),new ObjectMapper()).lockActor(user);
+      new CommerceRepository(runtime).sellerEligible(user,product,false);
+      new MaintenanceRepository(runtime).lockActor(user);
+      new MaintenanceRepository(runtime).lockConsentParties(engagement,user,user,user);
+    });
+    for (String table : List.of("user_roles","sessions","business_members"))
+      assertEquals(Boolean.FALSE,runtime.queryForObject("SELECT has_table_privilege(current_user,?,'UPDATE')",Boolean.class,SCHEMA+"."+table));
+    assertThrows(org.springframework.dao.DataAccessException.class, () -> runtime.update("UPDATE user_roles SET user_id=user_id WHERE user_id=?",user));
+    assertThrows(org.springframework.dao.DataAccessException.class, () -> runtime.update("UPDATE sessions SET token_hash=token_hash WHERE token_hash=?",token));
+    assertThrows(org.springframework.dao.DataAccessException.class, () -> runtime.update("UPDATE business_members SET business_id=business_id WHERE business_id=?",business));
+    assertThrows(org.springframework.dao.DataAccessException.class, () -> runtime.update("UPDATE user_roles SET role='ADMIN' WHERE user_id=?",user));
+    assertThrows(org.springframework.dao.DataAccessException.class, () -> runtime.update("UPDATE sessions SET mfa_verified=true WHERE token_hash=?",token));
+    assertThrows(org.springframework.dao.DataAccessException.class, () -> runtime.update("UPDATE business_members SET role='HIRING_MANAGER' WHERE business_id=?",business));
+    UUID event = UUID.randomUUID();
+    runtime.update("INSERT INTO security_audit_events(id,event,result,request_id) VALUES(?,'ROLE_LOCK_TEST','SUCCESS',?)",event,UUID.randomUUID().toString());
+    assertThrows(org.springframework.dao.DataAccessException.class, () -> runtime.update("UPDATE security_audit_events SET result='FAILURE' WHERE id=?",event));
+    assertThrows(org.springframework.dao.DataAccessException.class, () -> runtime.update("DELETE FROM security_audit_events WHERE id=?",event));
+    try {
+      adminSql("REVOKE UPDATE(user_id) ON "+SCHEMA+".user_roles FROM getlancer_runtime");
+      assertThrows(IllegalStateException.class, () -> guard(runtime));
+      assertThrows(org.springframework.dao.DataAccessException.class, () -> runtime.queryForList("SELECT user_id FROM user_roles WHERE user_id=? FOR SHARE",user));
+    } finally { provision("10_permissions.sql"); }
+    try {
+      adminSql("GRANT UPDATE(role) ON "+SCHEMA+".user_roles TO getlancer_runtime");
+      assertThrows(IllegalStateException.class, () -> guard(runtime));
+    } finally { provision("10_permissions.sql"); }
+    assertEquals(Boolean.FALSE,runtime.queryForObject("SELECT has_column_privilege(current_user,?,'role','UPDATE')",Boolean.class,SCHEMA+".user_roles"));
+    try {
+      adminSql("ALTER POLICY getlancer_service_update ON "+SCHEMA+".sessions WITH CHECK(true)");
+      assertThrows(IllegalStateException.class, () -> guard(runtime));
+    } finally { provision("10_permissions.sql"); }
+    try {
+      adminSql("CREATE POLICY forbidden_update_fixture ON "+SCHEMA+".sessions FOR UPDATE TO PUBLIC USING(true) WITH CHECK(true)");
+      assertThrows(IllegalStateException.class, () -> guard(runtime));
+    } finally { adminSql("DROP POLICY forbidden_update_fixture ON "+SCHEMA+".sessions"); }
+    assertDoesNotThrow(() -> guard(runtime));
+  }
+
+  @Test void newlyCreatedMigrationFunctionsHaveNoPublicOrServiceExecuteBeforePermissionRerun() {
+    JdbcTemplate migration = jdbc("getlancer_migration",migrationPassword);
+    try {
+      migration.execute("CREATE FUNCTION future_execute_fixture() RETURNS integer LANGUAGE sql AS 'SELECT 1'");
+      assertEquals(1,migration.queryForObject("SELECT future_execute_fixture()",Integer.class));
+      for (String role : List.of("getlancer_runtime","getlancer_backup","getlancer_readonly","anon","authenticated"))
+        assertEquals(Boolean.FALSE,runtime.queryForObject("SELECT has_function_privilege(?,?,'EXECUTE')",Boolean.class,role,SCHEMA+".future_execute_fixture()"));
+      assertThrows(org.springframework.dao.DataAccessException.class, () -> runtime.queryForObject("SELECT future_execute_fixture()",Integer.class));
+    } finally { migration.execute("DROP FUNCTION future_execute_fixture()"); }
   }
 
   @Test void everyElevatedActualRoleAttributeAndOwnershipFailsHostedGuard() throws Exception {

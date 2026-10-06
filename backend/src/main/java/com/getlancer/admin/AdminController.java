@@ -1,6 +1,8 @@
 package com.getlancer.admin;
 
 import com.getlancer.dto.AdminRequests;
+import com.getlancer.responses.PageResponse;
+import com.getlancer.responses.ProjectResponses;
 import com.getlancer.shared.TypedInputs;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -26,7 +28,7 @@ public class AdminController {
   }
 
   @GetMapping("/products/pending")
-  public Map<String, Object> pending(HttpServletRequest r) {
+  public PageResponse<ProjectResponses.ManagementProject> pending(HttpServletRequest r) {
     return service.pending(r);
   }
 
