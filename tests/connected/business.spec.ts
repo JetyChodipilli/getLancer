@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHmac} from 'node:crypto';
-import {test,expect,type Page} from '@playwright/test';
+import {test,expect,type Page} from './test';
 import {readEnvironment} from '../../scripts/local-config.mjs';
 
 const fixture=JSON.parse(readFileSync('.ci-connected.json','utf8'));

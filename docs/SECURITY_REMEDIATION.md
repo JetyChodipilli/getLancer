@@ -33,6 +33,10 @@ Codex Security Cloud was explicitly attempted but reported `security_cloud_acces
 
 Ponytail audit/review retains the existing optional dead sidebar/chart cleanup in [PONYTAIL_AUDIT.md](PONYTAIL_AUDIT.md); it does not remove authentication, validation, evidence, or application regression checks. These are independent native source reviews, not a professional penetration test. Production acceptance, external secrets/key rotation, installed repository rules and provider verification remain explicitly separate in [the release handoff](../ops/SECURITY_RELEASE.md).
 
+Revision `c4286f67e6847b07494351a16dff04454d7b0723`, [run 37602818789](https://github.com/JetyChodipilli/getLancer/actions/runs/37602818789), passed 425 backend tests, 152 Node tests, 209 responsive browser cases (four intentional duplicate matrix cases skipped), both SAST/secret jobs and both runtime image gates. The corrected connected service smoke journey also passed. Connected browser acceptance had 14 passes and four failures; the restore step was skipped, so this is not a complete successful workflow. All four traces showed HTTP 429 from the shared protected-read budget. Independent trace review confirmed distinct client/administrator identities and successful private-package denial; the default page screenshot was not evidence of session leakage.
+
+Connected tests now isolate rate counters only between journeys in the verified disposable CI database. The helper requires CI mode, the exact fixture/Compose project, one worker, a concrete container with matching project/service labels, a dedicated project-owned volume and exclusively synthetic accounts before touching `rate_buckets`. Mutation targets the inspected container ID. Production rate limits, actual authorization, test assertions and all counters within each journey remain unchanged. Guard regressions reject non-CI, mismatched, parallel, shared-volume and non-fixture targets. The next published head still requires its own complete workflow.
+
 ## All 67 supplied sections
 
 | § | Exact section title | Status | Implementation / source anchors | Regression / evidence and remaining requirement |

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHmac} from 'node:crypto';
-import {test,expect,type Page} from '@playwright/test';
+import {test,expect,type Page} from './test';
 import {readEnvironment} from '../../scripts/local-config.mjs';
 import {hostingFixture} from '../../scripts/ci-hosting-fixture.mjs';
 

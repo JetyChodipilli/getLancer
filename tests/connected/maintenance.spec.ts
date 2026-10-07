@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {test,expect,type Page} from '@playwright/test';
+import {test,expect,type Page} from './test';
 const fixture=JSON.parse(readFileSync('.ci-connected.json','utf8'));assert.equal(process.env.CI,'true');assert.equal(fixture.project,process.env.COMPOSE_PROJECT_NAME);assert.match(fixture.project,/^getlancer-ci-[0-9]+$/);
 async function login(page:Page,actor:'builder'|'client'){const account=fixture.accounts['ci-'+actor+'@example.test'];await page.goto('/login');await page.getByLabel('Email address',{exact:true}).fill(account.email);await page.getByLabel('Password',{exact:true}).fill(account.password);await page.getByRole('button',{name:'Log in',exact:true}).click();await expect(page).toHaveURL(/\/workspace$/);}
 const call=(page:Page,path:string,body?:unknown)=>page.request.fetch('/api/v1'+path,{method:body?'POST':'GET',data:body,headers:{Origin:'http://localhost:3000','X-Requested-With':'getlancer'}});
