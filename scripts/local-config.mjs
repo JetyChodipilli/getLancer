@@ -4,8 +4,11 @@ import {fileURLToPath} from 'node:url';
 export const projectRoot=fileURLToPath(new URL('../',import.meta.url));
 export function readEnvironment(file=new URL('../.env',import.meta.url)) {
   if(['staging','production'].includes(process.env.APP_ENV))throw Error('Hosted commands require injected environment; local files are disabled.');
+  return parseEnvironment(readFileSync(file,'utf8'));
+}
+export function parseEnvironment(contents) {
   const values={};
-  for(const line of readFileSync(file,'utf8').split(/\r?\n/)) {
+  for(const line of contents.split(/\r?\n/)) {
     if(!line.trim()||line.trim().startsWith('#'))continue;
     const match=line.match(/^\s*([A-Z][A-Z0-9_]*)\s*=(.*)$/);
     if(!match)throw Error('Use KEY=value lines in .env.');

@@ -131,7 +131,15 @@ public final class BrowserSecurityFilter extends OncePerRequestFilter {
     else if (authorization.signedWebhook(request) && response.getStatus() >= 400) event = "WEBHOOK_FAILURE";
     else if (route != null && route.policy() == AuthorizationService.Policy.ADMIN_MFA
         && !SAFE.contains(request.getMethod())) event = "ADMIN_ACTION";
-    else if (request.getRequestURI().equals("/api/v1/me/export")) event = "PRIVATE_EXPORT";
+    else if (request.getMethod().equals("GET") && route != null
+        && Set.of("/api/v1/me/export", "/api/v1/admin/templates/{id}/versions/{version}/package",
+            "/api/v1/me/templates/{id}/versions/{version}/package",
+            "/api/v1/admin/hosting/{id}/package", "/api/v1/me/hosting/{id}/package",
+            "/api/v1/template-purchases/{id}/download")
+            .contains(route.path())) {
+      event = "PRIVATE_EXPORT";
+      if (response.getStatus() < 400) target = request.getRequestURI();
+    }
     if (event != null) audit.record(actor, event, target,
         event.equals("LOGIN_FAILURE") || response.getStatus() >= 400 ? "FAILURE" : "SUCCESS", RequestIds.get(request));
     if (route != null && response.getStatus() < 400 && !SAFE.contains(request.getMethod())) {

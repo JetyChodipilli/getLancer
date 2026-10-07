@@ -117,7 +117,6 @@ public class GoogleAuthService {
 
   public ResponseEntity<Void> callback(
       String state, String code, String error, HttpServletRequest req, HttpServletResponse res) {
-    auth.authCookie(res, "gl_oauth", "", 0);
     if (!enabled()) return back("login", "unavailable");
     String browser = SessionCookies.read(req, "gl_oauth");
     if (!state.matches("[A-Za-z0-9_-]{43}") || !browser.matches("[A-Za-z0-9_-]{43}"))
@@ -130,6 +129,7 @@ public class GoogleAuthService {
             hash(state),
             hash(browser));
     if (rows.isEmpty()) return back("login", "expired");
+    auth.authCookie(res, "gl_oauth", "", 0);
     var pending = rows.get(0);
     String intent = (String) pending.get("intent");
     if (!error.isBlank()) return back(intent, "cancelled");

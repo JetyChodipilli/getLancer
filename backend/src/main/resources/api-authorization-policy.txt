@@ -69,7 +69,7 @@ GET PUBLIC /api/v1/hosting/config
 GET SERVICE /api/v1/hosting/gateway/{deploymentId}
 GET PUBLIC /api/v1/hosting/products/{productId}
 GET SESSION /api/v1/maintenance
-GET PUBLIC /api/v1/maintenance/config
+GET SESSION /api/v1/maintenance/config
 GET SESSION /api/v1/maintenance/sources
 GET SESSION /api/v1/maintenance/{id}
 GET SESSION /api/v1/me

@@ -1,13 +1,15 @@
-# Connect the private frontend to the V2.5 Java API
+# Connect the private frontend to the Java API
+
+Complete [SECURITY_RELEASE.md](SECURITY_RELEASE.md), including separate database roles and the external MFA keyring, before using this provider-acceptance procedure.
 
 The existing private Site hosts the React frontend. It cannot run the Java API or access PostgreSQL on your laptop. This procedure prepares a separate Docker-capable Linux host with HTTPS ingress. No host, domain, database or paid service is provisioned by these files.
 
 ## Prepare a reviewed release
 
-1. Choose a commit whose three `getLancer validation (V1-V2.5)` jobs have passed, including connected browser acceptance. Record the full SHA. Build `backend/Dockerfile` from that checkout and tag it with that SHA: `docker build -t getlancer-api:FULL_COMMIT_SHA backend`. Set `BACKEND_IMAGE` to that exact tag if building on the host, or push to your chosen registry and use its immutable digest. Keep the preceding image for application rollback.
+1. Choose a reviewed commit whose six `getLancer validation (V1-V4.5 security)` jobs have passed, including both SAST languages and connected browser acceptance. Record the full SHA. Build `backend/Dockerfile` from that checkout and tag it with that SHA: `docker build -t getlancer-api:FULL_COMMIT_SHA backend`. Set `BACKEND_IMAGE` to that exact tag if building on the host, or push to your chosen registry and use its immutable digest. Keep a schema-compatible preceding image for application rollback.
 2. Copy `.env.example` to the ignored `.env.staging`. Set `APP_ENV=staging`, `SECURE_COOKIES=true`, the actual HTTPS frontend `APP_BASE_URL`, HTTPS `BACKEND_URL`, `DEMO_MODE=false`, and a random `BACKEND_PROXY_SECRET` of at least 32 characters. The proxy secret must match the frontend runtime secret.
-3. Use a separate staging PostgreSQL database, private `DB_SCHEMA=getlancer`, and backend-only database credentials. Set `DB_URL=jdbc:postgresql://YOUR_HOST:5432/getLancer?sslmode=verify-full&sslrootcert=/run/secrets/postgres-ca.crt`. Download the database provider's CA certificate, set `DB_CA_FILE` to its absolute host path and ensure the non-root container user can read it. The template refuses to create a missing certificate path.
-4. Configure private S3-compatible storage and a verified SMTP sender in `.env.staging`. Both storage endpoints must use HTTPS; the upload endpoint must be browser-reachable. Restrict storage CORS to the exact frontend origin, PUT and required signed headers. Use TLS or SSL with SMTP. Supply separate staging administrator bootstrap credentials and authenticator secret. OAuth may remain blank until provider applications are ready.
+3. Use a separate staging PostgreSQL database, private `DB_SCHEMA=getlancer`, and `DB_USERNAME=getlancer_runtime` with its separate secret. Complete migrations and permission provisioning through the separate migration role first; hosted API Flyway is disabled. Set `DB_URL=jdbc:postgresql://YOUR_HOST:5432/getLancer?sslmode=verify-full&sslrootcert=/run/secrets/postgres-ca.crt`. Download the database provider's CA certificate, set `DB_CA_FILE` to its absolute host path and ensure the non-root container user can read it. The template refuses to create a missing certificate path.
+4. Configure private S3-compatible storage and a verified SMTP sender in `.env.staging`. Both storage endpoints must use HTTPS; the upload endpoint must be browser-reachable. Restrict storage CORS to the exact frontend origin, PUT and required signed headers. Use TLS or SSL with SMTP. Supply separate staging administrator bootstrap credentials, authenticator secret and the external `MFA_ACTIVE_KEY_ID`/`MFA_KEYRING`. OAuth may remain blank until provider applications are ready.
 5. Add `BACKEND_IMAGE` and `DB_CA_FILE` to `.env.staging`. Validate without printing secrets:
 
 ```sh

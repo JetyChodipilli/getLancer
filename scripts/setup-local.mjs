@@ -1,12 +1,22 @@
-import {readFileSync,writeFileSync,chmodSync,existsSync,copyFileSync} from 'node:fs';
+import {readFileSync,copyFileSync,openSync,closeSync,fstatSync,fchmodSync,writeSync,ftruncateSync,fsyncSync,constants} from 'node:fs';
 import {randomBytes} from 'node:crypto';
-import {readEnvironment,localDatabase,placeholder} from './local-config.mjs';
+import {parseEnvironment,localDatabase,placeholder} from './local-config.mjs';
 
 const file=new URL('../.env',import.meta.url);
+let descriptor;
 try {
   if(['staging','production'].includes(process.env.APP_ENV))throw Error('Local setup cannot modify hosted configuration.');
-  if(!existsSync(file))copyFileSync(new URL('../.env.example',import.meta.url),file);
-  const values=readEnvironment(file);localDatabase(values);
+  const flags=constants.O_RDWR|constants.O_NOFOLLOW;
+  try{descriptor=openSync(file,flags);}
+  catch(error){
+    if(error.code!=='ENOENT')throw error;
+    try{copyFileSync(new URL('../.env.example',import.meta.url),file,constants.COPYFILE_EXCL);}
+    catch(copyError){if(copyError.code!=='EEXIST')throw copyError;}
+    descriptor=openSync(file,flags);
+  }
+  if(!fstatSync(descriptor).isFile())throw Error('Local configuration must be a regular file.');
+  const original=readFileSync(descriptor,'utf8');
+  const values=parseEnvironment(original);localDatabase(values);
   for(const key of ['SMTP_HOST','OBJECT_STORAGE_ENDPOINT','OBJECT_STORAGE_UPLOAD_ENDPOINT']) {
     const host=key==='SMTP_HOST'?values[key]:new URL(values[key]).hostname;
     if(!['localhost','127.0.0.1','[::1]'].includes(host))throw Error('Local setup will not modify configured remote services. Check '+key+'.');
@@ -29,11 +39,16 @@ try {
     if(placeholder(values.DB_PASSWORD))updates.DB_PASSWORD='postgres';
   }
   for(const [key,generate] of Object.entries(generators))if(placeholder(values[key]))updates[key]=generate();
-  let lines=readFileSync(file,'utf8').split(/\r?\n/);const found=new Set();
+  let lines=original.split(/\r?\n/);const found=new Set();
   lines=lines.map(line=>{const key=line.split('=',1)[0].trim();if(key in updates){found.add(key);return key+'='+updates[key]}return line});
   for(const [key,value]of Object.entries(updates))if(!found.has(key))lines.push(key+'='+value);
-  writeFileSync(file,lines.join('\n').replace(/\n*$/,'\n'));chmodSync(file,0o600);
+  const output=Buffer.from(lines.join('\n').replace(/\n*$/,'\n'));
+  fchmodSync(descriptor,0o600);
+  let written=0;
+  while(written<output.length)written+=writeSync(descriptor,output,written,output.length-written,written);
+  ftruncateSync(descriptor,output.length);fsyncSync(descriptor);
   console.log(docker?'Docker configuration prepared for getLancer on localhost:5433. Existing passwords and administrator keys were preserved.':'Local configuration prepared. Existing database and administrator values were preserved.');
   console.log('Generated secrets stay in .env and existing values are preserved. Set ADMIN_EMAIL explicitly to enable local administrator bootstrap. Back up the local MFA key before storing administrator TOTP data.');
   console.log(docker?'Next: npm run services:docker, then npm run dev:local. Startup creates records only after the database is healthy.':'Next: npm run services:local, then npm run doctor:local. No database records have been created.');
-}catch(error){console.error(error.code==='ENOENT'?'Configuration file unavailable.':error.message);process.exitCode=1}
+}catch(error){console.error(error.code==='ENOENT'?'Configuration file unavailable.':error.code==='ELOOP'?'Local configuration symlinks are refused.':error.message);process.exitCode=1}
+finally{if(descriptor!==undefined)closeSync(descriptor);}

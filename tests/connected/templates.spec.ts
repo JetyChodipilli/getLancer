@@ -30,7 +30,7 @@ test('real private ZIP release, MFA review, buyer consent and disabled checkout 
  const options={viewport:info.project.use.viewport,isMobile:info.project.use.isMobile,hasTouch:info.project.use.hasTouch,baseURL:'http://localhost:3000'};
  const sellerContext=await browser.newContext(options),adminContext=await browser.newContext(options);
  const seller=await sellerContext.newPage(),admin=await adminContext.newPage(),errors:string[]=[],gatewayRequests:string[]=[];
- for(const p of [page,seller,admin]){p.on('pageerror',e=>errors.push(e.message));p.on('request',r=>{if(r.url().includes('razorpay.com'))gatewayRequests.push(r.url());});}
+ for(const p of [page,seller,admin]){p.on('pageerror',e=>errors.push(e.message));p.on('request',r=>{if((new URL(r.url()).hostname==='razorpay.com'||new URL(r.url()).hostname.endsWith('.razorpay.com')))gatewayRequests.push(r.url());});}
  try{
   await login(seller,'builder');await seller.goto('/workspace/templates?templateId='+template.id);
   await expect(seller.getByRole('heading',{name:template.title,exact:true})).toBeVisible();

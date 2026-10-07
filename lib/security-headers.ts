@@ -1,12 +1,17 @@
 import { createHash } from 'node:crypto';
 import trustedCatalogue from '../backend/src/main/resources/catalog/components.json' with { type: 'json' };
 
+/** Extract the reviewed catalogue's plain script format; this is not an HTML sanitizer. */
+export function catalogueScriptSource(html: string): string {
+  const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)];
+  if (scripts.length !== 1 || scripts[0][1].trim()) throw Error('Each trusted recipe must have one reviewed plain inline script.');
+  return scripts[0][2];
+}
+
 /** Only version-controlled recipes enter this allowlist, never API/uploaded HTML. */
-export const trustedRecipeScriptSources: readonly string[] = Object.freeze([...new Set(trustedCatalogue.flatMap(recipe => {
-  const scripts = [...recipe.files['index.html'].matchAll(/<script>([\s\S]*?)<\/script>/g)];
-  if (scripts.length !== 1) throw Error('Each trusted recipe must have one reviewed inline script.');
-  return scripts.map(([, source]) => `'sha256-${createHash('sha256').update(source, 'utf8').digest('base64')}'`);
-}))]);
+export const trustedRecipeScriptSources: readonly string[] = Object.freeze([...new Set(trustedCatalogue.map(recipe =>
+  `'sha256-${createHash('sha256').update(catalogueScriptSource(recipe.files['index.html']), 'utf8').digest('base64')}'`
+))]);
 
 export function createFrontendNonce(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(32));

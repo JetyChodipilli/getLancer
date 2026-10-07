@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,writeFileSync,readFileSync,copyFileSync,mkdirSync,rmSync} from 'node:fs';
+import {mkdtempSync,writeFileSync,readFileSync,copyFileSync,mkdirSync,rmSync,symlinkSync,statSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
@@ -34,6 +34,16 @@ test('setup generates missing service keys once without changing existing creden
   assert.deepEqual(localDatabase(container),{host:'localhost',port:5433,database:'getLancer'});
   for(const key of ['DB_PASSWORD','ADMIN_BOOTSTRAP_PASSWORD','ADMIN_TOTP_SECRET','OBJECT_STORAGE_SECRET_KEY'])assert.equal(container[key],values[key]);
   assert.equal(container.DB_USERNAME,'postgres');assert.equal(container.BACKEND_URL,'http://localhost:8080');
+});
+
+test('local setup refuses a symlink without touching its target',t=>{
+ const dir=mkdtempSync(join(tmpdir(),'getlancer-symlink-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));mkdirSync(join(dir,'scripts'));
+ for(const name of ['setup-local.mjs','local-config.mjs'])copyFileSync(new URL('../scripts/'+name,import.meta.url),join(dir,'scripts',name));
+ const target=join(dir,'protected-config');writeFileSync(target,'protected provider configuration',{mode:0o644});
+ symlinkSync(target,join(dir,'.env'));
+ const run=spawnSync(process.execPath,[join(dir,'scripts/setup-local.mjs')],{encoding:'utf8'});
+ assert.equal(run.status,1);assert.match(run.stderr,/symlinks are refused/);
+ assert.equal(readFileSync(target,'utf8'),'protected provider configuration');assert.equal(statSync(target).mode&0o777,0o644);
 });
 
 test('environment checker permits retired bootstrap secrets only with explicit existing-admin mode',t=>{

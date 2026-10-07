@@ -36,6 +36,10 @@ public class ComponentService {
   static final Set<String> COLLEGE=Set.of("FULL_STACK","DATA_ANALYTICS","AI_ML","IOT");
   static final String JOIN=" FROM component_entries c JOIN users u ON u.id=c.owner_id JOIN developer_profiles d ON d.user_id=u.id";
   static final String ELIGIBLE="u.account_status='ACTIVE' AND u.email_verified_at IS NOT NULL AND d.approval_status='APPROVED'";
+  private static final String COLLEGE_FROM=ProductRepository.FROM+" JOIN college_project_metadata e ON e.product_id=p.id";
+  private static final String COLLEGE_FILTERS=" WHERE "+ProductRepository.PUBLIC+" AND e.status='APPROVED' AND (? OR e.category=?) AND (? OR d.slug=?) AND (? OR e.language ILIKE ?) AND (? OR p.title ILIKE ? OR e.problem ILIKE ?)";
+  private static final String COLLEGE_COUNT="SELECT count(*)"+COLLEGE_FROM+COLLEGE_FILTERS;
+  private static final String COLLEGE_SEARCH=ProductRepository.PROJECTION+",jsonb_build_object('category',e.category,'language',e.language,'problem',e.problem,'outcome',e.outcome,'prerequisites',e.prerequisites,'contribution',e.contribution,'institution',e.institution,'academic_year',e.academic_year,'branch',e.branch,'share_academic_details',e.share_academic_details,'revision',e.revision,'status',e.status,'review_reason',e.review_reason,'updated_at',e.updated_at,'product_id',e.product_id) AS education_snapshot"+COLLEGE_FROM+COLLEGE_FILTERS+" ORDER BY p.updated_at DESC,p.id LIMIT ? OFFSET ?";
   public ComponentService(JdbcTemplate db,Security security,ComponentSlotService slots,ProductService products,ObjectMapper json,com.getlancer.publishing.PublishingCapacity publishing) throws java.io.IOException {
     this.db=db;
     this.json=json;
@@ -273,35 +277,15 @@ public class ComponentService {
   }
   public Object college(String q,String category,String language,String builder,int page) {
     if(q.length()>200||language.length()>100||page<0||page>10000||!category.isBlank()&&!COLLEGE.contains(category))throw new ApiError(400,"VALIDATION_ERROR","Choose valid college project filters.");
-    String where=" WHERE "+ProductRepository.PUBLIC+" AND e.status='APPROVED'";
     var args=new ArrayList<Object>();
-    for(var pair:List.of(new String[]{
-      "e.category",category
-    }
-    ,new String[]{
-      "d.slug",builder
-    }
-    )){
-      if(!pair[1].isBlank()){
-        where+=" AND "+pair[0]+"=?";
-        args.add(pair[1]);
-      }
-    }
-    if(!language.isBlank()){
-      where+=" AND e.language ILIKE ?";
-      args.add("%"+language.replace("%","\\%").replace("_","\\_")+"%");
-    }
-    if(!q.isBlank()){
-      where+=" AND (p.title ILIKE ? OR e.problem ILIKE ?)";
-      String term="%"+q.replace("%","\\%").replace("_","\\_")+"%";
-      args.add(term);
-      args.add(term);
-    }
-    String join=" JOIN college_project_metadata e ON e.product_id=p.id";
-    long count=db.queryForObject("SELECT count(*) FROM products p JOIN users u ON u.id=p.owner_user_id JOIN developer_profiles d ON d.user_id=u.id"+join+where,Long.class,args.toArray());
+    String term="%"+q.replace("%","\\%").replace("_","\\_")+"%";
+    String languageTerm="%"+language.replace("%","\\%").replace("_","\\_")+"%";
+    Collections.addAll(args,category.isBlank(),category,builder.isBlank(),builder,
+        language.isBlank(),languageTerm,q.isBlank(),term,term);
+    long count=db.queryForObject(COLLEGE_COUNT,Long.class,args.toArray());
     args.add(12);
     args.add(page*12);
-    var rows=db.queryForList(ProductRepository.SELECT.replace(" FROM products p",",jsonb_build_object('category',e.category,'language',e.language,'problem',e.problem,'outcome',e.outcome,'prerequisites',e.prerequisites,'contribution',e.contribution,'institution',e.institution,'academic_year',e.academic_year,'branch',e.branch,'share_academic_details',e.share_academic_details,'revision',e.revision,'status',e.status,'review_reason',e.review_reason,'updated_at',e.updated_at,'product_id',e.product_id) AS education_snapshot FROM products p")+join+where+" ORDER BY p.updated_at DESC,p.id LIMIT ? OFFSET ?",args.toArray());
+    var rows=db.queryForList(COLLEGE_SEARCH,args.toArray());
     var items=products.dtos(rows);
     for(int n=0;n<rows.size();n++)items.get(n).put("education",education(snapshot(rows.get(n).get("education_snapshot")),false));
     return Map.of("items",items,"page",page,"totalItems",count,"hasMore",(page+1)*12<count);

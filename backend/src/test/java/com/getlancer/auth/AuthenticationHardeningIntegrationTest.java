@@ -6,15 +6,28 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.getlancer.config.MfaStorageUpgrade;
+import com.getlancer.security.SessionCookies;
 import com.getlancer.shared.Support;
 import com.getlancer.testing.TestDatabaseGuard;
 import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -23,8 +36,8 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.UUID;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -37,8 +50,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -74,6 +92,7 @@ class AuthenticationHardeningIntegrationTest {
   void clear() {
     db.execute("TRUNCATE users CASCADE");
     db.execute("TRUNCATE rate_buckets");
+    db.execute("TRUNCATE oauth_pending");
   }
 
   UUID user(String email, boolean admin) {
@@ -127,6 +146,259 @@ class AuthenticationHardeningIntegrationTest {
         .header("X-Requested-With", "getlancer").header("Content-Type", "application/json")
         .POST(HttpRequest.BodyPublishers.ofString("{\"email\":\"member@example.test\",\"password\":\"" + password + "\"}"))
         .build();
+  }
+
+  @FunctionalInterface
+  interface OAuthCallback {
+    ResponseEntity<Void> call(String state, String code, String error,
+        HttpServletRequest request, HttpServletResponse response);
+  }
+
+  record OAuthFixture(String provider, String cookieName, HttpClient exchange,
+      OAuthCallback callback, CountDownLatch exchangeEntered, CountDownLatch exchangeRelease) {
+    String back(String error) {
+      return "/login?auth_error=" + error + (provider.equals("github") ? "&provider=github" : "");
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  HttpResponse<String> oauthHttpResponse(String body) {
+    HttpResponse<String> response = mock(HttpResponse.class);
+    when(response.statusCode()).thenReturn(200);
+    when(response.body()).thenReturn(body);
+    return response;
+  }
+
+  OAuthFixture oauth(String provider, UUID user, boolean blockExchange) throws Exception {
+    var http = mock(HttpClient.class);
+    var entered = new CountDownLatch(1);
+    var release = new CountDownLatch(blockExchange ? 1 : 0);
+    when(http.<String>send(any(HttpRequest.class), any())).thenAnswer(call -> {
+      HttpRequest request = call.getArgument(0);
+      String endpoint = request.uri().toString();
+      if (endpoint.equals("https://oauth2.googleapis.com/token")
+          || endpoint.equals("https://github.com/login/oauth/access_token")) {
+        assertEquals("POST", request.method());
+        entered.countDown();
+        assertTrue(release.await(10, TimeUnit.SECONDS), "OAuth exchange was not released");
+        return oauthHttpResponse(provider.equals("google")
+            ? "{\"id_token\":\"provider-id-token\"}"
+            : "{\"access_token\":\"provider-access-token\",\"token_type\":\"bearer\"}");
+      }
+      if (endpoint.equals("https://api.github.com/user"))
+        return oauthHttpResponse("{\"id\":123,\"login\":\"member\"}");
+      if (endpoint.equals("https://api.github.com/user/emails?per_page=100"))
+        return oauthHttpResponse("[{\"email\":\"member@example.test\",\"primary\":true,\"verified\":true}]");
+      throw new AssertionError("Unexpected OAuth endpoint " + endpoint);
+    });
+    // Only provider I/O and identity lookup are mocked. Callback SQL and session
+    // issuance execute against PostgreSQL through the production controller/service.
+    if (provider.equals("google")) {
+      var tokens = mock(GoogleTokens.class);
+      var accounts = mock(GoogleAccounts.class);
+      Jwt identity = Jwt.withTokenValue("provider-id-token").header("alg", "RS256")
+          .subject("google-subject").build();
+      when(tokens.verify("provider-id-token", "oauth-nonce")).thenReturn(identity);
+      when(accounts.resolve(eq(identity), eq("login"))).thenReturn(user);
+      var service = new GoogleAuthService(db, auth, tokens, accounts, new ObjectMapper(),
+          "test-client", "test-secret", "http://localhost:3000");
+      ReflectionTestUtils.setField(service, "http", http);
+      return new OAuthFixture(provider, "gl_oauth", http,
+          new GoogleAuthController(service)::callback, entered, release);
+    }
+    var accounts = mock(GitHubAccounts.class);
+    when(accounts.resolve(any(GitHubAccounts.Identity.class), eq("login"))).thenReturn(user);
+    var service = new GitHubAuthService(db, auth, accounts, new ObjectMapper(),
+        "test-client", "test-secret", "http://localhost:3000");
+    ReflectionTestUtils.setField(service, "http", http);
+    return new OAuthFixture(provider, "gl_github_oauth", http,
+        new GitHubAuthController(service)::callback, entered, release);
+  }
+
+  void oauthPending(String state, String browser, String provider, boolean expired) {
+    db.update("INSERT INTO oauth_pending(state_hash,browser_hash,nonce,code_verifier,intent,expires_at,provider) VALUES(?,?,?,?,'login',?,?)",
+        Support.hash(state), Support.hash(browser), "oauth-nonce", "oauth-verifier",
+        java.sql.Timestamp.from(Instant.now().plusSeconds(expired ? -60 : 600)), provider);
+  }
+
+  MockHttpServletRequest oauthRequest(OAuthFixture fixture, Cookie... cookies) {
+    var request = new MockHttpServletRequest("GET", "/api/v1/auth/" + fixture.provider() + "/callback");
+    request.setAttribute(SessionCookies.SECURE_ATTRIBUTE, false);
+    request.setCookies(cookies);
+    return request;
+  }
+
+  int pending(String state) {
+    return db.queryForObject("SELECT count(*) FROM oauth_pending WHERE state_hash=?", Integer.class,
+        Support.hash(state));
+  }
+
+  void rejectedOAuth(OAuthFixture fixture, String state, Cookie... cookies) {
+    var response = new MockHttpServletResponse();
+    var result = fixture.callback().call(state, "provider-code", "", oauthRequest(fixture, cookies), response);
+    assertEquals(303, result.getStatusCode().value());
+    assertEquals(fixture.back("expired"), result.getHeaders().getLocation().toString());
+    assertTrue(response.getHeaders("Set-Cookie").isEmpty(), "Rejected callback must preserve browser binding");
+    assertEquals(0, db.queryForObject("SELECT count(*) FROM sessions", Integer.class));
+    verifyNoInteractions(fixture.exchange());
+  }
+
+  void oauthMismatchesPreserveState(String provider) throws Exception {
+    var fixture = oauth(provider, UUID.randomUUID(), false);
+    String state = "a".repeat(43), browser = "b".repeat(43), other = "c".repeat(43);
+    oauthPending(state, browser, provider, false);
+    rejectedOAuth(fixture, "malformed", new Cookie(fixture.cookieName(), browser));
+    assertEquals(1, pending(state));
+    rejectedOAuth(fixture, other, new Cookie(fixture.cookieName(), browser));
+    assertEquals(1, pending(state));
+    rejectedOAuth(fixture, state);
+    assertEquals(1, pending(state));
+    rejectedOAuth(fixture, state, new Cookie(fixture.cookieName(), "malformed"));
+    assertEquals(1, pending(state));
+    rejectedOAuth(fixture, state, new Cookie(fixture.cookieName(), other));
+    assertEquals(1, pending(state));
+    rejectedOAuth(fixture, state, new Cookie(fixture.cookieName(), browser),
+        new Cookie(fixture.cookieName(), other));
+    assertEquals(1, pending(state));
+    var response = new MockHttpServletResponse();
+    var cancelled = fixture.callback().call(state, "", "access_denied",
+        oauthRequest(fixture, new Cookie(fixture.cookieName(), browser)), response);
+    assertEquals(303, cancelled.getStatusCode().value());
+    assertEquals(fixture.back("cancelled"), cancelled.getHeaders().getLocation().toString());
+    assertEquals(0, pending(state));
+    assertTrue(response.getHeaders("Set-Cookie").stream().anyMatch(cookie ->
+        cookie.startsWith(fixture.cookieName() + "=") && cookie.contains("Max-Age=0")));
+    verifyNoInteractions(fixture.exchange());
+  }
+
+  @Test
+  void googleCallbackRejectsMismatchesWithoutConsumingStateOrClearingBinding() throws Exception {
+    oauthMismatchesPreserveState("google");
+  }
+
+  @Test
+  void githubCallbackRejectsMismatchesWithoutConsumingStateOrClearingBinding() throws Exception {
+    oauthMismatchesPreserveState("github");
+  }
+
+  void oauthProviderAndExpiryPreserveState(String provider) throws Exception {
+    var fixture = oauth(provider, UUID.randomUUID(), false);
+    String live = "a".repeat(43), browser = "b".repeat(43);
+    String expired = "c".repeat(43), otherProvider = "d".repeat(43);
+    oauthPending(live, browser, provider, false);
+    oauthPending(expired, browser, provider, true);
+    oauthPending(otherProvider, browser, provider.equals("google") ? "github" : "google", false);
+    rejectedOAuth(fixture, expired, new Cookie(fixture.cookieName(), browser));
+    assertEquals(1, pending(expired));
+    assertEquals(1, pending(live));
+    rejectedOAuth(fixture, otherProvider, new Cookie(fixture.cookieName(), browser));
+    assertEquals(1, pending(otherProvider));
+    assertEquals(1, pending(live));
+    var accepted = fixture.callback().call(live, "", "access_denied",
+        oauthRequest(fixture, new Cookie(fixture.cookieName(), browser)), new MockHttpServletResponse());
+    assertEquals(303, accepted.getStatusCode().value());
+    assertEquals(fixture.back("cancelled"), accepted.getHeaders().getLocation().toString());
+    assertEquals(0, pending(live));
+    assertEquals(1, pending(otherProvider));
+    assertEquals(1, pending(expired));
+    verifyNoInteractions(fixture.exchange());
+  }
+
+  @Test
+  void googleCallbackRejectsExpiredAndCrossProviderStateWithoutExchange() throws Exception {
+    oauthProviderAndExpiryPreserveState("google");
+  }
+
+  @Test
+  void githubCallbackRejectsExpiredAndCrossProviderStateWithoutExchange() throws Exception {
+    oauthProviderAndExpiryPreserveState("github");
+  }
+
+  void oauthSuccessIsSingleUse(String provider) throws Exception {
+    UUID id = user("member@example.test", false);
+    var fixture = oauth(provider, id, true);
+    String state = "a".repeat(43), browser = "b".repeat(43);
+    oauthPending(state, browser, provider, false);
+    var response = new MockHttpServletResponse();
+    var executor = Executors.newSingleThreadExecutor();
+    try {
+      var callback = executor.submit(() -> fixture.callback().call(state, "provider-code", "",
+          oauthRequest(fixture, new Cookie(fixture.cookieName(), browser)), response));
+      assertTrue(fixture.exchangeEntered().await(10, TimeUnit.SECONDS));
+      assertEquals(0, pending(state), "State must be consumed before provider exchange completes");
+      assertEquals(0, db.queryForObject("SELECT count(*) FROM sessions", Integer.class));
+      var racingResponse = new MockHttpServletResponse();
+      var racingReplay = fixture.callback().call(state, "provider-code", "",
+          oauthRequest(fixture, new Cookie(fixture.cookieName(), browser)), racingResponse);
+      assertEquals(fixture.back("expired"), racingReplay.getHeaders().getLocation().toString());
+      assertTrue(racingResponse.getHeaders("Set-Cookie").isEmpty());
+      fixture.exchangeRelease().countDown();
+      var completed = callback.get(15, TimeUnit.SECONDS);
+      assertEquals(303, completed.getStatusCode().value());
+      assertEquals("/workspace", completed.getHeaders().getLocation().toString());
+      assertEquals(1, db.queryForObject("SELECT count(*) FROM sessions WHERE user_id=?", Integer.class, id));
+      assertEquals(0, pending(state));
+      assertTrue(response.getHeaders("Set-Cookie").stream().anyMatch(cookie ->
+          cookie.startsWith(fixture.cookieName() + "=") && cookie.contains("Max-Age=0")));
+      assertTrue(response.getHeaders("Set-Cookie").stream().anyMatch(cookie ->
+          cookie.startsWith("gl_session=") && !cookie.contains("Max-Age=0")));
+      var finalReplay = fixture.callback().call(state, "provider-code", "",
+          oauthRequest(fixture, new Cookie(fixture.cookieName(), browser)), new MockHttpServletResponse());
+      assertEquals(fixture.back("expired"), finalReplay.getHeaders().getLocation().toString());
+      assertEquals(1, db.queryForObject("SELECT count(*) FROM sessions WHERE user_id=?", Integer.class, id));
+      verify(fixture.exchange(), times(provider.equals("google") ? 1 : 3))
+          .<String>send(any(HttpRequest.class), any());
+    } finally {
+      fixture.exchangeRelease().countDown();
+      executor.shutdownNow();
+    }
+  }
+
+  @Test
+  void googleSuccessfulCallbackConsumesStateBeforeExchangeAndRejectsRacingAndLaterReplay() throws Exception {
+    oauthSuccessIsSingleUse("google");
+  }
+
+  @Test
+  void githubSuccessfulCallbackConsumesStateBeforeExchangeAndRejectsRacingAndLaterReplay() throws Exception {
+    oauthSuccessIsSingleUse("github");
+  }
+
+  void oauthFailedExchangeCannotRestoreState(String provider) throws Exception {
+    UUID id = user("member@example.test", false);
+    var fixture = oauth(provider, id, false);
+    doThrow(new IOException("Provider unavailable")).when(fixture.exchange())
+        .<String>send(any(HttpRequest.class), any());
+    String state = "a".repeat(43), browser = "b".repeat(43);
+    oauthPending(state, browser, provider, false);
+    var response = new MockHttpServletResponse();
+    var failed = fixture.callback().call(state, "provider-code", "",
+        oauthRequest(fixture, new Cookie(fixture.cookieName(), browser)), response);
+    assertEquals(303, failed.getStatusCode().value());
+    assertEquals(fixture.back("failed"), failed.getHeaders().getLocation().toString());
+    assertEquals(0, pending(state));
+    assertEquals(0, db.queryForObject("SELECT count(*) FROM sessions", Integer.class));
+    assertTrue(response.getHeaders("Set-Cookie").stream().anyMatch(cookie ->
+        cookie.startsWith(fixture.cookieName() + "=") && cookie.contains("Max-Age=0")));
+    assertTrue(response.getHeaders("Set-Cookie").stream().noneMatch(cookie -> cookie.startsWith("gl_session=")));
+    var replayResponse = new MockHttpServletResponse();
+    var replay = fixture.callback().call(state, "provider-code", "",
+        oauthRequest(fixture, new Cookie(fixture.cookieName(), browser)), replayResponse);
+    assertEquals(fixture.back("expired"), replay.getHeaders().getLocation().toString());
+    assertEquals(0, pending(state));
+    assertEquals(0, db.queryForObject("SELECT count(*) FROM sessions", Integer.class));
+    assertTrue(replayResponse.getHeaders("Set-Cookie").isEmpty());
+    verify(fixture.exchange()).<String>send(any(HttpRequest.class), any());
+  }
+
+  @Test
+  void googleFailedProviderExchangeCannotRestoreConsumedStateOrIssueSessionOnReplay() throws Exception {
+    oauthFailedExchangeCannotRestoreState("google");
+  }
+
+  @Test
+  void githubFailedProviderExchangeCannotRestoreConsumedStateOrIssueSessionOnReplay() throws Exception {
+    oauthFailedExchangeCannotRestoreState("github");
   }
 
   @Test

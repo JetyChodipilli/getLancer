@@ -116,7 +116,6 @@ public class GitHubAuthService {
       String error,
       HttpServletRequest request,
       HttpServletResponse response) {
-    auth.authCookie(response, "gl_github_oauth", "", 0);
     if (!enabled()) return back("login", "unavailable");
     String browser = SessionCookies.read(request, "gl_github_oauth");
     if (!state.matches("[A-Za-z0-9_-]{43}") || !browser.matches("[A-Za-z0-9_-]{43}"))
@@ -128,6 +127,7 @@ public class GitHubAuthService {
             hash(state),
             hash(browser));
     if (rows.isEmpty()) return back("login", "expired");
+    auth.authCookie(response, "gl_github_oauth", "", 0);
     var pending = rows.get(0);
     String intent = (String) pending.get("intent");
     if (!error.isBlank()) return back(intent, "cancelled");

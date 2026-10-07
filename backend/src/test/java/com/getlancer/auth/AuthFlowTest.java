@@ -396,7 +396,7 @@ class AuthFlowTest {
     var response =
         google("id", "secret")
             .callback(
-                "state", "code", "", new MockHttpServletRequest(), new MockHttpServletResponse());
+                "a".repeat(43), "code", "", new MockHttpServletRequest(), new MockHttpServletResponse());
     assertEquals(303, response.getStatusCode().value());
     assertEquals("/login?auth_error=expired", response.getHeaders().getLocation().toString());
     verifyNoInteractions(db);

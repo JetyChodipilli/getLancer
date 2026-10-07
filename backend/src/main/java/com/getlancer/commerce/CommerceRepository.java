@@ -19,6 +19,8 @@ public class CommerceRepository {
   private static final String ELIGIBLE="u.account_status='ACTIVE' AND u.email_verified_at IS NOT NULL AND d.approval_status='APPROVED' AND EXISTS(SELECT 1 FROM user_roles r WHERE r.user_id=u.id AND r.role='DEVELOPER')";
   private static final String SELECT="SELECT t.id,t.slug,t.title,t.summary,t.description,p.category,p.technology,t.price_minor AS \"priceMinor\",t.currency,t.product_id AS \"productId\",p.slug AS \"productSlug\",t.seller_id AS \"sellerId\",d.display_name AS \"sellerName\",v.id AS \"versionId\",v.version,v.release_notes AS \"releaseNotes\",v.license_terms AS \"licenseTerms\",t.status,t.created_at AS \"createdAt\" FROM source_templates t JOIN products p ON p.id=t.product_id JOIN users u ON u.id=t.seller_id JOIN developer_profiles d ON d.user_id=u.id LEFT JOIN LATERAL(SELECT id,version,release_notes,license_terms FROM source_versions sv WHERE sv.template_id=t.id AND sv.status='APPROVED' ORDER BY sv.reviewed_at DESC,sv.created_at DESC LIMIT 1) v ON true ";
   private static final String PUBLIC="t.status='ACTIVE' AND v.id IS NOT NULL AND "+ELIGIBLE+" AND p.approval_status='APPROVED' AND p.lifecycle_status='ACTIVE' AND p.visibility='PUBLIC' AND EXISTS(SELECT 1 FROM repository_verifications rv WHERE rv.product_id=p.id AND rv.status='VERIFIED' AND rv.repository_url=p.repository_url)";
+  private static final String PUBLIC_VERSIONS="SELECT id,version,release_notes AS \"releaseNotes\",license_terms AS \"licenseTerms\",status,created_at AS \"createdAt\" FROM source_versions WHERE template_id=? AND status='APPROVED' ORDER BY created_at DESC,id";
+  private static final String PRIVATE_VERSIONS="SELECT id,version,release_notes AS \"releaseNotes\",license_terms AS \"licenseTerms\",status,created_at AS \"createdAt\",review_reason AS \"reviewReason\",sha256,size_bytes AS \"sizeBytes\",entry_count AS \"entryCount\",manifest_files AS \"manifestFiles\",submitted_at AS \"submittedAt\",reviewed_at AS \"reviewedAt\" FROM source_versions WHERE template_id=? ORDER BY created_at DESC,id";
   public Map<String,Object> catalog(HttpServletRequest r,String q,String category,String technology) {
     if(q.length()>100 || category.length()>100 || technology.length()>100) throw new ApiError(400,"VALIDATION_ERROR","Search values are too long.");
     return Pages.query(db,r,SELECT+"WHERE "+PUBLIC+" AND (?='' OR t.title ILIKE '%'||?||'%' OR t.summary ILIKE '%'||?||'%') AND (?='' OR p.category=?) AND (?='' OR p.technology ILIKE '%'||?||'%') ORDER BY t.created_at DESC,t.id",q,q,q,category,category,technology,technology);
@@ -43,9 +45,7 @@ public class CommerceRepository {
     if(row.get("licenseTerms")==null) row.put("licenseTerms",template((UUID)row.get("id"),false).get("license_terms"));return row;
   }
   public List<Map<String,Object>> versions(UUID id,boolean privateFields) {
-    String fields="id,version,release_notes AS \"releaseNotes\",license_terms AS \"licenseTerms\",status,created_at AS \"createdAt\"";
-    if(privateFields) fields+=",review_reason AS \"reviewReason\",sha256,size_bytes AS \"sizeBytes\",entry_count AS \"entryCount\",manifest_files AS \"manifestFiles\",submitted_at AS \"submittedAt\",reviewed_at AS \"reviewedAt\"";
-    var rows=db.queryForList("SELECT "+fields+" FROM source_versions WHERE template_id=?"+(privateFields?"":" AND status='APPROVED'")+" ORDER BY created_at DESC,id",id);
+    var rows=privateFields?db.queryForList(PRIVATE_VERSIONS,id):db.queryForList(PUBLIC_VERSIONS,id);
     if(privateFields) for(var row:rows) row.put("manifestFiles",List.of(Objects.toString(row.get("manifestFiles"),"").split("\\n")));return rows;
   }
   public Map<String,Object> template(UUID id,boolean lock) {var rows=db.queryForList("SELECT id,seller_id,product_id,slug,title,summary,description,price_minor,currency,license_terms,status,created_at,updated_at FROM source_templates WHERE id=?"+(lock?" FOR UPDATE":""),id);if(rows.isEmpty()) throw missing();return rows.get(0);}

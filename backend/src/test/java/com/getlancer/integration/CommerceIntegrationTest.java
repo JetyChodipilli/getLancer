@@ -70,6 +70,25 @@ class CommerceIntegrationTest {
     mvc.perform(as(get("/api/v1/me/templates/"+template+"/versions/"+version+"/package"),"outsider")).andExpect(status().isNotFound());mvc.perform(as(get("/api/v1/admin/templates"),"buyer")).andExpect(status().isForbidden());
     db.update("DELETE FROM user_roles WHERE user_id=? AND role='DEVELOPER'",buyer);mvc.perform(as(get("/api/v1/me/templates"),"buyer")).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
   }
+  @Test void privateSourceDownloadsAuditCurrentActorAndResourceWithoutPackageContents() throws Exception {
+    String ownerPath="/api/v1/me/templates/"+template+"/versions/"+version+"/package";
+    String adminPath="/api/v1/admin/templates/"+template+"/versions/"+version+"/package";
+    mvc.perform(as(get(ownerPath),"seller")).andExpect(status().isOk());
+    mvc.perform(as(get(adminPath),"admin")).andExpect(status().isOk());
+    assertEquals(1,db.queryForObject("SELECT count(*) FROM security_audit_events WHERE actor_id=? AND event='PRIVATE_EXPORT' AND target=? AND result='SUCCESS'",Integer.class,seller,ownerPath));
+    assertEquals(1,db.queryForObject("SELECT count(*) FROM security_audit_events WHERE actor_id=? AND event='PRIVATE_EXPORT' AND target=? AND result='SUCCESS'",Integer.class,admin,adminPath));
+    db.update("UPDATE sessions SET mfa_verified=false WHERE user_id=?",admin);
+    mvc.perform(as(get(adminPath),"admin")).andExpect(status().isForbidden());
+    assertEquals(1,db.queryForObject("SELECT count(*) FROM security_audit_events WHERE actor_id=? AND event='PRIVATE_EXPORT' AND target=? AND result='SUCCESS'",Integer.class,admin,adminPath));
+    UUID purchaseId=UUID.randomUUID();
+    repo.reserve(purchaseId,buyer,UUID.randomUUID(),repo.template(template,false),repo.version(template,version,false),CommerceProviderIntegrationTest.ACCOUNT,"live");
+    repo.bind(purchaseId,"order_exportfixture123","CREATED");repo.capture(purchaseId,"pay_exportfixture123",0,"PROCESSED");
+    String buyerPath="/api/v1/template-purchases/"+purchaseId+"/download";
+    mvc.perform(as(get(buyerPath),"buyer")).andExpect(status().isOk());
+    assertEquals(1,db.queryForObject("SELECT count(*) FROM security_audit_events WHERE actor_id=? AND event='PRIVATE_EXPORT' AND target=? AND result='SUCCESS'",Integer.class,buyer,buyerPath));
+    String metadata=json.writeValueAsString(db.queryForList("SELECT event,target,result,request_id FROM security_audit_events WHERE actor_id IN (?,?,?) AND event='PRIVATE_EXPORT'",seller,admin,buyer));
+    assertFalse(metadata.contains("storage_key"));assertFalse(metadata.contains("Complete source"));assertFalse(metadata.contains("license_terms"));
+  }
   @Test void submissionRequiresRightsMfaReviewAndCurrentRepositoryOwnership() throws Exception {
     UUID release=upload("2.0.0");String submit="/api/v1/me/templates/"+template+"/versions/"+release+"/submit",review="/api/v1/admin/templates/"+template+"/versions/"+release+"/review";
     mvc.perform(body(post(submit),"seller","{}")).andExpect(status().isBadRequest());mvc.perform(body(post(submit),"outsider","{\"rightsConsent\":true}")).andExpect(status().isNotFound());

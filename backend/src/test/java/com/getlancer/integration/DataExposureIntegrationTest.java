@@ -89,7 +89,7 @@ class DataExposureIntegrationTest {
     // Transactional DDL rolls back after each test: simulate future migrations adding secret columns.
     if (!committedFixture) {
       for (String table : List.of("users", "developer_profiles", "products", "reports", "inquiries",
-          "component_entries", "payment_attempts", "product_access_grants")) {
+          "component_entries", "payment_attempts", "product_access_grants", "college_project_metadata")) {
         db.execute("ALTER TABLE " + table + " ADD COLUMN fixture_secret_canary text DEFAULT '" + CANARY + "'");
       }
     }
@@ -136,7 +136,13 @@ class DataExposureIntegrationTest {
   }
 
   private JsonNode response(String route, String actor) throws Exception {
-    String body = mvc.perform(get(route).cookie(new Cookie("gl_session", actor)))
+    return response(route, actor, Map.of());
+  }
+
+  private JsonNode response(String route, String actor, Map<String,String> filters) throws Exception {
+    var request = get(route).cookie(new Cookie("gl_session", actor));
+    for (var filter : filters.entrySet()) request.param(filter.getKey(), filter.getValue());
+    String body = mvc.perform(request)
         .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
     assertFalse(body.contains(CANARY), route);
     assertFalse(body.contains("fixture_secret_canary"), route);
@@ -181,6 +187,86 @@ class DataExposureIntegrationTest {
   }
 
   @Test
+  void administratorInquiryEvidenceGetOnlyAppendsAuditAfterCurrentMfa() throws Exception {
+    UUID inquiry = db.queryForObject("SELECT source_inquiry_id FROM delivery_engagements WHERE id=?",
+        UUID.class, engagement);
+    UUID report = UUID.randomUUID();
+    String rawBrief = "Private investigation brief: unreleased client plans and confidential delivery details.";
+    db.update("UPDATE inquiries SET description=? WHERE id=?", rawBrief, inquiry);
+    db.update("INSERT INTO inquiry_events(id,inquiry_id,event_type,actor_id,actor_type) VALUES(?,?,'RESPONDED',?,'DEVELOPER')",
+        UUID.randomUUID(), inquiry, owner);
+    db.update("INSERT INTO reports(id,reporter_id,target_type,target_id,reason,detail) VALUES(?,?,'INQUIRY',?,'SPAM','Investigate this private inquiry')",
+        report, buyer, inquiry);
+    db.update("INSERT INTO moderation_actions(id,admin_id,target_type,target_id,action,reason) VALUES(?,?,'REPORT',?,'TRIAGE','Existing triage evidence must remain unchanged')",
+        UUID.randomUUID(), admin, report);
+    String domainBefore = reportDomainSnapshot();
+    List<String> auditBefore = moderationSnapshot();
+    String route = "/api/v1/admin/reports/" + report;
+
+    mvc.perform(get(route)).andExpect(status().isUnauthorized());
+    assertEquals(domainBefore, reportDomainSnapshot());
+    assertEquals(auditBefore, moderationSnapshot());
+    assertEquals(0, db.queryForObject("SELECT count(*) FROM moderation_actions WHERE action='VIEW_EVIDENCE'", Integer.class));
+
+    db.update("UPDATE sessions SET mfa_verified=false WHERE user_id=?", admin);
+    mvc.perform(get(route).cookie(new Cookie("gl_session", "admin"))).andExpect(status().isForbidden());
+    assertEquals(domainBefore, reportDomainSnapshot());
+    assertEquals(auditBefore, moderationSnapshot());
+    assertEquals(0, db.queryForObject("SELECT count(*) FROM moderation_actions WHERE action='VIEW_EVIDENCE'", Integer.class));
+
+    db.update("UPDATE sessions SET mfa_verified=true WHERE user_id=?", admin);
+    JsonNode evidence = response(route, "admin");
+    assertEquals(report.toString(), evidence.path("report").path("id").asText());
+    assertEquals("INQUIRY", evidence.path("report").path("target_type").asText());
+    assertEquals(inquiry.toString(), evidence.path("report").path("target_id").asText());
+    assertEquals(rawBrief, evidence.path("target").path("description").asText());
+    assertEquals("DISCUSSION", evidence.path("target").path("current_status").asText());
+    assertEquals(domainBefore, reportDomainSnapshot());
+    List<String> auditAfter = moderationSnapshot();
+    assertEquals(auditBefore.size() + 1, auditAfter.size());
+    assertTrue(auditAfter.containsAll(auditBefore));
+    var views = db.queryForList("SELECT id,admin_id,target_type,target_id,action,reason FROM moderation_actions WHERE action='VIEW_EVIDENCE'");
+    assertEquals(1, views.size());
+    var view = views.get(0);
+    assertEquals(admin, view.get("admin_id"));
+    assertEquals("REPORT", view.get("target_type"));
+    assertEquals(report, view.get("target_id"));
+    assertEquals("VIEW_EVIDENCE", view.get("action"));
+    assertEquals("Inquiry evidence accessed for report investigation", view.get("reason"));
+    assertFalse(view.get("reason").toString().contains(rawBrief));
+  }
+
+  private String reportDomainSnapshot() {
+    return db.queryForObject("""
+        SELECT jsonb_build_object(
+          'reports',(SELECT coalesce(jsonb_agg(to_jsonb(s) ORDER BY to_jsonb(s)),'[]'::jsonb) FROM reports s),
+          'inquiries',(SELECT coalesce(jsonb_agg(to_jsonb(s) ORDER BY to_jsonb(s)),'[]'::jsonb) FROM inquiries s),
+          'inquiry_events',(SELECT coalesce(jsonb_agg(to_jsonb(s) ORDER BY to_jsonb(s)),'[]'::jsonb) FROM inquiry_events s),
+          'account_tokens',(SELECT coalesce(jsonb_agg(to_jsonb(s) ORDER BY to_jsonb(s)),'[]'::jsonb) FROM account_tokens s),
+          'reviews',(SELECT coalesce(jsonb_agg(to_jsonb(s) ORDER BY to_jsonb(s)),'[]'::jsonb) FROM reviews s),
+          'earned_capacity_awards',(SELECT coalesce(jsonb_agg(to_jsonb(s) ORDER BY to_jsonb(s)),'[]'::jsonb) FROM earned_capacity_awards s),
+          'products',(SELECT coalesce(jsonb_agg(to_jsonb(s) ORDER BY to_jsonb(s)),'[]'::jsonb) FROM products s),
+          'product_media',(SELECT coalesce(jsonb_agg(to_jsonb(s) ORDER BY to_jsonb(s)),'[]'::jsonb) FROM product_media s),
+          'developer_profiles',(SELECT coalesce(jsonb_agg(to_jsonb(s) ORDER BY to_jsonb(s)),'[]'::jsonb) FROM developer_profiles s),
+          'moderation_appeals',(SELECT coalesce(jsonb_agg(to_jsonb(s) ORDER BY to_jsonb(s)),'[]'::jsonb) FROM moderation_appeals s),
+          'delivery_engagements',(SELECT coalesce(jsonb_agg(to_jsonb(s) ORDER BY to_jsonb(s)),'[]'::jsonb) FROM delivery_engagements s),
+          'delivery_proposals',(SELECT coalesce(jsonb_agg(to_jsonb(s) ORDER BY to_jsonb(s)),'[]'::jsonb) FROM delivery_proposals s),
+          'delivery_agreements',(SELECT coalesce(jsonb_agg(to_jsonb(s) ORDER BY to_jsonb(s)),'[]'::jsonb) FROM delivery_agreements s),
+          'delivery_milestones',(SELECT coalesce(jsonb_agg(to_jsonb(s) ORDER BY to_jsonb(s)),'[]'::jsonb) FROM delivery_milestones s),
+          'delivery_activity',(SELECT coalesce(jsonb_agg(to_jsonb(s) ORDER BY to_jsonb(s)),'[]'::jsonb) FROM delivery_activity s),
+          'delivery_disputes',(SELECT coalesce(jsonb_agg(to_jsonb(s) ORDER BY to_jsonb(s)),'[]'::jsonb) FROM delivery_disputes s),
+          'payment_attempts',(SELECT coalesce(jsonb_agg(to_jsonb(s) ORDER BY to_jsonb(s)),'[]'::jsonb) FROM payment_attempts s),
+          'payment_ledger',(SELECT coalesce(jsonb_agg(to_jsonb(s) ORDER BY to_jsonb(s)),'[]'::jsonb) FROM payment_ledger s)
+        )::text
+        """, String.class);
+  }
+
+  private List<String> moderationSnapshot() {
+    return db.queryForList("SELECT row_to_json(state)::text FROM moderation_actions state ORDER BY row_to_json(state)::text",
+        String.class);
+  }
+
+  @Test
   void paymentFactsRemainVisibleOnlyToCurrentPartiesOrMfaAdministrator() throws Exception {
     JsonNode payments = response("/api/v1/engagements/" + engagement + "/payments", "buyer");
     assertEquals(10000, payments.path("items").get(0).path("amountMinor").asInt());
@@ -214,6 +300,45 @@ class DataExposureIntegrationTest {
     assertEquals("outsider", card.path("builderSlug").asText());
     assertEquals("ONE_SLOT_LEFT", card.path("availability").asText());
     assertEquals("2030-05-01", card.path("bookedUntil").asText());
+  }
+
+  @Test
+  void collegeSearchBindsHostileFiltersAndPreservesLiteralMatchingPrivacyAndPaging() throws Exception {
+    UUID literalProduct = product("PUBLIC");
+    db.update("UPDATE products SET title='College 100%_original' WHERE id=?", literalProduct);
+    for (UUID id : List.of(product, literalProduct, privateProduct)) {
+      db.update("INSERT INTO college_project_metadata(product_id,category,language,problem,outcome,prerequisites,contribution,institution,status) VALUES(?,'FULL_STACK',?,'A documented learning problem','Reproducible result','Local Java runtime','Original implementation','Private college fixture','APPROVED')",
+          id, id.equals(literalProduct) ? "Java%_language" : "Java");
+    }
+    String route = "/api/v1/college-projects";
+    JsonNode matches = response(route, "buyer", Map.of("category", "FULL_STACK", "builder", "owner",
+        "language", "jAv", "q", "Preserved"));
+    assertEquals(1, matches.path("totalItems").asInt());
+    assertEquals(product.toString(), matches.path("items").get(0).path("id").asText());
+    assertEquals("FULL_STACK", matches.path("items").get(0).path("education").path("category").asText());
+    assertFalse(matches.toString().contains("Private college fixture"));
+    assertFalse(matches.path("items").get(0).path("education").has("institution"));
+
+    for (String filter : List.of("q", "language", "builder")) {
+      JsonNode hostile = response(route, "buyer", Map.of(filter, "' OR 1=1 --"));
+      assertEquals(0, hostile.path("totalItems").asInt(), filter);
+      assertTrue(hostile.path("items").isEmpty(), filter);
+    }
+    mvc.perform(get(route).param("category", "' OR 1=1 --")).andExpect(status().isBadRequest());
+    for (String filter : List.of("q", "language")) {
+      JsonNode literal = response(route, "buyer", Map.of(filter, "%_"));
+      assertEquals(1, literal.path("totalItems").asInt(), filter);
+      assertEquals(literalProduct.toString(), literal.path("items").get(0).path("id").asText(), filter);
+    }
+    JsonNode unfiltered = response(route, "buyer", Map.of("q", " \t", "category", " \t",
+        "language", " \t", "builder", " \t"));
+    assertEquals(2, unfiltered.path("totalItems").asInt());
+    assertEquals(2, unfiltered.path("items").size());
+    JsonNode nextPage = response(route, "buyer", Map.of("page", "1"));
+    assertEquals(1, nextPage.path("page").asInt());
+    assertEquals(2, nextPage.path("totalItems").asInt());
+    assertTrue(nextPage.path("items").isEmpty());
+    assertFalse(nextPage.path("hasMore").asBoolean());
   }
 
   @Test

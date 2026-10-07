@@ -72,7 +72,7 @@ test('opaque srcdoc admits the trusted recipe hash and blocks a modified uploade
   const response = (await page.goto('/components/quiet-sign-in'))!;
   const policy = response.headers()['content-security-policy'];
   const card = recipes.find(recipe => recipe.category === 'CARD')!.files['index.html'];
-  const trustedBody = card.match(/<script>([\s\S]*?)<\/script>/)![1];
+  const trustedBody = card.match(/<script>([\s\S]*?)<\/script>/i)![1];
   const hash = (body: string) => `'sha256-${createHash('sha256').update(body).digest('base64')}'`;
   expect(policy).toContain(hash(trustedBody));
   const modifiedBody = trustedBody + ';document.body.dataset.uploadedExecuted="yes";';
