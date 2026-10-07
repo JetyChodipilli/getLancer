@@ -15,7 +15,7 @@ function fixture(t){
  mkdirSync(join(root,'target/surefire-reports'),{recursive:true});
  for(let i=0;i<51;i++)writeFileSync(join(root,`src/main/Controller${i}.java`),'@RestController class Example {}');
  const report=join(root,'target/surefire-reports/TEST-com.getlancer.integration.ComponentsIntegrationTest.xml');
- const passed='<testcase name="mvcHandlersDoNotExposeXsltViewRendering" classname="com.getlancer.integration.ComponentsIntegrationTest" time="0.1"/>';
+ const passed='<testsuite><testcase name="mvcHandlersDoNotExposeXsltViewRendering" classname="com.getlancer.integration.ComponentsIntegrationTest" time="0.1"/></testsuite>';
  writeFileSync(join(root,'pom.xml'),'<project/>');
  writeFileSync(join(root,'src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java'),'class ComponentsIntegrationTest {}');
  const saveReport=evidence=>{
@@ -44,9 +44,14 @@ test('changed advisories and expired assessments fail closed',t=>{
 test('missing, failed, skipped and wrong-class MVC test evidence cannot authorize assessment',t=>{
  const {root,report,passed,saveReport}=fixture(t);
  for(const evidence of ['',passed.replace('/>','><failure/></testcase>'),passed.replace('/>','><error/></testcase>'),passed.replace('/>','><skipped/></testcase>'),passed.replace('com.getlancer.integration.ComponentsIntegrationTest','fake.Test')]){
-  saveReport(evidence);assert.throws(()=>assessBackendFindings([finding],root,now),/passing real MVC/);
+  saveReport(evidence);assert.throws(()=>assessBackendFindings([finding],root,now),/JUnit|security regression/);
  }
  rmSync(report);assert.throws(()=>assessBackendFindings([finding],root,now),/ENOENT/);
+});
+test('logged or commented MVC testcase strings are not passing test elements',t=>{
+ const {root,passed,saveReport}=fixture(t);
+ saveReport('<testsuite><testcase name="unrelated" classname="Unrelated"><system-out><![CDATA['+passed+']]></system-out></testcase><!--'+passed+'--></testsuite>');
+ assert.throws(()=>assessBackendFindings([finding],root,now),/security regression/);
 });
 test('XSLT configuration and resources invalidate applicability',t=>{
  const {root,passed,saveReport}=fixture(t),source=join(root,'src/main/Controller0.java');

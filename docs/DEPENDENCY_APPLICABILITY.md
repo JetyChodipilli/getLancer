@@ -2,7 +2,7 @@
 
 Reviewed 2026-10-06; reassessment required before 2026-11-05.
 
-The OSV scan retains every advisory match in its report. Unassessed matches fail CI. The single conditional assessment below is restricted to the exact advisory revision and package version, and requires a passing application test report from the last hour, newer than production, dependency and test inputs, plus hashes of those inputs. Future report timestamps are rejected. It is not a patched-dependency or zero-advisory claim.
+The OSV scan retains every advisory match in its report. Unassessed matches fail CI. The single conditional assessment below is restricted to the exact advisory revision and package version, and requires a passing application test report parsed as actual XML testcase elements, excluding logged text, CDATA and comments, from the last hour, newer than production, dependency and test inputs, plus hashes of those inputs. Future report timestamps are rejected. It is not a patched-dependency or zero-advisory claim.
 
 ## CVE-2026-47884 / GHSA-pc63-qcmh-9cmg
 

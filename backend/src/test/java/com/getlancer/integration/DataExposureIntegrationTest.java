@@ -53,6 +53,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @ContextConfiguration(initializers = TestDatabaseGuard.class)
 @SpringBootTest(properties = {
@@ -83,9 +84,12 @@ class DataExposureIntegrationTest {
   @BeforeEach
   void prepare() {
     committedFixture = !TransactionSynchronizationManager.isActualTransactionActive();
-    if (committedFixture) TestDatabaseGuard.validate(environment);
+    TestDatabaseGuard.validate(environment);
+    var reset = new TransactionTemplate(transactions);
+    reset.setPropagationBehavior(Propagation.REQUIRES_NEW.value());
+    // Transport rate limits commit independently; release this table lock before response probes.
+    reset.executeWithoutResult(ignored -> db.execute("TRUNCATE getlancer_test.rate_buckets"));
     db.execute("TRUNCATE users CASCADE");
-    db.execute("TRUNCATE rate_buckets");
     // Transactional DDL rolls back after each test: simulate future migrations adding secret columns.
     if (!committedFixture) {
       for (String table : List.of("users", "developer_profiles", "products", "reports", "inquiries",

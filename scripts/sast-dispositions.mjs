@@ -3,8 +3,10 @@ import {createHash} from 'node:crypto';
 import {readFileSync,readdirSync,writeFileSync,openSync,closeSync,fstatSync,constants} from 'node:fs';
 import {resolve,join,relative} from 'node:path';
 import {pathToFileURL} from 'node:url';
+import {junitCases,requirePassingTest} from './junit-evidence.mjs';
 const digest=value=>createHash('sha256').update(value).digest('hex');
 const rule='java/csrf-unprotected-request-type';
+export const requiredBuildInputs=['backend/pom.xml','.github/workflows/ci.yml','scripts/check-sast-results.mjs','scripts/sast-dispositions.mjs','scripts/junit-evidence.mjs'];
 const allowed=new Set(['backend/src/main/java/com/getlancer/admin/AdminController.java','backend/src/main/java/com/getlancer/auth/GoogleAuthController.java','backend/src/main/java/com/getlancer/auth/GitHubAuthController.java']);
 export const requiredSecurityTests=[
  {report:'TEST-com.getlancer.auth.AuthenticationHardeningIntegrationTest.xml',className:'com.getlancer.auth.AuthenticationHardeningIntegrationTest',names:[
@@ -39,7 +41,8 @@ export function validateSastEvidence(root,spec,evidence,identity,now=new Date())
  assert.deepEqual(inputs(root,'backend/src/test'),Object.keys(spec.testInputs).sort(),'Security test review inventory changed.');
  assert.ok(Object.keys(spec.testInputs).includes('backend/src/test/java/com/getlancer/auth/AuthenticationHardeningIntegrationTest.java')
      &&Object.keys(spec.testInputs).includes('backend/src/test/java/com/getlancer/integration/DataExposureIntegrationTest.java'));
- for(const [path,hash]of Object.entries({...spec.productionInputs,...spec.testInputs}))
+ assert.deepEqual(Object.keys(spec.buildInputs).sort(),[...requiredBuildInputs].sort(),'Build review inventory changed.');
+ for(const [path,hash]of Object.entries({...spec.productionInputs,...spec.testInputs,...spec.buildInputs}))
   assert.equal(digest(read(join(root,path))),hash,'Reviewed source or test changed: '+path);
  assert.equal(evidence.schema,1);
  for(const key of ['sourceSha','workflowRunId','workflowRunAttempt']){
@@ -51,13 +54,8 @@ export function validateSastEvidence(root,spec,evidence,identity,now=new Date())
  for(const test of spec.tests){
   const bytes=read(join(root,'backend/target/surefire-reports',test.report));
   assert.equal(digest(bytes),evidence.reports[test.report],'Test artifact changed after verification.');
-  const xml=bytes.toString('utf8');
-  for(const name of test.names){
-   const start='<testcase',cases=xml.match(/<testcase\b[^>]*(?:\/>|>[\s\S]*?<\/testcase>)/g)||[];
-   const matches=cases.filter(value=>value.includes('name="'+name+'"')&&value.includes('classname="'+test.className+'"'));
-   assert.equal(matches.length,1,'Missing/ambiguous real security regression: '+name);
-   assert.ok(matches[0].startsWith(start)&&!/<(?:failure|error|skipped)\b/.test(matches[0]),'Required security regression did not pass: '+name);
-  }
+  const cases=junitCases(bytes);
+  for(const name of test.names)requirePassingTest(cases,test.className,name);
  }
  return true;
 }

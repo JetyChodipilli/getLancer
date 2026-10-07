@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {readFileSync,readdirSync,openSync,closeSync,fstatSync,constants} from 'node:fs';
 import {join} from 'node:path';
+import {junitCases,requirePassingTest} from './junit-evidence.mjs';
 
 const advisory='GHSA-pc63-qcmh-9cmg';
 const coordinate='pkg:maven/org.springframework/spring-webmvc@6.2.19?type=jar';
@@ -26,8 +27,7 @@ export function assessBackendFindings(findings,backendRoot,now=new Date()){
     assert.ok(now.getTime()<Date.parse(expiresAt),'Spring applicability assessment expired; reassess or upgrade.');
     const reportPath=join(backendRoot,'target/surefire-reports/TEST-com.getlancer.integration.ComponentsIntegrationTest.xml');
     const reportFile=readEvidence(reportPath),report=reportFile.bytes.toString('utf8');
-    const testcase=report.match(/<testcase\b(?=[^>]*\bname="mvcHandlersDoNotExposeXsltViewRendering")(?=[^>]*\bclassname="com\.getlancer\.integration\.ComponentsIntegrationTest")[^>]*(?:\/>|>[\s\S]*?<\/testcase>)/)?.[0];
-    assert.ok(testcase&&!/<(?:failure|error|skipped)\b/.test(testcase),'Require a passing real MVC applicability test.');
+    requirePassingTest(junitCases(reportFile.bytes),'com.getlancer.integration.ComponentsIntegrationTest','mvcHandlersDoNotExposeXsltViewRendering');
     const reportTime=reportFile.mtimeMs,evidence=[];
     assert.ok(reportTime<=now.getTime()&&now.getTime()-reportTime<=60*60*1000,'Require MVC test evidence from the last hour with no future timestamp.');
     for(const relative of ['pom.xml','src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java']){

@@ -8,7 +8,7 @@ function service(fault){
   const url=new URL(address),path=url.pathname;
   assert.equal(options.redirect,'manual');
   if(fault==='outage'&&path.includes('readiness'))return Response.json({status:'DOWN'},{status:503});
-  if(path.startsWith('/actuator/'))return Response.json({status:'UP'});
+  if(path.startsWith('/actuator/'))return Response.json({status:'UP'},{status:fault==='health-exposed'?200:403});
   if(path==='/api/v1/auth/providers')return Response.json({google:fault==='proxy'&&url.hostname.startsWith('frontend')});
   if(path==='/api/v1/me')return Response.json({error:{}},{status:fault==='fake-account'?200:401});
   if(path.startsWith('/preview/')){
@@ -18,12 +18,12 @@ function service(fault){
   return Response.json({items:[]});
  };
 }
-test('hosted read-only acceptance checks health, proxy identity, auth, redirects and measures requests',async()=>{
+test('hosted read-only acceptance checks private probes, proxy identity, auth, redirects and measures requests',async()=>{
  const result=await verifyStaging(config,service());
  assert.equal(result.requests,8);assert.equal(result.concurrency,2);assert.ok(result.p95Ms>=0);
 });
 test('hosted acceptance rejects outage, proxy mismatch, fabricated login, samples and external redirects',async()=>{
- for(const fault of ['outage','proxy','fake-account','samples','external'])await assert.rejects(()=>verifyStaging(config,service(fault)),fault);
+ for(const fault of ['outage','health-exposed','proxy','fake-account','samples','external'])await assert.rejects(()=>verifyStaging(config,service(fault)),fault);
 });
 test('hosted acceptance rejects HTTP and credential-bearing origins before making a request',async()=>{
  for(const APP_BASE_URL of ['http://frontend.example.test','https://user:secret@frontend.example.test','https://frontend.example.test/path']){

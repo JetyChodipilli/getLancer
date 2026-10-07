@@ -184,13 +184,7 @@ class TypedRequestsIntegrationTest {
     ok(body(post("/api/v1/business-invitations/" + invitation + "/respond"), "typed-client", Map.of("action", "ACCEPT")));
     assertEquals("HIRING_MANAGER", db.queryForObject("SELECT role FROM business_members WHERE business_id=? AND user_id=?", String.class, business, client));
 
-    // The retained URL must satisfy the same public-DNS checks as a newly supplied profile URL.
-    db.update("UPDATE developer_profiles SET website_url='https://example.com',country='IN',time_zone='Asia/Kolkata',languages='English' WHERE user_id=?", builder);
-    ok(body(put("/api/v1/developer/profile"), "typed-builder", Map.of(
-        "displayName", "Typed builder", "headline", "Customer software builder", "bio", "Builds complete customer software workflows",
-        "technology", "React", "category", "CRM", "availabilityStatus", "AVAILABLE_NOW")));
-    assertEquals("https://example.com", db.queryForObject("SELECT website_url FROM developer_profiles WHERE user_id=?", String.class, builder));
-
+    // Team membership requires an approved profile; exercise PATCH before the material profile edit.
     ok(body(patch("/api/v1/teams/" + team + "/leads/" + lead), "typed-builder", Map.of("note", "Private follow-up note")));
     assertEquals(builder, db.queryForObject("SELECT assignee_id FROM team_leads WHERE id=?", UUID.class, lead));
     assertTrue(db.queryForObject("SELECT follow_up_at IS NOT NULL FROM team_leads WHERE id=?", Boolean.class, lead));
@@ -201,6 +195,15 @@ class TypedRequestsIntegrationTest {
     ok(body(patch("/api/v1/teams/" + team + "/leads/" + lead), "typed-builder",
         Map.of("assigneeId", builder, "followUpAt", Instant.now().plusSeconds(86400).toString())));
     assertEquals(builder, db.queryForObject("SELECT assignee_id FROM team_leads WHERE id=?", UUID.class, lead));
+
+    // The retained URL must satisfy the same public-DNS checks as a newly supplied profile URL.
+    db.update("UPDATE developer_profiles SET website_url='https://example.com',country='IN',time_zone='Asia/Kolkata',languages='English' WHERE user_id=?", builder);
+    ok(body(put("/api/v1/developer/profile"), "typed-builder", Map.of(
+        "displayName", "Typed builder", "headline", "Customer software builder", "bio", "Builds complete customer software workflows",
+        "technology", "React", "category", "CRM", "availabilityStatus", "AVAILABLE_NOW")));
+    assertEquals("https://example.com", db.queryForObject("SELECT website_url FROM developer_profiles WHERE user_id=?", String.class, builder));
+    assertEquals("DRAFT", db.queryForObject("SELECT approval_status FROM developer_profiles WHERE user_id=?", String.class, builder));
+
     ok(body(post("/api/v1/analytics/events"), "typed-builder", Map.of(
         "eventName", "home_view", "source", "web", "eventId", UUID.randomUUID(),
         "sessionId", UUID.randomUUID(), "occurredAt", Instant.now().toString(),

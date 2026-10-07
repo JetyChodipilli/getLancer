@@ -256,14 +256,14 @@
     "backend/src/test/java/com/getlancer/integration/BusinessIntegrationTest.java": "5d471f46b338e40f84ef1b57231817bdf8beb4cc2d933b3c19a9d32eb15f109e",
     "backend/src/test/java/com/getlancer/integration/CommerceIntegrationTest.java": "cbd063e4e1f1bd1e31a36a66b0c362aa3d274ac21ca934ae55118b5286c14dde",
     "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java": "9d8908d3995236dd20d67907aa63e8ddb12aeb5c6bfa23f1a9e5892ee5545fbb",
-    "backend/src/test/java/com/getlancer/integration/DataExposureIntegrationTest.java": "def28ba10b5d46b554f7da872b2389d868106fdf94ac7737b1433ed8d82a013d",
+    "backend/src/test/java/com/getlancer/integration/DataExposureIntegrationTest.java": "ac31b407cf02b0766363f44b0760a51f8b202bc5a910ee63909efc7fcd649ca2",
     "backend/src/test/java/com/getlancer/integration/DeliveryIntegrationTest.java": "29935f7130dc66dbb375e277ec60bbff9b154c86ae1ba8b4012e33a8e446f7e4",
     "backend/src/test/java/com/getlancer/integration/HostedDemoIntegrationTest.java": "23f9c6204f4b2f06ba073b701ef665dbb41b759780446d7c22e3d81429307693",
     "backend/src/test/java/com/getlancer/integration/MaintenanceIntegrationTest.java": "70897c5fdedd5f3a1c0fbacdce9ea88abd1b9547a46d35c5ee18b4a7bd7f8f29",
-    "backend/src/test/java/com/getlancer/integration/MarketplaceIntegrationTest.java": "472d8087fd4af431aedff3a8ba55d4dfac5ba96caafc518157af4ae292601d59",
+    "backend/src/test/java/com/getlancer/integration/MarketplaceIntegrationTest.java": "95aa98dba413b763145287d1bb7c496f62efd9973089c931b14cecb18ce133ea",
     "backend/src/test/java/com/getlancer/integration/PaymentIntegrationTest.java": "037dc2b4e0cd57eb3089560e77a98a0d7d0ef72208acab32ac2b34708d527efa",
     "backend/src/test/java/com/getlancer/integration/TeamsIntegrationTest.java": "cc33960f10031e079167faeecd3fb7ec28a83d4dc65c29cf15303803897e1603",
-    "backend/src/test/java/com/getlancer/integration/TypedRequestsIntegrationTest.java": "af15a96a4477e121ff8779452ac7c41c4a94da8f92aacb470b7eb857c096bf39",
+    "backend/src/test/java/com/getlancer/integration/TypedRequestsIntegrationTest.java": "0206445582518d6f02e7472a8c56952feabd9f891f3bb8f34a8b58394b1c662d",
     "backend/src/test/java/com/getlancer/payments/CommerceProviderIntegrationTest.java": "09cbf8c9e6bf7a0780a7589f766362e21f581330999281d453e85b96067225a9",
     "backend/src/test/java/com/getlancer/payments/MaintenanceFixture.java": "b1a54b80e7b86e14daeae5d674e807aae69d55966b5b6010beeaf1f073c70998",
     "backend/src/test/java/com/getlancer/payments/RazorpayClientTest.java": "d9689957e1160f7c21ae1fb5b329baaf0bfce42bf4a9e2d5b7130809558f5e14",
@@ -281,5 +281,12 @@
     "backend/src/test/java/com/getlancer/trust/TrustTest.java": "0fcb3c383570699f3809d4c8488c8902a65adc90eb56652b3f2a008d7e58ac1f",
     "backend/src/test/resources/api-route-contract.txt": "99a4d083211fbc55c07cf013d8724fa70a768d500cd71fd05f140892d132e014",
     "backend/src/test/resources/mockito-extensions/org.mockito.plugins.MockMaker": "8eca853a5a457f17e0479b71dfbe95f2a13aff9eeff250261ecdc8ca9b847a6a"
+  },
+  "buildInputs": {
+    "backend/pom.xml": "b4e094efa416d6a21cd225c1e3296db2b415b67e605e5e0d8f00d7409b4497a2",
+    ".github/workflows/ci.yml": "ffe7d4f8f69ff132fc51985243c28697b3c3f2468c8c921c9e77c8f01e51680f",
+    "scripts/check-sast-results.mjs": "27d5b511a7fa0b1329b506a507b6c12f38bbf69479faa8dd51e4c43a7d0254c8",
+    "scripts/sast-dispositions.mjs": "aaadc0230b559d14a4d2f345b606526f9b7bdfe4a46b1e3733a2d9092be0cb46",
+    "scripts/junit-evidence.mjs": "a3f7e097893dc158abdefe746554b7c31719b0a8004e4e1616d3552447e5d3ab"
   }
 }

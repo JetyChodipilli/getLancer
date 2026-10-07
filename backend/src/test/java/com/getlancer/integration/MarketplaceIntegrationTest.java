@@ -452,7 +452,7 @@ class MarketplaceIntegrationTest {
                 .contentType("application/json")
                 .content(
                     "{\"email\":\"operator@example.test\",\"password\":\"test-password-long-enough\",\"displayName\":\"Attempted"
-                        + " signup\"}"))
+                        + " signup\",\"acceptedTerms\":true}"))
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.error.code").value("EMAIL_UNAVAILABLE"));
     assertEquals(
