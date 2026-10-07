@@ -1,4 +1,4 @@
-FROM node:22.23.3-alpine3.23
+FROM node:26.10.0-alpine3.23
 # The publisher uses Node's standard library; package managers are unnecessary runtime dependencies.
 RUN apk add --no-cache flock \
     && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /opt/yarn-* \
