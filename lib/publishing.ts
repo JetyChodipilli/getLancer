@@ -13,7 +13,13 @@ export type PublishingOverview = {
 };
 export type PublishingPurchase = SlotPurchase & { pool: SlotPool; createdAt?: string };
 export const slotNames: Record<SlotPool, string> = { PROJECT: 'Project', TEMPLATE: 'Template', COMPONENT: 'Component' };
-export function slotPool(value: string | null): SlotPool { return slotPools.includes(value as SlotPool) ? value as SlotPool : 'PROJECT'; }
+export function slotPool(value: string | null): SlotPool {
+  switch (value) {
+    case 'TEMPLATE': return 'TEMPLATE';
+    case 'COMPONENT': return 'COMPONENT';
+    default: return 'PROJECT';
+  }
+}
 export const projectCapacitySample: ProjectCapacity = { free: 6, purchased: 0, used: 4, limit: 6, earned: 0, extraUsed: 0, extraLimit: 0, regular: { free: 3, used: 2 }, college: { free: 3, used: 2 }, availableRegular: 1, availableCollege: 1 };
 export function samplePublishing(): PublishingOverview {
   const price = { amountMinor: null, enabled: false, salesEnabled: false, configured: false, currency: 'INR', mode: 'disabled', reason: 'Purchases are disabled in this design preview.' };

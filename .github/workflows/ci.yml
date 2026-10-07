@@ -205,6 +205,8 @@ jobs:
     needs: backend
     env:
       SECURITY_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      # The release gate must include existing findings on PRs as well as pushes.
+      CODEQL_ACTION_DIFF_INFORMED_QUERIES: 'false'
     strategy:
       fail-fast: false
       matrix:

@@ -101,6 +101,20 @@ test('real HTTP: immutable publish, exact retries, file/HEAD gateway checks, Hos
   assert.equal((await h.public(p.id, '/', { method: 'POST' })).status, 405);
 });
 
+test('hostile deployment hosts and paths cannot alter the gateway origin or read outside the stored manifest',async t=>{
+  const h=await harness(t),p=payload();
+  assert.equal((await h.admin('PUT',p.id,p)).status,200);
+  for(const prefix of [p.id+'/../private',p.id+'%2fprivate',p.id+'@127.0.0.1',p.id+'.extra']){
+    assert.equal((await request(h.port,{host:prefix+'.demo.localhost:8090',target:'/'})).status,403);
+  }
+  assert.equal(h.calls.length,0,'Rejected Hosts must not reach the configured gateway');
+  for(const target of ['/../record.json','/%2e%2e/record.json','/assets%2fmain.js','/missing.txt']){
+    const result=await h.public(p.id,target);assert.ok([400,404].includes(result.status));
+  }
+  assert.equal((await h.public(p.id,'/assets/main.js')).status,200);
+  for(const call of h.calls)assert.equal(call.path,'/api/v1/hosting/gateway/'+p.id);
+});
+
 test('live gateway denial, revocation, invalid/offline/redirect/oversized responses all fail closed without caching', async (t) => {
   const h = await harness(t); const p = payload(); await h.admin('PUT', p.id, p);
   assert.equal((await h.public(p.id)).status, 200);
