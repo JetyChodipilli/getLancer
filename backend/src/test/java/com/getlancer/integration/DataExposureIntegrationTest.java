@@ -201,6 +201,22 @@ class DataExposureIntegrationTest {
   }
 
   @Test
+  void similarBuilderCardsPreserveIdentityProfileLinksAndAvailability() throws Exception {
+    UUID candidate = product("PUBLIC");
+    db.update("UPDATE products SET owner_user_id=? WHERE id=?", outsider, candidate);
+    db.update("UPDATE developer_profiles SET display_name='Available builder',availability_status='ONE_SLOT_LEFT',booked_until=DATE '2030-05-01' WHERE user_id=?", outsider);
+
+    JsonNode cards = response("/api/v1/products/" + product + "/similar-builders", "buyer").path("items");
+    assertEquals(1, cards.size());
+    JsonNode card = cards.get(0);
+    assertEquals(candidate.toString(), card.path("id").asText());
+    assertEquals("Available builder", card.path("builder").asText());
+    assertEquals("outsider", card.path("builderSlug").asText());
+    assertEquals("ONE_SLOT_LEFT", card.path("availability").asText());
+    assertEquals("2030-05-01", card.path("bookedUntil").asText());
+  }
+
+  @Test
   void concreteDtosIgnoreUnexpectedColumnsEvenIfRepositoryRowContainsThem() {
     Map<String, Object> row = new LinkedHashMap<>();
     row.put("id", payment); row.put("milestone_id", milestone); row.put("amount_minor", 10000L);

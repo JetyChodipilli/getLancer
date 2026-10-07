@@ -158,8 +158,14 @@ jobs:
       - run: docker compose config --quiet
       - name: Validate standalone staging manifest
         run: |
-          cp .env .env.staging
-          BACKEND_IMAGE=getlancer-api:ci-validation DB_CA_FILE=/tmp/ci-postgres-ca.crt SMTP_USERNAME=ci-fixture SMTP_PASSWORD=ci-fixture docker compose --env-file .env -f compose.staging.yaml config --quiet
+          node --input-type=module <<'JS'
+          import {readFileSync,writeFileSync} from 'node:fs';
+          import {randomBytes} from 'node:crypto';
+          const values={APP_ENV:'staging',APP_BASE_URL:'https://app.example.test',BACKEND_URL:'https://api.example.test',DB_URL:'jdbc:postgresql://db.example.test:5432/getlancer?sslmode=verify-full&sslrootcert=/run/secrets/postgres-ca.crt',DB_SCHEMA:'getlancer',BACKEND_PROXY_SECRET:randomBytes(32).toString('hex'),SMTP_HOST:'smtp.example.test',SMTP_USERNAME:'ci-fixture',SMTP_PASSWORD:randomBytes(32).toString('hex'),SMTP_AUTH:'true',SMTP_TLS:'true',EMAIL_FROM_ADDRESS:'operator@example.test',OBJECT_STORAGE_ENDPOINT:'https://storage.example.test',OBJECT_STORAGE_UPLOAD_ENDPOINT:'https://storage.example.test',OBJECT_STORAGE_REGION:'test-region',OBJECT_STORAGE_BUCKET:'private-ci-fixture',OBJECT_STORAGE_ACCESS_KEY:randomBytes(32).toString('hex'),OBJECT_STORAGE_SECRET_KEY:randomBytes(32).toString('hex'),HOSTED_DEMOS_ENABLED:'false'};
+          const value=readFileSync('.env','utf8').split('\n').filter(line=>!Object.keys(values).some(key=>line.startsWith(key+'='))).join('\n')+'\n'+Object.entries(values).map(([key,value])=>key+'='+value).join('\n')+'\n';
+          writeFileSync('.env.staging',value,{mode:0o600});
+          JS
+          BACKEND_IMAGE=getlancer-api:ci-validation DB_CA_FILE=/tmp/ci-postgres-ca.crt docker compose --env-file .env.staging -f compose.staging.yaml config --quiet
       - run: docker compose up -d --build --wait --wait-timeout 240
       - name: Verify connected production frontend against the empty Java database
         run: node scripts/verify-connected-frontend.mjs
@@ -189,6 +195,12 @@ jobs:
           docker compose down --volumes
 
   secrets-and-sast:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {language: java-kotlin, build-mode: manual}
+          - {language: javascript-typescript, build-mode: none}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -217,10 +229,11 @@ jobs:
           exit "$status"
       - uses: github/codeql-action/init@87ef0dc97def48aa960fbf026a2563ee9dbdb470 # v3
         with:
-          languages: java-kotlin,javascript-typescript
+          languages: ${{ matrix.language }}
           queries: security-extended
-          build-mode: manual
+          build-mode: ${{ matrix.build-mode }}
       - name: Compile Java for semantic security analysis
+        if: matrix.language == 'java-kotlin'
         run: mvn -B -f backend/pom.xml -DskipTests package
       - uses: github/codeql-action/analyze@87ef0dc97def48aa960fbf026a2563ee9dbdb470 # v3
         with:
@@ -236,15 +249,28 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
-          name: security-scan-evidence-${{ github.sha }}
+          name: security-scan-evidence-${{ matrix.language }}-${{ github.sha }}
           path: security-evidence
           retention-days: 7
   container-security:
+    needs: backend
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: {persist-credentials: false}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: {node-version: '22'}
+      - name: Retrieve passing runtime MVC security evidence from this workflow
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: backend-verification-${{ github.event.pull_request.head.sha || github.sha }}
+          path: backend/target/surefire-reports
+      - name: Retrieve current dependency applicability evidence from this workflow
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: java-dependency-evidence-${{ github.sha }}
+          path: backend/target
       - name: Install verified Trivy release
         run: |
           curl --fail --location --silent --show-error https://github.com/aquasecurity/trivy/releases/download/v0.75.0/trivy_0.75.0_Linux-64bit.tar.gz -o /tmp/trivy.tar.gz
@@ -257,8 +283,12 @@ jobs:
           docker build -t getlancer-publisher:scan ops/demo-publisher
       - name: Block high and critical runtime image vulnerabilities
         run: |
-          /tmp/trivy/trivy image --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --format json --output security-evidence/api-image.json getlancer-api:scan
-          /tmp/trivy/trivy image --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --format json --output security-evidence/publisher-image.json getlancer-publisher:scan
+          /tmp/trivy/trivy image --scanners vuln --format json --output security-evidence/api-image.json getlancer-api:scan
+          /tmp/trivy/trivy image --scanners vuln --format json --output security-evidence/publisher-image.json getlancer-publisher:scan
+          status=0
+          node scripts/check-container-results.mjs security-evidence/api-image.json security-evidence/api-image-assessed.json getlancer-api:scan --backend-rest-assessment || status=1
+          node scripts/check-container-results.mjs security-evidence/publisher-image.json security-evidence/publisher-image-assessed.json getlancer-publisher:scan || status=1
+          exit "$status"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:

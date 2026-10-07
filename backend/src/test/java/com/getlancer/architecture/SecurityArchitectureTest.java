@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 
 class SecurityArchitectureTest {
   @Test void everyPublishedApplicationRouteHasOneExplicitPolicyIncludingBareMappings() throws Exception {
-    var authorization = new AuthorizationService(mock(HostingConfiguration.class));
+    var authorization = new AuthorizationService(new HostingConfiguration(false, "", "", "", "", 7, 5000, "http://localhost:3000"));
     var actual = new TreeSet<String>();
     for (var route : authorization.routes()) {
       if (!route.path().startsWith("/api/v1/")) continue;

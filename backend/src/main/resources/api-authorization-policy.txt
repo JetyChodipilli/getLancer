@@ -90,7 +90,7 @@ GET DEVELOPER /api/v1/me/publishing-slots
 GET SESSION /api/v1/me/saved-products
 GET SESSION /api/v1/me/teams
 GET SESSION /api/v1/me/template-purchases
-GET DEVELOPER /api/v1/me/templates
+GET SESSION /api/v1/me/templates
 GET DEVELOPER /api/v1/me/templates/{id}/versions/{version}/package
 GET PUBLIC /api/v1/media/{id}
 GET SESSION /api/v1/notifications

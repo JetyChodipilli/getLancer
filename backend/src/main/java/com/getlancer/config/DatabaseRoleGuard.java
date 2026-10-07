@@ -30,7 +30,7 @@ public class DatabaseRoleGuard implements ApplicationRunner {
   }
 
   void validate(String schema) {
-    if (!schema.matches("[a-z][a-z0-9_]{0,62}") || schema.equals("public")) reject();
+    if (!schema.matches("[a-z][a-z0-9_]{0,62}") || schema.equals("public")) reject("schema_name");
     Map<String, Object> role = db.queryForMap("""
         SELECT current_user AS name, session_user AS login, r.rolsuper, r.rolcreatedb,
           r.rolcreaterole, r.rolreplication, r.rolbypassrls,
@@ -44,10 +44,10 @@ public class DatabaseRoleGuard implements ApplicationRunner {
             WHERE left(n.nspname,3)<>'pg_' AND n.nspname<>'information_schema' AND c.relowner=r.oid) AS object_owner
         FROM pg_roles r WHERE r.rolname=current_user
         """);
-    if (!"getlancer_runtime".equals(role.get("name")) || !role.get("name").equals(role.get("login"))) reject();
+    if (!"getlancer_runtime".equals(role.get("name")) || !role.get("name").equals(role.get("login"))) reject("runtime_identity");
     for (String key : new String[] {"rolsuper", "rolcreatedb", "rolcreaterole", "rolreplication", "rolbypassrls", "membership", "database_owner", "database_create", "temporary_create", "schema_ddl", "object_owner"})
-      if (Boolean.TRUE.equals(role.get(key))) reject();
-    if (!Boolean.TRUE.equals(db.queryForObject("SELECT has_schema_privilege(current_user,?,'USAGE')", Boolean.class, schema))) reject();
+      if (Boolean.TRUE.equals(role.get(key))) reject(key);
+    if (!Boolean.TRUE.equals(db.queryForObject("SELECT has_schema_privilege(current_user,?,'USAGE')", Boolean.class, schema))) reject("schema_usage");
     Integer unsafe = db.queryForObject("""
         SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
         WHERE n.nspname=? AND c.relkind IN ('r','p') AND c.relname<>'flyway_schema_history'
@@ -56,7 +56,7 @@ public class DatabaseRoleGuard implements ApplicationRunner {
             OR NOT EXISTS(SELECT 1 FROM pg_policy p WHERE p.polrelid=c.oid AND p.polname='getlancer_service_select'
               AND (SELECT oid FROM pg_roles WHERE rolname='getlancer_runtime')=ANY(p.polroles)))
         """, Integer.class, schema);
-    if (unsafe == null || unsafe != 0) reject();
+    if (unsafe == null || unsafe != 0) reject("table_permissions");
     Integer mutation = db.queryForObject("""
         SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
         WHERE n.nspname=? AND c.relname IN ('security_audit_events','inquiry_events','moderation_actions',
@@ -89,11 +89,14 @@ public class DatabaseRoleGuard implements ApplicationRunner {
         WHERE left(n.nspname,3)<>'pg_' AND n.nspname<>'information_schema'
           AND p.prosecdef AND has_function_privilege(current_user,p.oid,'EXECUTE')
         """, Integer.class);
-    if (mutation == null || mutation != 0 || !Boolean.TRUE.equals(exists)
-        || dangerousFunctions == null || dangerousFunctions != 0 || unsafeLocks == null || unsafeLocks != 0) reject();
+    if (mutation == null || mutation != 0) reject("immutable_mutation");
+    if (!Boolean.TRUE.equals(exists)) reject("users_table");
+    if (dangerousFunctions == null || dangerousFunctions != 0) reject("security_definer_execute");
+    if (unsafeLocks == null || unsafeLocks != 0) reject("locking_permissions");
   }
 
-  private static void reject() {
-    throw new IllegalStateException("Unsafe PostgreSQL runtime role or schema permissions; apply reviewed database provisioning before deployment");
+  private static void reject(String check) {
+    // Only fixed check names are reported; connection settings, role values and secrets are excluded.
+    throw new IllegalStateException("Unsafe PostgreSQL runtime role or schema permissions; apply reviewed database provisioning before deployment (check: " + check + ")");
   }
 }

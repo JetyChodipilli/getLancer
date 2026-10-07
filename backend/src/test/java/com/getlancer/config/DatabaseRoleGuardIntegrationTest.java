@@ -62,6 +62,10 @@ class DatabaseRoleGuardIntegrationTest {
     }
   }
 
+  @BeforeEach void provisionedRuntimeStartsSafe() {
+    assertDoesNotThrow(() -> guard(runtime));
+  }
+
   private JdbcTemplate jdbc(String user, String password) {
     DriverManagerDataSource source = new DriverManagerDataSource(url, user, password);
     source.setConnectionProperties(new java.util.Properties() {{ setProperty("currentSchema", SCHEMA); }});
@@ -70,6 +74,16 @@ class DatabaseRoleGuardIntegrationTest {
   private void guard(JdbcTemplate connection) {
     new DatabaseRoleGuard(connection, new MockEnvironment().withProperty("app.environment", "production")
         .withProperty("spring.datasource.hikari.schema", SCHEMA)).run(null);
+  }
+  private void assertRejected(JdbcTemplate connection, String check) {
+    IllegalStateException failure = assertThrows(IllegalStateException.class, () -> guard(connection));
+    assertTrue(failure.getMessage().endsWith("(check: " + check + ")"), failure.getMessage());
+  }
+  private void restoreProvisionedPermissions() throws Exception {
+    // ALTER OWNER rewrites ACLs; moving ownership back alone does not restore runtime grants.
+    provision("00_roles.sql");
+    provision("10_permissions.sql");
+    assertDoesNotThrow(() -> guard(runtime));
   }
   private void adminSql(String sql) throws Exception {
     try (Connection connection = DriverManager.getConnection(url, admin, adminPassword); Statement statement = connection.createStatement()) {
@@ -157,21 +171,21 @@ class DatabaseRoleGuardIntegrationTest {
     assertThrows(org.springframework.dao.DataAccessException.class, () -> runtime.update("DELETE FROM security_audit_events WHERE id=?",event));
     try {
       adminSql("REVOKE UPDATE(user_id) ON "+SCHEMA+".user_roles FROM getlancer_runtime");
-      assertThrows(IllegalStateException.class, () -> guard(runtime));
+      assertRejected(runtime,"locking_permissions");
       assertThrows(org.springframework.dao.DataAccessException.class, () -> runtime.queryForList("SELECT user_id FROM user_roles WHERE user_id=? FOR SHARE",user));
     } finally { provision("10_permissions.sql"); }
     try {
       adminSql("GRANT UPDATE(role) ON "+SCHEMA+".user_roles TO getlancer_runtime");
-      assertThrows(IllegalStateException.class, () -> guard(runtime));
+      assertRejected(runtime,"locking_permissions");
     } finally { provision("10_permissions.sql"); }
     assertEquals(Boolean.FALSE,runtime.queryForObject("SELECT has_column_privilege(current_user,?,'role','UPDATE')",Boolean.class,SCHEMA+".user_roles"));
     try {
       adminSql("ALTER POLICY getlancer_service_update ON "+SCHEMA+".sessions WITH CHECK(true)");
-      assertThrows(IllegalStateException.class, () -> guard(runtime));
+      assertRejected(runtime,"locking_permissions");
     } finally { provision("10_permissions.sql"); }
     try {
       adminSql("CREATE POLICY forbidden_update_fixture ON "+SCHEMA+".sessions FOR UPDATE TO PUBLIC USING(true) WITH CHECK(true)");
-      assertThrows(IllegalStateException.class, () -> guard(runtime));
+      assertRejected(runtime,"locking_permissions");
     } finally { adminSql("DROP POLICY forbidden_update_fixture ON "+SCHEMA+".sessions"); }
     assertDoesNotThrow(() -> guard(runtime));
   }
@@ -181,41 +195,70 @@ class DatabaseRoleGuardIntegrationTest {
     try {
       migration.execute("CREATE FUNCTION future_execute_fixture() RETURNS integer LANGUAGE sql AS 'SELECT 1'");
       assertEquals(1,migration.queryForObject("SELECT future_execute_fixture()",Integer.class));
+      Long functionOid = runtime.queryForObject("""
+          SELECT p.oid::bigint FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+          WHERE n.nspname=? AND p.proname='future_execute_fixture' AND p.pronargs=0
+          """,Long.class,SCHEMA);
+      assertNotNull(functionOid);
+      // Inspect the ACL by OID, independently of schema USAGE/name resolution.
+      assertEquals(Boolean.FALSE,runtime.queryForObject("""
+          SELECT EXISTS(SELECT 1 FROM pg_proc p,
+            LATERAL aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) function_acl
+            WHERE p.oid=?::oid AND function_acl.grantee=0 AND function_acl.privilege_type='EXECUTE')
+          """,Boolean.class,functionOid));
       for (String role : List.of("getlancer_runtime","getlancer_backup","getlancer_readonly","anon","authenticated"))
-        assertEquals(Boolean.FALSE,runtime.queryForObject("SELECT has_function_privilege(?,?,'EXECUTE')",Boolean.class,role,SCHEMA+".future_execute_fixture()"));
+        assertEquals(Boolean.FALSE,runtime.queryForObject("SELECT has_function_privilege(?,?::oid,'EXECUTE')",Boolean.class,role,functionOid),role);
       assertThrows(org.springframework.dao.DataAccessException.class, () -> runtime.queryForObject("SELECT future_execute_fixture()",Integer.class));
     } finally { migration.execute("DROP FUNCTION future_execute_fixture()"); }
   }
 
   @Test void everyElevatedActualRoleAttributeAndOwnershipFailsHostedGuard() throws Exception {
-    assertThrows(IllegalStateException.class, () -> guard(jdbc(admin, adminPassword)));
-    assertThrows(IllegalStateException.class, () -> guard(jdbc("getlancer_migration", migrationPassword)));
+    assertRejected(jdbc(admin, adminPassword),"runtime_identity");
+    assertRejected(jdbc("getlancer_migration", migrationPassword),"runtime_identity");
     for (String attribute : List.of("SUPERUSER", "CREATEDB", "CREATEROLE", "REPLICATION", "BYPASSRLS")) {
-      try { adminSql("ALTER ROLE getlancer_runtime " + attribute); assertThrows(IllegalStateException.class, () -> guard(runtime), attribute); }
+      String check = attribute.equals("SUPERUSER") ? "rolsuper" : "rol"+attribute.toLowerCase(java.util.Locale.ROOT);
+      try { adminSql("ALTER ROLE getlancer_runtime " + attribute); assertRejected(runtime,check); }
       finally { adminSql("ALTER ROLE getlancer_runtime NO" + attribute); }
+      assertDoesNotThrow(() -> guard(runtime));
     }
-    try { adminSql("GRANT getlancer_migration TO getlancer_runtime"); assertThrows(IllegalStateException.class, () -> guard(runtime)); }
+    try { adminSql("GRANT getlancer_migration TO getlancer_runtime"); assertRejected(runtime,"membership"); }
     finally { adminSql("REVOKE getlancer_migration FROM getlancer_runtime"); }
-    try { adminSql("GRANT getlancer_runtime TO anon"); assertThrows(IllegalStateException.class, () -> guard(runtime)); }
+    assertDoesNotThrow(() -> guard(runtime));
+    try { adminSql("GRANT getlancer_runtime TO anon"); assertRejected(runtime,"membership"); }
     finally { adminSql("REVOKE getlancer_runtime FROM anon"); }
-    try { adminSql("ALTER TABLE " + SCHEMA + ".users OWNER TO getlancer_runtime"); assertThrows(IllegalStateException.class, () -> guard(runtime)); }
-    finally { adminSql("ALTER TABLE " + SCHEMA + ".users OWNER TO getlancer_migration"); }
-    try { adminSql("GRANT CREATE ON SCHEMA " + SCHEMA + " TO getlancer_runtime"); assertThrows(IllegalStateException.class, () -> guard(runtime)); }
+    assertDoesNotThrow(() -> guard(runtime));
+    try { adminSql("ALTER TABLE " + SCHEMA + ".users OWNER TO getlancer_runtime"); assertRejected(runtime,"object_owner"); }
+    finally {
+      adminSql("ALTER TABLE " + SCHEMA + ".users OWNER TO getlancer_migration");
+      restoreProvisionedPermissions();
+    }
+    try { adminSql("GRANT CREATE ON SCHEMA " + SCHEMA + " TO getlancer_runtime"); assertRejected(runtime,"schema_ddl"); }
     finally { adminSql("REVOKE CREATE ON SCHEMA " + SCHEMA + " FROM getlancer_runtime"); }
-    try { adminSql("ALTER SCHEMA " + SCHEMA + " OWNER TO getlancer_runtime"); assertThrows(IllegalStateException.class, () -> guard(runtime)); }
-    finally { adminSql("ALTER SCHEMA " + SCHEMA + " OWNER TO getlancer_migration"); }
-    try { adminSql("GRANT TEMP ON DATABASE getlancer_test TO getlancer_runtime"); assertThrows(IllegalStateException.class, () -> guard(runtime)); }
+    assertDoesNotThrow(() -> guard(runtime));
+    try { adminSql("REVOKE USAGE ON SCHEMA " + SCHEMA + " FROM getlancer_runtime"); assertRejected(runtime,"schema_usage"); }
+    finally { restoreProvisionedPermissions(); }
+    try { adminSql("ALTER SCHEMA " + SCHEMA + " OWNER TO getlancer_runtime"); assertRejected(runtime,"schema_ddl"); }
+    finally {
+      adminSql("ALTER SCHEMA " + SCHEMA + " OWNER TO getlancer_migration");
+      restoreProvisionedPermissions();
+    }
+    try { adminSql("GRANT TEMP ON DATABASE getlancer_test TO getlancer_runtime"); assertRejected(runtime,"temporary_create"); }
     finally { adminSql("REVOKE TEMP ON DATABASE getlancer_test FROM getlancer_runtime"); }
+    assertDoesNotThrow(() -> guard(runtime));
     String databaseOwner = jdbc(admin, adminPassword).queryForObject("SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname='getlancer_test'", String.class);
-    try { adminSql("ALTER DATABASE getlancer_test OWNER TO getlancer_runtime"); assertThrows(IllegalStateException.class, () -> guard(runtime)); }
-    finally { adminSql("ALTER DATABASE getlancer_test OWNER TO \"" + databaseOwner.replace("\"", "\"\"") + "\""); }
-    try { adminSql("GRANT UPDATE ON " + SCHEMA + ".payment_ledger TO getlancer_runtime"); assertThrows(IllegalStateException.class, () -> guard(runtime)); }
+    try { adminSql("ALTER DATABASE getlancer_test OWNER TO getlancer_runtime"); assertRejected(runtime,"database_owner"); }
+    finally {
+      adminSql("ALTER DATABASE getlancer_test OWNER TO \"" + databaseOwner.replace("\"", "\"\"") + "\"");
+      restoreProvisionedPermissions();
+    }
+    try { adminSql("GRANT UPDATE ON " + SCHEMA + ".payment_ledger TO getlancer_runtime"); assertRejected(runtime,"immutable_mutation"); }
     finally { adminSql("REVOKE UPDATE ON " + SCHEMA + ".payment_ledger FROM getlancer_runtime"); }
+    assertDoesNotThrow(() -> guard(runtime));
     JdbcTemplate migration = jdbc("getlancer_migration", migrationPassword);
     try {
       migration.execute("CREATE FUNCTION dangerous_role_fixture() RETURNS integer LANGUAGE sql SECURITY DEFINER AS 'SELECT 1'");
       migration.execute("GRANT EXECUTE ON FUNCTION dangerous_role_fixture() TO getlancer_runtime");
-      assertThrows(IllegalStateException.class, () -> guard(runtime));
+      assertRejected(runtime,"security_definer_execute");
     } finally { migration.execute("DROP FUNCTION dangerous_role_fixture()"); }
     assertDoesNotThrow(() -> guard(runtime));
   }
@@ -225,7 +268,7 @@ class DatabaseRoleGuardIntegrationTest {
     try {
       migration.execute("CREATE TABLE future_role_fixture(id uuid PRIMARY KEY)");
       assertThrows(org.springframework.dao.DataAccessException.class, () -> runtime.queryForObject("SELECT count(*) FROM future_role_fixture", Integer.class));
-      assertThrows(IllegalStateException.class, () -> guard(runtime));
+      assertRejected(runtime,"table_permissions");
       assertThrows(Exception.class, () -> provision("10_permissions.sql"));
       assertDoesNotThrow(() -> runtime.queryForObject("SELECT count(*) FROM users", Integer.class));
     } finally { migration.execute("DROP TABLE future_role_fixture"); }

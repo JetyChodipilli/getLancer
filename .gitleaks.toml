@@ -67,3 +67,11 @@ condition = "AND"
 regexTarget = "secret"
 paths = ['^tests/demo-publisher\.test\.mjs$']
 regexes = ['^AKIAABCDEFGHIJKLMNOP$']
+
+[[allowlists]]
+description = "Historical bootstrap repeat-run fixture uses a public synthetic TOTP seed"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "secret"
+paths = ['^backend/src/test/java/com/getlancer/MarketplaceIntegrationTest\.java$']
+regexes = ['^KRUGS4ZANFZSAYJAON2HE2LOM4QHI2DF$']

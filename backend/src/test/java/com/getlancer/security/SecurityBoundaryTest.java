@@ -58,7 +58,7 @@ class SecurityBoundaryTest {
   }
 
   @Test void routeSpecificityAndDefaultDenyCannotBeBypassedWithAnAnonymousPrincipal() {
-    var authorization = new AuthorizationService(mock(HostingConfiguration.class));
+    var authorization = new AuthorizationService(new HostingConfiguration(false, "", "", "", "", 7, 5000, "http://localhost:3000"));
     assertEquals(AuthorizationService.Policy.CAPABILITY,
         authorization.route("POST", "/api/v1/inquiries/" + UUID.randomUUID() + "/confirm-hire").policy());
     assertEquals(AuthorizationService.Policy.SIGNED_WEBHOOK,
@@ -75,7 +75,7 @@ class SecurityBoundaryTest {
     var rates = mock(RateLimits.class); when(rates.allow(anyString(), anyInt())).thenReturn(true);
     var security = new Security(mock(JdbcTemplate.class), "https://app.example.test", 30, rates, "", 10, 3, 300, true);
     var audit = mock(SecurityAudit.class);
-    var filter = new BrowserSecurityFilter(security, new AuthorizationService(mock(HostingConfiguration.class)), audit);
+    var filter = new BrowserSecurityFilter(security, new AuthorizationService(new HostingConfiguration(false, "", "", "", "", 7, 5000, "http://localhost:3000")), audit);
     var request = new MockHttpServletRequest("GET", "/api/v1/auth/github/callback");
     request.addHeader("X-Request-ID", "attacker-controlled-sensitive-text");
     var response = new MockHttpServletResponse();
@@ -90,14 +90,14 @@ class SecurityBoundaryTest {
   @Test void exactOriginAndNonSimpleHeaderAreBothRequiredAndWebhookExceptionIsMethodSpecific() throws IOException {
     var rates = mock(RateLimits.class);
     var security = new Security(mock(JdbcTemplate.class), "https://app.example.test", 30, rates, "", 10, 3, 300, true);
-    var filter = new BrowserSecurityFilter(security, new AuthorizationService(mock(HostingConfiguration.class)), mock(SecurityAudit.class));
+    var filter = new BrowserSecurityFilter(security, new AuthorizationService(new HostingConfiguration(false, "", "", "", "", 7, 5000, "http://localhost:3000")), mock(SecurityAudit.class));
     var request = new MockHttpServletRequest("POST", "/api/v1/auth/signup");
     request.addHeader("Origin", "https://app.example.test");
     assertFalse(filter.hasBrowserMutationProtection(request));
     request.addHeader("X-Requested-With", "getlancer"); assertTrue(filter.hasBrowserMutationProtection(request));
     request.removeHeader("Origin"); request.addHeader("Origin", "https://sibling.example.test");
     assertFalse(filter.hasBrowserMutationProtection(request));
-    assertFalse(new AuthorizationService(mock(HostingConfiguration.class))
+    assertFalse(new AuthorizationService(new HostingConfiguration(false, "", "", "", "", 7, 5000, "http://localhost:3000"))
         .signedWebhook(new MockHttpServletRequest("PATCH", "/api/v1/payments/razorpay/webhook")));
   }
 }

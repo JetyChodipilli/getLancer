@@ -184,11 +184,12 @@ class TypedRequestsIntegrationTest {
     ok(body(post("/api/v1/business-invitations/" + invitation + "/respond"), "typed-client", Map.of("action", "ACCEPT")));
     assertEquals("HIRING_MANAGER", db.queryForObject("SELECT role FROM business_members WHERE business_id=? AND user_id=?", String.class, business, client));
 
-    db.update("UPDATE developer_profiles SET website_url='https://example.test',country='IN',time_zone='Asia/Kolkata',languages='English' WHERE user_id=?", builder);
+    // The retained URL must satisfy the same public-DNS checks as a newly supplied profile URL.
+    db.update("UPDATE developer_profiles SET website_url='https://example.com',country='IN',time_zone='Asia/Kolkata',languages='English' WHERE user_id=?", builder);
     ok(body(put("/api/v1/developer/profile"), "typed-builder", Map.of(
         "displayName", "Typed builder", "headline", "Customer software builder", "bio", "Builds complete customer software workflows",
         "technology", "React", "category", "CRM", "availabilityStatus", "AVAILABLE_NOW")));
-    assertEquals("https://example.test", db.queryForObject("SELECT website_url FROM developer_profiles WHERE user_id=?", String.class, builder));
+    assertEquals("https://example.com", db.queryForObject("SELECT website_url FROM developer_profiles WHERE user_id=?", String.class, builder));
 
     ok(body(patch("/api/v1/teams/" + team + "/leads/" + lead), "typed-builder", Map.of("note", "Private follow-up note")));
     assertEquals(builder, db.queryForObject("SELECT assignee_id FROM team_leads WHERE id=?", UUID.class, lead));
