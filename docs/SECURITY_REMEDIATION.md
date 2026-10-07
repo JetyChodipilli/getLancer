@@ -153,6 +153,12 @@ Before merge, record answers for route classification/authentication/role/recent
 
 The detailed [authorization matrix] requested by section 6 is delivered and matches all 259 classified method/route entries. Request-based compatibility helpers and some fixed-map responses remain documented limitations of the preferred interface/model standard; their presence is not evidence of an authorization bypass or raw-row leak. Full latest-head CI and scan evidence, residual scanner fixes, numeric retained-evidence policies and all operator activation records remain outstanding. Neither P0 nor P1 is declared complete.
 
+## Connected journey pacing — 2026-10-07
+
+Revision `413d7a2505f8c5d00a054f29c47878d9f3c0401d` passed backend, frontend and all security scan jobs in [run 37607043587](https://github.com/JetyChodipilli/getLancer/actions/runs/37607043587). The guarded CI fixture isolation also executed successfully against the real Docker database. Connected browser coverage reached 15 passing cases, with all three device variants of the hiring journey still exceeding the real shared-address protected-read budget within a single accelerated journey. The restore rehearsal was skipped after that failure; this run does not meet the complete release gate.
+
+The hiring test now waits 62 seconds after the saved-talent proof and before the outsider login. This lets the existing 60-second rate window expire naturally while preserving the 300-read limit, all assertions and all counters within that journey. The later MFA and immediate membership-revocation checks remain uninterrupted. Previous active durations were 34.4, 37.0 and 45.8 seconds; the pause fits the 180-second test timeout and the 20-minute Docker job timeout. A fresh complete CI run on the resulting revision is required before acceptance.
+
 [POM]: ../backend/pom.xml
 [CI]: ../.github/workflows/ci.yml
 [chain]: ../backend/src/main/java/com/getlancer/config/SecurityConfiguration.java
