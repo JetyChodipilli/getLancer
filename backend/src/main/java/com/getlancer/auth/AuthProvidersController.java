@@ -1,12 +1,11 @@
 package com.getlancer.auth;
 
-import com.fasterxml.jackson.databind.*;
-import jakarta.servlet.http.*;
-import java.net.*;
-import java.net.http.*;
-import java.util.*;
-import org.springframework.web.bind.annotation.*;
+import com.getlancer.responses.AuthProvidersResponse;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
 
+@PreAuthorize("@authorization.routeAllowed(authentication)")
 @RestController
 public class AuthProvidersController {
   private final AuthProviderService service;
@@ -16,7 +15,7 @@ public class AuthProvidersController {
   }
 
   @GetMapping("/api/v1/auth/providers")
-  public Map<String, Object> providers() {
+  public AuthProvidersResponse providers() {
     return service.providers();
   }
 }

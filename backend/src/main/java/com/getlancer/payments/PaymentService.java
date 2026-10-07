@@ -1,18 +1,27 @@
 package com.getlancer.payments;
 
-import static com.getlancer.shared.Support.*;
 import static com.getlancer.payments.PaymentRepository.number;
+import static com.getlancer.shared.Support.id;
+import static com.getlancer.shared.Support.text;
+import static com.getlancer.shared.Support.uuid;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.getlancer.delivery.DeliveryRepository;
+import com.getlancer.responses.PaymentResponses;
 import com.getlancer.security.Security;
 import com.getlancer.shared.ApiError;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.util.*;
+import java.util.HexFormat;
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import java.util.function.Supplier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -32,9 +41,9 @@ public class PaymentService {
   }
   private <T> T tx(Supplier<T> work) { return transaction.execute(status->work.get()); }
 
-  public Map<String,Object> configuration() { return provider.configuration(); }
-  public Map<String,Object> summaries(UUID engagement,HttpServletRequest request) {
-    return tx(()-> { delivery.lockEngagement(engagement,request,"ANY"); return Map.of("items",repo.summaries(engagement)); });
+  public PaymentResponses.Configuration configuration() { return PaymentResponses.Configuration.from(provider.configuration()); }
+  public PaymentResponses.Summaries summaries(UUID engagement,HttpServletRequest request) {
+    return tx(()-> { delivery.lockEngagement(engagement,request,"ANY"); return new PaymentResponses.Summaries(repo.summaries(engagement)); });
   }
   private Map<String,Object> accessible(UUID id,HttpServletRequest request,String side) {
     var row=repo.attempt(id,false);
@@ -49,12 +58,11 @@ public class PaymentService {
   private void mode(Map<String,Object> row) {
     if (!provider.mode.equals(row.get("mode"))) throw new ApiError(409,"PAYMENT_MODE_MISMATCH","This payment belongs to a different provider mode. Ask the operator to reconcile it with its original credentials.");
   }
-  private Map<String,Object> checkout(Map<String,Object> row) {
-    var result=new LinkedHashMap<>(PaymentRepository.summary(row));
-    result.put("keyId",provider.keyId); result.put("mode",row.get("mode")); return result;
+  private PaymentResponses.Checkout checkout(Map<String,Object> row) {
+    return PaymentResponses.Checkout.from(row, provider.keyId);
   }
 
-  public Map<String,Object> order(UUID milestone,HttpServletRequest request) {
+  public PaymentResponses.Checkout order(UUID milestone,HttpServletRequest request) {
     UUID key=uuid(request.getHeader("Idempotency-Key"));
     provider.requireCollection();
     Map<String,Object> reservation=tx(()-> {
@@ -80,7 +88,7 @@ public class PaymentService {
     if (!Boolean.TRUE.equals(reservation.get("create"))) {
       if (Set.of("CREATING","UNKNOWN","REJECTED").contains(Objects.toString(reservation.get("status"))))
         throw new ApiError(409,"PAYMENT_REQUIRES_RECONCILIATION","Order creation is unresolved. Check its status or contact the operator; another order will not be created.");
-      return checkout(reservation);
+      return tx(() -> checkout(accessible(id,request,"BUYER")));
     }
     // Reservation is committed before making the external call. A crash cannot result in an unrecorded retry.
     try {
@@ -88,7 +96,7 @@ public class PaymentService {
       var transfer=validateOrder(reservation,order);
       tx(()-> { var current=system(id); if (current.get("order_id")==null) repo.bind(id,order.path("id").asText(),transfer.status(),transfer.settlement()); return null; });
       return tx(()-> {
-        var m=delivery.lockMilestoneSystem(milestone);
+        var m=delivery.lockMilestone(milestone,request,"BUYER");
         if (!"ACTIVE".equals(m.get("engagementStatus")))
           throw new ApiError(409,"PAYMENT_HELD","The engagement now has a hold. Contact the operator before checkout.");
         return checkout(repo.attempt(id,false));
@@ -133,24 +141,28 @@ public class PaymentService {
     return validateTransfers(expected,order.path("transfers"));
   }
 
-  public Map<String,Object> verify(UUID id,Map<String,Object> body,HttpServletRequest request) {
+  public PaymentResponses.Summary verify(UUID id,Map<String,Object> body,HttpServletRequest request) {
     var row=tx(()->accessible(id,request,"BUYER")); mode(row); provider.requireCredentials();
     String payment=RazorpayClient.providerId(text(body,"razorpay_payment_id",10,40),"pay_");
     if (row.get("order_id")==null || !provider.checkoutSignature(Objects.toString(row.get("order_id")),payment,text(body,"razorpay_signature",64,64)))
       throw new ApiError(400,"INVALID_PAYMENT_SIGNATURE","Payment signature verification failed.");
     return reconcilePayment(row,payment,request);
   }
-  public Map<String,Object> reconcile(UUID id,HttpServletRequest request) {
+  public PaymentResponses.Summary reconcile(UUID id,HttpServletRequest request) {
     var row=tx(()->accessible(id,request,"BUYER")); mode(row); provider.requireCredentials();
     if (row.get("order_id")==null) throw new ApiError(409,"ORDER_BINDING_REQUIRED","Ask the operator to find this receipt in the provider dashboard and bind its verified order.");
     return reconcileOrder(row,request);
   }
-  private Map<String,Object> reconcileOrder(Map<String,Object> row,HttpServletRequest request) {
+  private PaymentResponses.Summary visibleSummary(UUID id,HttpServletRequest request) {
+    return tx(() -> PaymentRepository.summary(request==null?system(id):accessible(id,request,"BUYER")));
+  }
+
+  private PaymentResponses.Summary reconcileOrder(Map<String,Object> row,HttpServletRequest request) {
     try {
       if (row.get("payment_id")!=null) {
         var summary=reconcilePayment(row,Objects.toString(row.get("payment_id")),request);
         for (String dispute:repo.disputes((UUID)row.get("id"))) reconcileDispute(row,dispute);
-        return PaymentRepository.summary(tx(()->system((UUID)row.get("id"))));
+        return visibleSummary((UUID)row.get("id"),request);
       }
       JsonNode collection=provider.orderPayments(Objects.toString(row.get("order_id")));
       JsonNode items=collection.path("items");
@@ -159,18 +171,18 @@ public class PaymentService {
       for (JsonNode payment:items) if (Set.of("captured","refunded").contains(payment.path("status").asText())) {
         if (captured!=null) throw mismatch(); captured=payment;
       }
-      if (captured==null) return PaymentRepository.summary(row);
+      if (captured==null) return visibleSummary((UUID)row.get("id"),request);
       return reconcilePayment(row,captured.path("id").asText(),request);
     } catch (RazorpayClient.ProviderFailure ex) { throw new ApiError(502,"PAYMENT_RECONCILIATION_UNAVAILABLE","Provider status is unavailable. The stored payment has not been changed; try reconciliation later."); }
   }
-  private Map<String,Object> reconcilePayment(Map<String,Object> snapshot,String payment,HttpServletRequest request) {
+  private PaymentResponses.Summary reconcilePayment(Map<String,Object> snapshot,String payment,HttpServletRequest request) {
     try {
       mode(snapshot);
       var entity=provider.payment(payment);
       if (!payment.equals(entity.path("id").asText()) || !Objects.toString(snapshot.get("order_id")).equals(entity.path("order_id").asText())
           || integer(entity,"amount")!=number(snapshot,"amount_minor") || !"INR".equals(entity.path("currency").asText())) throw mismatch();
       boolean captured=Set.of("captured","refunded").contains(entity.path("status").asText()) && entity.path("captured").asBoolean(false);
-      if (!captured) return PaymentRepository.summary(snapshot);
+      if (!captured) return visibleSummary((UUID)snapshot.get("id"),request);
       long refunded=integer(entity,"amount_refunded");
       if (refunded<0 || refunded>number(snapshot,"amount_minor")) throw mismatch();
       TransferState transfer=new TransferState("UNKNOWN","UNKNOWN"); boolean transferUnknown=false;
@@ -179,8 +191,9 @@ public class PaymentService {
         transfer=validateTransfers(expected,provider.transfers(payment));
       } catch (RazorpayClient.ProviderFailure | ApiError ex) { transferUnknown=true; }
       final TransferState confirmedTransfer=transfer; final boolean unknown=transferUnknown;
-      return tx(()-> {
-        var current=request==null?system((UUID)snapshot.get("id")):accessible((UUID)snapshot.get("id"),request,"BUYER");
+      // Verified provider effects are recorded independently of a caller revoked during the read.
+      var recorded=tx(()-> {
+        var current=system((UUID)snapshot.get("id"));
         if (current.get("payment_id")!=null && !payment.equals(current.get("payment_id"))) throw mismatch();
         long previous=number(current,"refunded_minor"), total=Math.max(previous,refunded);
         repo.ledger((UUID)current.get("id"),"capture:"+payment,"CAPTURE",number(current,"amount_minor"));
@@ -193,11 +206,12 @@ public class PaymentService {
         if (total>previous) delivery.event((UUID)milestone.get("engagementId"),null,"PAYMENT_REFUNDED","Razorpay confirmed an increased refund total; milestone completion is held.");
         return PaymentRepository.summary(repo.attempt((UUID)current.get("id"),false));
       });
+      return request==null?recorded:visibleSummary((UUID)snapshot.get("id"),request);
     } catch (RazorpayClient.ProviderFailure ex) { throw new ApiError(502,"PAYMENT_RECONCILIATION_UNAVAILABLE","Provider status is unavailable. The stored payment has not been changed; try reconciliation later."); }
   }
 
-  public Map<String,Object> accounts(HttpServletRequest request) { security.admin(request); return Map.of("items",repo.accounts()); }
-  public Map<String,Object> account(Map<String,Object> body,HttpServletRequest request) {
+  public PaymentResponses.Accounts accounts(HttpServletRequest request) { security.admin(request); return new PaymentResponses.Accounts(repo.accounts()); }
+  public PaymentResponses.Accounts account(Map<String,Object> body,HttpServletRequest request) {
     UUID admin=security.admin(request); provider.requireCredentials();
     boolean builder=body.get("builderUserId")!=null && !Objects.toString(body.get("builderUserId")).isBlank();
     boolean team=body.get("teamId")!=null && !Objects.toString(body.get("teamId")).isBlank();
@@ -209,7 +223,7 @@ public class PaymentService {
       var entity=provider.account(account);
       if (!account.equals(entity.path("id").asText()) || !"route".equals(entity.path("type").asText()) || !"created".equals(entity.path("status").asText()))
         throw new ApiError(409,"INVALID_LINKED_ACCOUNT","Razorpay did not confirm an available Route linked account.");
-      return tx(()->{ security.admin(request); repo.mapAccount(builderId,teamId,account,provider.mode,admin); return Map.of("items",repo.accounts()); });
+      return tx(()->{ security.admin(request); repo.mapAccount(builderId,teamId,account,provider.mode,admin); return new PaymentResponses.Accounts(repo.accounts()); });
     } catch (RazorpayClient.ProviderFailure ex) { throw new ApiError(502,"ACCOUNT_VERIFICATION_UNAVAILABLE","Razorpay account verification failed. No seller mapping was saved."); }
   }
   private void reconcileDispute(Map<String,Object> row,String id) {
@@ -222,13 +236,15 @@ public class PaymentService {
     if (deducted<0 || deducted>number(row,"amount_minor")) throw mismatch();
     repo.dispute((UUID)current.get("id"),id,state,deducted); return null; });
   }
-  public Map<String,Object> adminReconcile(UUID id,HttpServletRequest request) {
+  public PaymentResponses.Summary adminReconcile(UUID id,HttpServletRequest request) {
     security.admin(request); provider.requireCredentials(); var row=tx(()->system(id)); mode(row);
     if (row.get("order_id")==null) throw new ApiError(409,"ORDER_BINDING_REQUIRED","Find the reserved receipt in the provider dashboard and bind its order first.");
-    return reconcileOrder(row,null);
+    var result=reconcileOrder(row,null);
+    security.admin(request);
+    return result;
   }
-  public Map<String,Object> attention(HttpServletRequest request) { security.admin(request); return Map.of("items",repo.attention()); }
-  public Map<String,Object> bind(UUID id,Map<String,Object> body,HttpServletRequest request) {
+  public PaymentResponses.AttentionItems attention(HttpServletRequest request) { security.admin(request); return new PaymentResponses.AttentionItems(repo.attention()); }
+  public PaymentResponses.Summary bind(UUID id,Map<String,Object> body,HttpServletRequest request) {
     security.admin(request); provider.requireCredentials();
     var row=tx(()->system(id)); mode(row);
     if (row.get("order_id")!=null || !Set.of("CREATING","UNKNOWN").contains(row.get("status"))) throw new ApiError(409,"ORDER_ALREADY_BOUND","Only an unresolved order can be bound.");
@@ -237,11 +253,13 @@ public class PaymentService {
       var transfer=validateOrder(row,provider.order(order));
       tx(()->{ security.admin(request); var current=system(id); if (current.get("order_id")!=null) throw new ApiError(409,"ORDER_ALREADY_BOUND","This order is already bound."); repo.bind(id,order,transfer.status(),transfer.settlement()); var m=delivery.lockMilestoneSystem((UUID)current.get("milestone_id")); delivery.event((UUID)m.get("engagementId"),security.user(request),"PAYMENT_ORDER_BOUND","Operator verified and recovered the provider order for its reserved receipt."); return null; });
       // Provider capture can already exist when recovering an uncertain create.
-      return reconcileOrder(tx(()->system(id)),null);
+      var result=reconcileOrder(tx(()->system(id)),null);
+      security.admin(request);
+      return result;
     } catch (RazorpayClient.ProviderFailure ex) { throw new ApiError(502,"ORDER_VERIFICATION_UNAVAILABLE","Provider order verification failed. No order was bound."); }
   }
 
-  public Map<String,Object> webhook(HttpServletRequest request) throws IOException {
+  public PaymentResponses.WebhookReceipt webhook(HttpServletRequest request) throws IOException {
     byte[] body=request.getInputStream().readNBytes(65537);
     if (body.length>65536) throw new ApiError(413,"PAYLOAD_TOO_LARGE","Webhook exceeds the supported size.");
     provider.requireCredentials();
@@ -256,7 +274,7 @@ public class PaymentService {
       String previous=repo.existingEvent(eventId);
       if (previous!=null) {
         if (!previous.equals(digest)) throw new ApiError(409,"WEBHOOK_EVENT_CONFLICT","A different payload used the same webhook event identifier.");
-        return Map.of("received",true,"duplicate",true);
+        return new PaymentResponses.WebhookReceipt(true,true);
       }
       JsonNode event;
       try { event=json.readTree(body); } catch (IOException ex) { throw new ApiError(400,"INVALID_WEBHOOK_EVENT","Invalid webhook JSON."); }
@@ -285,7 +303,7 @@ public class PaymentService {
         if (!disputeId.isBlank()) reconcileDispute(repo.attempt((UUID)row.get("id"),false),disputeId);
       }
       repo.event(eventId,digest,kind);
-      return Map.of("received",true,"duplicate",false);
+      return new PaymentResponses.WebhookReceipt(true,false);
     });
   }
 }

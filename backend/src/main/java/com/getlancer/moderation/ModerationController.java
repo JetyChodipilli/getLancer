@@ -1,9 +1,22 @@
 package com.getlancer.moderation;
 
+import com.getlancer.dto.ModerationRequests;
+import com.getlancer.shared.TypedInputs;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.*;
-import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
+import java.util.Map;
+import java.util.UUID;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
 
+@PreAuthorize("@authorization.routeAllowed(authentication)")
 @RestController
 @RequestMapping("/api/v1")
 public class ModerationController {
@@ -15,8 +28,8 @@ public class ModerationController {
 
   @PostMapping("/admin/reports/{id}/triage")
   public Map<String, Object> triage(
-      @PathVariable UUID id, @RequestBody Map<String, Object> body, HttpServletRequest r) {
-    return service.triage(id, body, r);
+      @PathVariable UUID id, @Valid @RequestBody ModerationRequests.Triage body, HttpServletRequest r) {
+    return service.triage(id, TypedInputs.map(body), r);
   }
 
   @GetMapping("/me/moderation-decisions")
@@ -25,9 +38,9 @@ public class ModerationController {
   }
 
   @PostMapping("/appeals")
-  @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
-  public Map<String, Object> appeal(@RequestBody Map<String, Object> body, HttpServletRequest r) {
-    return service.appeal(body, r);
+  @ResponseStatus(HttpStatus.CREATED)
+  public Map<String, Object> appeal(@Valid @RequestBody ModerationRequests.Appeal body, HttpServletRequest r) {
+    return service.appeal(TypedInputs.map(body), r);
   }
 
   @GetMapping("/me/appeals")
@@ -42,8 +55,8 @@ public class ModerationController {
 
   @PostMapping("/admin/appeals/{id}/decision")
   public Map<String, Object> appealDecision(
-      @PathVariable UUID id, @RequestBody Map<String, Object> body, HttpServletRequest r) {
-    return service.appealDecision(id, body, r);
+      @PathVariable UUID id, @Valid @RequestBody ModerationRequests.Decision body, HttpServletRequest r) {
+    return service.appealDecision(id, TypedInputs.map(body), r);
   }
 
   @GetMapping("/admin/email-jobs")
@@ -53,7 +66,7 @@ public class ModerationController {
 
   @PostMapping("/admin/email-jobs/{id}/retry")
   public Map<String, Object> retry(
-      @PathVariable UUID id, @RequestBody Map<String, Object> body, HttpServletRequest r) {
-    return service.retry(id, body, r);
+      @PathVariable UUID id, @Valid @RequestBody ModerationRequests.Retry body, HttpServletRequest r) {
+    return service.retry(id, TypedInputs.map(body), r);
   }
 }

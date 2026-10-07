@@ -1,10 +1,14 @@
 package com.getlancer.auth;
 
-import static com.getlancer.shared.Support.*;
+import static com.getlancer.shared.Support.email;
+import static com.getlancer.shared.Support.id;
+import static com.getlancer.shared.Support.randomToken;
 
 import com.getlancer.security.Security;
 import com.getlancer.shared.ApiError;
-import java.util.*;
+import java.util.Locale;
+import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -13,8 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class GitHubAccounts {
-  @org.springframework.beans.factory.annotation.Value("${app.legal-version:v1-draft}")
-  String legalVersion = "v1-draft";
+  final String legalVersion;
 
   record Identity(String subject, String email, String name) {}
 
@@ -22,9 +25,15 @@ public class GitHubAccounts {
   final Security security;
   final String adminEmail;
 
-  public GitHubAccounts(
-      JdbcTemplate db, Security security, @Value("${app.admin-email}") String adminEmail) {
+  public GitHubAccounts(JdbcTemplate db, Security security, String adminEmail) {
+    this(db, security, adminEmail, "v1-draft");
+  }
+
+  @Autowired
+  public GitHubAccounts(JdbcTemplate db, Security security, @Value("${app.admin-email}") String adminEmail,
+      @Value("${app.legal-version:v1-draft}") String legalVersion) {
     this.db = db;
+    this.legalVersion = legalVersion;
     this.security = security;
     this.adminEmail = adminEmail.trim().toLowerCase(Locale.ROOT);
   }
@@ -37,7 +46,7 @@ public class GitHubAccounts {
     db.queryForList("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", "github:" + subject);
     var linked =
         db.queryForList(
-            "SELECT u.* FROM users u JOIN oauth_identities i ON i.user_id=u.id WHERE"
+            "SELECT u.id,u.email,u.account_status FROM users u JOIN oauth_identities i ON i.user_id=u.id WHERE"
                 + " i.provider='github' AND i.subject=? FOR UPDATE OF u",
             subject);
     if (!linked.isEmpty()) {

@@ -21,7 +21,7 @@ async function acceptMilestone(page:Page,title='Design and review queue'){
 }
 
 test('delivery preview records consent, revision, local payment and both completion acknowledgements',async({page},info)=>{
- const requests:string[]=[];page.on('request',request=>{if(request.url().includes('/api/v1/')||request.url().includes('razorpay.com'))requests.push(request.url());});
+ const requests:string[]=[];page.on('request',request=>{if(new URL(request.url()).pathname.startsWith('/api/v1/')||(new URL(request.url()).hostname==='razorpay.com'||new URL(request.url()).hostname.endsWith('.razorpay.com')))requests.push(request.url());});
  await page.goto('/preview/delivery');await expect(page.getByRole('heading',{name:'Customer approval portal',exact:true})).toBeVisible();await noOverflow(page);
  await page.getByRole('button',{name:'Edit proposal',exact:true}).click();const editor=page.getByRole('dialog');await editor.getByRole('button',{name:'Remove milestone 2',exact:true}).click();await editor.getByLabel('Milestone 1 amount (INR)',{exact:true}).fill('25000.25');await editor.getByRole('button',{name:'Save proposal draft',exact:true}).click();await expect(editor).not.toBeVisible();await expect(page.getByRole('heading',{name:'Proposal · revision 2',exact:true})).toBeVisible();
  await acceptProposal(page);await actor(page,'SELLER');await expect(page.getByRole('button',{name:'Request project completion',exact:true})).toBeDisabled();

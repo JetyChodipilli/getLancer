@@ -54,7 +54,7 @@ for (const mode of ['unknown', 'incomplete']) test(mode + ' orders prevent check
 });
 
 test('four free allowances are visible in preview and every slot purchase stays disabled', async ({ page }, info) => {
-  const requests: string[] = []; page.on('request', r => { if (r.url().includes('/api/v1/') || r.url().includes('razorpay.com')) requests.push(r.url()); });
+  const requests: string[] = []; page.on('request', r => { if (new URL(r.url()).pathname.startsWith('/api/v1/') || (new URL(r.url()).hostname==='razorpay.com'||new URL(r.url()).hostname.endsWith('.razorpay.com'))) requests.push(r.url()); });
   await page.goto('/preview/slots'); await expect(page.getByRole('heading', { name: 'Room for every kind of work.', exact: true })).toBeVisible();
   await expect(page.locator('.studio-metric')).toHaveCount(4);
   for (const card of await page.locator('.studio-metric').all()) await expect(card).toContainText('3 free slots');

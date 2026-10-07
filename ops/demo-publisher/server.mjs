@@ -265,14 +265,17 @@ async function readBody(request) {
   });
 }
 function gatewayAllows(config, id, signal) {
+  if (!UUID.test(id)) throw new HttpError(403, 'Unknown public host');
   return new Promise((resolve) => {
     let finished = false; const done = (value) => {
       if (finished) return; finished = true; clearTimeout(timer); signal.removeEventListener('abort', cancel); request.destroy(); resolve(value);
     };
     const cancel = () => done(false);
-    const url = new URL(`${config.gateway.href}/${id}`);
-    const client = url.protocol === 'https:' ? https : http;
-    const request = client.request(url, { method: 'GET', headers: { 'X-GetLancer-Demo-Gateway': config.gatewaySecret, Accept: 'application/json' }, agent: false }, (response) => {
+    // Only operator configuration selects the origin; a deployment is one encoded path segment.
+    const client = config.gateway.protocol === 'https:' ? https : http;
+    const request = client.request({ protocol: config.gateway.protocol, hostname: config.gateway.hostname.replace(/^\[|\]$/g, ''),
+      port: config.gateway.port, path: config.gateway.pathname + '/' + encodeURIComponent(id),
+      method: 'GET', headers: { 'X-GetLancer-Demo-Gateway': config.gatewaySecret, Accept: 'application/json' }, agent: false }, (response) => {
       response.on('error', () => done(false));
       if (response.statusCode !== 200 || response.headers['content-type']?.split(';')[0].trim().toLowerCase() !== 'application/json') { done(false); return; }
       let size = 0; const chunks = [];
@@ -389,7 +392,8 @@ export async function createPublisher(input) {
         if (target === '/health' && request.method === 'GET') { json(response, 200, { status: 'ok' }); return; }
         requireValue(matchesSecret(request.headers.authorization, config.secret), 'Unauthorized', 401);
         const match = /^\/deployments\/([^/]+)$/.exec(target);
-        requireValue(match && UUID.test(match[1]), 'Not found', 404); const id = match[1];
+        if (!match || !UUID.test(match[1])) throw new HttpError(404, 'Not found');
+        const id = match[1];
         if (request.method === 'PUT') {
           requireValue(activeUploads < 1, 'Upload concurrency limit', 503); activeUploads++;
           try {
@@ -428,7 +432,8 @@ export async function createPublisher(input) {
       }
       requireValue(!target.startsWith('/deployments') && target !== '/health', 'Administrative endpoint unavailable', 403);
       requireValue(host.endsWith(config.publicSuffix), 'Unknown public host', 403);
-      const id = host.slice(0, -config.publicSuffix.length); requireValue(UUID.test(id), 'Unknown public host', 403);
+      const id = host.slice(0, -config.publicSuffix.length);
+      if (!UUID.test(id)) throw new HttpError(403, 'Unknown public host');
       requireValue(['GET', 'HEAD'].includes(request.method), 'Method not allowed', 405);
       const record = records.get(id); requireValue(record && record.state === 'READY' && Date.parse(record.expiresAt) > config.now(), 'Not found', 404);
       const now = config.now(); let hits = traffic.get(id);
@@ -448,7 +453,7 @@ export async function createPublisher(input) {
       response.once('finish', responseSettled); response.once('close', responseSettled);
       try {
         // Every recognized static GET/HEAD checks the authority, including missing paths. No forwarded user headers or query.
-        requireValue(await gatewayAllows(config, id, gatewayCancellation.signal), 'Demo unavailable', 403);
+        requireValue(await gatewayAllows(config, record.id, gatewayCancellation.signal), 'Demo unavailable', 403);
         if (response.destroyed) return;
         requireValue(!unhealthy, 'Publisher storage unavailable', 503);
         requireValue(records.get(id) === record && record.state === 'READY' && Date.parse(record.expiresAt) > config.now(), 'Not found', 404);
@@ -456,7 +461,8 @@ export async function createPublisher(input) {
         requireValue(!/%(?:2f|5c)/i.test(target), 'Encoded separator rejected');
         filename = filename === '/' ? 'index.html' : filename.slice(1); if (filename.endsWith('/')) filename += 'index.html';
         validateFilePath(filename); const file = record.files.find((candidate) => candidate.path === filename); requireValue(file, 'Not found', 404);
-        const bytes = await plainRead(path.join(identities, id, 'bundle'), filename, HARD_LIMITS.fileBytes);
+        // Resolve from the retained deployment/manifest, never the raw Host or request target.
+        const bytes = await plainRead(path.join(identities, record.id, 'bundle'), file.path, HARD_LIMITS.fileBytes);
         if (response.destroyed) return;
         requireValue(bytes.length === file.sizeBytes && sha(bytes) === file.sha256, 'Stored content unavailable', 503);
         requireValue(records.get(id) === record && Date.parse(record.expiresAt) > config.now(), 'Not found', 404);

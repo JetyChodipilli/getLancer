@@ -1,6 +1,8 @@
 package com.getlancer.moderation;
 
-import static com.getlancer.shared.Support.*;
+import static com.getlancer.shared.Support.id;
+import static com.getlancer.shared.Support.text;
+import static com.getlancer.shared.Support.uuid;
 
 import com.getlancer.admin.AdminService;
 import com.getlancer.notifications.Mail;
@@ -9,11 +11,14 @@ import com.getlancer.shared.ApiError;
 import com.getlancer.shared.Pages;
 import com.getlancer.shared.Rules;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.*;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-@org.springframework.stereotype.Service
+@Service
 public class ModerationService {
   final JdbcTemplate db;
   final Security security;
@@ -110,7 +115,7 @@ public class ModerationService {
   @Transactional
   public Map<String, Object> appeal(Map<String, Object> body, HttpServletRequest r) {
     UUID user = security.user(r), decision = uuid(body.get("decisionId"));
-    var rows = db.queryForList("SELECT * FROM moderation_actions WHERE id=?", decision);
+    var rows = db.queryForList("SELECT id,admin_id,target_type,target_id,action,reason,created_at FROM moderation_actions WHERE id=?", decision);
     if (rows.isEmpty() || !affected(rows.get(0), user))
       throw new ApiError(404, "NOT_FOUND", "Decision not found.");
     String evidence = text(body, "evidenceUrl", 0, 1000);
@@ -141,7 +146,7 @@ public class ModerationService {
     return Pages.query(
         db,
         r,
-        "SELECT a.*,m.target_type,m.target_id,m.action AS original_action,m.reason AS"
+        "SELECT a.id,a.decision_id,a.appellant_id,a.statement,a.evidence_url,a.status,a.resolution,a.reviewer_id,a.created_at,a.resolved_at,m.target_type,m.target_id,m.action AS original_action,m.reason AS"
             + " original_reason,m.admin_id AS original_moderator FROM moderation_appeals a JOIN"
             + " moderation_actions m ON m.id=a.decision_id ORDER BY CASE WHEN a.status IN"
             + " ('OPEN','UNDER_REVIEW') THEN 0 ELSE 1 END,a.created_at,a.id");
@@ -154,13 +159,13 @@ public class ModerationService {
     String state = text(body, "status", 4, 20), reason = text(body, "reason", 3, 2000);
     if (!Set.of("UNDER_REVIEW", "UPHELD", "OVERTURNED").contains(state))
       throw new ApiError(400, "VALIDATION_ERROR", "Choose a review outcome.");
-    var rows = db.queryForList("SELECT * FROM moderation_appeals WHERE id=? FOR UPDATE", id);
+    var rows = db.queryForList("SELECT id,decision_id,appellant_id,statement,evidence_url,status,resolution,reviewer_id,created_at,resolved_at FROM moderation_appeals WHERE id=? FOR UPDATE", id);
     if (rows.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Appeal not found.");
     var appeal = rows.get(0);
     if (Set.of("UPHELD", "OVERTURNED").contains(appeal.get("status")))
       throw new ApiError(409, "INVALID_STATE_TRANSITION", "This appeal has already been resolved.");
     var original =
-        db.queryForMap("SELECT * FROM moderation_actions WHERE id=?", appeal.get("decision_id"));
+        db.queryForMap("SELECT id,admin_id,target_type,target_id,action,reason,created_at FROM moderation_actions WHERE id=?", appeal.get("decision_id"));
     if (state.equals("OVERTURNED")) {
       UUID target = (UUID) original.get("target_id");
       switch ((String) original.get("target_type")) {
@@ -178,7 +183,7 @@ public class ModerationService {
           var owner = db.queryForList("SELECT owner_user_id FROM products WHERE id=?", target);
           if (owner.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Project not found.");
           db.queryForMap(
-              "SELECT * FROM showcase_entitlements WHERE user_id=? FOR UPDATE",
+              "SELECT user_id,active_slot_limit,source FROM showcase_entitlements WHERE user_id=? FOR UPDATE",
               owner.get(0).get("owner_user_id"));
           db.update(
               "UPDATE products SET"

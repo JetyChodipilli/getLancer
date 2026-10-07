@@ -1,10 +1,19 @@
 package com.getlancer.business;
 
-import static com.getlancer.shared.Support.*;
+import static com.getlancer.shared.Support.id;
+import static com.getlancer.shared.Support.text;
+import static com.getlancer.shared.Support.uuid;
 
 import com.getlancer.products.ProductRepository;
 import com.getlancer.shared.ApiError;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 @Service

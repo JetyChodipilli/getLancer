@@ -51,7 +51,7 @@ class GoogleAccountsTest {
   @Test
   void returningSuspendedGoogleAccountCannotSignIn() {
     UUID id = UUID.randomUUID();
-    when(db.queryForList(startsWith("SELECT u.* FROM users"), eq("subject-123")))
+    when(db.queryForList(startsWith("SELECT u.id,u.email,u.account_status FROM users"), eq("subject-123")))
         .thenReturn(
             List.of(
                 Map.of("id", id, "email", "member@example.com", "account_status", "SUSPENDED")));
@@ -59,5 +59,6 @@ class GoogleAccountsTest {
         "account_unavailable",
         assertThrows(ApiError.class, () -> accounts.resolve(token("member@example.com"), "login"))
             .code);
+    verify(db).queryForList(startsWith("SELECT u.id,u.email,u.account_status FROM users"), eq("subject-123"));
   }
 }

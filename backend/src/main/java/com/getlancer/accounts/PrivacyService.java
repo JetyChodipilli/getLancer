@@ -1,69 +1,73 @@
 package com.getlancer.accounts;
 
-import static com.getlancer.shared.Support.*;
+import static com.getlancer.shared.Support.id;
+import static com.getlancer.shared.Support.text;
 
 import com.getlancer.admin.AdminService;
+import com.getlancer.responses.PageResponse;
+import com.getlancer.responses.PrivacyResponses;
 import com.getlancer.security.Security;
 import com.getlancer.shared.ApiError;
 import com.getlancer.shared.Pages;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.*;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-@org.springframework.stereotype.Service
+@Service
 public class PrivacyService {
   final JdbcTemplate db;
   final Security security;
   final AdminService admin;
 
-  @Value("${app.legal-version:v1-draft}")
-  String version;
+  final String version;
 
-  @Value("${app.policies-approved:false}")
-  boolean approved;
+  final boolean approved;
 
-  @Value("${app.support-email:}")
-  String support;
+  final String support;
 
-  @Value("${app.privacy-email:}")
-  String privacy;
+  final String privacy;
 
-  @Value("${app.copyright-email:}")
-  String copyright;
+  final String copyright;
 
   public PrivacyService(JdbcTemplate db, Security security, AdminService admin) {
+    this(db, security, admin, "v1-draft", false, "", "", "");
+  }
+
+  @Autowired
+  public PrivacyService(JdbcTemplate db, Security security, AdminService admin,
+      @Value("${app.legal-version:v1-draft}") String version,
+      @Value("${app.policies-approved:false}") boolean approved,
+      @Value("${app.support-email:}") String support,
+      @Value("${app.privacy-email:}") String privacy,
+      @Value("${app.copyright-email:}") String copyright) {
     this.db = db;
     this.security = security;
     this.admin = admin;
+    this.version = version; this.approved = approved; this.support = support;
+    this.privacy = privacy; this.copyright = copyright;
   }
 
-  public Map<String, Object> config() {
-    return Map.of(
-        "version",
-        version,
-        "approved",
-        approved,
-        "support",
-        support,
-        "privacy",
-        privacy,
-        "copyright",
-        copyright);
+  public PrivacyResponses.Configuration config() {
+    return new PrivacyResponses.Configuration(version, approved, support, privacy, copyright);
   }
 
-  public Map<String, Object> requests(HttpServletRequest r) {
+  public PageResponse<PrivacyResponses.DeletionRequest> requests(HttpServletRequest r) {
     security.admin(r);
-    return Pages.query(
+    return PageResponse.from(Pages.query(
         db,
         r,
         "SELECT d.user_id AS id,d.status,d.created_at,d.resolution,d.processed_at FROM"
-            + " deletion_requests d ORDER BY d.created_at,d.user_id");
+            + " deletion_requests d ORDER BY d.created_at,d.user_id"), PrivacyResponses.DeletionRequest::from);
   }
 
   @Transactional
-  public Map<String, Object> review(UUID id, Map<String, Object> body, HttpServletRequest r) {
+  public PrivacyResponses.Review review(UUID id, Map<String, Object> body, HttpServletRequest r) {
     UUID actor = security.admin(r);
     String reason = text(body, "reason", 10, 2000), action = text(body, "action", 4, 40);
     if (security.role(id, "ADMIN"))
@@ -94,7 +98,7 @@ public class PrivacyService {
       db.update("DELETE FROM login_challenges WHERE user_id=?", id);
       db.update("DELETE FROM sessions WHERE user_id=?", id);
       db.update(
-          "UPDATE users SET email=?,password_hash='disabled',admin_totp=NULL WHERE id=?",
+          "UPDATE users SET email=?,password_hash='disabled',admin_totp=NULL,admin_totp_key_version=NULL,admin_totp_nonce=NULL,admin_totp_ciphertext=NULL WHERE id=?",
           "closed-" + id + "@example.invalid",
           id);
       db.update(
@@ -111,6 +115,6 @@ public class PrivacyService {
         actor,
         id);
     admin.audit(actor, "DELETION", id, action, reason);
-    return Map.of("status", state, "engagementRecordsRetained", true);
+    return new PrivacyResponses.Review(state, true);
   }
 }

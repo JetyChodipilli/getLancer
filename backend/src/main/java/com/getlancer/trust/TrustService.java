@@ -1,6 +1,8 @@
 package com.getlancer.trust;
 
-import static com.getlancer.shared.Support.*;
+import static com.getlancer.shared.Support.id;
+import static com.getlancer.shared.Support.randomToken;
+import static com.getlancer.shared.Support.text;
 
 import com.getlancer.products.ProductRepository;
 import com.getlancer.products.ProductService;
@@ -9,11 +11,18 @@ import com.getlancer.shared.ApiError;
 import com.getlancer.shared.Support;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
-import java.util.*;
+import java.util.Date;
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-@org.springframework.stereotype.Service
+@Service
 public class TrustService {
   final JdbcTemplate db;
   final Security security;
@@ -145,7 +154,7 @@ public class TrustService {
                 + " v.reviewed_at DESC LIMIT 100"),
         "verifications",
         db.queryForList(
-            "SELECT v.*,p.title FROM repository_verifications v JOIN products p ON"
+            "SELECT v.product_id,v.repository_url,v.challenge,v.status,v.requested_at,v.expires_at,v.reviewed_at,v.reviewer_id,v.reason,p.title FROM repository_verifications v JOIN products p ON"
                 + " p.id=v.product_id WHERE v.status='PENDING' AND v.expires_at>now() AND"
                 + " v.repository_url=p.repository_url ORDER BY v.requested_at LIMIT 100"),
         "eligibleOutcomes",
@@ -174,7 +183,7 @@ public class TrustService {
       throw new ApiError(400, "VALIDATION_ERROR", "Invalid decision.");
     var rows =
         db.queryForList(
-            "SELECT v.*,p.repository_url AS current_url,p.owner_user_id FROM products p JOIN"
+            "SELECT v.product_id,v.repository_url,v.challenge,v.status,v.requested_at,v.expires_at,v.reviewed_at,v.reviewer_id,v.reason,p.repository_url AS current_url,p.owner_user_id FROM products p JOIN"
                 + " repository_verifications v ON v.product_id=p.id WHERE p.id=? FOR UPDATE OF p,v",
             id);
     if (rows.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Verification not found.");
@@ -219,7 +228,7 @@ public class TrustService {
     UUID owner = (UUID) rows.get(0).get("developer_user_id");
     if (admin.equals(owner)) throw new ApiError(403, "FORBIDDEN", "Self awards are not allowed.");
     publishing.lock(owner);
-    db.queryForMap("SELECT * FROM showcase_entitlements WHERE user_id=? FOR UPDATE", owner);
+    db.queryForMap("SELECT user_id,active_slot_limit,source FROM showcase_entitlements WHERE user_id=? FOR UPDATE", owner);
     int added =
         db.update(
             "INSERT INTO earned_capacity_awards(inquiry_id,user_id,admin_id,reason) VALUES(?,?,?,?)"
@@ -258,7 +267,7 @@ public class TrustService {
     var p = source.get(0);
     var rows =
         db.queryForList(
-            "SELECT * FROM (SELECT DISTINCT ON(p.owner_user_id) p.*,d.display_name AS"
+            "SELECT id,owner_user_id,slug,title,summary,description,project_type,category,technology,visibility,contribution_text,available_for_similar_work,approval_status,lifecycle_status,live_url,video_url,moderation_reason,rights_confirmed,created_at,updated_at,repository_url,pricing_note,demo_health,demo_checked_at,demo_checked_url,pricing_mode,price_min_minor,price_max_minor,currency_code,builder,builder_slug,availability,booked_until FROM (SELECT DISTINCT ON(p.owner_user_id) p.id,p.owner_user_id,p.slug,p.title,p.summary,p.description,p.project_type,p.category,p.technology,p.visibility,p.contribution_text,p.available_for_similar_work,p.approval_status,p.lifecycle_status,p.live_url,p.video_url,p.moderation_reason,p.rights_confirmed,p.created_at,p.updated_at,p.repository_url,p.pricing_note,p.demo_health,p.demo_checked_at,p.demo_checked_url,p.pricing_mode,p.price_min_minor,p.price_max_minor,p.currency_code,d.display_name AS"
                 + " builder,d.slug AS builder_slug,d.availability_status AS"
                 + " availability,d.booked_until,CASE WHEN p.category=? THEN 1 ELSE 0 END AS"
                 + " relevance FROM products p JOIN users u ON u.id=p.owner_user_id JOIN"

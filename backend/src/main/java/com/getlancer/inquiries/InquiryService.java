@@ -1,6 +1,10 @@
 package com.getlancer.inquiries;
 
-import static com.getlancer.shared.Support.*;
+import static com.getlancer.shared.Support.email;
+import static com.getlancer.shared.Support.hash;
+import static com.getlancer.shared.Support.id;
+import static com.getlancer.shared.Support.text;
+import static com.getlancer.shared.Support.uuid;
 
 import com.getlancer.analytics.AnalyticsService;
 import com.getlancer.notifications.Mail;
@@ -11,11 +15,20 @@ import com.getlancer.shared.Pages;
 import com.getlancer.shared.Rules;
 import com.getlancer.shared.Support;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Currency;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-@org.springframework.stereotype.Service
+@Service
 public class InquiryService {
   final JdbcTemplate db;
   final Security security;
@@ -188,7 +201,7 @@ public class InquiryService {
     UUID u = security.developer(r, false);
     var rows =
         db.queryForList(
-            "SELECT * FROM inquiries WHERE id=? AND developer_user_id=? AND email_confirmed_at IS"
+            "SELECT id,reference_product_id,developer_user_id,client_email,client_name,company_name,request_type,description,budget_band,timeline_band,current_status,email_confirmed_at,idempotency_key,request_hash,created_at,updated_at,moderation_status,moderation_reason,reported_value,reported_currency,acquisition_source FROM inquiries WHERE id=? AND developer_user_id=? AND email_confirmed_at IS"
                 + " NOT NULL AND moderation_status='CLEAR'",
             id,
             u);
@@ -211,7 +224,7 @@ public class InquiryService {
     UUID u = security.developer(r, false);
     var rows =
         db.queryForList(
-            "SELECT * FROM inquiries WHERE id=? AND developer_user_id=? AND email_confirmed_at IS"
+            "SELECT id,reference_product_id,developer_user_id,client_email,client_name,company_name,request_type,description,budget_band,timeline_band,current_status,email_confirmed_at,idempotency_key,request_hash,created_at,updated_at,moderation_status,moderation_reason,reported_value,reported_currency,acquisition_source FROM inquiries WHERE id=? AND developer_user_id=? AND email_confirmed_at IS"
                 + " NOT NULL AND moderation_status='CLEAR' FOR UPDATE",
             id,
             u);

@@ -1,6 +1,8 @@
 package com.getlancer.media;
 
-import static com.getlancer.shared.Support.*;
+import static com.getlancer.shared.Support.id;
+import static com.getlancer.shared.Support.text;
+import static com.getlancer.shared.Support.uuid;
 
 import com.getlancer.products.PrivateProjectService;
 import com.getlancer.security.Security;
@@ -8,24 +10,38 @@ import com.getlancer.shared.ApiError;
 import com.getlancer.shared.Rules;
 import jakarta.servlet.http.HttpServletRequest;
 import java.awt.image.BufferedImage;
-import java.io.*;
-import java.util.*;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import javax.imageio.ImageIO;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import software.amazon.awssdk.auth.credentials.*;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.*;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
-@org.springframework.stereotype.Service
+@Service
 public class MediaService {
-  @Value("${app.jobs-enabled:true}")
-  boolean jobsEnabled;
+  final boolean jobsEnabled;
 
   final JdbcTemplate db;
   final Security security;
@@ -33,18 +49,20 @@ public class MediaService {
   final software.amazon.awssdk.services.s3.presigner.S3Presigner presigner;
   final String bucket;
 
-  public MediaService(
-      JdbcTemplate db,
-      Security security,
-      @Value("${app.storage.endpoint}") String endpoint,
-      @Value("${app.storage.region}") String region,
-      @Value("${app.storage.access-key}") String key,
-      @Value("${app.storage.secret-key}") String secret,
-      @Value("${app.storage.bucket}") String bucket,
-      @Value("${app.storage.upload-endpoint:${app.storage.endpoint}}") String uploadEndpoint) {
+  public MediaService(JdbcTemplate db, Security security, String endpoint, String region, String key, String secret, String bucket, String uploadEndpoint) {
+    this(db, security, endpoint, region, key, secret, bucket, uploadEndpoint, false);
+  }
+
+  @Autowired
+  public MediaService(JdbcTemplate db, Security security, @Value("${app.storage.endpoint}") String endpoint,
+      @Value("${app.storage.region}") String region, @Value("${app.storage.access-key}") String key,
+      @Value("${app.storage.secret-key}") String secret, @Value("${app.storage.bucket}") String bucket,
+      @Value("${app.storage.upload-endpoint:${app.storage.endpoint}}") String uploadEndpoint,
+      @Value("${app.jobs-enabled:true}") boolean jobsEnabled) {
     this.db = db;
     this.security = security;
     this.bucket = bucket;
+    this.jobsEnabled = jobsEnabled;
     s3 =
         key.isBlank()
             ? null
@@ -261,7 +279,7 @@ public class MediaService {
     UUID upload = uuid(body.get("uploadId"));
     var rows =
         db.queryForList(
-            "SELECT * FROM media_uploads WHERE id=? AND product_id=? FOR UPDATE", upload, product);
+            "SELECT id,product_id,storage_key,content_type,size_bytes,expires_at,completed_media_id,created_at FROM media_uploads WHERE id=? AND product_id=? FOR UPDATE", upload, product);
     if (rows.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Upload not found.");
     var pending = rows.get(0);
     if (pending.get("completed_media_id") != null)
@@ -378,7 +396,7 @@ public class MediaService {
     return Map.of("ok", true);
   }
 
-  @org.springframework.scheduling.annotation.Scheduled(fixedDelay = 60000)
+  @Scheduled(fixedDelay = 60000)
   public void removeObjects() {
     if (!jobsEnabled || s3 == null) return;
     for (var row :

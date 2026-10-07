@@ -1,76 +1,93 @@
 package com.getlancer.auth;
 
-import jakarta.servlet.http.*;
-import java.time.*;
-import java.util.*;
-import org.springframework.web.bind.annotation.*;
+import com.getlancer.responses.UserResponse;
+import com.getlancer.shared.TypedInputs;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
+import java.util.Map;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1")
+@PreAuthorize("@authorization.routeAllowed(authentication)")
 public class AuthController {
   private final AuthService service;
 
-  public AuthController(AuthService service) {
-    this.service = service;
-  }
+  public AuthController(AuthService service) { this.service = service; }
 
   @PostMapping("/auth/signup")
-  @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
-  public Map<String, Object> signup(@RequestBody Map<String, Object> b) {
-    return service.signup(b);
+  @ResponseStatus(HttpStatus.CREATED)
+  public Map<String, Object> signup(@Valid @RequestBody AuthRequests.Signup body) {
+    return service.signup(TypedInputs.map(body));
   }
 
   @PostMapping("/auth/login")
-  public Map<String, Object> login(@RequestBody Map<String, Object> b, HttpServletResponse res) {
-    return service.login(b, res);
+  public Map<String, Object> login(@Valid @RequestBody AuthRequests.Login body,
+      HttpServletRequest req, HttpServletResponse res) {
+    var input = TypedInputs.map(body);
+    service.preflightLogin(input);
+    return service.login(input, req, res);
   }
 
   @PostMapping("/auth/login/mfa")
-  public Map<String, Object> mfa(
-      @RequestBody Map<String, Object> body, HttpServletRequest req, HttpServletResponse res) {
-    return service.mfa(body, req, res);
+  public Map<String, Object> mfa(@Valid @RequestBody AuthRequests.Mfa body,
+      HttpServletRequest req, HttpServletResponse res) {
+    service.preflightMfa(req);
+    return service.mfa(TypedInputs.map(body), req, res);
   }
 
   @PostMapping("/auth/logout")
-  @ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+  @ResponseStatus(HttpStatus.NO_CONTENT)
   public Map<String, Object> logout(HttpServletRequest req, HttpServletResponse res) {
     return service.logout(req, res);
   }
 
   @GetMapping("/me")
-  public Map<String, Object> me(HttpServletRequest r) {
-    return service.me(r);
-  }
+  public UserResponse me(HttpServletRequest req) { return service.me(req); }
 
   @PostMapping("/auth/password-reset/request")
-  public Map<String, Object> reset(@RequestBody Map<String, Object> b) {
-    return service.reset(b);
+  public Map<String, Object> reset(@Valid @RequestBody AuthRequests.Reset body) {
+    var input = TypedInputs.map(body);
+    service.preflightReset(input);
+    return service.reset(input);
   }
 
   @PostMapping("/auth/confirmation")
-  public Map<String, Object> confirmationContext(@RequestBody Map<String, Object> body) {
-    return service.confirmationContext(body);
+  public Map<String, Object> confirmationContext(@Valid @RequestBody AuthRequests.Token body) {
+    return service.confirmationContext(TypedInputs.map(body));
   }
 
-  @PostMapping({
-    "/auth/confirm",
-    "/auth/verify-email",
-    "/auth/password-reset/confirm",
-    "/inquiries/confirm-email"
-  })
-  public Map<String, Object> confirm(
-      @RequestBody Map<String, Object> body, HttpServletRequest request) {
-    return service.confirm(body, request);
+  @PostMapping({"/auth/confirm", "/auth/verify-email", "/inquiries/confirm-email"})
+  public Map<String, Object> confirm(@Valid @RequestBody AuthRequests.Confirmation body,
+      HttpServletRequest request) {
+    return service.confirm(TypedInputs.map(body), request);
+  }
+
+  @PostMapping("/auth/password-reset/confirm")
+  public Map<String, Object> confirmPasswordReset(
+      @Valid @RequestBody AuthRequests.PasswordResetConfirmation body, HttpServletRequest request) {
+    return service.confirm(TypedInputs.map(body), request);
   }
 
   @PostMapping("/auth/resend-verification")
   public Map<String, Object> resend(HttpServletRequest request) {
+    service.preflightResend(request);
     return service.resend(request);
   }
 
   @DeleteMapping("/me")
-  @ResponseStatus(org.springframework.http.HttpStatus.ACCEPTED)
-  public Map<String, Object> deletion(HttpServletRequest r) {
-    return service.deletion(r);
+  @ResponseStatus(HttpStatus.ACCEPTED)
+  public Map<String, Object> deletion(HttpServletRequest request) {
+    service.preflightDeletion(request);
+    return service.deletion(request);
   }
 }

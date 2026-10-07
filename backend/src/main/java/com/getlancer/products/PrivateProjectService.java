@@ -1,16 +1,23 @@
 package com.getlancer.products;
 
-import static com.getlancer.shared.Support.*;
+import static com.getlancer.shared.Support.email;
+import static com.getlancer.shared.Support.id;
 
+import com.getlancer.responses.MutationResponse;
+import com.getlancer.responses.PageResponse;
+import com.getlancer.responses.PrivateProjectResponses;
+import com.getlancer.responses.ProjectResponses;
 import com.getlancer.security.Security;
 import com.getlancer.shared.ApiError;
 import com.getlancer.shared.Pages;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.*;
+import java.util.Map;
+import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-@org.springframework.stereotype.Service
+@Service
 public class PrivateProjectService {
   final JdbcTemplate db;
   final Security security;
@@ -44,18 +51,18 @@ public class PrivateProjectService {
   }
 
   @Transactional
-  public Map<String, Object> list(UUID id, HttpServletRequest r) {
+  public PageResponse<PrivateProjectResponses.AccessGrant> list(UUID id, HttpServletRequest r) {
     owner(id, r);
-    return Pages.query(
+    return PageResponse.from(Pages.query(
         db,
         r,
         "SELECT client_email,expires_at FROM product_access_grants WHERE product_id=? ORDER BY"
             + " client_email",
-        id);
+        id), PrivateProjectResponses.AccessGrant::from);
   }
 
   @Transactional
-  public Map<String, Object> grant(UUID id, Map<String, Object> b, HttpServletRequest r) {
+  public PrivateProjectResponses.Granted grant(UUID id, Map<String, Object> b, HttpServletRequest r) {
     owner(id, r);
     String email = email(b, "email");
     db.update(
@@ -64,20 +71,20 @@ public class PrivateProjectService {
             + " SET expires_at=excluded.expires_at",
         id,
         email);
-    return Map.of("path", "/private/projects/" + id, "expiresInDays", 7);
+    return new PrivateProjectResponses.Granted("/private/projects/" + id, 7);
   }
 
   @Transactional
-  public Map<String, Object> revoke(UUID id, Map<String, Object> b, HttpServletRequest r) {
+  public MutationResponse revoke(UUID id, Map<String, Object> b, HttpServletRequest r) {
     owner(id, r);
     db.update(
         "DELETE FROM product_access_grants WHERE product_id=? AND client_email=?",
         id,
         email(b, "email"));
-    return Map.of("ok", true);
+    return MutationResponse.success();
   }
 
-  public Map<String, Object> preview(UUID id, HttpServletRequest r) {
+  public ProjectResponses.Project preview(UUID id, HttpServletRequest r) {
     var user = security.principal(r);
     var rows =
         db.queryForList(
@@ -89,6 +96,6 @@ public class PrivateProjectService {
     if (rows.isEmpty()
         || (!user.get("id").equals(rows.get(0).get("owner_user_id")) && !granted(db, id, user)))
       throw new ApiError(404, "NOT_FOUND", "Private preview unavailable or access expired.");
-    return products.dto(rows.get(0));
+    return ProjectResponses.Project.from(products.dto(rows.get(0)));
   }
 }

@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHmac} from 'node:crypto';
-import {test,expect,type Page} from '@playwright/test';
+import {setTimeout as delay} from 'node:timers/promises';
+import {test,expect,type Page} from './test';
 import {readEnvironment} from '../../scripts/local-config.mjs';
 
 const fixture=JSON.parse(readFileSync('.ci-connected.json','utf8'));
@@ -106,6 +107,10 @@ test('real hiring journey persists consent, matching, talent, MFA concierge and 
   await manager.getByLabel('Business workspace',{exact:true}).selectOption(b.id);
   await manager.getByRole('tab',{name:'Saved talent',exact:true}).click();
   await expect(manager.getByRole('heading',{name:'CI Builder',exact:true})).toBeVisible();
+
+  // Four automated actors compress over 300 protected reads into a minute.
+  // Let the real minute window expire; never reset counters within this journey.
+  await delay(62_000);
 
   await login(outsider,'builder');
   expect((await call(outsider,briefRoot+'/shortlist')).status()).toBe(404);

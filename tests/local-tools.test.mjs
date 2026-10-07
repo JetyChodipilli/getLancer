@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,writeFileSync,readFileSync,copyFileSync,mkdirSync,rmSync} from 'node:fs';
+import {mkdtempSync,writeFileSync,readFileSync,copyFileSync,mkdirSync,rmSync,symlinkSync,linkSync,statSync,openSync,closeSync,fstatSync,constants} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
@@ -36,6 +36,79 @@ test('setup generates missing service keys once without changing existing creden
   assert.equal(container.DB_USERNAME,'postgres');assert.equal(container.BACKEND_URL,'http://localhost:8080');
 });
 
+test('setup creates a private configuration from the example and preserves it on rerun',t=>{
+ const dir=mkdtempSync(join(tmpdir(),'getlancer-new-setup-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));mkdirSync(join(dir,'scripts'));
+ for(const name of ['setup-local.mjs','local-config.mjs'])copyFileSync(new URL('../scripts/'+name,import.meta.url),join(dir,'scripts',name));
+ const example='APP_ENV=local\nDB_URL=jdbc:postgresql://localhost:5432/getLancer\nDB_USERNAME=postgres\nDB_PASSWORD=example-fixture-private\nDB_SCHEMA=getlancer\nADMIN_EMAIL=\nSMTP_HOST=localhost\nOBJECT_STORAGE_ENDPOINT=http://localhost:9000\nOBJECT_STORAGE_UPLOAD_ENDPOINT=http://localhost:9000\nOBJECT_STORAGE_ACCESS_KEY=REPLACE_WITH_LOCAL_ACCESS_KEY\n';
+ writeFileSync(join(dir,'.env.example'),example);
+ const file=join(dir,'.env'),run=()=>spawnSync(process.execPath,[join(dir,'scripts/setup-local.mjs')],{encoding:'utf8'});
+ const snapshot=()=>{
+  const fd=openSync(file,constants.O_RDONLY|constants.O_NOFOLLOW);
+  try{return {content:readFileSync(fd,'utf8'),mode:fstatSync(fd).mode&0o777};}finally{closeSync(fd);}
+ };
+ const first=run();assert.equal(first.status,0,first.stderr);
+ const values=readEnvironment(file);
+ assert.equal(values.DB_PASSWORD,'example-fixture-private');assert.equal(values.ADMIN_EMAIL,'');
+ assert.ok(!values.ADMIN_BOOTSTRAP_PASSWORD&&!values.ADMIN_TOTP_SECRET);
+ assert.equal(values.MFA_ACTIVE_KEY_ID,'local-v1');assert.equal(Buffer.from(values.MFA_KEYRING.split(':')[1],'base64').length,32);
+ assert.ok(values.OBJECT_STORAGE_ACCESS_KEY.length>=24&&values.OBJECT_STORAGE_SECRET_KEY.length>=32);
+ for(const key of ['DB_PASSWORD','MFA_KEYRING','OBJECT_STORAGE_ACCESS_KEY','OBJECT_STORAGE_SECRET_KEY'])assert.ok(!first.stdout.includes(values[key]));
+ const before=snapshot();assert.equal(before.mode,0o600);
+ assert.equal(run().status,0);assert.deepEqual(snapshot(),before);
+ assert.equal(readFileSync(join(dir,'.env.example'),'utf8'),example);
+});
+
+test('local setup refuses a symlink without touching its target',t=>{
+ const dir=mkdtempSync(join(tmpdir(),'getlancer-symlink-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));mkdirSync(join(dir,'scripts'));
+ for(const name of ['setup-local.mjs','local-config.mjs'])copyFileSync(new URL('../scripts/'+name,import.meta.url),join(dir,'scripts',name));
+ const target=join(dir,'protected-config');writeFileSync(target,'protected provider configuration',{mode:0o644});
+ symlinkSync(target,join(dir,'.env'));
+ const run=spawnSync(process.execPath,[join(dir,'scripts/setup-local.mjs')],{encoding:'utf8'});
+ assert.equal(run.status,1);assert.match(run.stderr,/symlinks are refused/);
+ assert.equal(readFileSync(target,'utf8'),'protected provider configuration');assert.equal(statSync(target).mode&0o777,0o644);
+});
+
+test('local setup refuses a symlink inserted immediately before atomic configuration creation',t=>{
+ const dir=mkdtempSync(join(tmpdir(),'getlancer-create-race-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));mkdirSync(join(dir,'scripts'));
+ for(const name of ['setup-local.mjs','local-config.mjs'])copyFileSync(new URL('../scripts/'+name,import.meta.url),join(dir,'scripts',name));
+ writeFileSync(join(dir,'.env.example'),'APP_ENV=local\n');
+ const file=join(dir,'.env'),target=join(dir,'protected-config');writeFileSync(target,'protected provider configuration',{mode:0o644});
+ const hook=join(dir,'creation-race.mjs');
+ writeFileSync(hook,`import fs from 'node:fs';
+import {syncBuiltinESMExports} from 'node:module';
+import {fileURLToPath} from 'node:url';
+const original=fs.openSync;let inserted=false;
+fs.openSync=function(path,flags,...args){
+ if(!inserted&&(path instanceof URL?fileURLToPath(path):path)===${JSON.stringify(file)}&&(flags&fs.constants.O_CREAT)){
+  inserted=true;fs.symlinkSync(${JSON.stringify(target)},${JSON.stringify(file)});
+ }
+ return original.call(this,path,flags,...args);
+};
+syncBuiltinESMExports();
+`);
+ const run=spawnSync(process.execPath,['--import',hook,join(dir,'scripts/setup-local.mjs')],{encoding:'utf8'});
+ assert.equal(run.status,1);assert.match(run.stderr,/symlinks are refused/);
+ assert.equal(readFileSync(target,'utf8'),'protected provider configuration');assert.equal(statSync(target).mode&0o777,0o644);
+});
+
+test('local setup refuses a hardlink without changing its target or permissions',t=>{
+ const dir=mkdtempSync(join(tmpdir(),'getlancer-hardlink-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));mkdirSync(join(dir,'scripts'));
+ for(const name of ['setup-local.mjs','local-config.mjs'])copyFileSync(new URL('../scripts/'+name,import.meta.url),join(dir,'scripts',name));
+ const target=join(dir,'protected-config');writeFileSync(target,'protected provider configuration',{mode:0o644});
+ linkSync(target,join(dir,'.env'));
+ const run=spawnSync(process.execPath,[join(dir,'scripts/setup-local.mjs')],{encoding:'utf8'});
+ assert.equal(run.status,1);assert.match(run.stderr,/regular file with one link/);
+ assert.equal(readFileSync(target,'utf8'),'protected provider configuration');assert.equal(statSync(target).mode&0o777,0o644);
+});
+
+test('local setup rejects non-regular configuration without blocking or writing',t=>{
+ const dir=mkdtempSync(join(tmpdir(),'getlancer-config-directory-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));mkdirSync(join(dir,'scripts'));
+ for(const name of ['setup-local.mjs','local-config.mjs'])copyFileSync(new URL('../scripts/'+name,import.meta.url),join(dir,'scripts',name));
+ mkdirSync(join(dir,'.env'));
+ const run=spawnSync(process.execPath,[join(dir,'scripts/setup-local.mjs')],{encoding:'utf8',timeout:3000});
+ assert.equal(run.status,1);assert.equal(run.error,undefined);assert.equal(statSync(join(dir,'.env')).isDirectory(),true);
+});
+
 test('environment checker permits retired bootstrap secrets only with explicit existing-admin mode',t=>{
  const dir=mkdtempSync(join(tmpdir(),'getlancer-check-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));
  const file=join(dir,'.env');
@@ -51,7 +124,7 @@ test('environment checker permits retired bootstrap secrets only with explicit e
 test('payment activation requires coherent real gateway credentials and commercial approval without printing secrets',t=>{
  const dir=mkdtempSync(join(tmpdir(),'getlancer-payments-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));
  const file=join(dir,'.env'),base=readEnvironment(new URL('../.env.example',import.meta.url));
- Object.assign(base,{DB_PASSWORD:'synthetic-database',OBJECT_STORAGE_ACCESS_KEY:'synthetic-access',OBJECT_STORAGE_SECRET_KEY:'synthetic-storage',ADMIN_BOOTSTRAP_PASSWORD:'synthetic-admin',ADMIN_TOTP_SECRET:'JBSWY3DPEHPK3PXP',PAYMENTS_ENABLED:'true'});
+ Object.assign(base,{DB_PASSWORD:'synthetic-database',OBJECT_STORAGE_ACCESS_KEY:'synthetic-access',OBJECT_STORAGE_SECRET_KEY:'synthetic-storage',ADMIN_EMAIL:'ci-admin@example.test',ADMIN_BOOTSTRAP_PASSWORD:'synthetic-admin-password-123',ADMIN_TOTP_SECRET:'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP',MFA_ACTIVE_KEY_ID:'v1',MFA_KEYRING:'v1:'+Buffer.alloc(32,1).toString('base64'),PAYMENTS_ENABLED:'true'});
  const run=extra=>{writeFileSync(file,Object.entries({...base,...extra}).map(([k,v])=>`${k}=${v}`).join('\n')+'\n');return spawnSync(process.execPath,[new URL('../scripts/check-environment.mjs',import.meta.url).pathname,file],{encoding:'utf8'});};
  const missing=run({});assert.equal(missing.status,1);assert.match(missing.stdout,/Missing: RAZORPAY_KEY_SECRET/);assert.match(missing.stdout,/approved commercial policies/);
  const configured={RAZORPAY_MODE:'test',RAZORPAY_KEY_ID:'rzp_test_synthetic',RAZORPAY_KEY_SECRET:'synthetic-provider-private',RAZORPAY_WEBHOOK_SECRET:'synthetic-webhook-private',RAZORPAY_ROUTE_APPROVED:'true',POLICIES_APPROVED:'true'};

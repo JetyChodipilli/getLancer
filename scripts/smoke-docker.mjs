@@ -1,7 +1,7 @@
 // Ephemeral CI stack only; never use the owner's database or credentials here.
 import assert from 'node:assert/strict';
 import {readdirSync,writeFileSync} from 'node:fs';
-import {execFileSync} from 'node:child_process';
+import {execFileSync,spawnSync} from 'node:child_process';
 import {createHmac,randomBytes} from 'node:crypto';
 import {setTimeout as delay} from 'node:timers/promises';
 import {readEnvironment} from './local-config.mjs';
@@ -13,6 +13,13 @@ assert.equal(process.env.CI,'true','This smoke check runs only in disposable CI.
 assert.match(process.env.COMPOSE_PROJECT_NAME||'',/^getlancer-ci-[0-9]+$/,'Use an isolated CI Compose project.');
 assert.equal(env.ADMIN_EMAIL,'ci-admin@example.test','Use the synthetic CI administrator.');
 const query=sql=>execFileSync('docker',['compose','exec','-T','db','psql','-U','postgres','-d','getLancer','-Atc',sql],{encoding:'utf8'}).trim();
+function privateHealth(group){
+ assert.ok(['readiness','liveness'].includes(group));
+ const result=spawnSync('docker',['compose','exec','-T','api','wget','-S','-T','10','-O','-',
+  'http://127.0.0.1:8080/actuator/health/'+group],{encoding:'utf8',timeout:15000});
+ const status=Number(result.stderr?.match(/HTTP\/\S+\s+(\d{3})/)?.[1]);
+ return {status,body:result.stdout?.trim()?JSON.parse(result.stdout):undefined};
+}
 assert.equal(query('SELECT current_database()'),'getLancer');
 assert.equal(query("SELECT count(*) FROM getlancer.user_roles WHERE role='ADMIN'"),'1');
 assert.equal(query('SELECT count(*) FROM getlancer.users'),'1','Startup creates only the configured administrator, never sample accounts.');
@@ -33,7 +40,8 @@ function session(){
  };
 }
 const api=session(),builder=session(),client=session(),visitor=session();
-assert.equal((await api('/actuator/health/readiness')).status,'UP');
+assert.equal((await api('/actuator/health/readiness',undefined,'GET',403)).error.code,'FORBIDDEN');
+assert.equal(privateHealth('readiness').body.status,'UP');
 assert.equal((await api('/api/v1/auth/providers')).google,false);
 assert.deepEqual((await visitor('/api/v1/products')).items,[],'A real empty database returns no sample listings.');
 assert.deepEqual((await visitor('/api/v1/teams')).items,[],'A real empty database returns no sample teams.');
@@ -216,7 +224,8 @@ await builder(`/api/v1/teams/${team.id}/projects/${project.id}`,{},'DELETE');
 assert.ok(!(await manager(briefRoot+'/matches')).items.some(c=>c.kind==='TEAM'&&c.targetId===team.id));
 await client(businessRoot+'/members/'+managerAccount.id,{},'DELETE');
 await manager(briefRoot+'/shortlist',undefined,'GET',404);
-await client(briefRoot,{...brief,status:'CLOSED'},'PUT');
+const {title,description,category,technology,budget,timeline,availableOnly,repositoryVerifiedOnly}=brief;
+await client(briefRoot,{title,description,category,technology,budget,timeline,availableOnly,repositoryVerifiedOnly,status:'CLOSED'},'PUT');
 await client(briefRoot+'/matches',undefined,'GET',409);
 console.log('Connected V2/V2.5 passed: team consent/private roles, client-reported outcome, business invitations, tenant isolation, real evidence matching, talent lists, opt-in MFA concierge and immediate revocation.');
 
@@ -260,14 +269,14 @@ console.log('Connected moderation passed: suspended showcase and proof hidden; o
 // Stop only the guarded disposable CI database; always restore it, even on failure.
 try{
  execFileSync('docker',['compose','stop','db'],{stdio:'pipe'});
- assert.equal((await visitor('/actuator/health/readiness',undefined,'GET',503)).status,'DOWN');
- assert.equal((await visitor('/actuator/health/liveness')).status,'UP');
+ assert.equal(privateHealth('readiness').status,503);
+ assert.equal(privateHealth('liveness').body.status,'UP');
  assert.notEqual((await publicDemo(demoFixtures.ready)).status,200,'Publisher must deny content when the authoritative database is unavailable.');
 }finally{execFileSync('docker',['compose','start','db'],{stdio:'pipe'});}
 let recovered=false;
 for(let attempt=0;attempt<30;attempt++){
- const health=await fetch('http://localhost:8080/actuator/health/readiness',{signal:AbortSignal.timeout(10000)});
- if(health.ok){recovered=true;break;}await delay(2000);
+ const health=privateHealth('readiness');
+ if(health.status===200&&health.body.status==='UP'){recovered=true;break;}await delay(2000);
 }
 assert.ok(recovered,'Readiness must recover after PostgreSQL restarts.');
 assert.equal((await publicDemo(demoFixtures.ready)).status,200,'Eligible content resumes only after the gateway has recovered.');
@@ -282,5 +291,5 @@ for(const device of ['desktop','phone','tablet']){
  await client(`/api/v1/businesses/${b.id}/invitations`,{email:'ci-manager@example.test'});
  browserBusinesses[device]=b;
 }
-writeFileSync('.ci-connected.json',JSON.stringify({project:process.env.COMPOSE_PROJECT_NAME,accounts:browserAccounts,businesses:browserBusinesses,teamId:team.id,builderId:owner.id,commerce:commerceFixtures,maintenance:careFixtures,hosting:demoFixtures}),{mode:0o600});
+writeFileSync('.ci-connected.json',JSON.stringify({project:process.env.COMPOSE_PROJECT_NAME,accounts:browserAccounts,businesses:browserBusinesses,teamId:team.id,builderId:owner.id,commerce:commerceFixtures,maintenance:careFixtures,hosting:demoFixtures}),{mode:0o600,flag:'wx'});
 console.log('Connected browser prerequisites created through the real Java API.');

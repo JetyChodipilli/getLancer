@@ -1,23 +1,34 @@
 package com.getlancer.auth;
 
-import static com.getlancer.shared.Support.*;
+import static com.getlancer.shared.Support.hash;
+import static com.getlancer.shared.Support.randomToken;
+import static com.getlancer.shared.Support.text;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.getlancer.security.SessionCookies;
 import com.getlancer.shared.ApiError;
-import jakarta.servlet.http.*;
-import java.net.*;
-import java.net.http.*;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Duration;
-import java.util.*;
+import java.util.Base64;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
 
-@org.springframework.stereotype.Service
+@Service
 public class GoogleAuthService {
   final JdbcTemplate db;
   final AuthService auth;
@@ -106,7 +117,6 @@ public class GoogleAuthService {
 
   public ResponseEntity<Void> callback(
       String state, String code, String error, HttpServletRequest req, HttpServletResponse res) {
-    auth.authCookie(res, "gl_oauth", "", 0);
     if (!enabled()) return back("login", "unavailable");
     String browser = SessionCookies.read(req, "gl_oauth");
     if (!state.matches("[A-Za-z0-9_-]{43}") || !browser.matches("[A-Za-z0-9_-]{43}"))
@@ -119,6 +129,7 @@ public class GoogleAuthService {
             hash(state),
             hash(browser));
     if (rows.isEmpty()) return back("login", "expired");
+    auth.authCookie(res, "gl_oauth", "", 0);
     var pending = rows.get(0);
     String intent = (String) pending.get("intent");
     if (!error.isBlank()) return back(intent, "cancelled");

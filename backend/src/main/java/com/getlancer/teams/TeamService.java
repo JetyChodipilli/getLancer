@@ -1,7 +1,15 @@
 package com.getlancer.teams;
 
-import static com.getlancer.shared.Support.*;
-import static com.getlancer.teams.TeamRepository.*;
+import static com.getlancer.shared.Support.id;
+import static com.getlancer.shared.Support.text;
+import static com.getlancer.shared.Support.uuid;
+import static com.getlancer.teams.TeamRepository.ACTIVE;
+import static com.getlancer.teams.TeamRepository.APPLICATION;
+import static com.getlancer.teams.TeamRepository.INVITE;
+import static com.getlancer.teams.TeamRepository.LEAD;
+import static com.getlancer.teams.TeamRepository.MEMBER_FROM;
+import static com.getlancer.teams.TeamRepository.ROLE;
+import static com.getlancer.teams.TeamRepository.TEAM;
 
 import com.getlancer.products.ProductRepository;
 import com.getlancer.products.ProductService;
@@ -9,12 +17,19 @@ import com.getlancer.security.Security;
 import com.getlancer.shared.ApiError;
 import jakarta.servlet.http.HttpServletRequest;
 import java.sql.Timestamp;
-import java.time.*;
-import java.util.*;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-@org.springframework.stereotype.Service
+@Service
 public class TeamService {
   final JdbcTemplate db;
   private final TeamRepository repository;
@@ -366,7 +381,7 @@ public class TeamService {
     lock(t);
     var i =
         one(
-            "SELECT *,respond_by>now() AND (expires_at IS NULL OR expires_at>now()) AS valid FROM"
+            "SELECT id,team_id,user_id,role,membership_type,expires_at,respond_by,project_label,status,created_at,respond_by>now() AND (expires_at IS NULL OR expires_at>now()) AS valid FROM"
                 + " team_invitations WHERE id=? AND user_id=? FOR UPDATE",
             id,
             u);
@@ -512,7 +527,7 @@ public class TeamService {
     active(id);
     var a =
         one(
-            "SELECT a.*,r.contract_type FROM team_applications a JOIN team_roles r ON"
+            "SELECT a.id,a.team_id,a.role_id,a.user_id,a.message,a.status,a.created_at,r.contract_type FROM team_applications a JOIN team_roles r ON"
                 + " r.id=a.role_id WHERE a.team_id=? AND a.id=? AND r.status='OPEN' FOR UPDATE OF"
                 + " a",
             id,
@@ -604,7 +619,7 @@ public class TeamService {
     UUID u = security.user(r);
     access(id, u, "commercial");
     active(id);
-    var l = one("SELECT * FROM team_leads WHERE team_id=? AND id=? FOR UPDATE", id, leadId);
+    var l = one("SELECT id,team_id,client_id,title,description,budget,timeline,status,assignee_id,follow_up_at,created_at FROM team_leads WHERE team_id=? AND id=? FOR UPDATE", id, leadId);
     String status =
         b.containsKey("status")
             ? TeamPolicy.choice(
@@ -734,7 +749,7 @@ public class TeamService {
     active(id);
     var s =
         one(
-            "SELECT *,ends_at>now() AS valid FROM team_staffing WHERE team_id=? AND id=?",
+            "SELECT id,team_id,user_id,project_label,skills,ends_at,status,created_at,ends_at>now() AS valid FROM team_staffing WHERE team_id=? AND id=?",
             id,
             staffingId);
     String status = TeamPolicy.choice(b, "status", Set.of("ACTIVE", "COMPLETED"));

@@ -81,6 +81,7 @@ GET /api/v1/me/hosting
 GET /api/v1/me/hosting/sources
 GET /api/v1/me/hosting/{id}
 GET /api/v1/me/hosting/{id}/package
+GET /api/v1/me/inquiries
 GET /api/v1/me/inquiries/{id}
 GET /api/v1/me/moderation-decisions
 GET /api/v1/me/publishing-slot-purchases

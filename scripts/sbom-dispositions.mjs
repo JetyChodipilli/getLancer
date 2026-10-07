@@ -1,13 +1,22 @@
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {readFileSync,readdirSync,statSync} from 'node:fs';
+import {readFileSync,readdirSync,openSync,closeSync,fstatSync,constants} from 'node:fs';
 import {join} from 'node:path';
+import {junitCases,requirePassingTest} from './junit-evidence.mjs';
 
 const advisory='GHSA-pc63-qcmh-9cmg';
 const coordinate='pkg:maven/org.springframework/spring-webmvc@6.2.19?type=jar';
 const reviewedRevision='2026-10-05T23:30:04.884745Z';
 const expiresAt='2026-11-05T00:00:00.000Z';
 const digest=value=>createHash('sha256').update(value).digest('hex');
+function readEvidence(path){
+  const descriptor=openSync(path,constants.O_RDONLY|constants.O_NOFOLLOW);
+  try{
+    const stat=fstatSync(descriptor);
+    assert.ok(stat.isFile(),'Applicability evidence must be a regular file.');
+    return {bytes:readFileSync(descriptor),mtimeMs:stat.mtimeMs};
+  }finally{closeSync(descriptor);}
+}
 
 // This is an application-specific applicability assessment, never a general ignore list.
 // Keep the match visible and require both current runtime and source evidence.
@@ -17,15 +26,15 @@ export function assessBackendFindings(findings,backendRoot,now=new Date()){
     assert.equal(finding.modified,reviewedRevision,'Spring advisory changed; reassess its applicability.');
     assert.ok(now.getTime()<Date.parse(expiresAt),'Spring applicability assessment expired; reassess or upgrade.');
     const reportPath=join(backendRoot,'target/surefire-reports/TEST-com.getlancer.integration.ComponentsIntegrationTest.xml');
-    const report=readFileSync(reportPath,'utf8');
-    const testcase=report.match(/<testcase\b(?=[^>]*\bname="mvcHandlersDoNotExposeXsltViewRendering")(?=[^>]*\bclassname="com\.getlancer\.integration\.ComponentsIntegrationTest")[^>]*(?:\/>|>[\s\S]*?<\/testcase>)/)?.[0];
-    assert.ok(testcase&&!/<(?:failure|error|skipped)\b/.test(testcase),'Require a passing real MVC applicability test.');
-    const reportTime=statSync(reportPath).mtimeMs,evidence=[];
+    const reportFile=readEvidence(reportPath),report=reportFile.bytes.toString('utf8');
+    requirePassingTest(junitCases(reportFile.bytes),'com.getlancer.integration.ComponentsIntegrationTest','mvcHandlersDoNotExposeXsltViewRendering');
+    const reportTime=reportFile.mtimeMs,evidence=[];
     assert.ok(reportTime<=now.getTime()&&now.getTime()-reportTime<=60*60*1000,'Require MVC test evidence from the last hour with no future timestamp.');
     for(const relative of ['pom.xml','src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java']){
       const path=join(backendRoot,relative);
-      assert.ok(statSync(path).mtimeMs<=reportTime,'MVC test evidence predates dependency or test inputs.');
-      evidence.push({path,sha256:digest(readFileSync(path))});
+      const input=readEvidence(path);
+      assert.ok(input.mtimeMs<=reportTime,'MVC test evidence predates dependency or test inputs.');
+      evidence.push({path,sha256:digest(input.bytes)});
     }
     function inspect(dir){
       for(const entry of readdirSync(dir,{withFileTypes:true})){
@@ -33,9 +42,9 @@ export function assessBackendFindings(findings,backendRoot,now=new Date()){
         assert.ok(!entry.isSymbolicLink(),'Applicability source must not contain symlinks.');
         if(entry.isDirectory()){inspect(path);continue;}
         assert.ok(!/\.(xsl|xslt)$/i.test(path),'XSLT resource introduced; reassess Spring applicability.');
-        const bytes=readFileSync(path);
+        const input=readEvidence(path),bytes=input.bytes;
         assert.ok(!/xslt/i.test(bytes.toString('utf8')),'XSLT configuration introduced; reassess Spring applicability.');
-        assert.ok(statSync(path).mtimeMs<=reportTime,'MVC test evidence predates production source.');
+        assert.ok(input.mtimeMs<=reportTime,'MVC test evidence predates production source.');
         evidence.push({path,sha256:digest(bytes)});
       }
     }

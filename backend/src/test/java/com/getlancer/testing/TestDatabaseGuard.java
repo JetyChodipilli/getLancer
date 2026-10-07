@@ -1,5 +1,7 @@
 package com.getlancer.testing;
 
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.env.Environment;
@@ -9,7 +11,21 @@ public class TestDatabaseGuard
     implements ApplicationContextInitializer<ConfigurableApplicationContext> {
   @Override
   public void initialize(ConfigurableApplicationContext context) {
-    validate(context.getEnvironment());
+    Environment env = context.getEnvironment();
+    validate(env);
+    // Several application contexts share this disposable database but use different
+    // synthetic administrator settings. Remove prior fixtures before bootstrap runs.
+    try (var connection = DriverManager.getConnection(env.getProperty("spring.datasource.url"),
+        env.getProperty("spring.datasource.username"), env.getProperty("spring.datasource.password"));
+        var statement = connection.createStatement();
+        var tables = statement.executeQuery("SELECT to_regclass('getlancer_test.users') IS NOT NULL")) {
+      tables.next();
+      boolean initialized = tables.getBoolean(1);
+      tables.close();
+      if (initialized) statement.execute("TRUNCATE getlancer_test.users CASCADE");
+    } catch (SQLException exception) {
+      throw new IllegalStateException("Cannot reset the disposable integration test fixtures", exception);
+    }
   }
 
   public static void validate(Environment env) {

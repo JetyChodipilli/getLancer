@@ -1,12 +1,18 @@
 package com.getlancer.profiles;
 
-import static com.getlancer.shared.Support.*;
+import static com.getlancer.shared.Support.text;
 
+import com.getlancer.responses.MutationResponse;
 import com.getlancer.security.Security;
 import com.getlancer.shared.ApiError;
 import com.getlancer.shared.Rules;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.*;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,9 +28,9 @@ public class ProfileService {
   }
 
   @Transactional
-  public Map<String, Object> profile(Map<String, Object> b, HttpServletRequest r) {
+  public MutationResponse profile(Map<String, Object> b, HttpServletRequest r) {
     UUID u = security.developer(r, false);
-    var previous = db.queryForMap("SELECT * FROM developer_profiles WHERE user_id=? FOR UPDATE", u);
+    var previous = db.queryForMap("SELECT approval_status,display_name,headline,bio,technology,category,github_url,linkedin_url,website_url,country,time_zone,languages FROM developer_profiles WHERE user_id=? FOR UPDATE", u);
     if (previous.get("approval_status").equals("SUSPENDED"))
       throw new ApiError(403, "FORBIDDEN", "This profile is suspended.");
     String availability = text(b, "availabilityStatus", 1, 30);
@@ -69,15 +75,15 @@ public class ProfileService {
             || !linkedin.equals(Objects.toString(previous.get("linkedin_url"), ""));
     if (material && Set.of("APPROVED", "PROFILE_PENDING").contains(previous.get("approval_status")))
       db.update("UPDATE developer_profiles SET approval_status='DRAFT' WHERE user_id=?", u);
-    return Map.of("ok", true);
+    return MutationResponse.success();
   }
 
   @Transactional
-  public Map<String, Object> submitProfile(HttpServletRequest r) {
+  public MutationResponse submitProfile(HttpServletRequest r) {
     UUID u = security.developer(r, false);
     var p =
         db.queryForMap(
-            "SELECT d.*,u.email_verified_at FROM developer_profiles d JOIN users u ON"
+            "SELECT d.approval_status,d.display_name,d.headline,d.bio,d.technology,d.category,u.email_verified_at FROM developer_profiles d JOIN users u ON"
                 + " u.id=d.user_id WHERE d.user_id=? FOR UPDATE",
             u);
     if (p.get("email_verified_at") == null)
@@ -88,6 +94,6 @@ public class ProfileService {
       if (Objects.toString(p.get(k), "").isBlank())
         throw new ApiError(400, "VALIDATION_ERROR", "Complete your profile first.");
     db.update("UPDATE developer_profiles SET approval_status='PROFILE_PENDING' WHERE user_id=?", u);
-    return Map.of("ok", true);
+    return MutationResponse.success();
   }
 }

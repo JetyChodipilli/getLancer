@@ -1,9 +1,23 @@
 package com.getlancer.inquiries;
 
+import com.getlancer.dto.InquiryRequests;
+import com.getlancer.shared.TypedInputs;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.*;
-import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
+import java.util.Map;
+import java.util.UUID;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
 
+@PreAuthorize("@authorization.routeAllowed(authentication)")
 @RestController
 @RequestMapping("/api/v1")
 public class InquiriesController {
@@ -14,11 +28,11 @@ public class InquiriesController {
   }
 
   @PostMapping("/inquiries")
-  @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
+  @ResponseStatus(HttpStatus.CREATED)
   public Map<String, Object> create(
-      @RequestBody Map<String, Object> b,
+      @Valid @RequestBody InquiryRequests.Create b,
       @RequestHeader(value = "Idempotency-Key", required = false) String key) {
-    return service.create(b, key);
+    return service.create(TypedInputs.map(b), key);
   }
 
   @GetMapping("/developer/inquiries")
@@ -35,16 +49,16 @@ public class InquiriesController {
   public Map<String, Object> transition(
       @PathVariable UUID id,
       @PathVariable String action,
-      @RequestBody(required = false) Map<String, Object> body,
+      @Valid @RequestBody(required = false) InquiryRequests.Transition body,
       HttpServletRequest r) {
-    return service.transition(id, action, body, r);
+    return service.transition(id, action, TypedInputs.map(body), r);
   }
 
   @PostMapping("/reports")
-  @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
+  @ResponseStatus(HttpStatus.CREATED)
   public Map<String, Object> report(
-      @RequestBody Map<String, Object> b, HttpServletRequest request) {
-    return service.report(b, request);
+      @Valid @RequestBody InquiryRequests.Report b, HttpServletRequest request) {
+    return service.report(TypedInputs.map(b), request);
   }
 
   @GetMapping("/developer/analytics")

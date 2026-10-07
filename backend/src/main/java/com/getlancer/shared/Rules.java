@@ -1,7 +1,10 @@
 package com.getlancer.shared;
 
-import java.net.*;
-import java.util.*;
+import java.net.InetAddress;
+import java.net.URI;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
 public final class Rules {
   public static final Map<String, String> TRANSITIONS =

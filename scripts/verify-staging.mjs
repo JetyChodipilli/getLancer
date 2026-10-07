@@ -22,8 +22,8 @@ export async function verifyStaging(config,request=fetch){
   return response;
  }
  for(const path of ['/actuator/health/readiness','/actuator/health/liveness']){
-  const response=await get(backend,path);assert.equal(response.status,200,path);
-  assert.equal((await response.json()).status,'UP',path);
+  const response=await get(backend,path);
+  assert.ok([401,403,404].includes(response.status),'Health probes must be private at hosted ingress: '+path);
  }
  const providers=await get(frontend,'/api/v1/auth/providers'),direct=await get(backend,'/api/v1/auth/providers');
  assert.equal(providers.status,200);assert.equal(direct.status,200);

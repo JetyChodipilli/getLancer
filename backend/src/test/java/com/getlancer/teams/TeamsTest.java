@@ -344,12 +344,12 @@ class TeamsTest {
       doReturn(state)
           .when(c)
           .one(
-              "SELECT *,ends_at>now() AS valid FROM team_staffing WHERE team_id=? AND id=?",
+              "SELECT id,team_id,user_id,project_label,skills,ends_at,status,created_at,ends_at>now() AS valid FROM team_staffing WHERE team_id=? AND id=?",
               team,
               record);
-      assertThrows(
+      assertEquals("INVALID_STATE_TRANSITION", assertThrows(
           ApiError.class,
-          () -> c.updateStaffing(team, record, Map.of("status", "ACTIVE"), request));
+          () -> c.updateStaffing(team, record, Map.of("status", "ACTIVE"), request)).code);
     }
   }
 

@@ -1,4 +1,6 @@
-# V2.5 service connection and release steps
+# Service connection and release steps
+
+For V1–V4.5 security deployment, follow [SECURITY_RELEASE.md](SECURITY_RELEASE.md) and [database runtime roles](../docs/DATABASE_RUNTIME_ROLES.md). These supersede the historical owner-credential and environment-loading assumptions below.
 
 This runbook applies to the combined V1–V2.5 application. Use [V2.5 acceptance](../docs/V2_5_ACCEPTANCE.md) for current automated evidence and [hosted staging preparation](STAGING.md) for provider-dependent acceptance. The stable `/api/v1` namespace serves all implemented phases.
 
@@ -6,7 +8,7 @@ The active choice is **Docker PostgreSQL**. Follow [Docker setup](DOCKER_LOCAL.m
 
 ## Fill the private environment file
 
-Copy `.env.example` to `.env` if absent. The existing local file is preserved. Spring loads optional `.env` properties from the checkout root or backend directory, with actual environment variables taking precedence. Use unquoted Java-properties values (escape backslashes as `\\`); `.env` files and certificates must stay out of Git. On a host, inject values through its secret settings instead.
+Copy `.env.example` to `.env` if absent for local development. The existing local file is preserved. Only the explicit local profile imports optional `.env` properties, with actual environment variables taking precedence. Use unquoted Java-properties values (escape backslashes as `\\`); `.env` files and certificates must stay out of Git. Hosted staging/production profiles require injected configuration and disable Flyway.
 
 | Service | Values to supply |
 |---|---|
@@ -17,7 +19,7 @@ Copy `.env.example` to `.env` if absent. The existing local file is preserved. S
 | Transactional email | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_AUTH=true`, and TLS/SSL selection; `EMAIL_FROM_ADDRESS` |
 | Google OAuth app | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
 | GitHub OAuth app | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` |
-| First administrator | `ADMIN_EMAIL` is already set; supply `ADMIN_BOOTSTRAP_PASSWORD` and a Base32 `ADMIN_TOTP_SECRET` installed in your authenticator |
+| First administrator | Explicit `ADMIN_EMAIL`, `ADMIN_BOOTSTRAP_PASSWORD`, Base32 `ADMIN_TOTP_SECRET` installed in your authenticator, external `MFA_ACTIVE_KEY_ID` and `MFA_KEYRING` |
 | Optional analytics | `ANALYTICS_ENABLED=true`, random `ANALYTICS_HASH_SALT`; default 90-day retention for optional usage events only |
 | Production policies | Approved policy text and version, `LEGAL_DOCUMENT_VERSION`, `POLICIES_APPROVED`, `SUPPORT_EMAIL`, `PRIVACY_EMAIL`, `COPYRIGHT_EMAIL` |
 
@@ -27,7 +29,7 @@ For hosted JDBC use `jdbc:postgresql://YOUR_HOST:5432/getLancer?sslmode=verify-f
 
 ## Private schema and storage
 
-Flyway creates the schema in `DB_SCHEMA` and applies migrations. The database connection must own that dedicated schema and its tables; existing V1 instances must keep their existing schema/history and plan any schema move separately. Do not expose the application schema through any browser-accessible database API. Migration V9 enables RLS and revokes browser-role grants only on explicitly named application tables. Run `ops/verify-private-schema.sql` in the application schema and also verify provider-specific schema exposure settings, if applicable.
+Local Flyway creates the schema in `DB_SCHEMA` and applies migrations. Hosted deployments run Flyway separately with `getlancer_migration`, then provision the explicit grants and RLS policies in `ops/database/10_permissions.sql`. The API must authenticate as `getlancer_runtime` and must not own application objects. Follow [database runtime roles](../docs/DATABASE_RUNTIME_ROLES.md); preserve existing schema/history and plan any schema move separately. Do not expose the application schema through a browser-accessible database API. Verify provider-specific schema exposure settings as well as the actual database permissions.
 
 Create a **private** bucket. Copy its S3 endpoint and region from your storage provider. The upload endpoint must be reachable by browsers and ordinarily equals the S3 endpoint. Local Compose instead uses `http://storage:9000` internally and `http://localhost:9000` for browser signatures. Configure/verify storage CORS for the exact frontend origin, `PUT`, and signed content headers. Test it with the real browser/provider before release.
 

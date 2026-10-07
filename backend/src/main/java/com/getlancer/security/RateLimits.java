@@ -16,6 +16,11 @@ public class RateLimits {
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   public boolean allow(String key, int limit) {
+    return allowInCurrentTransaction(key, limit);
+  }
+
+  // The security audit already owns a durable independent transaction; avoid a third connection.
+  boolean allowInCurrentTransaction(String key, int limit) {
     Integer hits =
         db.queryForObject(
             "INSERT INTO rate_buckets(bucket,hits,expires_at) VALUES(?,1,now()+interval '1 minute')"

@@ -1,13 +1,16 @@
 package com.getlancer.delivery;
 
-import static com.getlancer.shared.Support.*;
+import static com.getlancer.shared.Support.id;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.getlancer.security.Security;
 import com.getlancer.shared.ApiError;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -187,7 +190,7 @@ public class DeliveryRepository {
     db.update("INSERT INTO delivery_proposals(id,engagement_id,revision,scope,terms,amount_minor,milestones) VALUES(?,?,?,?,?,?,?::jsonb)", proposal, engagement, revision, scope, terms, amount, milestones);
   }
   Map<String, Object> proposal(UUID engagement, UUID proposal) {
-    return one("SELECT *,milestones::text AS \"milestonesJson\" FROM delivery_proposals WHERE engagement_id=? AND id=? FOR UPDATE", engagement, proposal);
+    return one("SELECT id,engagement_id,revision,status,scope,terms,amount_minor,currency,milestones,seller_consented_by,sent_at,buyer_consented_by,accepted_at,created_at,milestones::text AS \"milestonesJson\" FROM delivery_proposals WHERE engagement_id=? AND id=? FOR UPDATE", engagement, proposal);
   }
   void proposalState(UUID proposal, String status, UUID actor) {
     if (status.equals("SENT")) db.update("UPDATE delivery_proposals SET status='SENT',seller_consented_by=?,sent_at=now() WHERE id=?", actor, proposal);
@@ -227,7 +230,7 @@ public class DeliveryRepository {
   Map<String, Object> lockDispute(UUID dispute) {
     UUID engagement = (UUID) one("SELECT engagement_id FROM delivery_disputes WHERE id=?", dispute).get("engagement_id");
     one(ENGAGEMENT + "WHERE e.id=? FOR UPDATE", engagement);
-    return one("SELECT * FROM delivery_disputes WHERE id=? FOR UPDATE", dispute);
+    return one("SELECT id,engagement_id,opened_by,reason,status,previous_status,resolution,resolved_by,resolution_reason,created_at,resolved_at FROM delivery_disputes WHERE id=? FOR UPDATE", dispute);
   }
   void resolve(UUID dispute, UUID actor, String resolution, String reason) {
     db.update("UPDATE delivery_disputes SET status='RESOLVED',resolution=?,resolution_reason=?,resolved_by=?,resolved_at=now() WHERE id=?", resolution, reason, actor, dispute);

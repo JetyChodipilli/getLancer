@@ -1,20 +1,31 @@
 package com.getlancer.admin;
 
-import static com.getlancer.shared.Support.*;
+import static com.getlancer.shared.Support.id;
+import static com.getlancer.shared.Support.text;
 
 import com.getlancer.notifications.Mail;
 import com.getlancer.products.ProductRepository;
 import com.getlancer.products.ProductService;
+import com.getlancer.responses.AdminResponses;
+import com.getlancer.responses.PageResponse;
+import com.getlancer.responses.ProjectResponses;
 import com.getlancer.security.Security;
 import com.getlancer.shared.ApiError;
 import com.getlancer.shared.Pages;
 import com.getlancer.shared.Support;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
-@org.springframework.stereotype.Service
+@Service
 public class AdminService {
   final JdbcTemplate db;
   final Security security;
@@ -35,7 +46,7 @@ public class AdminService {
     this.marketplaceMetrics = marketplaceMetrics;
   }
 
-  public Map<String, Object> pending(HttpServletRequest r) {
+  public PageResponse<ProjectResponses.ManagementProject> pending(HttpServletRequest r) {
     security.admin(r);
     var result =
         Pages.query(
@@ -45,23 +56,23 @@ public class AdminService {
                 + " WHERE p.approval_status IN ('PENDING_REVIEW','SUSPENDED') ORDER BY"
                 + " p.updated_at,p.id");
     result.put("items", products.managementDtos(Pages.items(result)));
-    return result;
+    return PageResponse.from(result,ProjectResponses.ManagementProject::from);
   }
 
-  public Map<String, Object> profiles(HttpServletRequest r) {
+  public PageResponse<AdminResponses.Profile> profiles(HttpServletRequest r) {
     security.admin(r);
-    return Pages.query(
+    return PageResponse.from(Pages.query(
         db,
         r,
         "SELECT user_id AS id,display_name AS"
             + " \"displayName\",headline,bio,technology,category,github_url,linkedin_url,website_url,country,time_zone,languages,approval_status"
             + " FROM developer_profiles WHERE approval_status IN ('PROFILE_PENDING','SUSPENDED')"
-            + " ORDER BY updated_at,user_id");
+            + " ORDER BY updated_at,user_id"), AdminResponses.Profile::from);
   }
 
-  public Map<String, Object> reports(HttpServletRequest r) {
+  public PageResponse<AdminResponses.Report> reports(HttpServletRequest r) {
     security.admin(r);
-    String sql = "SELECT * FROM reports WHERE 1=1";
+    String sql = "SELECT id,reporter_id,target_type,target_id,reason,detail,status,resolution,created_at,severity,triage_note,updated_at,enforcement_action FROM reports WHERE 1=1";
     List<Object> values = new ArrayList<>();
     for (String key : List.of("status", "reason", "severity")) {
       String value = r.getParameter(key);
@@ -71,22 +82,22 @@ public class AdminService {
         values.add(value);
       }
     }
-    return Pages.query(
+    return PageResponse.from(Pages.query(
         db,
         r,
         sql
             + " ORDER BY CASE severity WHEN 'CRITICAL' THEN 0 WHEN 'HIGH' THEN 1 WHEN 'MEDIUM' THEN"
             + " 2 ELSE 3 END,created_at,id",
-        values.toArray());
+        values.toArray()), AdminResponses.Report::from);
   }
 
-  public Map<String, Object> reviews(HttpServletRequest r) {
+  public PageResponse<AdminResponses.Review> reviews(HttpServletRequest r) {
     security.admin(r);
-    return Pages.query(
+    return PageResponse.from(Pages.query(
         db,
         r,
         "SELECT id,rating,review_text FROM reviews WHERE moderation_status='HELD_FOR_REVIEW' ORDER"
-            + " BY created_at,id");
+            + " BY created_at,id"), AdminResponses.Review::from);
   }
 
   @Transactional
@@ -97,8 +108,8 @@ public class AdminService {
     if (owners.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Project not found.");
     UUID owner = (UUID) owners.get(0).get("owner_user_id");
     products.lockOwner(owner);
-    db.queryForMap("SELECT * FROM showcase_entitlements WHERE user_id=? FOR UPDATE", owner);
-    var p = db.queryForMap("SELECT * FROM products WHERE id=? FOR UPDATE", id);
+    db.queryForMap("SELECT user_id,active_slot_limit,source FROM showcase_entitlements WHERE user_id=? FOR UPDATE", owner);
+    var p = db.queryForMap("SELECT id,owner_user_id,slug,title,summary,description,project_type,category,technology,visibility,contribution_text,available_for_similar_work,approval_status,lifecycle_status,live_url,video_url,moderation_reason,rights_confirmed,created_at,updated_at,repository_url,pricing_note,demo_health,demo_checked_at,demo_checked_url,pricing_mode,price_min_minor,price_max_minor,currency_code FROM products WHERE id=? FOR UPDATE", id);
     String reason = text(b, "reason", 3, 2000);
     String status =
         switch (action) {
@@ -131,7 +142,7 @@ public class AdminService {
       UUID id, String action, Map<String, Object> b, HttpServletRequest r) {
     UUID admin = security.admin(r);
     String reason = text(b, "reason", 3, 2000);
-    var p = db.queryForMap("SELECT * FROM developer_profiles WHERE user_id=? FOR UPDATE", id);
+    var p = db.queryForMap("SELECT approval_status FROM developer_profiles WHERE user_id=? FOR UPDATE", id);
     String status =
         switch (action) {
           case "approve" -> "APPROVED";
@@ -162,7 +173,7 @@ public class AdminService {
 
   public Map<String, Object> reportDetail(UUID id, HttpServletRequest request) {
     UUID actor = security.admin(request);
-    var rows = db.queryForList("SELECT * FROM reports WHERE id=?", id);
+    var rows = db.queryForList("SELECT id,reporter_id,target_type,target_id,reason,detail,status,resolution,created_at,severity,triage_note,updated_at,enforcement_action FROM reports WHERE id=?", id);
     if (rows.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Report not found.");
     var report = rows.get(0);
     if (report.get("target_type").equals("INQUIRY"))
@@ -205,7 +216,7 @@ public class AdminService {
       UUID id, Map<String, Object> body, HttpServletRequest request) {
     UUID admin = security.admin(request);
     String reason = text(body, "reason", 3, 2000), action = text(body, "targetAction", 0, 20);
-    var reports = db.queryForList("SELECT * FROM reports WHERE id=? FOR UPDATE", id);
+    var reports = db.queryForList("SELECT id,reporter_id,target_type,target_id,reason,detail,status,resolution,created_at,severity,triage_note,updated_at,enforcement_action FROM reports WHERE id=? FOR UPDATE", id);
     if (reports.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Report not found.");
     var report = reports.get(0);
     if (report.get("status").equals("RESOLVED")) return Map.of("ok", true);
@@ -259,6 +270,8 @@ public class AdminService {
   @Transactional
   public Map<String, Object> taxonomy(String kind, Map<String, Object> b, HttpServletRequest r) {
     UUID admin = security.admin(r);
+    if (!Set.of("categories", "technologies").contains(kind))
+      throw new ApiError(400, "VALIDATION_ERROR", "Choose a supported taxonomy.");
     String name = text(b, "name", 2, 100), slug = text(b, "slug", 2, 100);
     if (!slug.matches("[a-z0-9-]+"))
       throw new ApiError(400, "VALIDATION_ERROR", "Use a lowercase slug.");
@@ -288,26 +301,26 @@ public class AdminService {
     return Map.of("ok", true);
   }
 
-  public Map<String, Object> history(UUID targetId, HttpServletRequest r) {
+  public PageResponse<AdminResponses.History> history(UUID targetId, HttpServletRequest r) {
     security.admin(r);
-    return targetId == null
-        ? Pages.query(db, r, "SELECT * FROM moderation_actions ORDER BY created_at DESC,id")
+    return PageResponse.from(targetId == null
+        ? Pages.query(db, r, "SELECT id,admin_id,target_type,target_id,action,reason,created_at FROM moderation_actions ORDER BY created_at DESC,id")
         : Pages.query(
             db,
             r,
-            "SELECT * FROM moderation_actions WHERE target_id=? ORDER BY created_at DESC,id",
-            targetId);
+            "SELECT id,admin_id,target_type,target_id,action,reason,created_at FROM moderation_actions WHERE target_id=? ORDER BY created_at DESC,id",
+            targetId), AdminResponses.History::from);
   }
 
-  public Map<String, Object> accounts(String q, HttpServletRequest r) {
+  public PageResponse<AdminResponses.Account> accounts(String q, HttpServletRequest r) {
     security.admin(r);
     if (q.length() > 254) throw new ApiError(400, "VALIDATION_ERROR", "Search is too long.");
-    return Pages.query(
+    return PageResponse.from(Pages.query(
         db,
         r,
         "SELECT id,email,account_status,moderation_reason FROM users WHERE email ILIKE ? ORDER BY"
             + " created_at DESC,id",
-        "%" + q.replace("%", "\\%").replace("_", "\\_") + "%");
+        "%" + q.replace("%", "\\%").replace("_", "\\_") + "%"), AdminResponses.Account::from);
   }
 
   @Transactional
@@ -350,7 +363,7 @@ public class AdminService {
           case "restore" -> "CLEAR";
           default -> throw new ApiError(400, "VALIDATION_ERROR", "Unknown inquiry action.");
         };
-    var rows = db.queryForList("SELECT * FROM inquiries WHERE id=? FOR UPDATE", id);
+    var rows = db.queryForList("SELECT developer_user_id FROM inquiries WHERE id=? FOR UPDATE", id);
     if (rows.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Inquiry not found.");
     db.update(
         "UPDATE inquiries SET moderation_status=?,moderation_reason=?,updated_at=now() WHERE id=?",
@@ -374,12 +387,14 @@ public class AdminService {
     return Map.of("ok", true);
   }
 
-  public Map<String, Object> allTaxonomy(String kind, HttpServletRequest r) {
+  public AdminResponses.TaxonomyItems allTaxonomy(String kind, HttpServletRequest r) {
     security.admin(r);
-    return Map.of("items", db.queryForList("SELECT * FROM " + kind + " ORDER BY name"));
+    if (!Set.of("categories", "technologies").contains(kind))
+      throw new ApiError(400, "VALIDATION_ERROR", "Choose a supported taxonomy.");
+    return new AdminResponses.TaxonomyItems(db.queryForList("SELECT slug,name,active FROM " + kind + " ORDER BY name").stream().map(AdminResponses.Taxonomy::from).toList());
   }
 
-  @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+  @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
   public Map<String, Object> metrics(HttpServletRequest r) {
     security.admin(r);
     return Map.of(

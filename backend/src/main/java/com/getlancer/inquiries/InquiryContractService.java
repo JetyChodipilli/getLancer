@@ -1,14 +1,18 @@
 package com.getlancer.inquiries;
 
-import static com.getlancer.shared.Support.*;
+import static com.getlancer.shared.Support.id;
+import static com.getlancer.shared.Support.text;
 
 import com.getlancer.auth.AuthService;
 import com.getlancer.shared.ApiError;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-@org.springframework.stereotype.Service
+@Service
 public class InquiryContractService {
   final ClientInquiryService clients;
   final AuthService auth;

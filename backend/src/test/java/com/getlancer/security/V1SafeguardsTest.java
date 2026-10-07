@@ -158,7 +158,7 @@ class V1SafeguardsTest {
 
   @Test
   void localConfigurationStillWorks() {
-    assertDoesNotThrow(() -> new ProductionConfiguration(new MockEnvironment()).run(null));
+    assertDoesNotThrow(() -> new ProductionConfiguration(new MockEnvironment().withProperty("app.environment", "local")).run(null));
   }
 
   @Test

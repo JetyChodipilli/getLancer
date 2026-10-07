@@ -6,8 +6,9 @@ try {
   const backend=process.argv[2]==='backend';
   const win=process.platform==='win32';
   const env={...process.env};
-  // Load only settings used by the frontend. Backend secrets stay in Spring's .env import.
-  for(const key of ['APP_BASE_URL','BACKEND_URL','DEMO_MODE','BACKEND_PROXY_SECRET','INDEX_PUBLIC_PAGES'])if(values[key]!==undefined)env[key]=values[key];
+  // Only the explicit local Spring profile imports the local backend environment.
+  if(backend)env.SPRING_PROFILES_ACTIVE='local';
+  for(const key of ['APP_ENV','APP_BASE_URL','BACKEND_URL','DEMO_MODE','BACKEND_PROXY_SECRET','INDEX_PUBLIC_PAGES','DEMO_PUBLIC_URL_TEMPLATE'])if(values[key]!==undefined)env[key]=values[key];
   const command=backend?(win?'cmd.exe':'mvn'):process.execPath;
   const args=backend?(win?['/d','/s','/c','mvn -f backend/pom.xml spring-boot:run']:['-f','backend/pom.xml','spring-boot:run']):['node_modules/vite/bin/vite.js','--host','127.0.0.1','--port','3000','--strictPort'];
   const child=spawn(command,args,{cwd:projectRoot,env,stdio:'inherit'});
