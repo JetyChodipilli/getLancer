@@ -224,7 +224,8 @@ await builder(`/api/v1/teams/${team.id}/projects/${project.id}`,{},'DELETE');
 assert.ok(!(await manager(briefRoot+'/matches')).items.some(c=>c.kind==='TEAM'&&c.targetId===team.id));
 await client(businessRoot+'/members/'+managerAccount.id,{},'DELETE');
 await manager(briefRoot+'/shortlist',undefined,'GET',404);
-await client(briefRoot,{...brief,status:'CLOSED'},'PUT');
+const {title,description,category,technology,budget,timeline,availableOnly,repositoryVerifiedOnly}=brief;
+await client(briefRoot,{title,description,category,technology,budget,timeline,availableOnly,repositoryVerifiedOnly,status:'CLOSED'},'PUT');
 await client(briefRoot+'/matches',undefined,'GET',409);
 console.log('Connected V2/V2.5 passed: team consent/private roles, client-reported outcome, business invitations, tenant isolation, real evidence matching, talent lists, opt-in MFA concierge and immediate revocation.');
 

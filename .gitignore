@@ -47,6 +47,7 @@ next-env.d.ts
 
 # Local verification coordination
 /.unlazy/
+/.gstack/
 test-results/
 playwright-report/
 /.ci-connected.json

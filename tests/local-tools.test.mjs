@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,writeFileSync,readFileSync,copyFileSync,mkdirSync,rmSync,symlinkSync,statSync} from 'node:fs';
+import {mkdtempSync,writeFileSync,readFileSync,copyFileSync,mkdirSync,rmSync,symlinkSync,linkSync,statSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
@@ -43,7 +43,7 @@ test('setup creates a private configuration from the example and preserves it on
  writeFileSync(join(dir,'.env.example'),example);
  const file=join(dir,'.env'),run=()=>spawnSync(process.execPath,[join(dir,'scripts/setup-local.mjs')],{encoding:'utf8'});
  const first=run();assert.equal(first.status,0,first.stderr);
- const values=readEnvironment(file);assert.equal(statSync(file).mode&0o777,0o600);
+ const values=readEnvironment(file);
  assert.equal(values.DB_PASSWORD,'example-fixture-private');assert.equal(values.ADMIN_EMAIL,'');
  assert.ok(!values.ADMIN_BOOTSTRAP_PASSWORD&&!values.ADMIN_TOTP_SECRET);
  assert.equal(values.MFA_ACTIVE_KEY_ID,'local-v1');assert.equal(Buffer.from(values.MFA_KEYRING.split(':')[1],'base64').length,32);
@@ -51,6 +51,7 @@ test('setup creates a private configuration from the example and preserves it on
  for(const key of ['DB_PASSWORD','MFA_KEYRING','OBJECT_STORAGE_ACCESS_KEY','OBJECT_STORAGE_SECRET_KEY'])assert.ok(!first.stdout.includes(values[key]));
  const before=readFileSync(file,'utf8');assert.equal(run().status,0);assert.equal(readFileSync(file,'utf8'),before);
  assert.equal(readFileSync(join(dir,'.env.example'),'utf8'),example);
+ assert.equal(statSync(file).mode&0o777,0o600);
 });
 
 test('local setup refuses a symlink without touching its target',t=>{
@@ -63,7 +64,7 @@ test('local setup refuses a symlink without touching its target',t=>{
  assert.equal(readFileSync(target,'utf8'),'protected provider configuration');assert.equal(statSync(target).mode&0o777,0o644);
 });
 
-test('local setup refuses a symlink inserted during exclusive configuration creation',t=>{
+test('local setup refuses a symlink inserted immediately before atomic configuration creation',t=>{
  const dir=mkdtempSync(join(tmpdir(),'getlancer-create-race-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));mkdirSync(join(dir,'scripts'));
  for(const name of ['setup-local.mjs','local-config.mjs'])copyFileSync(new URL('../scripts/'+name,import.meta.url),join(dir,'scripts',name));
  writeFileSync(join(dir,'.env.example'),'APP_ENV=local\n');
@@ -84,6 +85,24 @@ syncBuiltinESMExports();
  const run=spawnSync(process.execPath,['--import',hook,join(dir,'scripts/setup-local.mjs')],{encoding:'utf8'});
  assert.equal(run.status,1);assert.match(run.stderr,/symlinks are refused/);
  assert.equal(readFileSync(target,'utf8'),'protected provider configuration');assert.equal(statSync(target).mode&0o777,0o644);
+});
+
+test('local setup refuses a hardlink without changing its target or permissions',t=>{
+ const dir=mkdtempSync(join(tmpdir(),'getlancer-hardlink-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));mkdirSync(join(dir,'scripts'));
+ for(const name of ['setup-local.mjs','local-config.mjs'])copyFileSync(new URL('../scripts/'+name,import.meta.url),join(dir,'scripts',name));
+ const target=join(dir,'protected-config');writeFileSync(target,'protected provider configuration',{mode:0o644});
+ linkSync(target,join(dir,'.env'));
+ const run=spawnSync(process.execPath,[join(dir,'scripts/setup-local.mjs')],{encoding:'utf8'});
+ assert.equal(run.status,1);assert.match(run.stderr,/regular file with one link/);
+ assert.equal(readFileSync(target,'utf8'),'protected provider configuration');assert.equal(statSync(target).mode&0o777,0o644);
+});
+
+test('local setup rejects non-regular configuration without blocking or writing',t=>{
+ const dir=mkdtempSync(join(tmpdir(),'getlancer-config-directory-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));mkdirSync(join(dir,'scripts'));
+ for(const name of ['setup-local.mjs','local-config.mjs'])copyFileSync(new URL('../scripts/'+name,import.meta.url),join(dir,'scripts',name));
+ mkdirSync(join(dir,'.env'));
+ const run=spawnSync(process.execPath,[join(dir,'scripts/setup-local.mjs')],{encoding:'utf8',timeout:3000});
+ assert.equal(run.status,1);assert.equal(run.error,undefined);assert.equal(statSync(join(dir,'.env')).isDirectory(),true);
 });
 
 test('environment checker permits retired bootstrap secrets only with explicit existing-admin mode',t=>{

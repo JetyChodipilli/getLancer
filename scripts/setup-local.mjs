@@ -6,24 +6,12 @@ const file=new URL('../.env',import.meta.url);
 let descriptor;
 try {
   if(['staging','production'].includes(process.env.APP_ENV))throw Error('Local setup cannot modify hosted configuration.');
-  const flags=constants.O_RDWR|constants.O_NOFOLLOW;
-  try{descriptor=openSync(file,flags);}
-  catch(error){
-    if(error.code!=='ENOENT')throw error;
-    const example=readFileSync(new URL('../.env.example',import.meta.url));
-    let created=false;
-    try{descriptor=openSync(file,flags|constants.O_CREAT|constants.O_EXCL,0o600);created=true;}
-    catch(createError){
-      if(createError.code!=='EEXIST')throw createError;
-      descriptor=openSync(file,flags);
-    }
-    if(created){
-      let seeded=0;
-      while(seeded<example.length)seeded+=writeSync(descriptor,example,seeded,example.length-seeded,seeded);
-    }
-  }
-  if(!fstatSync(descriptor).isFile())throw Error('Local configuration must be a regular file.');
-  const original=readFileSync(descriptor,'utf8');
+  // One atomic open/create; never check a pathname and then reopen it for modification.
+  descriptor=openSync(file,constants.O_RDWR|constants.O_CREAT|constants.O_NOFOLLOW|constants.O_NONBLOCK,0o600);
+  const stat=fstatSync(descriptor);
+  if(!stat.isFile()||stat.nlink!==1)throw Error('Local configuration must be a regular file with one link.');
+  // Empty configuration is initialized in memory; invalid provider settings are never written.
+  const original=stat.size===0?readFileSync(new URL('../.env.example',import.meta.url),'utf8'):readFileSync(descriptor,'utf8');
   const values=parseEnvironment(original);localDatabase(values);
   for(const key of ['SMTP_HOST','OBJECT_STORAGE_ENDPOINT','OBJECT_STORAGE_UPLOAD_ENDPOINT']) {
     const host=key==='SMTP_HOST'?values[key]:new URL(values[key]).hostname;
