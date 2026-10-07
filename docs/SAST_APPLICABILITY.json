@@ -270,7 +270,7 @@
     "backend/src/test/java/com/getlancer/payments/RazorpayFixture.java": "884df1802fc4c9724865640721aab2a76ef4cbdcae7b5f2fd9c0f999b995aec2",
     "backend/src/test/java/com/getlancer/products/ProductPricingTest.java": "c403deaa6cb023908e2405175a0741c8bffef6651d1fcf48da59535faa95aa81",
     "backend/src/test/java/com/getlancer/profiles/ProfileAndBootstrapTest.java": "2f6ea3c5e89f6ea974f4e9269a7ea3f262424a5f100638cbf8306417396867f2",
-    "backend/src/test/java/com/getlancer/security/AuthorizationIntegrationTest.java": "628b0bba05756d0b47cf97f529cb4ac2d2ceef95247bea89e8586f47054ca7f4",
+    "backend/src/test/java/com/getlancer/security/AuthorizationIntegrationTest.java": "dfe615a184c3a952a70b7ba2a211a125dc206a24ddcb5d19b4d4aeca2ff02e7b",
     "backend/src/test/java/com/getlancer/security/DiscoveryRateTest.java": "4d94a8fbfd66fc323adcd5ca7b276d18577e10bf62f2da3c29ff35e35168efc1",
     "backend/src/test/java/com/getlancer/security/ReleaseWorkflowTest.java": "5aa60412e1096c7bb34adcf27852426c443793fe832cd793bf610a3fcab1964d",
     "backend/src/test/java/com/getlancer/security/SecurityBoundaryTest.java": "7014d679c51f0b04d4c05ef0b6382ebdb1d874733188ba420fc0f8f5161f0b09",

@@ -91,7 +91,7 @@ class AuthorizationIntegrationTest {
     user("admin", true, true);
     mvc.perform(post("/api/v1/admin/categories").cookie(new Cookie("gl_session", "admin"))
         .header("Origin", "http://localhost:3000").header("X-Requested-With", "getlancer")
-        .contentType("application/json").content("{\"name\":\"Security integration taxonomy\"}"))
+        .contentType("application/json").content("{\"name\":\"Security integration taxonomy\",\"slug\":\"security-integration-taxonomy\"}"))
         .andExpect(status().isOk());
     assertEquals(1, db.queryForObject("SELECT count(*) FROM security_audit_events WHERE event='ADMIN_ACTION' AND target LIKE '%categories|technologies%'", Integer.class));
     mvc.perform(get("/api/v1/admin/categories")).andExpect(status().isUnauthorized());
@@ -105,13 +105,13 @@ class AuthorizationIntegrationTest {
         .andExpect(status().isOk());
     mvc.perform(post("/api/v1/admin/categories").cookie(new Cookie("gl_session", "admin"))
         .header("Origin", "http://localhost:3000").header("X-Requested-With", "getlancer")
-        .contentType("application/json").content("{\"name\":\"Stale MFA category\"}"))
+        .contentType("application/json").content("{\"name\":\"Stale MFA category\",\"slug\":\"stale-mfa-category\"}"))
         .andExpect(status().isForbidden());
     db.execute("TRUNCATE rate_buckets");
     db.update("UPDATE sessions SET issued_at=now() WHERE user_id=?", admin);
     mvc.perform(post("/api/v1/admin/categories").cookie(new Cookie("gl_session", "admin"))
         .header("Origin", "http://localhost:3000").header("X-Requested-With", "getlancer")
-        .contentType("application/json").content("{\"name\":\"Fresh MFA category\"}"))
+        .contentType("application/json").content("{\"name\":\"Fresh MFA category\",\"slug\":\"fresh-mfa-category\"}"))
         .andExpect(status().isOk());
   }
 
