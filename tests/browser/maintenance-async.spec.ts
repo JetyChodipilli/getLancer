@@ -30,6 +30,26 @@ async function controlledWorkspace(page:Page){
  await page.goto('/workspace/maintenance');await expect(page.getByRole('heading',{name:'Portal care',exact:true})).toBeVisible();
  return {records,setDeny:()=>{denyDetail=403;},failBilling:(deny=false)=>{billingFailure=true;denyAfterWrite=deny?403:0;},failRefresh:(deny=false)=>{refreshFailure=true;denyAfterWrite=deny?503:0;},loseRequestResponse:()=>{loseRequestResponse=true;},failAction:(action:string)=>{failedAction=action;},reconnect:()=>{denyDetail=0;},changeAccount:()=>{accountId='different-account-interface-fixture';},confirmCalls:()=>confirmCalls,billingCalls:()=>billingCalls,refreshCalls:()=>refreshCalls,actionCalls:()=>actionCalls,billingKeys,detailReads,requestKeys};
 }
+test('hostile maintenance query identifiers cannot select application routes or replace detail query parameters',async({page})=>{
+ const fixture=await controlledWorkspace(page),requests:string[]=[];
+ page.on('request',request=>{const url=new URL(request.url());if(url.pathname.startsWith('/api/v1/maintenance/')&&!['/api/v1/maintenance/config','/api/v1/maintenance/sources'].includes(url.pathname))requests.push(url.pathname+url.search);});
+ for(const id of ['../maintenance/care-second','../../auth/providers','preview-care?page=999','..','https://outside.example.test/private']){
+  requests.length=0;fixture.detailReads.length=0;
+  await page.goto('/workspace/maintenance?maintenanceId='+encodeURIComponent(id));
+  await expect(page.getByRole('heading',{name:'Portal care',exact:true})).toBeVisible();
+  await expect.poll(()=>fixture.detailReads).toEqual(['preview-care']);
+  expect(requests).toEqual(['/api/v1/maintenance/preview-care?page=0&size=12']);
+ }
+});
+
+test('a valid maintenance UUID deep link still opens its authorized agreement',async({page})=>{
+ const fixture=await controlledWorkspace(page),id='11111111-1111-4111-8111-111111111111';
+ fixture.records[1].id=id;fixture.detailReads.length=0;
+ await page.goto('/workspace/maintenance?maintenanceId='+id);
+ await expect(page.getByRole('heading',{name:'Second care agreement',exact:true})).toBeVisible();
+ await expect.poll(()=>fixture.detailReads.at(-1)).toBe(id);
+});
+
 async function openCheckout(page:Page){await page.getByRole('button',{name:'Authorize recurring billing',exact:true}).click();const dialog=page.getByRole('dialog');await dialog.getByRole('checkbox').check();await dialog.getByRole('button',{name:'Continue to Razorpay',exact:true}).click();await expect(dialog).not.toBeVisible();}
 
 test('a previous checkout cannot overwrite another agreement and a payment failure stays visible',async({page})=>{

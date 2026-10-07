@@ -48,13 +48,13 @@ export default function MaintenanceWorkspace({demo=false}:{demo?:boolean}) {
       if(preview){nextOffers=pageOf(preview.list());nextSources=pageOf(preview.sources());config={enabled:true,keyId:'',mode:'preview',reason:''};}
       else {const me=await api('/me');if(run!==generation.current||!mounted.current)return;const identity=String(me.id||me.email||'');if(identity!==account.current){billingKey.current={};pendingRequests.current=[];}account.current=identity;[nextOffers,nextSources,config]=await Promise.all([api('/maintenance?page='+page+'&size=12'+(new URLSearchParams(window.location.search).get('engagementId')?'&engagementId='+encodeURIComponent(new URLSearchParams(window.location.search).get('engagementId')!):'')),api('/maintenance/sources?page='+sourcePage+'&size=12'+(new URLSearchParams(window.location.search).get('engagementId')?'&engagementId='+encodeURIComponent(new URLSearchParams(window.location.search).get('engagementId')!):'')),api('/maintenance/config')]);}
       let chosen=id||nextOffers.items[0]?.id||'';
-      const record:CareDetail|null=chosen?(preview?preview.detail(chosen):await api('/maintenance/'+chosen+'?page='+requestPage+'&size=12')):null;
+      const record:CareDetail|null=chosen?(preview?preview.detail(chosen):await api('/maintenance/'+encodeURIComponent(chosen)+'?page='+requestPage+'&size=12')):null;
       if(run!==generation.current||!mounted.current)return;
       setOffers(nextOffers);setSources(nextSources);setConfiguration(config);setSelected(chosen);setDetail(record);setAuthenticated(true);return {record};
     } catch(problem){if(run===generation.current&&mounted.current){clear(!(problem instanceof ApiError&&[401,403,404].includes(problem.status)));setError(failureMessage||(problem as Error).message);return false;}}
     finally{if(run===generation.current&&mounted.current)setLoading(false);}
   }
-  useEffect(()=>{mounted.current=true;const query=new URLSearchParams(window.location.search);setSourceHint(query.get('engagementId')||'');const requested=query.get('tab');if(requested&&['requests','billing','terms'].includes(requested))setTab(requested);void load(query.get('maintenanceId')||'');return()=>{mounted.current=false;generation.current++;invalidateCheckout();};},[]);
+  useEffect(()=>{mounted.current=true;const query=new URLSearchParams(window.location.search);setSourceHint(query.get('engagementId')||'');const requested=query.get('tab');if(requested&&['requests','billing','terms'].includes(requested))setTab(requested);const id=query.get('maintenanceId')||'';void load(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)?id:'');return()=>{mounted.current=false;generation.current++;invalidateCheckout();};},[]);
   const post=(path:string,body:unknown={},key?:string)=>api(path,{method:'POST',headers:key?{'Idempotency-Key':key}:{},body:JSON.stringify(body)});
   async function recoverWrite(problem:unknown,id:string,page:number,run:number){
     if(!mounted.current||run!==generation.current)return;

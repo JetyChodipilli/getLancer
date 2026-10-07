@@ -50,7 +50,7 @@ export default function DeliveryWorkspace({demo=false}:{demo?:boolean}){
    let list:Engagement[],paymentConfig:PaymentConfig;
    if(preview){list=preview.list();paymentConfig={enabled:false,mode:'disabled',reason:'Preview payments are local simulations. No gateway is contacted.'};}
    else{await api('/me');const [response,paymentResponse]=await Promise.all([api('/engagements'),api('/payments/config')]);list=records<Engagement>(response);paymentConfig=paymentResponse;}
-   const next=list.some(e=>e.id===id)?id:list[0]?.id||'';
+   const next=list.find(e=>e.id===id)?.id||list[0]?.id||'';
    let engagement:EngagementDetail|null=null,summary:PaymentSummary[]=[];
    if(next){if(preview){engagement=preview.detail(next);summary=preview.payments(next);}else{const [engagementResponse,paymentResponse]=await Promise.all([api('/engagements/'+next),api('/engagements/'+next+'/payments')]);engagement=engagementResponse;summary=records<PaymentSummary>(paymentResponse);}}
    if(run!==generation.current)return;

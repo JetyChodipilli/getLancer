@@ -291,5 +291,5 @@ for(const device of ['desktop','phone','tablet']){
  await client(`/api/v1/businesses/${b.id}/invitations`,{email:'ci-manager@example.test'});
  browserBusinesses[device]=b;
 }
-writeFileSync('.ci-connected.json',JSON.stringify({project:process.env.COMPOSE_PROJECT_NAME,accounts:browserAccounts,businesses:browserBusinesses,teamId:team.id,builderId:owner.id,commerce:commerceFixtures,maintenance:careFixtures,hosting:demoFixtures}),{mode:0o600});
+writeFileSync('.ci-connected.json',JSON.stringify({project:process.env.COMPOSE_PROJECT_NAME,accounts:browserAccounts,businesses:browserBusinesses,teamId:team.id,builderId:owner.id,commerce:commerceFixtures,maintenance:careFixtures,hosting:demoFixtures}),{mode:0o600,flag:'wx'});
 console.log('Connected browser prerequisites created through the real Java API.');

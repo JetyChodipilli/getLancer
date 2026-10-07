@@ -163,6 +163,12 @@ Revision `413d7a2505f8c5d00a054f29c47878d9f3c0401d` passed backend, frontend and
 
 The hiring test now waits 62 seconds after the saved-talent proof and before the outsider login. This lets the existing 60-second rate window expire naturally while preserving the 300-read limit, all assertions and all counters within that journey. The later MFA and immediate membership-revocation checks remain uninterrupted. Previous active durations were 34.4, 37.0 and 45.8 seconds; the pause fits the 180-second test timeout and the 20-minute Docker job timeout. A fresh complete CI run on the resulting revision is required before acceptance.
 
+### Full-analysis medium findings and caller/fixture hardening
+
+Full-project analysis at `5a3f4957` retained two medium JavaScript findings with zero blocking high/critical results. Independent tracing found no demonstrated authorization bypass: delivery query IDs already had to match the authenticated server list, maintenance reads remained subject to backend UUID/party checks, and service responses became JSON contents in a fixed CI-only filename. These findings were reviewed on their actual flows rather than dismissed by severity.
+
+The callers are now stricter: delivery selects the matched server record's identifier; maintenance URL identifiers must be canonical UUIDs before dispatch, and detail path segments are encoded. Browser regressions check hostile traversal/query/scheme/dot values cannot retarget a request and valid UUID deep links still work. The CI fixture writer uses exclusive `wx` creation with mode `0600`, refusing pre-existing files and symlinks. Its intentional service-response-to-JSON flow may remain visible in full SARIF; no rule/file/severity exclusion is added. Both boundaries passed independent source review. A fresh complete workflow on the resulting head must verify the revised browser and connected/recovery paths.
+
 [POM]: ../backend/pom.xml
 [CI]: ../.github/workflows/ci.yml
 [chain]: ../backend/src/main/java/com/getlancer/config/SecurityConfiguration.java
