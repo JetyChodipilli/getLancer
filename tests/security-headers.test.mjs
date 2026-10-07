@@ -48,6 +48,21 @@ test('catalogue parsing respects HTML tag case and rejects extra or non-plain sc
  for(const html of [`<script>${body}</script><SCRIPT>self.extra=true</SCRIPT>`,`<script src="https://example.test/extra.js"></script>`,`<script type="module">${body}</script>`,`<scripture>${body}</scripture>`,'<script>unterminated'])assert.throws(()=>catalogueScriptSource(html),/one reviewed plain inline script/);
 });
 
+test('browser-recognized variant script tags cannot be skipped to hash a later plain closure',()=>{
+ const body='const reviewed = true;';
+ for(const start of ['<script src="extra.js">','<SCRIPT\t\n type="module">','<script/>','<script/anything>']) {
+  assert.throws(()=>catalogueScriptSource(`${start}${body}</script>`),/one reviewed plain inline script/);
+ }
+ for(const end of ['</script\t\n bar>','</ScRiPt data-extra="value">','</script/>','</SCRIPT/anything>']) {
+  // The old combined matcher silently skipped the first end tag, then treated
+  // the second script as part of the reviewed body's bytes. It must fail closed.
+  assert.throws(()=>catalogueScriptSource(`<script>${body}${end}<script>self.extra=true;</script>`),/one reviewed plain inline script/);
+  assert.throws(()=>catalogueScriptSource(`<script>${body}${end}`),/one reviewed plain inline script/);
+ }
+ for(const whitespace of [' ', '\t', '\n', '\f', '\r', '\t\n'])assert.equal(catalogueScriptSource(`<ScRiPt${whitespace}>${body}</SCRIPT${whitespace}>`),body);
+ assert.throws(()=>catalogueScriptSource(`<script>${body}</script>\n</SCRIPT\t\n bar>`),/one reviewed plain inline script/);
+});
+
 test('publisher frames use a fixed isolated operator suffix and the local exception is request-scoped',()=>{
  const hosted=publisherFrameSource('https://{id}.demos.publisher.test:8443/','https://marketplace.example.test');
  assert.equal(hosted,'https://*.demos.publisher.test:8443');

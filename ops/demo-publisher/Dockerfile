@@ -1,5 +1,10 @@
 FROM node:22.23.3-alpine3.23
-RUN apk add --no-cache flock
+# The publisher uses Node's standard library; package managers are unnecessary runtime dependencies.
+RUN apk add --no-cache flock \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /opt/yarn-* \
+    && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+        /usr/local/bin/yarn /usr/local/bin/yarnpkg /usr/local/bin/pnpm /usr/local/bin/pnpx \
+    && node --version
 WORKDIR /opt/demo-publisher
 COPY --chown=node:node server.mjs ./server.mjs
 RUN mkdir /data && chown node:node /data

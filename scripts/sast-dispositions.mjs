@@ -32,17 +32,33 @@ function read(path){
  const fd=openSync(path,constants.O_RDONLY|constants.O_NOFOLLOW);
  try{assert.ok(fstatSync(fd).isFile());return readFileSync(fd);}finally{closeSync(fd);}
 }
+function reviewedInputs(entries,label){
+ assert.ok(Array.isArray(entries),'Invalid '+label+' review inventory.');
+ const hashes=new Map();
+ for(const entry of entries){
+  assert.ok(entry&&typeof entry==='object'&&!Array.isArray(entry),'Invalid review entry.');
+  assert.deepEqual(Object.keys(entry).sort(),['path','sha256'],'Invalid review entry fields.');
+  assert.ok(typeof entry.path==='string'&&entry.path.length>0,'Missing review path.');
+  assert.ok(typeof entry.sha256==='string'&&/^[a-f0-9]{64}$/.test(entry.sha256),'Invalid source digest.');
+  assert.ok(!hashes.has(entry.path),'Duplicate review path.');
+  hashes.set(entry.path,entry.sha256);
+ }
+ return hashes;
+}
 export function validateSastEvidence(root,spec,evidence,identity,now=new Date()){
- assert.equal(spec.schema,1);assert.ok(Date.parse(spec.expiresAt)>now.getTime(),'GET assessment expired.');
+ assert.equal(spec.schema,2);assert.ok(Date.parse(spec.expiresAt)>now.getTime(),'GET assessment expired.');
  assert.equal(spec.findings.length,3);assert.deepEqual(new Set(spec.findings.map(f=>f.path)),allowed);
  assert.deepEqual(spec.tests,requiredSecurityTests,'Security regression requirements changed.');
+ const productionHashes=reviewedInputs(spec.productionInputs,'production');
+ const testHashes=reviewedInputs(spec.testInputs,'test');
+ const buildHashes=reviewedInputs(spec.buildInputs,'build');
  const production=inputs(root,'backend/src/main');assert.ok(production.length>50,'Incomplete production review inputs.');
- assert.deepEqual(production,Object.keys(spec.productionInputs).sort(),'Production review inventory changed.');
- assert.deepEqual(inputs(root,'backend/src/test'),Object.keys(spec.testInputs).sort(),'Security test review inventory changed.');
- assert.ok(Object.keys(spec.testInputs).includes('backend/src/test/java/com/getlancer/auth/AuthenticationHardeningIntegrationTest.java')
-     &&Object.keys(spec.testInputs).includes('backend/src/test/java/com/getlancer/integration/DataExposureIntegrationTest.java'));
- assert.deepEqual(Object.keys(spec.buildInputs).sort(),[...requiredBuildInputs].sort(),'Build review inventory changed.');
- for(const [path,hash]of Object.entries({...spec.productionInputs,...spec.testInputs,...spec.buildInputs}))
+ assert.deepEqual(production,[...productionHashes.keys()].sort(),'Production review inventory changed.');
+ assert.deepEqual(inputs(root,'backend/src/test'),[...testHashes.keys()].sort(),'Security test review inventory changed.');
+ assert.ok(testHashes.has('backend/src/test/java/com/getlancer/auth/AuthenticationHardeningIntegrationTest.java')
+     &&testHashes.has('backend/src/test/java/com/getlancer/integration/DataExposureIntegrationTest.java'));
+ assert.deepEqual([...buildHashes.keys()].sort(),[...requiredBuildInputs].sort(),'Build review inventory changed.');
+ for(const [path,hash]of [...productionHashes,...testHashes,...buildHashes])
   assert.equal(digest(read(join(root,path))),hash,'Reviewed source or test changed: '+path);
  assert.equal(evidence.schema,1);
  for(const key of ['sourceSha','workflowRunId','workflowRunAttempt']){

@@ -3,9 +3,17 @@ import trustedCatalogue from '../backend/src/main/resources/catalog/components.j
 
 /** Extract the reviewed catalogue's plain script format; this is not an HTML sanitizer. */
 export function catalogueScriptSource(html: string): string {
-  const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)];
-  if (scripts.length !== 1 || scripts[0][1].trim()) throw Error('Each trusted recipe must have one reviewed plain inline script.');
-  return scripts[0][2];
+  // Recognize every browser script-tag delimiter before enforcing the much
+  // narrower reviewed format. An attributed end tag must not be skipped while
+  // searching for a later plain end tag and accidentally included in the hash.
+  const tags = [...html.matchAll(/<\/?script(?=[\t\n\f\r />])[^>]*>/gi)];
+  const htmlWhitespace = new Set([' ', '\t', '\n', '\f', '\r']);
+  const plainTag = (tag: string, prefix: string) => tag.toLowerCase().startsWith(prefix)
+    && [...tag.slice(prefix.length, -1)].every(character => htmlWhitespace.has(character));
+  if (tags.length !== 2 || !plainTag(tags[0][0], '<script') || !plainTag(tags[1][0], '</script')) {
+    throw Error('Each trusted recipe must have one reviewed plain inline script.');
+  }
+  return html.slice(tags[0].index + tags[0][0].length, tags[1].index);
 }
 
 /** Only version-controlled recipes enter this allowlist, never API/uploaded HTML. */

@@ -2,7 +2,7 @@ title = "getLancer reviewed synthetic fixture exceptions"
 [extend]
 useDefault = true
 
-# Exceptions require BOTH the exact repository path and the exact known synthetic
+# Exceptions require BOTH the exact repository path and the exact reviewed non-credential
 # value. No test directory, commit, or line-number suppression is permitted.
 [[allowlists]]
 description = "Blank environment examples accidentally consume the next variable name"
@@ -75,3 +75,11 @@ condition = "AND"
 regexTarget = "secret"
 paths = ['^backend/src/test/java/com/getlancer/MarketplaceIntegrationTest\.java$']
 regexes = ['^KRUGS4ZANFZSAYJAON2HE2LOM4QHI2DF$']
+
+[[allowlists]]
+description = "Exact historical public source SHA-256 digests from the first SAST inventory; current inventory uses explicit path/hash entries"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "secret"
+paths = ['^docs/SAST_APPLICABILITY\.json$']
+regexes = ['^(?:063e0b40b792ae7d0bc461b42fd24163eb5b75e0ffe513eb8200a36461f12d20|070e2d9202a35720405cb4ee994b84d937d243fd8dd3544dc180595dbbf62dad|074330795a0598c102ec064677fcfa4d2be21cc65c65f63e8ac08910ebf712fc|0ad121d31acd92a674c91eb6e0f294e37d3385b2495f4114d65c854cb2c861c0|0ece5e5faa2542aabb845ab8203880b42ca9ae6b2d8e71b10f3749247b88944a|36aa0827c85f4a79975cf80545c5606d75704b5d8d7d9fb69632c8dab22ae8c5|376eba50dd6cd591a4b0ad2ad76fa1103e61daaeea7e3494e8f0758b337c92d8|3e7f9acd668176f042bff8a4c58ac5d74a27972f2175b3f90b51933575eadb7d|66915b46187711e144853661cc0fd596ce8c56f2e0f95ff5a6260ede534a205a|71ee07e52a8a75c36101c5350a17ccb4ade112a512ea21f33f82aaf156decd4d|73b8171e1445be6e11622ed56a2a764c6f8d4b71058880f8a9c2cb8988ed5dcd|8f618796246a6afdbabae69fa66a460b8877ee24be5bd8212ec0142706355528|8fc0c0a7cde7b290b8663eb78a6159605e5747791d4c44742f2d647cbcab3012|96ff068d93fd20555a986bc38af1ca63d5e9d8d9d4419614a6f7cf692b5e7425|99a4d083211fbc55c07cf013d8724fa70a768d500cd71fd05f140892d132e014|9f76e0bb3ee6e375b682c8569d5e894c6bb5ffe1970ea70e4d4728b3d6a1593f|a6dd2fb4ca0a38cf169888a8cff566bfc9c069e63ccb6db21ce0d4cbea4402a4|b477d8419326bf42027441970c1e6191541a47211c7c43a8dbd69df5b880b608|b60c9c8ea78e237fa5a4ffed896350941320dd7e4e59e0b1890cbc4ce8044c2f|b9664219834f150e8eb8079e2a7d5f58f29f709ec15fb3d376a60d3a48a56089|d1ed136ac694adeec35e57e2cff760eeee02c0bdf809f1cbde9d4847d5b3063e)$']

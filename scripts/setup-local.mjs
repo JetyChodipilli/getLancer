@@ -1,4 +1,4 @@
-import {readFileSync,copyFileSync,openSync,closeSync,fstatSync,fchmodSync,writeSync,ftruncateSync,fsyncSync,constants} from 'node:fs';
+import {readFileSync,openSync,closeSync,fstatSync,fchmodSync,writeSync,ftruncateSync,fsyncSync,constants} from 'node:fs';
 import {randomBytes} from 'node:crypto';
 import {parseEnvironment,localDatabase,placeholder} from './local-config.mjs';
 
@@ -10,9 +10,17 @@ try {
   try{descriptor=openSync(file,flags);}
   catch(error){
     if(error.code!=='ENOENT')throw error;
-    try{copyFileSync(new URL('../.env.example',import.meta.url),file,constants.COPYFILE_EXCL);}
-    catch(copyError){if(copyError.code!=='EEXIST')throw copyError;}
-    descriptor=openSync(file,flags);
+    const example=readFileSync(new URL('../.env.example',import.meta.url));
+    let created=false;
+    try{descriptor=openSync(file,flags|constants.O_CREAT|constants.O_EXCL,0o600);created=true;}
+    catch(createError){
+      if(createError.code!=='EEXIST')throw createError;
+      descriptor=openSync(file,flags);
+    }
+    if(created){
+      let seeded=0;
+      while(seeded<example.length)seeded+=writeSync(descriptor,example,seeded,example.length-seeded,seeded);
+    }
   }
   if(!fstatSync(descriptor).isFile())throw Error('Local configuration must be a regular file.');
   const original=readFileSync(descriptor,'utf8');

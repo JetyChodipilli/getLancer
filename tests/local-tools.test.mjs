@@ -36,12 +36,52 @@ test('setup generates missing service keys once without changing existing creden
   assert.equal(container.DB_USERNAME,'postgres');assert.equal(container.BACKEND_URL,'http://localhost:8080');
 });
 
+test('setup creates a private configuration from the example and preserves it on rerun',t=>{
+ const dir=mkdtempSync(join(tmpdir(),'getlancer-new-setup-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));mkdirSync(join(dir,'scripts'));
+ for(const name of ['setup-local.mjs','local-config.mjs'])copyFileSync(new URL('../scripts/'+name,import.meta.url),join(dir,'scripts',name));
+ const example='APP_ENV=local\nDB_URL=jdbc:postgresql://localhost:5432/getLancer\nDB_USERNAME=postgres\nDB_PASSWORD=example-fixture-private\nDB_SCHEMA=getlancer\nADMIN_EMAIL=\nSMTP_HOST=localhost\nOBJECT_STORAGE_ENDPOINT=http://localhost:9000\nOBJECT_STORAGE_UPLOAD_ENDPOINT=http://localhost:9000\nOBJECT_STORAGE_ACCESS_KEY=REPLACE_WITH_LOCAL_ACCESS_KEY\n';
+ writeFileSync(join(dir,'.env.example'),example);
+ const file=join(dir,'.env'),run=()=>spawnSync(process.execPath,[join(dir,'scripts/setup-local.mjs')],{encoding:'utf8'});
+ const first=run();assert.equal(first.status,0,first.stderr);
+ const values=readEnvironment(file);assert.equal(statSync(file).mode&0o777,0o600);
+ assert.equal(values.DB_PASSWORD,'example-fixture-private');assert.equal(values.ADMIN_EMAIL,'');
+ assert.ok(!values.ADMIN_BOOTSTRAP_PASSWORD&&!values.ADMIN_TOTP_SECRET);
+ assert.equal(values.MFA_ACTIVE_KEY_ID,'local-v1');assert.equal(Buffer.from(values.MFA_KEYRING.split(':')[1],'base64').length,32);
+ assert.ok(values.OBJECT_STORAGE_ACCESS_KEY.length>=24&&values.OBJECT_STORAGE_SECRET_KEY.length>=32);
+ for(const key of ['DB_PASSWORD','MFA_KEYRING','OBJECT_STORAGE_ACCESS_KEY','OBJECT_STORAGE_SECRET_KEY'])assert.ok(!first.stdout.includes(values[key]));
+ const before=readFileSync(file,'utf8');assert.equal(run().status,0);assert.equal(readFileSync(file,'utf8'),before);
+ assert.equal(readFileSync(join(dir,'.env.example'),'utf8'),example);
+});
+
 test('local setup refuses a symlink without touching its target',t=>{
  const dir=mkdtempSync(join(tmpdir(),'getlancer-symlink-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));mkdirSync(join(dir,'scripts'));
  for(const name of ['setup-local.mjs','local-config.mjs'])copyFileSync(new URL('../scripts/'+name,import.meta.url),join(dir,'scripts',name));
  const target=join(dir,'protected-config');writeFileSync(target,'protected provider configuration',{mode:0o644});
  symlinkSync(target,join(dir,'.env'));
  const run=spawnSync(process.execPath,[join(dir,'scripts/setup-local.mjs')],{encoding:'utf8'});
+ assert.equal(run.status,1);assert.match(run.stderr,/symlinks are refused/);
+ assert.equal(readFileSync(target,'utf8'),'protected provider configuration');assert.equal(statSync(target).mode&0o777,0o644);
+});
+
+test('local setup refuses a symlink inserted during exclusive configuration creation',t=>{
+ const dir=mkdtempSync(join(tmpdir(),'getlancer-create-race-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));mkdirSync(join(dir,'scripts'));
+ for(const name of ['setup-local.mjs','local-config.mjs'])copyFileSync(new URL('../scripts/'+name,import.meta.url),join(dir,'scripts',name));
+ writeFileSync(join(dir,'.env.example'),'APP_ENV=local\n');
+ const file=join(dir,'.env'),target=join(dir,'protected-config');writeFileSync(target,'protected provider configuration',{mode:0o644});
+ const hook=join(dir,'creation-race.mjs');
+ writeFileSync(hook,`import fs from 'node:fs';
+import {syncBuiltinESMExports} from 'node:module';
+import {fileURLToPath} from 'node:url';
+const original=fs.openSync;let inserted=false;
+fs.openSync=function(path,flags,...args){
+ if(!inserted&&(path instanceof URL?fileURLToPath(path):path)===${JSON.stringify(file)}&&(flags&fs.constants.O_CREAT)){
+  inserted=true;fs.symlinkSync(${JSON.stringify(target)},${JSON.stringify(file)});
+ }
+ return original.call(this,path,flags,...args);
+};
+syncBuiltinESMExports();
+`);
+ const run=spawnSync(process.execPath,['--import',hook,join(dir,'scripts/setup-local.mjs')],{encoding:'utf8'});
  assert.equal(run.status,1);assert.match(run.stderr,/symlinks are refused/);
  assert.equal(readFileSync(target,'utf8'),'protected provider configuration');assert.equal(statSync(target).mode&0o777,0o644);
 });
