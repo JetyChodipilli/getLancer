@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,writeFileSync,readFileSync,copyFileSync,mkdirSync,rmSync,symlinkSync,linkSync,statSync} from 'node:fs';
+import {mkdtempSync,writeFileSync,readFileSync,copyFileSync,mkdirSync,rmSync,symlinkSync,linkSync,statSync,openSync,closeSync,fstatSync,constants} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
@@ -42,6 +42,10 @@ test('setup creates a private configuration from the example and preserves it on
  const example='APP_ENV=local\nDB_URL=jdbc:postgresql://localhost:5432/getLancer\nDB_USERNAME=postgres\nDB_PASSWORD=example-fixture-private\nDB_SCHEMA=getlancer\nADMIN_EMAIL=\nSMTP_HOST=localhost\nOBJECT_STORAGE_ENDPOINT=http://localhost:9000\nOBJECT_STORAGE_UPLOAD_ENDPOINT=http://localhost:9000\nOBJECT_STORAGE_ACCESS_KEY=REPLACE_WITH_LOCAL_ACCESS_KEY\n';
  writeFileSync(join(dir,'.env.example'),example);
  const file=join(dir,'.env'),run=()=>spawnSync(process.execPath,[join(dir,'scripts/setup-local.mjs')],{encoding:'utf8'});
+ const snapshot=()=>{
+  const fd=openSync(file,constants.O_RDONLY|constants.O_NOFOLLOW);
+  try{return {content:readFileSync(fd,'utf8'),mode:fstatSync(fd).mode&0o777};}finally{closeSync(fd);}
+ };
  const first=run();assert.equal(first.status,0,first.stderr);
  const values=readEnvironment(file);
  assert.equal(values.DB_PASSWORD,'example-fixture-private');assert.equal(values.ADMIN_EMAIL,'');
@@ -49,9 +53,9 @@ test('setup creates a private configuration from the example and preserves it on
  assert.equal(values.MFA_ACTIVE_KEY_ID,'local-v1');assert.equal(Buffer.from(values.MFA_KEYRING.split(':')[1],'base64').length,32);
  assert.ok(values.OBJECT_STORAGE_ACCESS_KEY.length>=24&&values.OBJECT_STORAGE_SECRET_KEY.length>=32);
  for(const key of ['DB_PASSWORD','MFA_KEYRING','OBJECT_STORAGE_ACCESS_KEY','OBJECT_STORAGE_SECRET_KEY'])assert.ok(!first.stdout.includes(values[key]));
- const before=readFileSync(file,'utf8');assert.equal(run().status,0);assert.equal(readFileSync(file,'utf8'),before);
+ const before=snapshot();assert.equal(before.mode,0o600);
+ assert.equal(run().status,0);assert.deepEqual(snapshot(),before);
  assert.equal(readFileSync(join(dir,'.env.example'),'utf8'),example);
- assert.equal(statSync(file).mode&0o777,0o600);
 });
 
 test('local setup refuses a symlink without touching its target',t=>{
