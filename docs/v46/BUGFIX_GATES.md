@@ -4,8 +4,8 @@ OWNS: app/components/**, lib/**, backend/src/**, tests/**, docs/v46/**
 
 Scope: Reproduce and fix V4.6 PR #40 defects, retain publication and authorization boundaries, and publish tested fixes to its existing branch.
 
-- [x] G1: Every reported defect has a failing reproduction and a passing regression after its fix
-  EVIDENCE: Published-context PostgreSQL-compatible predicate: failed before, all 3 cases passed after. AccountExportResponseTest: failed before, passed after within 10 passing Java tests. Empty-ZIP browser regression: failed before, passed after on desktop/phone/tablet. See BUGFIX_REVIEW.md for scope and integration limitations.
+- [ ] G1: Every reported defect has a failing reproduction and a passing regression after its fix
+  EVIDENCE: First three defects pass local regression and CI on ea249d4. Connected withdrawal locator fails on phone/tablet in both workflow runs; corrected exact-identity assertion awaits fresh CI. See BUGFIX_REVIEW.md.
 
 - [x] G2: Frontend types and production bundle remain valid
   CHECK: npx tsc --noEmit && npm run build
@@ -25,5 +25,5 @@ Scope: Reproduce and fix V4.6 PR #40 defects, retain publication and authorizati
 - [ ] G5: Affected responsive and connected browser flows pass on the published revision
   EVIDENCE: pending
 
-- [ ] G6: The existing PR contains the reviewed fixes and all six required CI jobs pass
+- [ ] G6: The existing PR contains the reviewed fixes and all twelve push and pull-request CI checks pass
   EVIDENCE: pending
