@@ -1,5 +1,7 @@
 # Gates: fresh V4.6
 
+Historical initial-slice snapshot. Use [COMPLETION_GATES.md](COMPLETION_GATES.md) for current phase acceptance; unmet entries below describe the earlier checkpoint.
+
 OWNS: app/**, lib/**, backend/**, tests/**, docs/**, GATES.md
 
 Scope: rebuild V4.6 from current main with creator contributions, reviewed immutable source, saved components, 24 distinct seeds, compact forms and visible demo roles.

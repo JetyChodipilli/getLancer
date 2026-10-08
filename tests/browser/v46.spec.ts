@@ -26,7 +26,7 @@ test('sample contribution uses staged fields, preserves back navigation and can 
   await dialog.getByRole('button',{name:'Back',exact:true}).click();
   await expect(dialog.getByLabel('Component title',{exact:true})).toHaveValue('A sample release');
   await dialog.getByRole('button',{name:'Continue to contribution',exact:true}).click();
-  await dialog.getByRole('checkbox').check();
+  await dialog.getByRole('checkbox',{name:/I preserve/}).check();
   await dialog.getByRole('button',{name:'Save component draft',exact:true}).click();await expect(dialog).not.toBeVisible();
   const record=page.locator('article').filter({has:page.getByRole('heading',{name:'A sample release',exact:true})});
   await record.getByRole('button',{name:'Submit for review',exact:true}).click();

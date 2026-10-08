@@ -14,6 +14,9 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.RestController;
 
 @PreAuthorize("@authorization.routeAllowed(authentication)")
@@ -29,16 +32,20 @@ public class ComponentsController {
   @GetMapping("/components/{slug}") public Object detail(@PathVariable String slug){
     return service.detail(slug);
   }
+  @GetMapping("/components/{slug}/preview") public Object preview(@PathVariable String slug){return service.preview(slug);}
+  @PostMapping("/me/components/{id}/preview") public Object publishPreview(@PathVariable UUID id,HttpServletRequest r){return service.publishPreview(id,r);}
   @GetMapping("/components/{slug}/versions") public Object history(@PathVariable String slug){return service.history(slug);}
   @GetMapping("/me/components") public Object own(HttpServletRequest r){
     return service.own(r);
   }
+  @GetMapping("/me/components/{id}") public Object ownDetail(@PathVariable UUID id,HttpServletRequest r){return service.ownDetail(id,r);}
   @PostMapping("/me/components") public Object create(@Valid @RequestBody ComponentRequests.Mutation b,HttpServletRequest r){
     return service.create(TypedInputs.map(b),r);
   }
   @PatchMapping("/me/components/{id}") public Object edit(@PathVariable UUID id,@Valid @RequestBody ComponentRequests.Mutation b,HttpServletRequest r){
     return service.edit(id,TypedInputs.map(b),r);
   }
+  @PostMapping(value="/me/components/{id}/source",consumes=MediaType.MULTIPART_FORM_DATA_VALUE) public Object upload(@PathVariable UUID id,@RequestPart("file") MultipartFile file,@RequestParam String version,@RequestParam String scenario,@RequestParam boolean rightsConsent,HttpServletRequest r) throws java.io.IOException {return service.upload(id,file,version,scenario,rightsConsent,r);}
   @PostMapping("/me/components/{id}/{action}") public Object action(@PathVariable UUID id,@PathVariable String action,HttpServletRequest r){
     return service.action(id,action,r);
   }

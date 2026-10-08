@@ -11,6 +11,10 @@ export const HARD_LIMITS = Object.freeze({ fileBytes: 5 * 1024 * 1024, expandedB
   files: 256, storageBytes: 500 * 1024 * 1024, identities: 1000, requestsPerMinute: 240,
   expiryMs: 30 * 86400_000, bodyBytes: 14 * 1024 * 1024 });
 export const CONTENT_SECURITY_POLICY = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'; sandbox allow-scripts allow-same-origin; frame-ancestors 'none'";
+// The application embeds components through an opaque sandboxed parent. A
+// frame-ancestors wildcard rejects that parent; the sandbox and its frame-src
+// restriction provide the boundary while public MIT previews remain embeddable.
+export const COMPONENT_SECURITY_POLICY = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'; sandbox allow-scripts allow-forms";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const HASH = /^[0-9a-f]{64}$/;
 const SECRET_MARKER = /-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----|\bAKIA[A-Z0-9]{16}\b|\b(?:ghp_|github_pat_)[A-Za-z0-9_]{20,}\b|\brzp_live_[A-Za-z0-9]{8,}\b/i;
@@ -280,7 +284,7 @@ function gatewayAllows(config, id, signal) {
       if (response.statusCode !== 200 || response.headers['content-type']?.split(';')[0].trim().toLowerCase() !== 'application/json') { done(false); return; }
       let size = 0; const chunks = [];
       response.on('data', (chunk) => { size += chunk.length; if (size > 4096) done(false); else chunks.push(chunk); });
-      response.on('end', () => { try { const body = JSON.parse(Buffer.concat(chunks).toString('utf8')); done(exactKeys(body, ['allowed']) && body.allowed === true); } catch { done(false); } });
+      response.on('end', () => { try { const body = JSON.parse(Buffer.concat(chunks).toString('utf8')); done(body.allowed === true && (exactKeys(body, ['allowed']) || exactKeys(body, ['allowed','preview']) && body.preview === 'COMPONENT') ? body : false); } catch { done(false); } });
     });
     const timer = setTimeout(() => done(false), 2000);
     request.on('error', () => done(false)); signal.addEventListener('abort', cancel, { once: true });
@@ -453,7 +457,9 @@ export async function createPublisher(input) {
       response.once('finish', responseSettled); response.once('close', responseSettled);
       try {
         // Every recognized static GET/HEAD checks the authority, including missing paths. No forwarded user headers or query.
-        requireValue(await gatewayAllows(config, record.id, gatewayCancellation.signal), 'Demo unavailable', 403);
+        const authority = await gatewayAllows(config, record.id, gatewayCancellation.signal);
+        requireValue(authority, 'Demo unavailable', 403);
+        if (authority.preview === 'COMPONENT') { response.setHeader('Content-Security-Policy', COMPONENT_SECURITY_POLICY); response.removeHeader('X-Frame-Options'); response.setHeader('Cross-Origin-Resource-Policy','cross-origin'); }
         if (response.destroyed) return;
         requireValue(!unhealthy, 'Publisher storage unavailable', 503);
         requireValue(records.get(id) === record && record.state === 'READY' && Date.parse(record.expiresAt) > config.now(), 'Not found', 404);

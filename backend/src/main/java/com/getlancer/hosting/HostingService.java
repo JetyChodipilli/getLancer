@@ -25,8 +25,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class HostingService {
+  private final com.getlancer.components.ComponentPreviewService components;
   private final HostingRepository repo;private final Security security;private final CommerceStorage storage;private final HostingConfiguration config;private final DemoPublisherClient publisher;private final TransactionTemplate transaction;
-  public HostingService(HostingRepository repo,Security security,CommerceStorage storage,HostingConfiguration config,DemoPublisherClient publisher,PlatformTransactionManager manager){this.repo=repo;this.security=security;this.storage=storage;this.config=config;this.publisher=publisher;transaction=new TransactionTemplate(manager);}
+  public HostingService(HostingRepository repo,Security security,CommerceStorage storage,HostingConfiguration config,DemoPublisherClient publisher,PlatformTransactionManager manager,com.getlancer.components.ComponentPreviewService components){this.components=components;this.repo=repo;this.security=security;this.storage=storage;this.config=config;this.publisher=publisher;transaction=new TransactionTemplate(manager);}
   private <T>T tx(java.util.function.Supplier<T> work){return transaction.execute(status->work.get());}
   public Map<String,Object> configuration(){return config.projection();}
   public Map<String,Object> sources(HttpServletRequest r){return repo.sources(security.user(r),r);}
@@ -85,7 +86,7 @@ public class HostingService {
     if(!current.get("status").equals("APPROVED")||!current.get("desired_state").equals("PUBLISHED")||!Set.of("CREATING","UNKNOWN").contains(current.get("deployment_state"))||!Objects.equals(current.get("deployment_id"),snapshot.get("deployment_id"))||!instant(current,"expires_at").equals(instant(snapshot,"expires_at"))||!instant(current,"expires_at").isAfter(Instant.now()))throw transition();return user;
   }
   public Map<String,Object> publicProduct(UUID product){return repo.publicProduct(product);}
-  public Map<String,Object> gateway(UUID deployment,String secret){if(!config.gateway(secret))throw new ApiError(403,"FORBIDDEN","Gateway authentication is required.");return Map.of("allowed",repo.allowed(deployment));}
+  public Map<String,Object> gateway(UUID deployment,String secret){if(!config.gateway(secret))throw new ApiError(403,"FORBIDDEN","Gateway authentication is required.");return components.allowed(deployment)?Map.of("allowed",true,"preview","COMPONENT"):Map.of("allowed",repo.allowed(deployment));}
   private static ApiError transition(){return new ApiError(409,"INVALID_TRANSITION","This package cannot perform that action in its current state.");}
   private static ApiError integrity(){return new ApiError(409,"ARCHIVE_INTEGRITY_ERROR","The private package does not match its immutable manifest.");}
 }

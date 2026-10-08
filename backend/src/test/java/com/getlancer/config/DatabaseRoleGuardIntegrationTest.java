@@ -142,6 +142,13 @@ class DatabaseRoleGuardIntegrationTest {
     assertEquals(1,runtime.queryForObject("SELECT count(*) FROM component_releases WHERE component_id=?",Integer.class,component));
     assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE component_releases SET source_sha256=? WHERE component_id=?","b".repeat(64),component));
     assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("DELETE FROM component_releases WHERE component_id=?",component));
+    UUID preview=UUID.randomUUID();
+    runtime.update("INSERT INTO component_previews(deployment_id,component_id,revision,expires_at,archive_sha256,manifest_sha256) VALUES(?,?,1,now()+interval '7 days',?,?)",preview,component,"a".repeat(64),"b".repeat(64));
+    assertEquals(1,runtime.update("UPDATE component_previews SET state='READY' WHERE deployment_id=?",preview));
+    assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE component_previews SET expires_at=now()+interval '8 days' WHERE deployment_id=?",preview));
+    assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("DELETE FROM component_previews WHERE deployment_id=?",preview));
+    assertEquals(1,runtime.update("UPDATE component_previews SET state='REVOKED' WHERE deployment_id=?",preview));
+    assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE component_previews SET state='READY' WHERE deployment_id=?",preview));
     runtime.update("INSERT INTO saved_components(user_id,slug) VALUES(?,'portfolio-card') ON CONFLICT DO NOTHING",user);
     assertEquals(0,runtime.update("INSERT INTO saved_components(user_id,slug) VALUES(?,'portfolio-card') ON CONFLICT DO NOTHING",user));
     assertEquals(1,runtime.queryForObject("SELECT count(*) FROM saved_components WHERE user_id=?",Integer.class,user));
@@ -150,7 +157,7 @@ class DatabaseRoleGuardIntegrationTest {
     for(String directRole:List.of("anon","authenticated")) {
       try(Connection connection=DriverManager.getConnection(url,admin,adminPassword);Statement statement=connection.createStatement()) {
         statement.execute("SET ROLE "+directRole);
-        for(String table:List.of("saved_components","component_releases"))
+        for(String table:List.of("saved_components","component_releases","component_previews"))
           assertThrows(java.sql.SQLException.class,()->statement.executeQuery("SELECT count(*) FROM "+SCHEMA+"."+table));
       }
     }

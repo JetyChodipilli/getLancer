@@ -132,7 +132,7 @@ public final class BrowserSecurityFilter extends OncePerRequestFilter {
     else if (route != null && route.policy() == AuthorizationService.Policy.ADMIN_MFA
         && !SAFE.contains(request.getMethod())) event = "ADMIN_ACTION";
     else if (request.getMethod().equals("GET") && route != null
-        && Set.of("/api/v1/me/export", "/api/v1/admin/templates/{id}/versions/{version}/package",
+        && Set.of("/api/v1/me/export", "/api/v1/admin/components/{id}", "/api/v1/me/components/{id}", "/api/v1/admin/templates/{id}/versions/{version}/package",
             "/api/v1/me/templates/{id}/versions/{version}/package",
             "/api/v1/admin/hosting/{id}/package", "/api/v1/me/hosting/{id}/package",
             "/api/v1/template-purchases/{id}/download")

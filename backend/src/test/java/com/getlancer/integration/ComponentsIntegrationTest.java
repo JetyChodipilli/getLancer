@@ -24,6 +24,13 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
   "app.environment=local","app.jobs-enabled=false","app.admin-email=admin@example.test","app.admin-password=","app.admin-totp=","spring.config.import=",  "spring.datasource.url=${TEST_DB_URL:jdbc:postgresql://localhost:5432/getlancer_test}","spring.datasource.username=${TEST_DB_USERNAME:postgres}","spring.datasource.password=${TEST_DB_PASSWORD:}",  "spring.datasource.hikari.schema=getlancer_test","spring.flyway.default-schema=getlancer_test","spring.flyway.schemas=getlancer_test","app.origin=http://localhost:3000","app.secure-cookie=false","app.storage.access-key=","app.storage.secret-key="
 }
 ) @AutoConfigureMockMvc class ComponentsIntegrationTest {
+  static final com.getlancer.hosting.HostingPublisherFixture previewPublisher=new com.getlancer.hosting.HostingPublisherFixture();
+  @org.springframework.test.context.DynamicPropertySource static void previewProperties(org.springframework.test.context.DynamicPropertyRegistry registry){
+    registry.add("app.hosting.enabled",()->true);registry.add("app.hosting.publisher-url",previewPublisher::url);
+    registry.add("app.hosting.publisher-secret",()->com.getlancer.hosting.HostingPublisherFixture.SECRET);registry.add("app.hosting.gateway-secret",()->com.getlancer.hosting.HostingPublisherFixture.GATEWAY);
+    registry.add("app.hosting.public-url-template",()->com.getlancer.hosting.HostingPublisherFixture.TEMPLATE);
+  }
+  @AfterAll static void closePreviewPublisher(){previewPublisher.close();}
   @Autowired JdbcTemplate db;
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper json;
@@ -103,11 +110,11 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     response(body(post("/api/v1/me/components/"+id+"/submit"),"builder",Map.of()));
   }
   MockHttpServletRequestBuilder approve(UUID id)throws Exception{
-    return body(post("/api/v1/admin/components/"+id+"/review"),"admin",Map.of("revision",db.queryForObject("SELECT revision FROM component_entries WHERE id=?",Long.class,id),"decision","APPROVE","reason","Reviewed original curated recipe and explicit attribution."));
+    return body(post("/api/v1/admin/components/"+id+"/review"),"admin",Map.of("revision",db.queryForObject("SELECT revision FROM component_entries WHERE id=?",Long.class,id),"sourceHash",response(as(get("/api/v1/admin/components/"+id),"admin")).path("sourceHash").asText(),"decision","APPROVE","reason","Reviewed original curated recipe and explicit attribution."));
   }
   @AfterEach void cleanup(){db.execute("TRUNCATE users CASCADE");}
   @BeforeEach void setup(){
-    reset(provider);
+    reset(provider);previewPublisher.reset();
     db.execute("TRUNCATE users CASCADE");
     db.execute("TRUNCATE rate_buckets,component_slot_events");
     db.update("UPDATE component_slot_pricing SET amount_minor=NULL,enabled=false");
@@ -425,7 +432,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     response(approve(id));
   }
  @Test void suspendedSourceIsPrivateToCurrentMfaOperatorsAndKeepsFrozenBytes()throws Exception{
-  UUID id=draft();submit(id);response(approve(id));var original=response(get("/api/v1/components/remix-"+id));response(body(post("/api/v1/admin/components/"+id+"/review"),"admin",Map.of("revision",db.queryForObject("SELECT revision FROM component_entries WHERE id=?",Long.class,id),"decision","SUSPEND","reason","Temporarily suspended for independent moderation review.")));
+  UUID id=draft();submit(id);response(approve(id));var original=response(get("/api/v1/components/remix-"+id));response(body(post("/api/v1/admin/components/"+id+"/review"),"admin",Map.of("revision",db.queryForObject("SELECT revision FROM component_entries WHERE id=?",Long.class,id),"sourceHash",response(as(get("/api/v1/admin/components/"+id),"admin")).path("sourceHash").asText(),"decision","SUSPEND","reason","Temporarily suspended for independent moderation review.")));
   mvc.perform(get("/api/v1/components/remix-"+id)).andExpect(status().isNotFound());mvc.perform(as(get("/api/v1/admin/components/"+id),"builder")).andExpect(status().isForbidden());assertEquals(original.path("files"),response(as(get("/api/v1/admin/components/"+id),"admin")).path("files"));db.update("UPDATE sessions SET mfa_verified=false WHERE user_id=?",admin);mvc.perform(as(get("/api/v1/admin/components/"+id),"admin")).andExpect(status().isForbidden());
  }
 
@@ -614,12 +621,67 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     assertThrows(org.springframework.dao.DataAccessException.class,()->db.update("UPDATE component_releases SET source_sha256=? WHERE component_id=?","0".repeat(64),component));
     assertEquals(1,response(get("/api/v1/components/remix-"+component+"/versions")).path("items").size());
   }
+  @Test void v45ToV46MigrationPreservesPendingSourceAndPublishedHistory()throws Exception{
+    String schema="component_upgrade_"+UUID.randomUUID().toString().replace("-","");
+    var source=Objects.requireNonNull(db.getDataSource()).unwrap(com.zaxxer.hikari.HikariDataSource.class);
+    var flyway=org.flywaydb.core.Flyway.configure().dataSource(source.getJdbcUrl(),source.getUsername(),source.getPassword()).schemas(schema).defaultSchema(schema).target("28").load();
+    try{
+      flyway.migrate();
+      try(var connection=java.sql.DriverManager.getConnection(source.getJdbcUrl(),source.getUsername(),source.getPassword())){
+        var upgrade=new JdbcTemplate(new org.springframework.jdbc.datasource.SingleConnectionDataSource(connection,true));
+        upgrade.execute("SET search_path = "+schema+",public");UUID owner=UUID.randomUUID();
+        upgrade.update("INSERT INTO users(id,email,password_hash,email_verified_at) VALUES(?,'upgrade@example.test','unused',now())",owner);
+        var catalogue=json.readTree(Objects.requireNonNull(getClass().getResourceAsStream("/catalog/components.json")));
+        JsonNode recipe=null;for(var entry:catalogue)if(entry.path("slug").asText().equals("portfolio-card"))recipe=entry;
+        assertNotNull(recipe);String original=json.writeValueAsString(recipe);
+        var ids=new LinkedHashMap<String,UUID>();
+        for(String state:List.of("DRAFT","PENDING","ACTIVE","SUSPENDED")){
+          UUID id=UUID.randomUUID();ids.put(state,id);
+          upgrade.update("INSERT INTO component_entries(id,owner_id,recipe_slug,slug,title,summary,contribution,status) VALUES(?,?,'portfolio-card',?,'Original upgrade entry','Retain original source and context','Original attribution and explicit MIT consent',?)",id,owner,id.toString(),state);
+          if(state.equals("ACTIVE"))upgrade.update("UPDATE component_entries SET published_source=?::jsonb,published_context=?::jsonb,published_at=now() WHERE id=?",original,"{\"title\":\"Original upgrade entry\",\"summary\":\"Retain original source and context\",\"contribution\":\"Original attribution and explicit MIT consent\"}",id);
+        }
+        org.flywaydb.core.Flyway.configure().dataSource(source.getJdbcUrl(),source.getUsername(),source.getPassword()).schemas(schema).defaultSchema(schema).load().migrate();
+        assertNull(upgrade.queryForObject("SELECT submitted_source FROM component_entries WHERE id=?",String.class,ids.get("DRAFT")));
+        for(String state:List.of("PENDING","SUSPENDED")){
+          var preserved=json.readTree(upgrade.queryForObject("SELECT submitted_source::text FROM component_entries WHERE id=?",String.class,ids.get(state)));
+          assertEquals(recipe.path("files"),preserved.path("files"));assertEquals(recipe.path("sha256"),preserved.path("sha256"));
+        }
+        var released=json.readTree(upgrade.queryForObject("SELECT source::text FROM component_releases WHERE component_id=?",String.class,ids.get("ACTIVE")));
+        assertEquals(recipe,released);assertEquals(1,upgrade.queryForObject("SELECT count(*) FROM component_releases",Integer.class));
+        assertThrows(org.springframework.dao.DataAccessException.class,()->upgrade.update("UPDATE component_entries SET title='Unreviewed migration mutation' WHERE id=?",ids.get("PENDING")));
+        assertThrows(org.springframework.dao.DataAccessException.class,()->upgrade.update("UPDATE component_releases SET source_sha256=?","0".repeat(64)));
+        assertEquals(0,upgrade.queryForObject("SELECT count(*) FROM component_previews",Integer.class));
+      }
+    }finally{db.execute("DROP SCHEMA IF EXISTS "+schema+" CASCADE");}
+  }
+  @Test void componentReviewWaitsForConcurrentMfaRevocationAndRechecksBeforePublication()throws Exception{
+    UUID id=draft();submit(id);var request=approve(id);
+    var workers=Executors.newSingleThreadExecutor();var pending=new java.util.concurrent.atomic.AtomicReference<Future<Integer>>();
+    try{
+      new org.springframework.transaction.support.TransactionTemplate(transactionManager).executeWithoutResult(status->{
+        db.update("UPDATE sessions SET mfa_verified=false WHERE user_id=?",admin);
+        pending.set(workers.submit(()->mvc.perform(request).andReturn().getResponse().getStatus()));
+        boolean waiting=false;
+        for(int i=0;i<500;i++){
+          if(db.queryForObject("SELECT count(*) FROM pg_stat_activity WHERE wait_event_type='Lock' AND query LIKE 'SELECT token_hash FROM sessions%FOR SHARE'",Integer.class)>0){waiting=true;break;}
+          if(pending.get().isDone())break;
+          try{Thread.sleep(10);}catch(InterruptedException e){Thread.currentThread().interrupt();throw new RuntimeException(e);}
+        }
+        assertTrue(waiting,"Review must serialize against current administrator session authority.");
+        assertEquals("PENDING",db.queryForObject("SELECT status FROM component_entries WHERE id=?",String.class,id));
+      });
+      assertEquals(403,pending.get().get(10,TimeUnit.SECONDS));
+      assertEquals(0,db.queryForObject("SELECT count(*) FROM component_releases WHERE component_id=?",Integer.class,id));
+    }finally{workers.shutdownNow();}
+  }
   @Test void savedComponentsArePrivateIdempotentAndUnavailableAfterWithdrawal() throws Exception {
     UUID component=draft();submit(component);response(approve(component));String slug="remix-"+component;
     response(body(post("/api/v1/components/"+slug+"/save"),"other",Map.of()));
     response(body(post("/api/v1/components/"+slug+"/save"),"other",Map.of()));
     assertEquals(1,response(as(get("/api/v1/me/saved-components"),"other")).path("items").size());
     assertEquals(0,response(as(get("/api/v1/me/saved-components"),"builder")).path("items").size());
+    assertEquals(1,response(as(get("/api/v1/me/export"),"other")).path("savedComponents").size());
+    assertEquals(0,response(as(get("/api/v1/me/export"),"builder")).path("savedComponents").size());
     mvc.perform(get("/api/v1/me/saved-components")).andExpect(status().isUnauthorized());
     response(body(post("/api/v1/me/components/"+component+"/withdraw"),"builder",Map.of()));
     mvc.perform(get("/api/v1/components/"+slug)).andExpect(status().isNotFound());
@@ -629,6 +691,100 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     response(body(delete("/api/v1/components/"+slug+"/save"),"other",Map.of()));
     response(body(delete("/api/v1/components/"+slug+"/save"),"other",Map.of()));
     assertEquals(0,response(as(get("/api/v1/me/saved-components"),"other")).path("items").size());
+  }
+
+  byte[] contributionZip(String marker)throws Exception {
+    var seed=json.readTree(Objects.requireNonNull(getClass().getResourceAsStream("/catalog/components.json"))).findValues("files").get(0);
+    var output=new java.io.ByteArrayOutputStream();try(var zip=new java.util.zip.ZipOutputStream(output)){
+      for(String name:List.of("index.html","README.md","LICENSE")){zip.putNextEntry(new java.util.zip.ZipEntry(name));String content=seed.path(name).asText();if(name.equals("index.html"))content=content.replace("</body>","<p>"+marker+"</p></body>");zip.write(content.getBytes(java.nio.charset.StandardCharsets.UTF_8));zip.closeEntry();}
+    }return output.toByteArray();
+  }
+  MockHttpServletRequestBuilder sourceUpload(UUID id,String version,byte[] bytes,String actor){return as(multipart("/api/v1/me/components/"+id+"/source").file(new org.springframework.mock.web.MockMultipartFile("file","component.zip","application/zip",bytes)).param("version",version).param("scenario","Try this original synthetic interaction.").param("rightsConsent","true"),actor).header("Origin","http://localhost:3000").header("X-Requested-With","getlancer");}
+  @Test void privateUploadedSourceExportsRequireRecentAdminMfaAndAuditTheCurrentActor()throws Exception{
+    UUID id=draft();response(sourceUpload(id,"1.0.0",contributionZip("Private original source"),"builder"));
+    String adminPath="/api/v1/admin/components/"+id,ownerPath="/api/v1/me/components/"+id;
+    db.update("UPDATE sessions SET issued_at=now()-interval '16 minutes' WHERE user_id=?",admin);
+    mvc.perform(as(get(adminPath),"admin")).andExpect(status().isForbidden());
+    db.update("UPDATE sessions SET issued_at=now() WHERE user_id=?",admin);
+    response(as(get(adminPath),"admin"));response(as(get(ownerPath),"builder"));
+    for(var actor:Map.of(admin,adminPath,builder,ownerPath).entrySet())assertEquals(1,db.queryForObject("SELECT count(*) FROM security_audit_events WHERE actor_id=? AND event='PRIVATE_EXPORT' AND target=? AND result='SUCCESS'",Integer.class,actor.getKey(),actor.getValue()));
+    mvc.perform(as(get(ownerPath),"other")).andExpect(status().isNotFound());
+    assertFalse(json.writeValueAsString(db.queryForList("SELECT event,target,result,request_id FROM security_audit_events WHERE event='PRIVATE_EXPORT'")).contains("Private original source"));
+  }
+  @Test void directConcurrentReleaseInsertsCannotReuseTheSameVersion()throws Exception{
+    UUID id=draft();submit(id);response(approve(id));var source=(com.fasterxml.jackson.databind.node.ObjectNode)json.readTree(db.queryForObject("SELECT source::text FROM component_releases WHERE component_id=?",String.class,id));source.put("version","2.0.0");
+    String snapshot=json.writeValueAsString(source);var workers=Executors.newSingleThreadExecutor();var pending=new java.util.concurrent.atomic.AtomicReference<Future<Boolean>>();
+    try{
+      new org.springframework.transaction.support.TransactionTemplate(transactionManager).executeWithoutResult(status->{
+        db.update("INSERT INTO component_releases(component_id,revision,source,context,source_sha256) VALUES(?,200,?::jsonb,'{}'::jsonb,?)",id,snapshot,source.path("sha256").asText());
+        pending.set(workers.submit(()->{try{db.update("INSERT INTO component_releases(component_id,revision,source,context,source_sha256) VALUES(?,201,?::jsonb,'{}'::jsonb,?)",id,snapshot,source.path("sha256").asText());return true;}catch(org.springframework.dao.DataAccessException expected){return false;}}));
+        boolean waiting=false;for(int i=0;i<500;i++){
+          if(db.queryForObject("SELECT count(*) FROM pg_stat_activity WHERE wait_event_type='Lock' AND query LIKE 'INSERT INTO component_releases%201%'",Integer.class)>0){waiting=true;break;}if(pending.get().isDone())break;
+          try{Thread.sleep(10);}catch(InterruptedException e){Thread.currentThread().interrupt();throw new RuntimeException(e);}
+        }
+        assertTrue(waiting,"The database version invariant must serialize direct concurrent inserts.");
+      });
+      assertFalse(pending.get().get(10,TimeUnit.SECONDS));assertEquals(1,db.queryForObject("SELECT count(*) FROM component_releases WHERE component_id=? AND source->>'version'='2.0.0'",Integer.class,id));
+    }finally{workers.shutdownNow();}
+  }
+  @Test void uploadedSourceChangingVersionsRequireFreshReviewAndFreezeAllFiles()throws Exception{
+    UUID id=draft();byte[] first=contributionZip("Original custom source");response(sourceUpload(id,"1.0.0",first,"builder"));
+    mvc.perform(sourceUpload(id,"1.0.1",first,"other")).andExpect(status().isNotFound());
+    var draftSource=response(as(get("/api/v1/me/components/"+id),"builder"));assertTrue(draftSource.path("uploaded").asBoolean());assertFalse(draftSource.has("archiveBase64"));
+    submit(id);assertThrows(org.springframework.dao.DataAccessException.class,()->db.update("UPDATE component_entries SET draft_source=jsonb_set(draft_source,'{files,README.md}','\"changed\"') WHERE id=?",id));
+    mvc.perform(sourceUpload(id,"1.0.1",first,"builder")).andExpect(status().isConflict());response(approve(id));
+    var published=response(get("/api/v1/components/remix-"+id));assertEquals(draftSource.path("files"),published.path("files"));assertFalse(published.has("archiveBase64"));
+    response(body(post("/api/v1/me/components/"+id+"/new-version"),"builder",Map.of()));
+    mvc.perform(sourceUpload(id,"1.0.0",first,"builder")).andExpect(status().isConflict());response(sourceUpload(id,"1.0.1",contributionZip("Changed custom source"),"builder"));
+    assertEquals(published.path("files"),response(get("/api/v1/components/remix-"+id)).path("files"));submit(id);response(approve(id));
+    assertNotEquals(published.path("sha256"),response(get("/api/v1/components/remix-"+id)).path("sha256"));
+    assertEquals(2,response(get("/api/v1/components/remix-"+id+"/versions")).path("items").size());
+    assertEquals(published.path("sha256").asText(),db.queryForObject("SELECT source_sha256 FROM component_releases WHERE component_id=? ORDER BY revision LIMIT 1",String.class,id));
+  }
+  @Test void controlledComponentPreviewRetriesExactIdentityAndChecksCurrentAuthority()throws Exception{
+    UUID id=draft();response(sourceUpload(id,"1.0.0",contributionZip("Free reviewed preview"),"builder"));submit(id);response(approve(id));
+    previewPublisher.failPutAfter=true;mvc.perform(body(post("/api/v1/me/components/"+id+"/preview"),"builder",Map.of())).andExpect(status().isBadGateway());
+    UUID deployment=db.queryForObject("SELECT deployment_id FROM component_previews WHERE component_id=?",UUID.class,id);
+    var expiry=db.queryForObject("SELECT expires_at FROM component_previews WHERE component_id=?",java.sql.Timestamp.class,id);
+    mvc.perform(get("/api/v1/hosting/gateway/"+deployment).header("X-GetLancer-Demo-Gateway",com.getlancer.hosting.HostingPublisherFixture.GATEWAY)).andExpect(jsonPath("$.allowed").value(false));
+    previewPublisher.failPutAfter=false;response(body(post("/api/v1/me/components/"+id+"/preview"),"builder",Map.of()));
+    assertEquals(1,previewPublisher.records.size());assertEquals(expiry,db.queryForObject("SELECT expires_at FROM component_previews WHERE deployment_id=?",java.sql.Timestamp.class,deployment));
+    assertTrue(response(get("/api/v1/components/remix-"+id+"/preview")).path("available").asBoolean());
+    mvc.perform(get("/api/v1/hosting/gateway/"+deployment)).andExpect(status().isForbidden());
+    mvc.perform(get("/api/v1/hosting/gateway/"+deployment).header("X-GetLancer-Demo-Gateway",com.getlancer.hosting.HostingPublisherFixture.GATEWAY)).andExpect(jsonPath("$.preview").value("COMPONENT"));
+    assertThrows(org.springframework.dao.DataAccessException.class,()->db.update("UPDATE component_previews SET expires_at=now() WHERE deployment_id=?",deployment));
+    for(String sql:List.of("UPDATE users SET account_status='SUSPENDED' WHERE id=?","UPDATE developer_profiles SET approval_status='PENDING' WHERE user_id=?")){
+      db.update(sql,builder);assertFalse(response(get("/api/v1/components/remix-"+id+"/preview")).path("available").asBoolean());
+      db.update("UPDATE users SET account_status='ACTIVE' WHERE id=?",builder);db.update("UPDATE developer_profiles SET approval_status='APPROVED' WHERE user_id=?",builder);
+    }
+    db.update("DELETE FROM user_roles WHERE user_id=? AND role='DEVELOPER'",builder);assertFalse(response(get("/api/v1/components/remix-"+id+"/preview")).path("available").asBoolean());mvc.perform(get("/api/v1/components/remix-"+id)).andExpect(status().isNotFound());db.update("INSERT INTO user_roles(user_id,role) VALUES(?,'DEVELOPER')",builder);
+    response(body(post("/api/v1/me/components/"+id+"/new-version"),"builder",Map.of()));assertFalse(response(get("/api/v1/components/remix-"+id+"/preview")).path("available").asBoolean());
+    response(sourceUpload(id,"1.0.1",contributionZip("New preview"),"builder"));submit(id);response(approve(id));
+    mvc.perform(get("/api/v1/hosting/gateway/"+deployment).header("X-GetLancer-Demo-Gateway",com.getlancer.hosting.HostingPublisherFixture.GATEWAY)).andExpect(jsonPath("$.allowed").value(false));
+    response(body(post("/api/v1/me/components/"+id+"/preview"),"builder",Map.of()));response(body(post("/api/v1/me/components/"+id+"/withdraw"),"builder",Map.of()));assertFalse(response(get("/api/v1/components/remix-"+id+"/preview")).path("available").asBoolean());
+    assertThrows(org.springframework.dao.DataAccessException.class,()->db.update("UPDATE component_previews SET state='READY' WHERE component_id=?",id));
+    submit(id);response(approve(id));assertFalse(response(get("/api/v1/components/remix-"+id+"/preview")).path("available").asBoolean());mvc.perform(body(post("/api/v1/me/components/"+id+"/preview"),"builder",Map.of())).andExpect(status().isConflict());
+
+  }
+
+  @Test void moderationDisplaysExactlyTheSourceValidatedForArchivedAndSuspendedReleases()throws Exception{
+    UUID id=draft();response(sourceUpload(id,"1.0.0",contributionZip("Published A"),"builder"));submit(id);response(approve(id));
+    response(body(post("/api/v1/me/components/"+id+"/new-version"),"builder",Map.of()));response(sourceUpload(id,"1.0.1",contributionZip("Draft B"),"builder"));response(body(post("/api/v1/me/components/"+id+"/archive"),"builder",Map.of()));
+    response(body(patch("/api/v1/me/components/"+id),"builder",Map.of("recipeSlug","portfolio-card","title","Private unsubmitted title","summary","Private unsubmitted summary for the next release","contribution","Private unsubmitted contribution text that cannot be published by moderation.","rightsConsent",true)));
+    response(body(post("/api/v1/me/components/"+id+"/archive"),"builder",Map.of()));
+    assertEquals("Private unsubmitted title",response(as(get("/api/v1/me/components/"+id),"builder")).path("title").asText());
+    var shown=response(as(get("/api/v1/admin/components/"+id),"admin"));assertEquals("Original recipe selection",shown.path("title").asText());response(body(post("/api/v1/admin/components/"+id+"/review"),"admin",Map.of("revision",shown.path("revision").asLong(),"sourceHash",shown.path("sourceHash").asText(),"decision","SUSPEND","reason","Suspend this exact archived record after reviewing its source.")));
+    var suspended=response(as(get("/api/v1/admin/components/"+id),"admin"));assertEquals("1.0.0",suspended.path("version").asText());assertEquals(shown.path("title"),suspended.path("title"));response(approve(id));var restored=response(get("/api/v1/components/remix-"+id));assertEquals(suspended.path("files"),restored.path("files"));assertEquals(shown.path("title"),restored.path("title"));
+    response(body(post("/api/v1/me/components/"+id+"/new-version"),"builder",Map.of()));assertEquals("Private unsubmitted title",response(as(get("/api/v1/me/components/"+id),"builder")).path("title").asText());submit(id);response(approve(id));assertEquals("Private unsubmitted title",response(get("/api/v1/components/remix-"+id)).path("title").asText());
+  }
+
+  @Test void restorationAndContextOnlyReviewReuseTheSameReleaseAndFixedPreviewExpiry()throws Exception{
+    UUID id=draft();submit(id);response(approve(id));response(body(post("/api/v1/me/components/"+id+"/preview"),"builder",Map.of()));
+    var first=db.queryForMap("SELECT deployment_id,expires_at FROM component_previews WHERE component_id=?",id);
+    response(body(post("/api/v1/me/components/"+id+"/new-version"),"builder",Map.of()));submit(id);response(approve(id));response(body(post("/api/v1/me/components/"+id+"/preview"),"builder",Map.of()));
+    assertEquals(1,db.queryForObject("SELECT count(*) FROM component_releases WHERE component_id=?",Integer.class,id));assertEquals(first,db.queryForMap("SELECT deployment_id,expires_at FROM component_previews WHERE component_id=?",id));assertEquals(1,previewPublisher.puts.get());
+    var shown=response(as(get("/api/v1/admin/components/"+id),"admin"));response(body(post("/api/v1/admin/components/"+id+"/review"),"admin",Map.of("revision",shown.path("revision").asLong(),"sourceHash",shown.path("sourceHash").asText(),"decision","SUSPEND","reason","Suspend the reviewed component without allocating a release.")));response(approve(id));
+    assertEquals(1,db.queryForObject("SELECT count(*) FROM component_releases WHERE component_id=?",Integer.class,id));assertEquals(first,db.queryForMap("SELECT deployment_id,expires_at FROM component_previews WHERE component_id=?",id));
   }
 
 }

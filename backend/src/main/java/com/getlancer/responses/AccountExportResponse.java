@@ -21,6 +21,7 @@ public record AccountExportResponse(Account account,
     List<Products> products,
     List<Requests> requests,
     List<SavedProducts> savedProducts,
+    List<SavedComponents> savedComponents,
     List<LegalAcceptances> legalAcceptances,
     List<RepositoryVerifications> repositoryVerifications,
     List<EarnedCapacityAwards> earnedCapacityAwards,
@@ -62,6 +63,7 @@ public record AccountExportResponse(Account account,
         ResponseRows.rows(source, "products", row -> Products.from(row, mapper)),
         ResponseRows.rows(source, "requests", row -> Requests.from(row, mapper)),
         ResponseRows.rows(source, "savedProducts", row -> SavedProducts.from(row, mapper)),
+        ResponseRows.rows(source, "savedComponents", row -> SavedComponents.from(row)),
         ResponseRows.rows(source, "legalAcceptances", row -> LegalAcceptances.from(row, mapper)),
         ResponseRows.rows(source, "repositoryVerifications", row -> RepositoryVerifications.from(row, mapper)),
         ResponseRows.rows(source, "earnedCapacityAwards", row -> EarnedCapacityAwards.from(row, mapper)),
@@ -197,6 +199,9 @@ public record AccountExportResponse(Account account,
     }
   }
 
+  public record SavedComponents(String slug, @JsonProperty("created_at") Timestamp created_at){
+    static SavedComponents from(Map<String,Object> row){return new SavedComponents(ResponseRows.string(row,"slug"),ResponseRows.timestamp(row,"created_at"));}
+  }
   public record SavedProducts(@JsonProperty("product_id") UUID product_id,
       @JsonProperty("created_at") Timestamp created_at) {
     public static SavedProducts from(Map<String, Object> row, ObjectMapper mapper) {

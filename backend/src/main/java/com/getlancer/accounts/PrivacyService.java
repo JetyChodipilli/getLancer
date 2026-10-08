@@ -91,6 +91,7 @@ public class PrivacyService {
               + " account',headline='',bio='',technology='',category='',github_url=NULL,linkedin_url=NULL,website_url='',country='',time_zone='',languages='',availability_status='NOT_ACCEPTING',booked_until=NULL,approval_status='SUSPENDED',updated_at=now()"
               + " WHERE user_id=?",
           id);
+      db.update("DELETE FROM saved_components WHERE user_id=?", id);
       db.update("DELETE FROM saved_products WHERE user_id=?", id);
       db.update("DELETE FROM notifications WHERE user_id=?", id);
       db.update("DELETE FROM oauth_identities WHERE user_id=?", id);

@@ -1,31 +1,42 @@
-# V4.6 fresh implementation
+# V4.6 reusable frontend contributions
 
-Started 8 October 2026 on a new branch from main `b672b584c6eee83e33d9de1db7863b8a38fd074b`. No prior V4.6 branch or completion evidence was resumed. The scope is grounded in the supplied sprint plan, S02-B01 through S02-B08, with the user's latest independent three-free-slot policy retained.
+The implementation completes sprint S02-B01–B08 from the supplied V4.5-to-V5.2 planning documents. It builds on V4.5 main `b672b584c6eee83e33d9de1db7863b8a38fd074b` and preserves the independent component/project/template publishing pools. Three free component slots remain separate from project and template capacity; extra places use existing admin pricing/provider authority. Visitor source and previews remain free.
 
-## First implementation slice
+## Requirement traceability
 
-- Visible client, builder and administrator demo cards on the personal workspace. Component publishing has separate sample creator/moderator/visitor views.
-- Two-step component draft form with bounded input, retained back-navigation values, contribution disclosure, licence consent and pending/error feedback. Existing saved backend drafts can be reopened.
-- Twenty-four original standalone HTML/CSS/JavaScript entries: four navigation, four sidebar, four form, four card, four authentication and four dashboard examples. Every source ZIP contains its exact source, README and MIT notice. No remote dependencies or credentials are required.
-- Catalogue metadata is separated from source bodies in the client bundle; source inspection is loaded when needed.
-- A submitted recipe snapshot is frozen at submission, including at the database boundary. Review accepts a source hash and rejects mismatched hashes; current revision and current administrator MFA remain required.
-- Approved release records are append-only. History checks current public authority. Existing first-publication source remains immutable.
-- Explicit withdrawal revokes public detail and version-history access immediately on the next request. Archiving retains the already-published MIT source under the existing policy.
-- Private component bookmarks use the authenticated actor, idempotent save/delete, a serialized 200-entry limit and an unavailable state after withdrawal/suspension. Project saves retain their existing service. Preview saves are clearly labelled browser-local sample visitor state.
-- Compact workspace typography, role cards, dialog copy and spacing preserve 44-pixel controls, focus outlines and phone input text sizes.
+| Sprint item | Implemented behavior | Acceptance evidence |
+|---|---|---|
+| B01 | Two-step private draft, saved draft resume, retained back-navigation fields, explicit contribution and rights consent, bounded inputs and recoverable save/upload errors | `ComponentDraftEditor`, `ComponentWorkspace`; V4.6 responsive and connected browser journeys |
+| B02 | Creator ZIP upload pinned privately without execution; exact source/setup/licence inspection and hash binding | `ComponentArchiveTest`; ownership/upload integration regressions |
+| B03 | Immutable submission source and text; current revision and full snapshot hash; current admin MFA and actor authority held through publication; append-only distinct source versions | PostgreSQL lifecycle, MFA-race, direct concurrent insert and upgrade regressions |
+| B04 | Exact reviewed ZIP through the V4 publisher; free preview with fixed identity/expiry; current role/account/profile/release checks; permanent preview revocation on withdrawal | Publisher regressions, controlled preview integration test and connected browser publication/withdrawal |
+| B05 | Phone/tablet/desktop layout, 44-pixel controls, labelled inputs, dialog focus return, loading/error feedback and honest synthetic interactions | Responsive browser suite; field performance targets remain deployment measurements |
+| B06 | Actor-private idempotent component saves, 200-entry serialized bound, unavailable projection after withdrawal/suspension, export and deletion handling; existing project saves retained | Bookmark integration and connected saved-list journeys |
+| B07 | 24 original standalone HTML/CSS/JS examples, four each NAVBAR/SIDEBAR/FORM/CARD/AUTH/DASHBOARD; unique source hashes, README and MIT notice | Independent ZIP/metadata/licence/script checks and browser interactions for all 24 |
+| B08 | Visible demo role cards and sample state; real upload/publisher failures never report simulated success; uploaded source runs only at the controlled publisher in an opaque frame | Connected uploaded-variant interaction and browser DOM/storage/network/navigation denial test |
 
-## Remaining V4.6 acceptance work
+## Creator and moderator workflow
 
-This slice does **not** mark the whole phase complete. The existing curated-recipe workflow remains explicit. Arbitrary creator source-archive upload, source-changing versions of an existing entry, and V4 publisher integration for controlled free previews are still required by S02-B02/B03/B04. Source hashes and immutable recipe-context history alone do not satisfy those requirements.
+An approved builder creates a private draft, describes their contribution and accepts the original MIT licence. They may choose a supplied recipe or upload their own self-contained frontend source. The form saves context before uploading. If upload fails, the saved draft ID and entered fields remain available for retry; it never creates a second draft merely to retry the file.
 
-Owner/account restrictions and withdrawal deny new requests. Already-delivered iframe source cannot be recalled by these request checks. A controlled publisher/gateway with current authority and active revocation is required before claiming the S02-B04 acceptance gate.
+Uploads are ZIPs up to 5 MiB containing exactly `index.html`, `README.md` and `LICENSE`, each valid UTF-8 and at most 100,000 bytes. Paths, compression expansion, duplicate entries, archives/executables, credential-like content and malformed packages are checked by the existing V4 inspector. The full canonical MIT notice, copyright attribution, explicit rights consent, a bounded version and a synthetic interaction description are required. External dependencies and server execution are outside this self-contained format. Submitted bytes are never executed during upload or review.
 
-The 24 sources have independent ZIP/hash/licence and JavaScript syntax checks. Browser test specifications cover all 24 interactions, associated errors/loading, visible role switching, draft/back/review, saved state and widths 320/390/768/1024/1440. Passing source tests do not establish rendered accessibility or field performance. Browser/connected acceptance requires actual CI or supported browser execution. LCP/INP/CLS field targets remain unmeasured.
+Submission freezes the complete source archive, all three files, source/manifest/archive hashes and publication text. A moderator inspects those exact files and records a reason, the current revision and the hash of the whole reviewed snapshot. Source-changing publication requires a distinct version. The first source and every release remain immutable. Context-only review and restoration of the same latest source reuse its release and preview expiry. At most 100 distinct reviewed releases are retained; unchanged-source restoration remains possible at that boundary.
 
-## Verification and operations
+Published source remains available while a new private draft waits for review, under the existing archival policy. Moderation of an archived record uses its last published source and text, preserving an unsubmitted draft for the owner. Withdrawal denies subsequent public source/history requests and permanently revokes all existing preview identities. A fresh owner submission can renew source publication, but a distinct reviewed source version is needed for a new preview after withdrawal or expiry.
 
-Use Flyway V29 for the additive submitted snapshot, release history and bookmark tables. Keep application and migration credentials separate as documented in DATABASE_RUNTIME_ROLES.md. Do not erase immutable releases or existing payment/audit records during rollback. Roll back the application together and retain the additive migration.
+## Preview boundary and operations
 
-The frontend preview remains illustrative for account/community actions. It must not imply that the Spring backend or PostgreSQL service has been deployed. Existing paid-slot policy and merchant gates are unchanged.
+Configure the existing V4 publisher, gateway secret, isolated public URL template, DNS/TLS and `HOSTED_DEMOS_ENABLED` as described in [V4 hosting operations](../V4_HOSTING_OPERATIONS.md). Hosting stays disabled by default. An active owner explicitly publishes the reviewed free preview. Its deployment UUID, exact archive/manifest hashes and configured expiry are reserved before the external PUT. Retries reuse them; a timeout cannot grant public authority before exact publisher confirmation. A withdrawal during publication prevents confirmation from reviving the identity.
 
-Requested skills applied: gstack Work Mode, ponytail whole-repository audit and change review, Unlazy gates, UI/UX Pro Max compact-form/focus guidance, shadcn dashboard free conventions and shadcn dashboard template adaptation guidance. The dashboard template's bundled source directory is absent in this installation; no template files or licence-dependent upstream assets were copied.
+The publisher rechecks the gateway on every public GET/HEAD. It denies inactive accounts, unapproved profiles, removed developer roles, suspended/withdrawn components, expired previews and obsolete source releases. Component responses use a dedicated CSP with no network, child frames, workers, form navigation or same-origin permission. Ordinary V4 demo headers remain unchanged. The app uses a script-free outer sandbox restricted to the exact publisher origin and an opaque child sandbox. Its frame policy also blocks child navigation to the application. Already-delivered/downloaded MIT source cannot be recalled; revocation controls subsequent requests.
+
+Apply V29 and V30 with migration credentials, then reapply `ops/database/10_permissions.sql` for runtime/reader grants. V30 backfills pending V4.5 recipes and existing first-publication history without replacing existing payment, audit or source records. Release versions serialize at the database boundary. Preview identity, expiry and digest fields are immutable; revoked state cannot revive. Runtime roles may insert releases and update preview state but cannot mutate/delete history or access these tables through browser database roles. Roll back application code as a unit while retaining additive schema and immutable records.
+
+## Verification and deployment limits
+
+See [STATUS.md](STATUS.md) and [COMPLETION_GATES.md](COMPLETION_GATES.md) for observed results. Production frontend, backend, publisher, Docker, real database roles and security scans must pass on the published implementation before release. Existing scanner finding severities, exact advisory assessments and expiry remain intact; the reviewed input hashes track the audited new handlers and tests.
+
+LCP/INP/CLS p75 targets are not field measurements from a local build. Measure them on the configured production deployment; this implementation does not claim a field-performance or universal WCAG certification. Backend live labs, paid college source listings and the V4.7/V4.8 execution platform remain later-phase work. Demo role switching cannot create real connected accounts or moderation authority.
+
+Requested skills applied: gstack Work Mode and independent native review, Ponytail audit/change review, UI/UX Pro Max form/focus guidance, installed shadcn dashboard conventions and Unlazy acceptance gates. The template bundle is absent in this skill installation, so no upstream template assets were copied or dependencies added.
