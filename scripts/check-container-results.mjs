@@ -4,15 +4,16 @@ import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {assessBackendFindings} from './sbom-dispositions.mjs';
 
-const advisory='GHSA-pc63-qcmh-9cmg';
+const advisories=new Map([['CVE-2026-47884','GHSA-pc63-qcmh-9cmg'],['CVE-2026-47890','GHSA-j9f9-w8pj-32f8']]);
 const coordinate='pkg:maven/org.springframework/spring-webmvc@6.2.19?type=jar';
 const critical=new Set(['HIGH','CRITICAL']);
 const severities=new Set(['UNKNOWN','LOW','MEDIUM','HIGH','CRITICAL']);
 const nonempty=value=>typeof value==='string'&&value.trim().length>0;
 
 // Keep every scanner finding visible. Only this exact application-specific assessment
-// can dispose the previously reviewed Spring finding; there is no CVE ignore file.
+// can dispose the reviewed Spring findings; there is no CVE ignore file.
 export function evaluateContainer(report,expectedImage,assessment){
+  const assessments=Array.isArray(assessment)?assessment:assessment?[assessment]:[];
   assert.equal(report.SchemaVersion,2,'Unsupported or incomplete image scan.');
   assert.equal(report.ArtifactName,expectedImage,'Scan must describe the reviewed image.');
   assert.equal(report.ArtifactType,'container_image','Require a runtime image scan.');
@@ -32,13 +33,13 @@ export function evaluateContainer(report,expectedImage,assessment){
   let blocking=0,notAffected=0;
   const Results=report.Results.map(result=>({...result,Vulnerabilities:(result.Vulnerabilities||[]).map(finding=>{
     if(!critical.has(finding.Severity)&&finding.Severity!=='UNKNOWN')return finding;
+    const reviewed=assessments.find(item=>item.id===advisories.get(finding.VulnerabilityID)&&item.purl===coordinate);
     if(expectedImage==='getlancer-api:scan'&&result.Type==='jar'
-        &&finding.VulnerabilityID==='CVE-2026-47884'
+        &&advisories.has(finding.VulnerabilityID)
         &&finding.PkgName==='org.springframework:spring-webmvc'&&finding.InstalledVersion==='6.2.19'
-        &&assessment?.id===advisory&&assessment?.purl===coordinate
-        &&assessment.disposition?.status==='not_affected'){
+        &&reviewed?.disposition?.status==='not_affected'){
       notAffected++;
-      return {...finding,ApplicationDisposition:assessment.disposition};
+      return {...finding,ApplicationDisposition:reviewed.disposition};
     }
     blocking++;
     return finding;
@@ -54,8 +55,9 @@ function currentBackendAssessment(){
   assert.ok(!evidence.assessmentError,'Java applicability assessment failed.');
   const age=Date.now()-Date.parse(evidence.checkedAt);
   assert.ok(Number.isFinite(age)&&age>=0&&age<=60*60*1000,'Require current dependency evidence.');
-  const finding=evidence.findings.find(item=>item.id===advisory&&item.purl===coordinate);
-  if(!finding)return undefined;
+  const findings=evidence.findings.filter(item=>[...advisories.values()].includes(item.id)&&item.purl===coordinate);
+  assert.equal(new Set(findings.map(item=>item.id)).size,findings.length,'Duplicate applicability evidence.');
+  return findings.map(finding=>{
   assert.equal(finding.disposition?.status,'not_affected');
   const fresh=assessBackendFindings([finding],root)[0];
   assert.equal(fresh.disposition.evidence.mvcReportSha256,finding.disposition.evidence.mvcReportSha256,
@@ -66,6 +68,7 @@ function currentBackendAssessment(){
   for(const item of fresh.disposition.evidence.verifiedInputs)
     assert.equal(previous.get(relative(item.path)),item.sha256,'Image source differs from tested assessment inputs.');
   return fresh;
+  });
 }
 
 if(process.argv[1]&&pathToFileURL(resolve(process.argv[1])).href===import.meta.url){

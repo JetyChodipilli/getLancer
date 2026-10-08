@@ -885,7 +885,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java",
-      "sha256": "a3a41518ac5471be895e1e0b58922943da4cb306cafc8c69eadec19db299fef8"
+      "sha256": "e1f014c0625a85449f537df9478049839b91e16e87c371aac222dccb65c188aa"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/DataExposureIntegrationTest.java",

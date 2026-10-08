@@ -51,6 +51,27 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     for(var view:applicationContext.getBeansOfType(org.springframework.web.servlet.View.class).values())
       assertFalse(view instanceof org.springframework.web.servlet.view.xslt.XsltView,view.getClass().getName());
   }
+  @Test void mvcHandlersDoNotExposeSseFragmentRendering(){
+    var mappings=applicationContext.getBeansOfType(org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping.class);
+    int applicationHandlers=0;
+    for(var mapping:mappings.values()) for(var entry:mapping.getHandlerMethods().entrySet()){
+      var handler=entry.getValue();
+      if(!handler.getBeanType().getPackageName().startsWith("com.getlancer."))continue;
+      applicationHandlers++;
+      var type=handler.getReturnType().getParameterType();
+      assertFalse(org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter.class.isAssignableFrom(type),handler.toString());
+      assertFalse(org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody.class.isAssignableFrom(type),handler.toString());
+      assertFalse(org.springframework.web.servlet.View.class.isAssignableFrom(type),handler.toString());
+      assertFalse(type.getName().contains("FragmentsRendering"),handler.toString());
+      for(var media:entry.getKey().getProducesCondition().getProducibleMediaTypes())
+        assertFalse(org.springframework.http.MediaType.TEXT_EVENT_STREAM.isCompatibleWith(media),handler.toString());
+      assertTrue(org.springframework.core.annotation.AnnotatedElementUtils.hasAnnotation(handler.getBeanType(),org.springframework.web.bind.annotation.ResponseBody.class)
+        ||handler.hasMethodAnnotation(org.springframework.web.bind.annotation.ResponseBody.class),handler.toString());
+    }
+    assertTrue(applicationHandlers>100,"Inspect the real application registry.");
+    assertTrue(applicationContext.getBeansOfType(org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter.class).isEmpty());
+    assertTrue(applicationContext.getBeansOfType(org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody.class).isEmpty());
+  }
   UUID user(String name,boolean approved){
     UUID id=UUID.randomUUID();
     db.update("INSERT INTO users(id,email,password_hash,email_verified_at) VALUES(?,?,'unused',now())",id,name+"@example.test");
