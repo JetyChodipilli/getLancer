@@ -720,7 +720,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
         db.update("INSERT INTO component_releases(component_id,revision,source,context,source_sha256) VALUES(?,200,?::jsonb,'{}'::jsonb,?)",id,snapshot,source.path("sha256").asText());
         pending.set(workers.submit(()->{try{db.update("INSERT INTO component_releases(component_id,revision,source,context,source_sha256) VALUES(?,201,?::jsonb,'{}'::jsonb,?)",id,snapshot,source.path("sha256").asText());return true;}catch(org.springframework.dao.DataAccessException expected){return false;}}));
         boolean waiting=false;for(int i=0;i<500;i++){
-          if(db.queryForObject("SELECT count(*) FROM pg_stat_activity WHERE wait_event_type='Lock' AND query LIKE 'INSERT INTO component_releases%201%'",Integer.class)>0){waiting=true;break;}if(pending.get().isDone())break;
+          if(db.queryForObject("SELECT count(*) FROM pg_locks WHERE locktype='transactionid' AND NOT granted",Integer.class)>0){waiting=true;break;}if(pending.get().isDone())break;
           try{Thread.sleep(10);}catch(InterruptedException e){Thread.currentThread().interrupt();throw new RuntimeException(e);}
         }
         assertTrue(waiting,"The database version invariant must serialize direct concurrent inserts.");
