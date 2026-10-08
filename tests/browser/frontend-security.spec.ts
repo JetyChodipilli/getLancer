@@ -83,8 +83,11 @@ test('opaque srcdoc admits the trusted recipe hash and blocks a modified uploade
       iframe.id = id;
       iframe.title = id;
       iframe.setAttribute('sandbox', 'allow-scripts allow-forms');
+      iframe.style.display = 'block';
+      iframe.style.width = '100%';
+      iframe.style.height = '600px';
       iframe.srcdoc = source;
-      document.body.append(iframe);
+      document.querySelector('main')!.append(iframe);
     }
   }, { trusted: card, modified: card.replace(trustedBody, modifiedBody) });
   const trusted = page.frameLocator('#trusted-recipe-control');
