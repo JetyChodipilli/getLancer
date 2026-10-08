@@ -1,4 +1,4 @@
-name: getLancer validation (V1-V4.5 security)
+name: getLancer validation (V1-V4.6)
 on: [push, pull_request]
 permissions:
   contents: read

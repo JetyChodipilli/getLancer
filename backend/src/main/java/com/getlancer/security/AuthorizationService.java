@@ -77,6 +77,7 @@ public class AuthorizationService {
   /** Privileged writes and private package exports require MFA within the past fifteen minutes. */
   public static boolean recentMfaRequired(Route route) {
     return route.policy() == Policy.ADMIN_MFA
-        && (!List.of("GET", "HEAD", "OPTIONS").contains(route.method()) || route.path().endsWith("/package"));
+        && (!List.of("GET", "HEAD", "OPTIONS").contains(route.method()) || route.path().endsWith("/package")
+            || route.path().equals("/api/v1/admin/components/{id}"));
   }
 }

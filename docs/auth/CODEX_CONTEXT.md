@@ -1,5 +1,7 @@
 # getLancer — authentication implementation context
 
+Current repository phase: V4.6 reusable frontend contributions. The authentication guidance below remains scoped to its feature. Use [V4.6 implementation](../v46/IMPLEMENTATION.md) and [verification status](../v46/STATUS.md) for the current phase handoff.
+
 ## Task and visual reference
 
 Implement the selected getLancer Icy Wind login and create-account experience, including a genuinely moving glass arrow, transitions, hover feedback, and Google/GitHub authentication entry points. Deliver a working responsive implementation in the existing project.

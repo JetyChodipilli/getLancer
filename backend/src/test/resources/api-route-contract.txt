@@ -258,3 +258,7 @@ GET /api/v1/components/{slug}/versions
 GET /api/v1/me/saved-components
 POST /api/v1/components/{slug}/save
 DELETE /api/v1/components/{slug}/save
+GET /api/v1/me/components/{id}
+POST /api/v1/me/components/{id}/source
+POST /api/v1/me/components/{id}/preview
+GET /api/v1/components/{slug}/preview

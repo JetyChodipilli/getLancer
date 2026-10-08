@@ -39,3 +39,29 @@ Catalogue source bodies should remain outside shared client metadata. Maintain e
 CI browser evidence exposed a four-tab intrinsic-width overflow on phones and an exact-label selector mismatch for the nested time-range select. The detail tabs now use a bounded two-column layout on narrow screens; the range select has an explicit associated label. Security traces exposed footer hit-test interference with default-size probe iframes and hydration removing probes inside React-owned main. The fixture now waits for a hydrated control and installs sized frames in a dedicated foreground host outside main, preserving the opaque sandbox and positive/negative CSP assertions. Full browser checks remain required after these corrections.
 
 OSV added the existing Spring SSE-fragment advisory to the current dependency report. The required streaming feature is absent in this REST application. The second narrow assessment requires its own real application-context regression, source/report hashes, exact advisory revision and existing expiry; introducing streaming source invalidates it. Container evidence preserves the original severity and findings. See DEPENDENCY_APPLICABILITY.md; the dependency is not claimed patched.
+
+## V4.6 completion review
+
+A fresh-context native reviewer examined the completion diff and the publisher/database boundaries. No outside-model review is claimed. Findings corrected before publication:
+
+- Match the complete canonical MIT notice rather than a few permission markers.
+- Require the current developer role for public source and preview authority; include private bookmarks in actor export/deletion.
+- Pin archived/suspended moderation source and publication text independently of saved private drafts. Hash exactly the projected source and text, and preserve the owner draft until explicit submission.
+- Reuse an unchanged latest source release for context-only review/restoration; never renew fixed preview expiry by allocating an identical release. Lock the component row before checking direct release version uniqueness.
+- Permanently retain withdrawn preview tombstones, deny revoked-state revival in SQL and publication confirmation, and prevent moderator restoration from bypassing owner withdrawal.
+- Hold current admin/owner account, profile, role and session authority through mutation commit. Concurrent MFA revocation is rechecked before publication.
+- Require recent MFA for private admin source exports and record only actor/resource/request metadata in the private-export audit.
+
+Actual Chromium evidence caught `frame-ancestors *` rejecting an opaque outer sandbox. The component-only response policy now permits embedding while preserving script/form sandboxing without same-origin, all outbound network/child-frame restrictions, and the exact-origin outer navigation boundary. Ordinary V4 publisher policy remains unchanged. The positive interaction and negative DOM/storage/network/navigation browser test passed after the correction.
+
+Ponytail completion review: reuse the existing ZIP inspector, publisher client, capacity authority and shadcn Dialog/Tabs; add no runtime dependencies or generic upload framework. Source/base64 stays out of catalogue metadata and public projections. Full final CI evidence is tracked in STATUS.md rather than inferred from test specifications.
+
+Final native recheck found no remaining normal-API blocker. The legacy suspended-context ambiguity is nonblocking with the conservative migration disposition documented in IMPLEMENTATION.md.
+
+The added automated WCAG scan found inadequate contrast in inactive component-detail tabs. The component-scoped foreground colour is corrected while retaining the existing shadcn tab behavior. The mobile lab fixture uses the production Worker, disabled cache, explicit CPU/network throttling and separate shell metrics; results are retained without presenting event-timing interaction samples as field INP.
+
+## PR #40 issue follow-up
+
+Native Chromium reproduced two creator-form navigation failures: entering a short contribution or an invalid upload version, then choosing Back, caused native validation on the hidden second step to block Continue. The contribution minimum length and upload version pattern now apply only while that step is visible. Values remain mounted and preserved, and final-step validation remains enforced.
+
+The new browser regression failed against the original form for the short contribution, then independently failed for the invalid version after correcting only the contribution. The complete fix passed on desktop, phone and tablet. TypeScript, the production build and all 165 Node tests passed; final published-head CI remains required. Earlier backend fixture corrections are verified by run 37817401539: 440 tests passed with zero failures/errors/skips. That preceding run is not evidence for a later commit.

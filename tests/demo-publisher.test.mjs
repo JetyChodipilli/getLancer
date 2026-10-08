@@ -7,7 +7,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { createHash, randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { createPublisher, configFromEnv, manifestHash, HARD_LIMITS, CONTENT_SECURITY_POLICY } from '../ops/demo-publisher/server.mjs';
+import { createPublisher, configFromEnv, manifestHash, HARD_LIMITS, CONTENT_SECURITY_POLICY, COMPONENT_SECURITY_POLICY } from '../ops/demo-publisher/server.mjs';
 
 const secret = 'publisher-test-secret-01234567890123456789';
 const gatewaySecret = 'gateway-test-secret-01234567890123456789';
@@ -47,6 +47,7 @@ async function harness(t, overrides = {}) {
       res.flushHeaders(); return;
     }
     if (mode === 'hold') { hold = () => { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{"allowed":true}'); }; return; }
+    if(mode==='component'){res.writeHead(200,{'Content-Type':'application/json'});res.end('{"allowed":true,"preview":"COMPONENT"}');return;}
     if (mode === 'redirect') { res.writeHead(302, { Location: 'http://localhost:1/unapproved' }); res.end(); return; }
     if (mode === 'huge') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(' '.repeat(4097)); return; }
     if (mode === 'malformed') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{'); return; }
@@ -99,6 +100,18 @@ test('real HTTP: immutable publish, exact retries, file/HEAD gateway checks, Hos
   assert.equal((await request(h.port, { host: `${p.id}.demo.localhost:8091`, target: '/' })).status, 403);
   assert.equal((await request(h.port, { host: adminHost, target: '/' })).status, 401);
   assert.equal((await h.public(p.id, '/', { method: 'POST' })).status, 405);
+});
+
+test('reviewed components have an opaque inline-only CSP and live revocation on GET and HEAD',async t=>{
+ const h=await harness(t),p=payload();await h.admin('PUT',p.id,p);h.setMode('component');
+ for(const method of ['GET','HEAD']){
+  const result=await h.public(p.id,'/',{method,headers:{Cookie:'gl_session=private',Authorization:'Bearer private'}});
+  assert.equal(result.status,200);assert.equal(result.headers['content-security-policy'],COMPONENT_SECURITY_POLICY);assert.equal(result.headers['x-frame-options'],undefined);assert.equal(result.headers['cross-origin-resource-policy'],'cross-origin');
+  assert.match(COMPONENT_SECURITY_POLICY,/connect-src 'none'/);assert.doesNotMatch(COMPONENT_SECURITY_POLICY,/allow-same-origin|allow-top-navigation|allow-popups/);
+  assert.equal(h.calls.at(-1).headers.cookie,undefined);assert.equal(h.calls.at(-1).headers.authorization,undefined);
+ }
+ h.setMode('deny');assert.equal((await h.public(p.id)).status,403);assert.equal((await h.public(p.id,'/',{method:'HEAD'})).status,403);
+ h.setMode('allow');assert.equal((await h.public(p.id)).headers['content-security-policy'],CONTENT_SECURITY_POLICY);
 });
 
 test('hostile deployment hosts and paths cannot alter the gateway origin or read outside the stored manifest',async t=>{

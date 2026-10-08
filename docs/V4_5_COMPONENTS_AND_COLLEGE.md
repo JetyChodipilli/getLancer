@@ -1,5 +1,7 @@
 Current slot policy: see [V4_5_PUBLISHING_SLOTS.md](V4_5_PUBLISHING_SLOTS.md). This supersedes the original shared three-showcase allowance: regular and college projects now each receive three free active places.
 
+Historical V4.5 baseline. V4.6 adds creator ZIP uploads, source-changing releases and controlled free previews; see [the current implementation](v46/IMPLEMENTATION.md). The later-phase statements below describe the V4.5 checkpoint.
+
 # V4.5: components, college discovery and publishing capacity
 
 The 4 October amendment supersedes the planning pack's proposed component capacity: each approved builder receives **three free active component slots**. Buying one additional slot increases reusable publishing capacity by one. Component previews and licensed source remain free to visitors without login. Full-project showcase capacity remains independent.

@@ -45,7 +45,13 @@ public class ComponentSlotService {
     return transaction.execute(s->work.get());
   }
   void lock(UUID owner){
-    publishing.lock(owner);
+    publishing.lock(owner);lockAuthority(owner);
+  }
+  void lockAuthority(UUID actor){
+    db.queryForList("SELECT id FROM users WHERE id=? FOR SHARE",actor);
+    db.queryForList("SELECT user_id FROM developer_profiles WHERE user_id=? FOR SHARE",actor);
+    db.queryForList("SELECT user_id FROM user_roles WHERE user_id=? ORDER BY role FOR SHARE",actor);
+    db.queryForList("SELECT token_hash FROM sessions WHERE user_id=? ORDER BY token_hash FOR SHARE",actor);
   }
   void audit(UUID actor,UUID target,String kind,String detail){
     db.update("INSERT INTO component_audit(id,actor_id,target_id,kind,detail) VALUES(?,?,?,?,?)",id(),actor,target,kind,detail);

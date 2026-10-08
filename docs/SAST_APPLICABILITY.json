@@ -59,7 +59,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/accounts/AccountService.java",
-      "sha256": "350c2082ef98e7e2ffc8e01dac175a3685be237d66ec8d39972c5775429ee561"
+      "sha256": "176c733ac0d61a88f09926ab24b4abe9069f4f9cf5374b0dfa362488f7e5e4f3"
     },
     {
       "path": "backend/src/main/java/com/getlancer/accounts/PrivacyController.java",
@@ -67,7 +67,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/accounts/PrivacyService.java",
-      "sha256": "e8d01903385d009dd0c9b5d1ff8b86eeabb79ec50cf7f9dd635136a522bc41a3"
+      "sha256": "32c1f78abda89347df20fc870eb59389a2f362c0c64f64124f38dc997175dfb8"
     },
     {
       "path": "backend/src/main/java/com/getlancer/admin/AdminController.java",
@@ -210,6 +210,10 @@
       "sha256": "95600bb8a9d9cbcce62974e71f64379362188dfb8678fa8ed814fa932e87213c"
     },
     {
+      "path": "backend/src/main/java/com/getlancer/components/ComponentArchive.java",
+      "sha256": "a8db8ee56d202f89d2ee21a84e6df152bef6c47b62936847d34795151174183a"
+    },
+    {
       "path": "backend/src/main/java/com/getlancer/components/ComponentBookmarkService.java",
       "sha256": "b0cb223a04fa4ccedbe5e7113c9a7ca3deb16fbef47781e83e8f6e7f9ac4476a"
     },
@@ -218,12 +222,16 @@
       "sha256": "9fcce59fd995ee903cca771af03fb50cd04395513f1181a934d8628a82ce34c5"
     },
     {
+      "path": "backend/src/main/java/com/getlancer/components/ComponentPreviewService.java",
+      "sha256": "1a4936095ebb4fd2b6307273c9c09f9cf439475e04f0b70df1ab55d786e97cae"
+    },
+    {
       "path": "backend/src/main/java/com/getlancer/components/ComponentService.java",
-      "sha256": "52dbc4ccc0343e57ab49215319ad8bef2be3778fcc00c0b87bdeb099c0857031"
+      "sha256": "d91303d05dbf8e07d3c9120fecd9c20622d79ca03926f728bd0a39802b849a9d"
     },
     {
       "path": "backend/src/main/java/com/getlancer/components/ComponentSlotService.java",
-      "sha256": "235f5735f8fbdf350938968a80cadd29e8da9426f118a43f0b65f71530fd24a3"
+      "sha256": "7c15a1773c5374abdb4350a7c3d18a6925d80f6d7b87ac745d0a1b37d2e37e76"
     },
     {
       "path": "backend/src/main/java/com/getlancer/components/ComponentSlotsController.java",
@@ -231,7 +239,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/components/ComponentsController.java",
-      "sha256": "5e624b24631aa5cfc6a2f226a1ede8a8bb1dbf70fa3427a23cdae11e6a36043d"
+      "sha256": "27c37c03fb8dfb898c140788cd4d52b8d80ca9de1103745287d618d02cd50277"
     },
     {
       "path": "backend/src/main/java/com/getlancer/config/Bootstrap.java",
@@ -283,7 +291,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/dto/ComponentRequests.java",
-      "sha256": "4fb62949e01a1a36d62a5ce39ee527de89da6297506f26063a123cda8d7151e3"
+      "sha256": "5e02b3503062df725efea263e601de58a48c32da8d8817f3a07364430cf6e5d9"
     },
     {
       "path": "backend/src/main/java/com/getlancer/dto/DeliveryRequests.java",
@@ -367,7 +375,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/hosting/HostingService.java",
-      "sha256": "8cbe6adfec7723c8661a1a9e9cedffa3c9d6318f554be8239ab995d39bb99dc5"
+      "sha256": "b1e1cda3dc132242c909c2479b693c12fede451fe5115dcc1d4ace4c197e6a6c"
     },
     {
       "path": "backend/src/main/java/com/getlancer/hosting/StaticArchive.java",
@@ -519,7 +527,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/responses/AccountExportResponse.java",
-      "sha256": "1508f060e59839e0ec01c822280c45515b0c68bee65592e36f686a07cff1a2c9"
+      "sha256": "57c0524f41a24bd54c829a58c122b0eced74b2d0de5e662588871817cdf84ee2"
     },
     {
       "path": "backend/src/main/java/com/getlancer/responses/AdminResponses.java",
@@ -563,7 +571,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/security/AuthorizationService.java",
-      "sha256": "cb7121ad90a1fbb4d6551eadf020fb8a71ac6fab0f14be559f0c30a249671bb0"
+      "sha256": "011ad2f68edaf71488220f29df3e9eac56adbfec28895eee45a11a558a29fba4"
     },
     {
       "path": "backend/src/main/java/com/getlancer/security/BoundedRequest.java",
@@ -571,7 +579,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/security/BrowserSecurityFilter.java",
-      "sha256": "d599a772c2e2bd3c44b9f6a1e278259b73966dff94432a95dc848819f02b94a5"
+      "sha256": "682a914a95b37804b9f042bd7e58cd09cdbbbf09c58fb93b9f7ea82d417eb97c"
     },
     {
       "path": "backend/src/main/java/com/getlancer/security/GetLancerPrincipal.java",
@@ -655,7 +663,7 @@
     },
     {
       "path": "backend/src/main/resources/api-authorization-policy.txt",
-      "sha256": "d7f277d82e80853e16ffb2a35c62df030ff3a2271b1135ca43005e70e7752c3a"
+      "sha256": "206fe39a64bdfacab3821ace991599bbbedf797bab288abaf38936d7f73c0e02"
     },
     {
       "path": "backend/src/main/resources/application-local.properties",
@@ -770,6 +778,10 @@
       "sha256": "984f8e6cd4d0ab1313efd83596d050713e156f26998e1a4ee7ec61cb2c8a0c5f"
     },
     {
+      "path": "backend/src/main/resources/db/migration/V30__component_uploaded_source_and_previews.sql",
+      "sha256": "2bbbb00be17f78de217def5e2652608b68979ee6c0091feb9e1b88ccb9ef673f"
+    },
+    {
       "path": "backend/src/main/resources/db/migration/V3__product_taxonomy.sql",
       "sha256": "13f0051b41f440af5f69d00da462172a11d88f91d602bed65fb8d64fc6948a65"
     },
@@ -844,8 +856,12 @@
       "sha256": "5205709de87e90418cae0fb1b84f6160a797fc82209d84320611682165ac7bc5"
     },
     {
+      "path": "backend/src/test/java/com/getlancer/components/ComponentArchiveTest.java",
+      "sha256": "40839ebf58393b7bf0586f7b543742d364e22b77ff3bfbbfe600b392eb088b71"
+    },
+    {
       "path": "backend/src/test/java/com/getlancer/config/DatabaseRoleGuardIntegrationTest.java",
-      "sha256": "c9950858acb060718a61b2a469d73c6529df4c0e2c757fb66e52b004ca2ddc4c"
+      "sha256": "8c19abe707d1bc314e478fbf03bca9a40c24eea65908fcc2256901e3f8a0bf9e"
     },
     {
       "path": "backend/src/test/java/com/getlancer/config/ProductionConfigurationTest.java",
@@ -885,7 +901,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java",
-      "sha256": "e1f014c0625a85449f537df9478049839b91e16e87c371aac222dccb65c188aa"
+      "sha256": "bbfb236cc7540ef6826e48b82cf5d192d3b7ca0c29cdd008f211c45e3e0b5852"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/DataExposureIntegrationTest.java",
@@ -944,6 +960,10 @@
       "sha256": "2f6ea3c5e89f6ea974f4e9269a7ea3f262424a5f100638cbf8306417396867f2"
     },
     {
+      "path": "backend/src/test/java/com/getlancer/responses/AccountExportResponseTest.java",
+      "sha256": "96cc8e3dcbf85a196d2f402581d158d18d89bd15d218d86b043609b4a0f9a6ac"
+    },
+    {
       "path": "backend/src/test/java/com/getlancer/security/AuthorizationIntegrationTest.java",
       "sha256": "dfe615a184c3a952a70b7ba2a211a125dc206a24ddcb5d19b4d4aeca2ff02e7b"
     },
@@ -981,7 +1001,7 @@
     },
     {
       "path": "backend/src/test/resources/api-route-contract.txt",
-      "sha256": "55623b371ab9c9043b42ef995a7648b72834cb5f503b21ed019bf2396d32af27"
+      "sha256": "ecfe97e969cb23d39bd25a281ec6f8445a4e92f8b5f5b12c1447f75e93709267"
     },
     {
       "path": "backend/src/test/resources/mockito-extensions/org.mockito.plugins.MockMaker",
@@ -995,7 +1015,7 @@
     },
     {
       "path": ".github/workflows/ci.yml",
-      "sha256": "1ae58b8334e2ae895aa6f21ae2fcd7706165561a08f4557b96d21b71fa277330"
+      "sha256": "53b2016479af56e6dca696f82b6aa89c187431a985ed4a4e5f0537cb8658b483"
     },
     {
       "path": "scripts/check-sast-results.mjs",
