@@ -173,8 +173,9 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     mvc.perform(body(post("/api/v1/me/components/"+id+"/submit"),"other",Map.of())).andExpect(status().isNotFound());
     submit(id);
     mvc.perform(body(post("/api/v1/admin/components/"+id+"/review"),"builder",Map.of("decision","APPROVE","reason","A reason cannot manufacture administrator authority."))).andExpect(status().isForbidden());
+    var reviewedRequest=approve(id);
     db.update("UPDATE sessions SET mfa_verified=false WHERE user_id=?",admin);
-    mvc.perform(approve(id)).andExpect(status().isForbidden());
+    mvc.perform(reviewedRequest).andExpect(status().isForbidden());
     db.update("UPDATE sessions SET mfa_verified=true WHERE user_id=?",admin);
     response(approve(id));
     db.update("UPDATE users SET account_status='SUSPENDED' WHERE id=?",builder);
@@ -663,7 +664,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
         pending.set(workers.submit(()->mvc.perform(request).andReturn().getResponse().getStatus()));
         boolean waiting=false;
         for(int i=0;i<500;i++){
-          if(db.queryForObject("SELECT count(*) FROM pg_stat_activity WHERE wait_event_type='Lock' AND query LIKE 'SELECT token_hash FROM sessions%FOR SHARE'",Integer.class)>0){waiting=true;break;}
+          if(db.queryForObject("SELECT count(*) FROM pg_locks WHERE locktype='transactionid' AND NOT granted",Integer.class)>0){waiting=true;break;}
           if(pending.get().isDone())break;
           try{Thread.sleep(10);}catch(InterruptedException e){Thread.currentThread().interrupt();throw new RuntimeException(e);}
         }
@@ -753,7 +754,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     mvc.perform(get("/api/v1/hosting/gateway/"+deployment)).andExpect(status().isForbidden());
     mvc.perform(get("/api/v1/hosting/gateway/"+deployment).header("X-GetLancer-Demo-Gateway",com.getlancer.hosting.HostingPublisherFixture.GATEWAY)).andExpect(jsonPath("$.preview").value("COMPONENT"));
     assertThrows(org.springframework.dao.DataAccessException.class,()->db.update("UPDATE component_previews SET expires_at=now() WHERE deployment_id=?",deployment));
-    for(String sql:List.of("UPDATE users SET account_status='SUSPENDED' WHERE id=?","UPDATE developer_profiles SET approval_status='PENDING' WHERE user_id=?")){
+    for(String sql:List.of("UPDATE users SET account_status='SUSPENDED' WHERE id=?","UPDATE developer_profiles SET approval_status='PROFILE_PENDING' WHERE user_id=?")){
       db.update(sql,builder);assertFalse(response(get("/api/v1/components/remix-"+id+"/preview")).path("available").asBoolean());
       db.update("UPDATE users SET account_status='ACTIVE' WHERE id=?",builder);db.update("UPDATE developer_profiles SET approval_status='APPROVED' WHERE user_id=?",builder);
     }

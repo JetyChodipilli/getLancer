@@ -55,3 +55,7 @@ A fresh-context native reviewer examined the completion diff and the publisher/d
 Actual Chromium evidence caught `frame-ancestors *` rejecting an opaque outer sandbox. The component-only response policy now permits embedding while preserving script/form sandboxing without same-origin, all outbound network/child-frame restrictions, and the exact-origin outer navigation boundary. Ordinary V4 publisher policy remains unchanged. The positive interaction and negative DOM/storage/network/navigation browser test passed after the correction.
 
 Ponytail completion review: reuse the existing ZIP inspector, publisher client, capacity authority and shadcn Dialog/Tabs; add no runtime dependencies or generic upload framework. Source/base64 stays out of catalogue metadata and public projections. Full final CI evidence is tracked in STATUS.md rather than inferred from test specifications.
+
+Final native recheck found no remaining normal-API blocker. The legacy suspended-context ambiguity is nonblocking with the conservative migration disposition documented in IMPLEMENTATION.md.
+
+The added automated WCAG scan found inadequate contrast in inactive component-detail tabs. The component-scoped foreground colour is corrected while retaining the existing shadcn tab behavior. The mobile lab fixture uses the production Worker, disabled cache, explicit CPU/network throttling and separate shell metrics; results are retained without presenting event-timing interaction samples as field INP.
