@@ -8,9 +8,9 @@ test('demo role cards are visible and switch to matching workspaces',async({page
   const roles=page.getByRole('group',{name:'Demo roles',exact:true});
   await expect(roles).toBeVisible();await expect(roles.getByRole('button')).toHaveCount(4);
   await roles.getByRole('button',{name:/Builder Leah/}).click();
-  await expect(page.getByRole('tab',{name:/Your showcases/})).toHaveAttribute('aria-selected','true');
+  await expect(page.getByRole('tab',{name:'Showcases',exact:true})).toHaveAttribute('aria-selected','true');
   await roles.getByRole('button',{name:/Administrator Sam/}).click();
-  await expect(page.getByRole('tab',{name:/Community moderation/})).toHaveAttribute('aria-selected','true');
+  await expect(page.getByRole('tab',{name:/^Moderation \(/})).toHaveAttribute('aria-selected','true');
   await reflow(page);
 });
 test('sample contribution uses staged fields, preserves back navigation and can be moderated',async({page})=>{

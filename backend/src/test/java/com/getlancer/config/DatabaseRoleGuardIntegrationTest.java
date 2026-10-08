@@ -134,6 +134,32 @@ class DatabaseRoleGuardIntegrationTest {
     }
   }
 
+  @Test void componentReleaseAndBookmarkPrivilegesRemainNarrow() throws Exception {
+    UUID user = UUID.randomUUID(), component = UUID.randomUUID();
+    runtime.update("INSERT INTO users(id,email,password_hash) VALUES(?,?,?)", user, user+"@example.test", "synthetic-hash");
+    runtime.update("INSERT INTO component_entries(id,owner_id,recipe_slug,slug,title,summary,contribution) VALUES(?,?,'portfolio-card',?,'Role fixture','Synthetic summary','Synthetic contribution')", component,user,"role-release-"+component);
+    runtime.update("INSERT INTO component_releases(component_id,revision,source,context,source_sha256) VALUES(?,1,'{}','{}',?)",component,"a".repeat(64));
+    assertEquals(1,runtime.queryForObject("SELECT count(*) FROM component_releases WHERE component_id=?",Integer.class,component));
+    assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE component_releases SET source_sha256=? WHERE component_id=?","b".repeat(64),component));
+    assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("DELETE FROM component_releases WHERE component_id=?",component));
+    runtime.update("INSERT INTO saved_components(user_id,slug) VALUES(?,'portfolio-card') ON CONFLICT DO NOTHING",user);
+    assertEquals(0,runtime.update("INSERT INTO saved_components(user_id,slug) VALUES(?,'portfolio-card') ON CONFLICT DO NOTHING",user));
+    assertEquals(1,runtime.queryForObject("SELECT count(*) FROM saved_components WHERE user_id=?",Integer.class,user));
+    assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE saved_components SET slug='changed' WHERE user_id=?",user));
+    assertEquals(1,runtime.update("DELETE FROM saved_components WHERE user_id=?",user));
+    for(String directRole:List.of("anon","authenticated")) {
+      try(Connection connection=DriverManager.getConnection(url,admin,adminPassword);Statement statement=connection.createStatement()) {
+        statement.execute("SET ROLE "+directRole);
+        for(String table:List.of("saved_components","component_releases"))
+          assertThrows(java.sql.SQLException.class,()->statement.executeQuery("SELECT count(*) FROM "+SCHEMA+"."+table));
+      }
+    }
+    try {
+      adminSql("GRANT UPDATE ON "+SCHEMA+".component_releases TO getlancer_runtime");
+      assertRejected(runtime,"immutable_mutation");
+    } finally { provision("10_permissions.sql"); }
+  }
+
   @Test void runtimeCanLockAuthenticationAndMembershipRowsWithoutBeingAbleToUpdateThem() throws Exception {
     UUID user = UUID.randomUUID(), business = UUID.randomUUID(), product = UUID.randomUUID(), request = UUID.randomUUID(), engagement = UUID.randomUUID();
     String token = UUID.randomUUID().toString();
