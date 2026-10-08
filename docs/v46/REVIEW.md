@@ -27,9 +27,13 @@ The first pass identified eager source bodies in the shared catalogue module. Th
 - Public data continues using the last published snapshot while edited context awaits review. Draft source hashes and moderation reasons remain private.
 - Release/history and saved-detail reads recheck public account and publication authority. Withdrawal preserves bookmark identity but excludes title/source in the unavailable projection.
 - Explicit API policy and route-contract fixtures include all four new routes. Controllers depend on services and retain declarative authorization. Existing pricing/provider and three-slot calculations remain intact.
+- Runtime grants classify both V29 tables: releases permit select/insert, bookmarks permit select/insert/delete. The startup guard rejects mutable release grants. Real PostgreSQL-role regressions verify these operations and direct browser-role denial.
+- Reviewed GET finding dispositions, scanner rules and expiry remain unchanged. The review inventory includes every current production/test input, including V29 and the new routes. New GET handlers only read; bookmark mutations use POST/DELETE with the existing browser-origin checks and authenticated actor.
 
 Limitations and required later acceptance are recorded in IMPLEMENTATION.md. No whole-phase security, WCAG, performance or launch certification is claimed.
 
 ## Operational learning
 
 Catalogue source bodies should remain outside shared client metadata. Maintain exact metadata/source projections in the independent source test. Existing root GATES.md covers the security release; preserve it and use a task ledger under docs/v46 for this fresh phase. In this runtime Maven requires explicit proxy configuration; environment HTTP_PROXY alone is not consumed by Java artifact resolution.
+
+CI browser evidence exposed a four-tab intrinsic-width overflow on phones and an exact-label selector mismatch for the nested time-range select. The detail tabs now use a bounded two-column layout on narrow screens; the range select has an explicit associated label. The overflow also affected the mobile opaque-iframe security probe. Full browser checks remain required after these corrections.

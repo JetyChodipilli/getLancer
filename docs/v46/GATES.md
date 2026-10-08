@@ -31,8 +31,8 @@ Scope: rebuild V4.6 from current main with creator contributions, reviewed immut
 - [ ] G7: Verified source is committed and the existing preview is updated
   EVIDENCE: local source committed; user explicitly authorized publication and merge on 2026-10-08. Remote checks and preview publication pending.
 
-- [ ] G8: Disposable-database lifecycle, bookmark isolation and withdrawal regressions pass in CI
-  EVIDENCE: tests implemented; remote CI pending. Local database integration was not executed.
+- [x] G8: Disposable-database lifecycle, bookmark isolation and withdrawal regressions pass in CI
+  EVIDENCE: GitHub Actions run 37802133979 on b250ecd88fb46532e7ebb6bc03e3acf4eb213a08 ran 428 Java tests with zero failures/errors/skips, including 40 ComponentsIntegrationTest cases and six real-role DatabaseRoleGuardIntegrationTest cases. The later security-inventory binding step required a reviewed-source refresh; the overall workflow is still pending verification. https://github.com/JetyChodipilli/getLancer/actions/runs/37802133979
 
 - [ ] G9: Required creator archives, source-changing versions and controlled preview revocation are implemented
   EVIDENCE: pending; remaining S02-B02/B03/B04 work is explicitly recorded in IMPLEMENTATION.md.
