@@ -42,6 +42,32 @@ test('sample saves survive navigation and remove idempotently',async({page})=>{
   await expect(page.getByRole('heading',{name:'Feedback form',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Remove',exact:true}).click();await expect(page.getByRole('heading',{name:'Your next building block is here.',exact:true})).toBeVisible();await reflow(page);
 });
+test('unfinished contribution and upload fields do not block returning to their step',async({page})=>{
+  await page.goto('/preview/components');
+  await page.getByRole('button',{name:'New component',exact:true}).click();
+  const dialog=page.getByRole('dialog');
+  await dialog.getByLabel('Component title',{exact:true}).fill('An unfinished contribution');
+  await dialog.getByLabel('Summary',{exact:true}).fill('Preserve partially completed contribution fields across steps.');
+  await dialog.getByRole('button',{name:'Continue to contribution',exact:true}).click();
+  const contribution=dialog.getByLabel('Your contribution & intended use',{exact:true});
+  await contribution.pressSequentially('Work in progress');
+  await dialog.getByRole('button',{name:'Back',exact:true}).click();
+  await dialog.getByRole('button',{name:'Continue to contribution',exact:true}).click();
+  await expect(contribution).toBeVisible();
+  await expect(contribution).toHaveValue('Work in progress');
+  expect(await contribution.evaluate((field:HTMLTextAreaElement)=>field.validity.tooShort)).toBe(true);
+  await contribution.fill('I created this original source with accurate MIT attribution.');
+  await dialog.getByRole('checkbox',{name:'Upload my self-contained frontend source',exact:true}).check();
+  await dialog.getByLabel('Release version',{exact:true}).fill('unfinished version');
+  await dialog.getByRole('button',{name:'Back',exact:true}).click();
+  await dialog.getByRole('button',{name:'Continue to contribution',exact:true}).click();
+  await expect(dialog.getByLabel('Release version',{exact:true})).toBeVisible();
+  await expect(dialog.getByLabel('Release version',{exact:true})).toHaveValue('unfinished version');
+  expect(await dialog.getByLabel('Release version',{exact:true}).evaluate((field:HTMLInputElement)=>field.validity.patternMismatch)).toBe(true);
+  await dialog.getByRole('button',{name:'Save component draft',exact:true}).click();
+  await expect(dialog).toBeVisible();
+  await expect(page.getByRole('heading',{name:'An unfinished contribution',exact:true})).toHaveCount(0);
+});
 test('new synthetic form exposes inline error, focus, loading and success',async({page})=>{
   await page.goto('/components/feedback-form');const frame=page.frameLocator('.kit-preview-stage iframe');
   await frame.getByRole('button',{name:'Send feedback',exact:true}).click();

@@ -1,6 +1,6 @@
 # V4.6 implementation verification
 
-V4.6 source implementation is complete in [PR #40](https://github.com/JetyChodipilli/getLancer/pull/40); full published-head CI verification is pending in [run 37814407762](https://github.com/JetyChodipilli/getLancer/actions/runs/37814407762). The implementation covers S02-B01–B08, including the previously missing creator uploads, source-changing releases and controlled publisher previews. See [IMPLEMENTATION.md](IMPLEMENTATION.md) and the [completion ledger](COMPLETION_GATES.md).
+V4.6 source implementation is complete in [PR #40](https://github.com/JetyChodipilli/getLancer/pull/40); full published-head CI verification remains required. Use the latest workflow and verified commit recorded on that PR, since earlier runs were superseded during issue fixes. The implementation covers S02-B01–B08, including the previously missing creator uploads, source-changing releases and controlled publisher previews. See [IMPLEMENTATION.md](IMPLEMENTATION.md) and the [completion ledger](COMPLETION_GATES.md).
 
 Observed local verification on 8 October 2026:
 
@@ -15,4 +15,4 @@ Observed local verification on 8 October 2026:
 
 No local PostgreSQL/Docker integration pass is claimed. All six CI jobs must pass on the final published source: backend, frontend, Docker startup/connected browsers, both CodeQL analyses and container/security validation. Merge and deployment are separate from completion of the reviewed implementation. Field LCP/INP/CLS remain deployment measurements.
 
-The original fresh-start ledger is retained as historical evidence. Current acceptance is tracked exclusively in COMPLETION_GATES.md. Security dispositions retain original findings/severities, exact advisory revisions and the existing 2026-11-05 expiry; the underlying Spring dependency is not claimed patched.
+The original fresh-start ledger is retained as historical evidence. COMPLETION_GATES.md records the implementation checks before final CI acceptance; PR #40 records the latest verified commit and workflow outcome. Security dispositions retain original findings/severities, exact advisory revisions and the existing 2026-11-05 expiry; the underlying Spring dependency is not claimed patched.

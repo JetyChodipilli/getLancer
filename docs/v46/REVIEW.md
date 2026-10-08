@@ -59,3 +59,9 @@ Ponytail completion review: reuse the existing ZIP inspector, publisher client, 
 Final native recheck found no remaining normal-API blocker. The legacy suspended-context ambiguity is nonblocking with the conservative migration disposition documented in IMPLEMENTATION.md.
 
 The added automated WCAG scan found inadequate contrast in inactive component-detail tabs. The component-scoped foreground colour is corrected while retaining the existing shadcn tab behavior. The mobile lab fixture uses the production Worker, disabled cache, explicit CPU/network throttling and separate shell metrics; results are retained without presenting event-timing interaction samples as field INP.
+
+## PR #40 issue follow-up
+
+Native Chromium reproduced two creator-form navigation failures: entering a short contribution or an invalid upload version, then choosing Back, caused native validation on the hidden second step to block Continue. The contribution minimum length and upload version pattern now apply only while that step is visible. Values remain mounted and preserved, and final-step validation remains enforced.
+
+The new browser regression failed against the original form for the short contribution, then independently failed for the invalid version after correcting only the contribution. The complete fix passed on desktop, phone and tablet. TypeScript, the production build and all 165 Node tests passed; final published-head CI remains required. Earlier backend fixture corrections are verified by run 37817401539: 440 tests passed with zero failures/errors/skips. That preceding run is not evidence for a later commit.
