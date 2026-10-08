@@ -7,7 +7,7 @@ import {assessBackendFindings} from '../scripts/sbom-dispositions.mjs';
 
 const finding={id:'GHSA-pc63-qcmh-9cmg',purl:'pkg:maven/org.springframework/spring-webmvc@6.2.19?type=jar',modified:'2026-10-05T23:30:04.884745Z'};
 const now=new Date('2026-10-06T12:00:00Z');
-function fixture(t){
+function fixture(t,clock=now){
  const root=mkdtempSync(join(tmpdir(),'getlancer-mvc-assessment-'));
  t.after(()=>rmSync(root,{recursive:true,force:true}));
  mkdirSync(join(root,'src/main'),{recursive:true});
@@ -20,9 +20,9 @@ function fixture(t){
  writeFileSync(join(root,'src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java'),'class ComponentsIntegrationTest {}');
  const saveReport=evidence=>{
   // Keep fixture clocks independent of when CI runs; the assessment date is fixed.
-  const before=new Date(now.getTime()-1000);
+  const before=new Date(clock.getTime()-1000);
   for(const relative of ['pom.xml','src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java',...readdirSync(join(root,'src/main')).map(name=>'src/main/'+name)])utimesSync(join(root,relative),before,before);
-  writeFileSync(report,evidence);utimesSync(report,now,now);
+  writeFileSync(report,evidence);utimesSync(report,clock,clock);
  };
  saveReport(passed);
  return {root,report,passed,saveReport};
@@ -78,5 +78,26 @@ test('old, future and dependency or test changes cannot reuse passing MVC eviden
   const path=join(root,relative),later=new Date(now.getTime()+1000);
   utimesSync(path,later,later);assert.throws(()=>assessBackendFindings([finding],root,now),/dependency or test inputs/);
   utimesSync(path,new Date(now.getTime()-1000),new Date(now.getTime()-1000));
+ }
+});
+const sse={...finding,id:'GHSA-j9f9-w8pj-32f8',modified:'2026-10-07T13:30:04.802772Z'};
+const sseNow=new Date('2026-10-08T12:00:00Z');
+test('SSE assessment needs its own passing runtime proof and exact advisory revision',t=>{
+ const {root,passed,saveReport}=fixture(t,sseNow),proof=passed.replace('mvcHandlersDoNotExposeXsltViewRendering','mvcHandlersDoNotExposeSseFragmentRendering');
+ assert.throws(()=>assessBackendFindings([sse],root,sseNow),/security regression/);
+ saveReport(proof);
+ const result=assessBackendFindings([sse],root,sseNow)[0];
+ assert.equal(result.disposition.status,'not_affected');
+ assert.equal(result.disposition.evidence.mvcTestCase,'mvcHandlersDoNotExposeSseFragmentRendering');
+ assert.throws(()=>assessBackendFindings([{...sse,modified:'2026-10-08T00:00:00Z'}],root,sseNow),/advisory changed/);
+ for(const invalid of [proof.replace('/>','><failure/></testcase>'),proof.replace('/>','><skipped/></testcase>'),'<testsuite><!--'+proof+'--></testsuite>']){
+  saveReport(invalid);assert.throws(()=>assessBackendFindings([sse],root,sseNow),/security regression/);
+ }
+});
+test('adding any SSE or reactive streaming configuration invalidates the assessment',t=>{
+ const {root,passed,saveReport}=fixture(t,sseNow),proof=passed.replace('mvcHandlersDoNotExposeXsltViewRendering','mvcHandlersDoNotExposeSseFragmentRendering');
+ for(const source of ['new SseEmitter()','new ResponseBodyEmitter()','StreamingResponseBody','FragmentsRendering','TEXT_EVENT_STREAM','text/event-stream','org.springframework.web.reactive','reactor.core']){
+  writeFileSync(join(root,'src/main/Controller0.java'),source);saveReport(proof);
+  assert.throws(()=>assessBackendFindings([sse],root,sseNow),/SSE fragment rendering configuration/);
  }
 });

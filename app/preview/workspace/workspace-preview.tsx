@@ -3,6 +3,7 @@ import {useEffect,useState,useDeferredValue,type FormEvent} from 'react';
 import Link from 'next/link';
 import {createPortal} from 'react-dom';
 import AccountMenu from '@/app/components/account-menu';
+import DemoRolePicker from '@/app/components/demo-role-picker';
 import {Search,Bookmark,Layers,Inbox,Send,UserRound,ShieldCheck,RotateCcw,ArrowUpRight,Plus,CheckCircle2,Mail,FlaskConical,ChartNoAxesCombined} from 'lucide-react';
 import {Tabs,TabsContent,TabsList,TabsTrigger} from '@/components/ui/tabs';
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription} from '@/components/ui/dialog';
@@ -77,6 +78,7 @@ export default function WorkspacePreview(){
  </div></article>}
  return <WorkspaceFrame section="personal" preview className="workspace-page demo-page" title={titles[tab]} description={tab==='showcases'?'Manage your work, review status and availability.':tab==='explore'?'Find the work you admire. Meet the people who built it.':'Your work and conversations, in one place.'} actions={tab!=='explore'?<button className="button" onClick={()=>setTab('explore')}>Explore projects <ArrowUpRight size={16}/></button>:undefined}>
   {accountTarget&&createPortal(<AccountMenu name={me.name} role={me.admin?'Administrator':me.id==='alex'?'Client':'Builder'} selectedId={me.id} demoAccounts={state.people.map(p=>({id:p.id,name:p.name,role:p.admin?'Administrator':p.id==='alex'?'Client':'Builder'}))} onSwitch={changeAccount} onWorkspace={()=>setTab(me.admin?'admin':me.id==='alex'?'requests':'showcases')} onProfile={me.admin?undefined:()=>setTab('profile')} onExit={()=>window.location.href='/'}/>,accountTarget)}
+  <DemoRolePicker selected={actorId} onSelect={changeAccount} accounts={state.people.map(p=>({id:p.id,name:p.name,role:p.admin?'Administrator':p.id==='alex'?'Client':'Builder',description:p.admin?'Review submissions and reports':p.id==='alex'?'Save work and send inquiries':'Manage showcases and replies'}))}/>
   <PreviewControls title="Demo workspace" note="Sample data · Changes stay in this browser tab. No real account, email or payment actions occur."><label className="team-field">Preview account<select value={actorId} onChange={e=>changeAccount(e.target.value)}>{state.people.map(p=><option key={p.id} value={p.id}>{p.name} · {p.admin?'Administrator':p.id==='alex'?'Client':'Builder'}</option>)}</select></label><button className="button" onClick={()=>setReset(true)}><RotateCcw size={15} aria-hidden="true"/>Reset demo</button></PreviewControls>
   {storageIssue&&<p className="samplebar" role="status">Browser storage is unavailable. You can keep testing, but refreshing may reset this demo.</p>}
   {message&&<p className="success" role="status">{message}</p>}{error&&!modal&&<p className="error" role="alert">{error}</p>}

@@ -196,3 +196,32 @@ body .account-closure .form .button { justify-self: start; margin-top: 4px; }
   body .icy-field .icy-input:focus-within,
   body :is(.search,.browse-search,.dock-search,.market-search,.commerce-search>div):has(input:focus-visible) { outline-color: Highlight; }
 }
+
+/* V4.6: a visible role entry point and a compact, readable workspace rhythm. */
+.demo-role-picker { padding: 16px; border: 1px solid var(--glass-line); border-radius: 16px; background: #ffffffd9; margin-bottom: 20px; }
+.demo-role-intro { display:flex; gap:8px 16px; justify-content:space-between; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+.demo-role-intro strong { font-size:14px; }
+.demo-role-intro>span { font-size:13px; color:#585b64; }
+.demo-role-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr)); gap:10px; }
+.demo-role-card { display:flex; text-align:left; align-items:flex-start; gap:10px; min-height:88px; padding:12px; border:1px solid #d5d8df; border-radius:12px; color:#20232b; background:#fff; cursor:pointer; }
+.demo-role-card>svg { flex-shrink:0; margin-top:3px; }
+.demo-role-card>span { display:grid; gap:2px; flex:1; min-width:0; }
+.demo-role-card strong { font-size:14px; }
+.demo-role-card span span { font-size:13px; }
+.demo-role-card small { font-size:12px; line-height:1.45; color:#585b64; }
+.demo-role-card.selected { border-color:#627597; background:#f1f4fa; box-shadow:0 0 0 1px #627597; }
+.demo-role-card:focus-visible { outline:3px solid var(--control-focus); outline-offset:3px; }
+body .studio-page-head h1 { font-size:clamp(26px,2.6vw,36px); line-height:1.2; }
+body .studio-description { font-size:15px; line-height:1.6; max-width:660px; }
+body .studio-panel { padding:20px; }
+body .studio-panel h2 { font-size:20px; line-height:1.35; }
+body .studio-metric [data-slot=card-content]>strong { font-size:28px; line-height:1.25; }
+body .workspace-dialog [data-slot=dialog-title] { font-size:20px; }
+body .workspace-dialog [data-slot=dialog-description] { font-size:14px; }
+body .workspace-dialog .form { gap:10px; }
+.draft-steps { display:flex; gap:8px; flex-wrap:wrap; margin:0; padding:0; list-style:none; }
+.draft-steps li { padding:6px 10px; font-size:12px; border-radius:8px; color:#585b64; background:#f0f1f4; }
+.draft-steps li[aria-current=step] { color:#213958; background:#e6ecf5; font-weight:600; }
+.draft-actions { display:flex; gap:10px; justify-content:space-between; flex-wrap:wrap; }
+.draft-summary { display:grid; gap:4px; background:#f4f6f9; border:1px solid #dce0e7; border-radius:12px; padding:12px; font-size:14px; }
+@media(max-width:640px) { body .studio-panel { padding:16px; } .demo-role-card { min-height:84px; } }

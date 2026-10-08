@@ -51,6 +51,27 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     for(var view:applicationContext.getBeansOfType(org.springframework.web.servlet.View.class).values())
       assertFalse(view instanceof org.springframework.web.servlet.view.xslt.XsltView,view.getClass().getName());
   }
+  @Test void mvcHandlersDoNotExposeSseFragmentRendering(){
+    var mappings=applicationContext.getBeansOfType(org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping.class);
+    int applicationHandlers=0;
+    for(var mapping:mappings.values()) for(var entry:mapping.getHandlerMethods().entrySet()){
+      var handler=entry.getValue();
+      if(!handler.getBeanType().getPackageName().startsWith("com.getlancer."))continue;
+      applicationHandlers++;
+      var type=handler.getReturnType().getParameterType();
+      assertFalse(org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter.class.isAssignableFrom(type),handler.toString());
+      assertFalse(org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody.class.isAssignableFrom(type),handler.toString());
+      assertFalse(org.springframework.web.servlet.View.class.isAssignableFrom(type),handler.toString());
+      assertFalse(type.getName().contains("FragmentsRendering"),handler.toString());
+      for(var media:entry.getKey().getProducesCondition().getProducibleMediaTypes())
+        assertFalse(org.springframework.http.MediaType.TEXT_EVENT_STREAM.isCompatibleWith(media),handler.toString());
+      assertTrue(org.springframework.core.annotation.AnnotatedElementUtils.hasAnnotation(handler.getBeanType(),org.springframework.web.bind.annotation.ResponseBody.class)
+        ||handler.hasMethodAnnotation(org.springframework.web.bind.annotation.ResponseBody.class),handler.toString());
+    }
+    assertTrue(applicationHandlers>100,"Inspect the real application registry.");
+    assertTrue(applicationContext.getBeansOfType(org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter.class).isEmpty());
+    assertTrue(applicationContext.getBeansOfType(org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody.class).isEmpty());
+  }
   UUID user(String name,boolean approved){
     UUID id=UUID.randomUUID();
     db.update("INSERT INTO users(id,email,password_hash,email_verified_at) VALUES(?,?,'unused',now())",id,name+"@example.test");
@@ -117,7 +138,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     when(provider.payment(anyString())).thenAnswer(i->json.valueToTree(Map.of("id","pay_component123","order_id","order_component123","amount",order.path("amount").longValue()-(wrongAmount?1:0),"currency","INR","status",captured?"captured":"authorized","captured",captured,"amount_refunded",refunded)));
   }
   @Test void publicCuratedSourcesStayFreeAndBackendLabAvailabilityIsHonest()throws Exception{
-    mvc.perform(get("/api/v1/components")).andExpect(status().isOk()).andExpect(jsonPath("$.totalItems").value(6)).andExpect(jsonPath("$.items[0].files").doesNotExist());
+    mvc.perform(get("/api/v1/components")).andExpect(status().isOk()).andExpect(jsonPath("$.totalItems").value(24)).andExpect(jsonPath("$.items[0].files").doesNotExist());
     mvc.perform(get("/api/v1/components/quiet-sign-in")).andExpect(status().isOk()).andExpect(jsonPath("$.license").value("MIT")).andExpect(jsonPath("$.files['index.html']").isString());
     mvc.perform(get("/api/v1/components?kind=BACKEND")).andExpect(jsonPath("$.items").isEmpty()).andExpect(jsonPath("$.executionMode").value("Source only"));
     mvc.perform(get("/api/v1/components?page=-1")).andExpect(status().isBadRequest());
@@ -584,4 +605,30 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
       connection.rollback(); // Isolated migration rehearsal leaves the shared test schema untouched.
     }
   }
+  @Test void submittedSourceAndPublishedHistoryAreImmutable() throws Exception {
+    UUID component=draft();submit(component);
+    assertNotNull(db.queryForObject("SELECT submitted_source FROM component_entries WHERE id=?",String.class,component));
+    assertThrows(org.springframework.dao.DataAccessException.class,()->db.update("UPDATE component_entries SET title='Mutated while pending' WHERE id=?",component));
+    mvc.perform(body(post("/api/v1/admin/components/"+component+"/review"),"admin",Map.of("revision",2,"sourceHash","0".repeat(64),"decision","APPROVE","reason","A source hash mismatch must prevent this publication."))).andExpect(status().isConflict());
+    response(approve(component));
+    assertThrows(org.springframework.dao.DataAccessException.class,()->db.update("UPDATE component_releases SET source_sha256=? WHERE component_id=?","0".repeat(64),component));
+    assertEquals(1,response(get("/api/v1/components/remix-"+component+"/versions")).path("items").size());
+  }
+  @Test void savedComponentsArePrivateIdempotentAndUnavailableAfterWithdrawal() throws Exception {
+    UUID component=draft();submit(component);response(approve(component));String slug="remix-"+component;
+    response(body(post("/api/v1/components/"+slug+"/save"),"other",Map.of()));
+    response(body(post("/api/v1/components/"+slug+"/save"),"other",Map.of()));
+    assertEquals(1,response(as(get("/api/v1/me/saved-components"),"other")).path("items").size());
+    assertEquals(0,response(as(get("/api/v1/me/saved-components"),"builder")).path("items").size());
+    mvc.perform(get("/api/v1/me/saved-components")).andExpect(status().isUnauthorized());
+    response(body(post("/api/v1/me/components/"+component+"/withdraw"),"builder",Map.of()));
+    mvc.perform(get("/api/v1/components/"+slug)).andExpect(status().isNotFound());
+    mvc.perform(get("/api/v1/components/"+slug+"/versions")).andExpect(status().isNotFound());
+    var saved=response(as(get("/api/v1/me/saved-components"),"other")).path("items").get(0);
+    assertFalse(saved.path("available").asBoolean());assertFalse(saved.has("title"));assertFalse(saved.has("files"));
+    response(body(delete("/api/v1/components/"+slug+"/save"),"other",Map.of()));
+    response(body(delete("/api/v1/components/"+slug+"/save"),"other",Map.of()));
+    assertEquals(0,response(as(get("/api/v1/me/saved-components"),"other")).path("items").size());
+  }
+
 }

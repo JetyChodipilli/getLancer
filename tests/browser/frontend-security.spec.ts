@@ -77,14 +77,24 @@ test('opaque srcdoc admits the trusted recipe hash and blocks a modified uploade
   expect(policy).toContain(hash(trustedBody));
   const modifiedBody = trustedBody + ';document.body.dataset.uploadedExecuted="yes";';
   expect(policy).not.toContain(hash(modifiedBody));
+  // Wait for hydration before installing a probe outside the React-owned main.
+  await page.getByRole('button', { name: 'Phone', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Phone', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await page.evaluate(({ trusted, modified }) => {
+    const host = document.createElement('section');
+    host.id = 'csp-probe-host';
+    host.style.cssText = 'position:fixed;inset:0;z-index:20000;overflow:auto;background:white';
+    document.body.append(host);
     for (const [id, source] of [['trusted-recipe-control', trusted], ['uploaded-recipe-negative', modified]]) {
       const iframe = document.createElement('iframe');
       iframe.id = id;
       iframe.title = id;
       iframe.setAttribute('sandbox', 'allow-scripts allow-forms');
+      iframe.style.display = 'block';
+      iframe.style.width = '100%';
+      iframe.style.height = '600px';
       iframe.srcdoc = source;
-      document.body.append(iframe);
+      host.append(iframe);
     }
   }, { trusted: card, modified: card.replace(trustedBody, modifiedBody) });
   const trusted = page.frameLocator('#trusted-recipe-control');

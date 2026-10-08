@@ -26,13 +26,13 @@ test('random request nonces authorize scripts while script attributes and untrus
  assert.equal(response.headers.get('content-security-policy'),csp);
 });
 
-test('only the six trusted catalogue script bodies are hashed; modified or uploaded bodies do not gain authority',()=>{
+test('only the 24 trusted catalogue script bodies are hashed; modified or uploaded bodies do not gain authority',()=>{
  const recipes=JSON.parse(readFileSync('backend/src/main/resources/catalog/components.json','utf8'));
  const hash=body=>`'sha256-${createHash('sha256').update(body).digest('base64')}'`;
  const expected=recipes.map(recipe=>{const scripts=[...recipe.files['index.html'].matchAll(/<script>([\s\S]*?)<\/script>/gi)];assert.equal(scripts.length,1);return hash(scripts[0][1]);});
- assert.equal(expected.length,6);assert.deepEqual([...trustedRecipeScriptSources],expected);
+ assert.equal(expected.length,24);assert.deepEqual([...trustedRecipeScriptSources],expected);
  const policy=frontendCsp(false),script=policy.split(';').find(value=>value.trim().startsWith('script-src '));
- assert.equal([...script.matchAll(/'sha256-[^']+'/g)].length,6);
+ assert.equal([...script.matchAll(/'sha256-[^']+'/g)].length,24);
  for(const source of expected)assert.ok(script.includes(source));
  const positive=recipes[0].files['index.html'].match(/<script>([\s\S]*?)<\/script>/i)[1];
  assert.ok(trustedRecipeScriptSources.includes(hash(positive)));

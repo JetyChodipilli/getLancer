@@ -258,3 +258,7 @@ PUT SESSION /api/v1/teams/{id}
 GET HEALTH /actuator/health
 GET HEALTH /actuator/health/liveness
 GET HEALTH /actuator/health/readiness
+GET PUBLIC /api/v1/components/{slug}/versions
+GET SESSION /api/v1/me/saved-components
+POST SESSION /api/v1/components/{slug}/save
+DELETE SESSION /api/v1/components/{slug}/save

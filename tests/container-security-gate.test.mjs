@@ -32,6 +32,17 @@ test('unknown high and critical findings block even alongside an assessed findin
   assert.equal(result.ApplicationGate.blocking,1);
   assert.equal(result.Results[1].Vulnerabilities.length,2);
 });
+test('SSE fragment finding needs its own exact assessment and remains visible',()=>{
+  const sse={...finding,VulnerabilityID:'CVE-2026-47890'};
+  const proof={...evidence,id:'GHSA-j9f9-w8pj-32f8'};
+  assert.equal(evaluateContainer(report([sse]),image,evidence).ApplicationGate.blocking,1);
+  const result=evaluateContainer(report([finding,sse]),image,[evidence,proof]);
+  assert.equal(result.ApplicationGate.blocking,0);
+  assert.equal(result.ApplicationGate.notAffected,2);
+  assert.equal(result.Results[1].Vulnerabilities[1].Severity,'CRITICAL');
+  assert.equal(evaluateContainer(report([sse],'jar','getlancer-publisher:scan'),'getlancer-publisher:scan',proof).ApplicationGate.blocking,1);
+  assert.equal(evaluateContainer(report([{...sse,InstalledVersion:'6.2.20'}]),image,proof).ApplicationGate.blocking,1);
+});
 test('empty, wrong-image and incomplete scans cannot pass',()=>{
   for(const bad of [{},{...report(),Results:[]},{...report(),Results:[{}]},
       {...report(),Results:report().Results.slice(1)},{...report(),ArtifactName:'other-image'},

@@ -3,14 +3,15 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {readFileSync} from 'node:fs';
-import {componentSeeds,seedCatalog,componentZip} from '../lib/components.ts';
-test('six original working components cover every required frontend category with verifiable free source',()=>{
- assert.equal(componentSeeds.length,6);assert.deepEqual(new Set(componentSeeds.map(c=>c.category)),new Set(['NAVBAR','SIDEBAR','FORM','CARD','AUTH','DASHBOARD']));
- assert.equal(new Set(componentSeeds.map(c=>c.slug)).size,6);
- for(const c of componentSeeds){assert.equal(c.license,'MIT');assert.equal(c.executionMode,'Browser local');assert.equal(c.version,'1.0.0');assert.equal(c.sha256,createHash('sha256').update(c.files['index.html']).digest('hex'));assert.match(c.files.LICENSE,/Permission is hereby granted, free of charge/);assert.match(c.files['README.md'],/No packages, installation, API keys or external assets/);assert.match(c.files['index.html'],/<script>[^]*addEventListener/);assert.match(c.files['index.html'],/connect-src 'none'/);assert.match(c.files['index.html'],/form-action 'none'/);assert.doesNotMatch(c.files['index.html'],/fetch\(|XMLHttpRequest|https?:\/\//);}
+import {componentSeeds as componentMetadata,seedCatalog,componentZip} from '../lib/components.ts';
+const componentSeeds=JSON.parse(readFileSync('backend/src/main/resources/catalog/components.json','utf8'));
+test('24 original working components cover every required frontend category with verifiable free source',()=>{
+ assert.deepEqual(componentMetadata,componentSeeds.map(({files,...metadata})=>metadata));assert.equal(componentSeeds.length,24);assert.deepEqual(new Set(componentSeeds.map(c=>c.category)),new Set(['NAVBAR','SIDEBAR','FORM','CARD','AUTH','DASHBOARD']));
+ assert.equal(new Set(componentSeeds.map(c=>c.slug)).size,24);assert.equal(new Set(componentSeeds.map(c=>c.sha256)).size,24);for(const category of ['NAVBAR','SIDEBAR','FORM','CARD','AUTH','DASHBOARD'])assert.equal(componentSeeds.filter(c=>c.category===category).length,4);
+ for(const c of componentSeeds){assert.equal(c.license,'MIT');assert.equal(c.executionMode,'Browser local');assert.equal(c.version,'1.0.0');assert.equal(c.sha256,createHash('sha256').update(c.files['index.html']).digest('hex'));assert.match(c.files.LICENSE,/Permission is hereby granted, free of charge/);assert.match(c.files['README.md'],/No packages, installation, API keys or external assets/);assert.match(c.files['index.html'],/<script>[^]*addEventListener/);new Function(c.files['index.html'].match(/<script>([^]*)<\/script>/)[1]);assert.match(c.files['index.html'],/connect-src 'none'/);assert.match(c.files['index.html'],/form-action 'none'/);assert.doesNotMatch(c.files['index.html'],/fetch\(|XMLHttpRequest|https?:\/\//);}
 });
 test('catalogue filters and backend boundary return real results without imaginary runtimes',()=>{
- assert.equal(seedCatalog('password').items.length,1);assert.equal(seedCatalog('','AUTH').items[0].slug,'quiet-sign-in');assert.equal(seedCatalog('no-such-component').totalItems,0);assert.deepEqual(seedCatalog('','','BACKEND').items,[]);assert.deepEqual(seedCatalog('','','FRONTEND',1).items,[]);assert.equal('files' in seedCatalog().items[0],false);
+ assert.ok(seedCatalog('password').items.length>=1);assert.equal(seedCatalog('','AUTH').items[0].slug,'quiet-sign-in');assert.equal(seedCatalog('no-such-component').totalItems,0);assert.deepEqual(seedCatalog('','','BACKEND').items,[]);assert.equal(seedCatalog('','','FRONTEND',1).items.length,12);assert.deepEqual(seedCatalog('','','FRONTEND',2).items,[]);assert.equal('files' in seedCatalog().items[0],false);
 });
 test('source ZIPs round-trip through an independent standard-library decoder including CRC validation',()=>{
  for(const item of componentSeeds){const zip=componentZip(item.files);const output=execFileSync('python3',['-c',"import sys,io,zipfile,json; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); assert z.testzip() is None; print(json.dumps({n:z.read(n).decode() for n in z.namelist()}))"],{input:zip,encoding:'utf8'});assert.deepEqual(JSON.parse(output),item.files);}

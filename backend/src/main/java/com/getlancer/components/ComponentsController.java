@@ -29,6 +29,7 @@ public class ComponentsController {
   @GetMapping("/components/{slug}") public Object detail(@PathVariable String slug){
     return service.detail(slug);
   }
+  @GetMapping("/components/{slug}/versions") public Object history(@PathVariable String slug){return service.history(slug);}
   @GetMapping("/me/components") public Object own(HttpServletRequest r){
     return service.own(r);
   }

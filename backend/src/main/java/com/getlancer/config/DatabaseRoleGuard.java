@@ -61,7 +61,7 @@ public class DatabaseRoleGuard implements ApplicationRunner {
         SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
         WHERE n.nspname=? AND c.relname IN ('security_audit_events','inquiry_events','moderation_actions',
           'delivery_activity','payment_ledger','payment_account_audit','commerce_ledger','commerce_audit',
-          'maintenance_ledger','maintenance_audit','hosting_audit','component_audit','component_slot_ledger',
+          'maintenance_ledger','maintenance_audit','hosting_audit','component_audit','component_releases','component_slot_ledger',
           'component_slot_events','publishing_capacity_grants')
           AND (has_table_privilege(current_user,c.oid,'UPDATE') OR has_any_column_privilege(current_user,c.oid,'UPDATE')
             OR has_table_privilege(current_user,c.oid,'DELETE'))
