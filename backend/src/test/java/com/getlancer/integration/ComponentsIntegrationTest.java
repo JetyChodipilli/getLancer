@@ -732,6 +732,10 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     UUID id=draft();byte[] first=contributionZip("Original custom source");response(sourceUpload(id,"1.0.0",first,"builder"));
     mvc.perform(sourceUpload(id,"1.0.1",first,"other")).andExpect(status().isNotFound());
     var draftSource=response(as(get("/api/v1/me/components/"+id),"builder"));assertTrue(draftSource.path("uploaded").asBoolean());assertFalse(draftSource.has("archiveBase64"));
+    var privateExport=response(as(get("/api/v1/me/export"),"builder"));
+    assertEquals(draftSource.path("files"),privateExport.path("components").get(0).path("draft_source").path("files"));
+    assertFalse(privateExport.path("components").get(0).path("draft_source").has("archiveBase64"));
+    assertTrue(response(as(get("/api/v1/me/export"),"other")).path("components").isEmpty());
     submit(id);assertThrows(org.springframework.dao.DataAccessException.class,()->db.update("UPDATE component_entries SET draft_source=jsonb_set(draft_source,'{files,README.md}','\"changed\"') WHERE id=?",id));
     mvc.perform(sourceUpload(id,"1.0.1",first,"builder")).andExpect(status().isConflict());response(approve(id));
     var published=response(get("/api/v1/components/remix-"+id));assertEquals(draftSource.path("files"),published.path("files"));assertFalse(published.has("archiveBase64"));
@@ -741,6 +745,10 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     assertNotEquals(published.path("sha256"),response(get("/api/v1/components/remix-"+id)).path("sha256"));
     assertEquals(2,response(get("/api/v1/components/remix-"+id+"/versions")).path("items").size());
     assertEquals(published.path("sha256").asText(),db.queryForObject("SELECT source_sha256 FROM component_releases WHERE component_id=? ORDER BY revision LIMIT 1",String.class,id));
+    var releasedExport=response(as(get("/api/v1/me/export"),"builder")).path("componentReleases");
+    assertEquals(2,releasedExport.size());assertEquals("1.0.0",releasedExport.get(0).path("source").path("version").asText());assertEquals("1.0.1",releasedExport.get(1).path("source").path("version").asText());
+    for(var release:releasedExport){assertEquals(id.toString(),release.path("component_id").asText());assertTrue(release.path("source").path("files").has("index.html"));assertFalse(release.path("source").has("archiveBase64"));}
+    assertTrue(response(as(get("/api/v1/me/export"),"other")).path("componentReleases").isEmpty());
   }
   @Test void controlledComponentPreviewRetriesExactIdentityAndChecksCurrentAuthority()throws Exception{
     UUID id=draft();response(sourceUpload(id,"1.0.0",contributionZip("Free reviewed preview"),"builder"));submit(id);response(approve(id));
@@ -776,7 +784,14 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     assertEquals("Private unsubmitted title",response(as(get("/api/v1/me/components/"+id),"builder")).path("title").asText());
     var shown=response(as(get("/api/v1/admin/components/"+id),"admin"));assertEquals("Original recipe selection",shown.path("title").asText());response(body(post("/api/v1/admin/components/"+id+"/review"),"admin",Map.of("revision",shown.path("revision").asLong(),"sourceHash",shown.path("sourceHash").asText(),"decision","SUSPEND","reason","Suspend this exact archived record after reviewing its source.")));
     var suspended=response(as(get("/api/v1/admin/components/"+id),"admin"));assertEquals("1.0.0",suspended.path("version").asText());assertEquals(shown.path("title"),suspended.path("title"));response(approve(id));var restored=response(get("/api/v1/components/remix-"+id));assertEquals(suspended.path("files"),restored.path("files"));assertEquals(shown.path("title"),restored.path("title"));
+    var publicSearch=response(get("/api/v1/components").param("builder","builder").param("q","Original recipe selection"));
+    assertEquals(1,publicSearch.path("totalItems").asInt());assertEquals(restored.path("title"),publicSearch.path("items").get(0).path("title"));
+    for(String privateTerm:List.of("Private unsubmitted title","Private unsubmitted summary")){
+      var privateSearch=response(get("/api/v1/components").param("builder","builder").param("q",privateTerm));
+      assertEquals(0,privateSearch.path("totalItems").asInt(),"Unsubmitted draft text must not affect public search");assertTrue(privateSearch.path("items").isEmpty());
+    }
     response(body(post("/api/v1/me/components/"+id+"/new-version"),"builder",Map.of()));assertEquals("Private unsubmitted title",response(as(get("/api/v1/me/components/"+id),"builder")).path("title").asText());submit(id);response(approve(id));assertEquals("Private unsubmitted title",response(get("/api/v1/components/remix-"+id)).path("title").asText());
+    assertEquals(1,response(get("/api/v1/components").param("builder","builder").param("q","Private unsubmitted title")).path("totalItems").asInt());
   }
 
   @Test void restorationAndContextOnlyReviewReuseTheSameReleaseAndFixedPreviewExpiry()throws Exception{

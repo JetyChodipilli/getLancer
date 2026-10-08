@@ -68,6 +68,24 @@ test('unfinished contribution and upload fields do not block returning to their 
   await expect(dialog).toBeVisible();
   await expect(page.getByRole('heading',{name:'An unfinished contribution',exact:true})).toHaveCount(0);
 });
+test('an empty source ZIP cannot silently save a base recipe as the creator upload',async({page})=>{
+  await page.goto('/preview/components');
+  await page.getByRole('button',{name:'New component',exact:true}).click();
+  const dialog=page.getByRole('dialog');
+  await dialog.getByLabel('Component title',{exact:true}).fill('An empty source upload');
+  await dialog.getByLabel('Summary',{exact:true}).fill('This upload must fail without creating a recipe draft.');
+  await dialog.getByRole('button',{name:'Continue to contribution',exact:true}).click();
+  await dialog.getByLabel('Your contribution & intended use',{exact:true}).fill('I created the source and preserve its accurate MIT attribution.');
+  await dialog.getByRole('checkbox',{name:'Upload my self-contained frontend source',exact:true}).check();
+  await dialog.getByLabel('Source ZIP',{exact:true}).setInputFiles({name:'empty.zip',mimeType:'application/zip',buffer:Buffer.alloc(0)});
+  await dialog.getByLabel('Synthetic preview interaction',{exact:true}).fill('Try the synthetic interaction.');
+  await dialog.getByRole('checkbox',{name:/I preserve/}).check();
+  await dialog.getByRole('button',{name:'Save component draft',exact:true}).click();
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('alert')).toContainText('Choose a nonempty source ZIP up to 5 MiB.');
+  await expect(dialog.getByLabel('Component title',{exact:true})).toHaveValue('An empty source upload');
+  await expect(page.getByRole('heading',{name:'An empty source upload',exact:true})).toHaveCount(0);
+});
 test('new synthetic form exposes inline error, focus, loading and success',async({page})=>{
   await page.goto('/components/feedback-form');const frame=page.frameLocator('.kit-preview-stage iframe');
   await frame.getByRole('button',{name:'Send feedback',exact:true}).click();

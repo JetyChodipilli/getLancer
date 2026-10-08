@@ -53,6 +53,7 @@ public record AccountExportResponse(Account account,
     List<MaintenanceRequests> maintenanceRequests,
     List<MaintenanceActions> maintenanceActions,
     List<Components> components,
+    List<ComponentRelease> componentReleases,
     List<CollegeContext> collegeContext,
     List<ComponentSlotPurchases> componentSlotPurchases,
     List<ComponentSlotLedger> componentSlotLedger,
@@ -95,6 +96,7 @@ public record AccountExportResponse(Account account,
         ResponseRows.rows(source, "maintenanceRequests", row -> MaintenanceRequests.from(row, mapper)),
         ResponseRows.rows(source, "maintenanceActions", row -> MaintenanceActions.from(row, mapper)),
         ResponseRows.rows(source, "components", row -> Components.from(row, mapper)),
+        ResponseRows.rows(source, "componentReleases", row -> ComponentRelease.from(row, mapper)),
         ResponseRows.rows(source, "collegeContext", row -> CollegeContext.from(row, mapper)),
         ResponseRows.rows(source, "componentSlotPurchases", row -> ComponentSlotPurchases.from(row, mapper)),
         ResponseRows.rows(source, "componentSlotLedger", row -> ComponentSlotLedger.from(row, mapper)),
@@ -829,6 +831,10 @@ public record AccountExportResponse(Account account,
       @JsonProperty("published_at") Timestamp published_at,
       @JsonProperty("published_source") JsonNode published_source,
       @JsonProperty("published_context") JsonNode published_context,
+      @JsonProperty("draft_source") JsonNode draft_source,
+      @JsonProperty("submitted_source") JsonNode submitted_source,
+      @JsonProperty("submitted_context") JsonNode submitted_context,
+      @JsonProperty("withdrawn_at") Timestamp withdrawn_at,
       @JsonProperty("created_at") Timestamp created_at,
       @JsonProperty("updated_at") Timestamp updated_at) {
     public static Components from(Map<String, Object> row, ObjectMapper mapper) {
@@ -843,11 +849,38 @@ public record AccountExportResponse(Account account,
           ResponseRows.string(row, "status"),
           ResponseRows.string(row, "review_reason"),
           ResponseRows.timestamp(row, "published_at"),
-          ResponseRows.json(row, "published_source", mapper),
-          ResponseRows.json(row, "published_context", mapper),
+          componentSnapshot(row, "published_source", mapper, true),
+          componentSnapshot(row, "published_context", mapper, false),
+          componentSnapshot(row, "draft_source", mapper, true),
+          componentSnapshot(row, "submitted_source", mapper, true),
+          componentSnapshot(row, "submitted_context", mapper, false),
+          ResponseRows.timestamp(row, "withdrawn_at"),
           ResponseRows.timestamp(row, "created_at"),
           ResponseRows.timestamp(row, "updated_at"));
     }
+  }
+
+  public record ComponentRelease(@JsonProperty("component_id") UUID component_id,
+      Long revision, JsonNode source, JsonNode context,
+      @JsonProperty("source_sha256") String source_sha256,
+      @JsonProperty("published_at") Timestamp published_at) {
+    public static ComponentRelease from(Map<String,Object> row,ObjectMapper mapper) {
+      return new ComponentRelease(ResponseRows.uuid(row,"component_id"),ResponseRows.integer64(row,"revision"),
+          componentSnapshot(row,"source",mapper,true),componentSnapshot(row,"context",mapper,false),
+          ResponseRows.string(row,"source_sha256"),ResponseRows.timestamp(row,"published_at"));
+    }
+  }
+
+  /** Export useful JSON snapshots rather than the JDBC JSON wrapper or duplicate ZIP bytes. */
+  private static JsonNode componentSnapshot(Map<String,Object> row,String key,ObjectMapper mapper,boolean source) {
+    Object value=row.get(key);
+    if(value==null)return mapper.nullNode();
+    try {
+      JsonNode snapshot=value instanceof Map<?,?> || value instanceof JsonNode
+          ? mapper.valueToTree(value) : mapper.readTree(value.toString());
+      if(source && snapshot instanceof com.fasterxml.jackson.databind.node.ObjectNode object)object.remove("archiveBase64");
+      return snapshot;
+    }catch(java.io.IOException e){throw new IllegalStateException("Invalid component export snapshot",e);}
   }
 
   public record CollegeContext(@JsonProperty("product_id") UUID product_id,

@@ -59,7 +59,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/accounts/AccountService.java",
-      "sha256": "74fe32c4c8f336c291eb98844f30df326ba1f6ef16011e909bc4a82d8ecbf3e2"
+      "sha256": "176c733ac0d61a88f09926ab24b4abe9069f4f9cf5374b0dfa362488f7e5e4f3"
     },
     {
       "path": "backend/src/main/java/com/getlancer/accounts/PrivacyController.java",
@@ -227,7 +227,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/components/ComponentService.java",
-      "sha256": "106dad2681c64a56b528ce59cde1422da695077c009b57424e27cde09708954c"
+      "sha256": "d91303d05dbf8e07d3c9120fecd9c20622d79ca03926f728bd0a39802b849a9d"
     },
     {
       "path": "backend/src/main/java/com/getlancer/components/ComponentSlotService.java",
@@ -527,7 +527,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/responses/AccountExportResponse.java",
-      "sha256": "ca370383dfaa406c7f86777707f3f2a38565987c3bcf64190f814cfa90073362"
+      "sha256": "57c0524f41a24bd54c829a58c122b0eced74b2d0de5e662588871817cdf84ee2"
     },
     {
       "path": "backend/src/main/java/com/getlancer/responses/AdminResponses.java",
@@ -901,7 +901,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java",
-      "sha256": "ac0a7c9e2aa58353f231b0e7e0f56c5c9073f86a6336d7056c93e40c628905cd"
+      "sha256": "bbfb236cc7540ef6826e48b82cf5d192d3b7ca0c29cdd008f211c45e3e0b5852"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/DataExposureIntegrationTest.java",
@@ -958,6 +958,10 @@
     {
       "path": "backend/src/test/java/com/getlancer/profiles/ProfileAndBootstrapTest.java",
       "sha256": "2f6ea3c5e89f6ea974f4e9269a7ea3f262424a5f100638cbf8306417396867f2"
+    },
+    {
+      "path": "backend/src/test/java/com/getlancer/responses/AccountExportResponseTest.java",
+      "sha256": "96cc8e3dcbf85a196d2f402581d158d18d89bd15d218d86b043609b4a0f9a6ac"
     },
     {
       "path": "backend/src/test/java/com/getlancer/security/AuthorizationIntegrationTest.java",

@@ -29,7 +29,7 @@ export default function ComponentWorkspace({ demo = false }: { demo?: boolean })
   async function create(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();const form=new FormData(e.currentTarget),file=form.get('file'),body={recipeSlug:String(form.get('recipeSlug')),title:String(form.get('title')),summary:String(form.get('summary')),contribution:String(form.get('contribution')),rightsConsent:form.get('rightsConsent')==='on'};
     await run(async()=>{
-      if(file instanceof File&&file.size>5242880)throw Error('Choose a source ZIP up to 5 MiB.');
+      if(file instanceof File&&(file.size===0||file.size>5242880||!file.name.toLowerCase().endsWith('.zip')))throw Error('Choose a nonempty source ZIP up to 5 MiB.');
       if(demo){
         if(file instanceof File&&file.size)throw Error('Source uploads require a connected builder account. This preview cannot save or review your ZIP.');
         const base=componentSeeds.find(c=>c.slug===body.recipeSlug)!;setItems(old=>[{...base,...body,id:editEntry?.id||crypto.randomUUID(),status:'DRAFT',creator:'Sample builder'},...old.filter(c=>c.id!==editEntry?.id)]);

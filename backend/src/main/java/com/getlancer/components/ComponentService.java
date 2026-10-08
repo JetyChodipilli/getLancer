@@ -181,7 +181,7 @@ public class ComponentService {
       args.add(builder);
     }
     if(!q.isBlank()){
-      sql+=" AND (c.title ILIKE ? OR c.summary ILIKE ?)";
+      sql+=" AND (c.published_context->>'title' ILIKE ? OR c.published_context->>'summary' ILIKE ?)";
       String term="%"+q.replace("%","\\%").replace("_","\\_")+"%";
       args.add(term);
       args.add(term);
