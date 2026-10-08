@@ -254,3 +254,7 @@ PUT /api/v1/developer/availability
 PUT /api/v1/developer/profile
 PUT /api/v1/me/college-projects/{id}
 PUT /api/v1/teams/{id}
+GET /api/v1/components/{slug}/versions
+GET /api/v1/me/saved-components
+POST /api/v1/components/{slug}/save
+DELETE /api/v1/components/{slug}/save

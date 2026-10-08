@@ -22,7 +22,8 @@ public final class ComponentRequests {
   public record Review(
       @JsonDeserialize(using = WholeNumber.class) @Min(1) @Max(2147483647) Long revision,
       @NotBlank @Pattern(regexp = "APPROVE|CHANGES_REQUESTED|SUSPEND") String decision,
-      @NotBlank @Size(min = 20, max = 2000) String reason) {}
+      @NotBlank @Size(min = 20, max = 2000) String reason,
+      @Pattern(regexp = "[a-f0-9]{64}") String sourceHash) {}
 
   public record College(
       UUID productId,

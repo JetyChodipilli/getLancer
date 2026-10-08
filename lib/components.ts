@@ -1,5 +1,5 @@
-import seeds from '../backend/src/main/resources/catalog/components.json' with {type: 'json'};
-export type ComponentEntry = { revision?: number; published?: boolean; id?: string; slug: string; recipeSlug?: string; title: string; summary: string; category: string; kind: string; framework: string; executionMode: string; creator: string; builderSlug?: string; contribution?: string; license: string; version: string; sha256: string; scenario: string; status?: string; reviewReason?: string; files?: Record<string, string> };
+import seeds from '../backend/src/main/resources/catalog/components.metadata.json' with {type: 'json'};
+export type ComponentEntry = { revision?: number; sourceHash?: string; withdrawn?: boolean; published?: boolean; id?: string; slug: string; recipeSlug?: string; title: string; summary: string; category: string; kind: string; framework: string; executionMode: string; creator: string; builderSlug?: string; contribution?: string; license: string; version: string; sha256: string; scenario: string; status?: string; reviewReason?: string; files?: Record<string, string> };
 export type ComponentPage = { items: ComponentEntry[]; totalItems: number; page: number; hasMore: boolean };
 export type Capacity = { free: number; purchased: number; used: number; limit: number };
 export type SlotPricing = { amountMinor: number | null; enabled: boolean; salesEnabled: boolean; configured: boolean; currency: string; mode: string; reason: string };

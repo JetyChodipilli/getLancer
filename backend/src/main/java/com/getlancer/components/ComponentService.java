@@ -58,9 +58,13 @@ public class ComponentService {
     return recipes.stream().filter(x->slug.equals(x.get("slug"))).findFirst().orElseThrow(()->new ApiError(404,"NOT_FOUND","Component not found."));
   }
   Map<String,Object> entry(Map<String,Object> c) {
-    var out=new LinkedHashMap<>(c.get("published_source")==null?recipe(Objects.toString(c.get("recipe_slug"))):sourceProjection(snapshot(c.get("published_source"))));
+    var source=c.get("submitted_source")!=null&&"PENDING".equals(c.get("status"))?snapshot(c.get("submitted_source")):c.get("published_source")==null?recipe(Objects.toString(c.get("recipe_slug"))):snapshot(c.get("published_source"));
+    var out=new LinkedHashMap<>(sourceProjection(source));
     out.put("published",c.get("published_at")!=null);
     out.put("revision",c.get("revision"));
+    var submitted=c.get("submitted_source");
+    out.put("sourceHash",(submitted==null?recipe(Objects.toString(c.get("recipe_slug"))):snapshot(submitted)).get("sha256"));
+    out.put("withdrawn",c.get("withdrawn_at")!=null);
     out.put("id",c.get("id"));
     out.put("recipeSlug",c.get("recipe_slug"));
     out.put("slug",c.get("slug"));
@@ -117,12 +121,16 @@ public class ComponentService {
     }
   }
   Map<String,Object> publicEntry(Map<String,Object> row){
-    var out=entry(row);
+    var published=new LinkedHashMap<>(row);
+    published.put("submitted_source",null);
+    var out=entry(published);
     if(!"ACTIVE".equals(row.get("status"))){
       var context=snapshot(row.get("published_context"));
       for(String key:List.of("title","summary","contribution"))if(context.containsKey(key))out.put(key,context.get(key));
     }
     out.remove("reviewReason");
+    out.remove("sourceHash");
+    out.remove("withdrawn");
     return out;
   }
   static Map<String,Object> card(Map<String,Object> item) {
@@ -136,7 +144,7 @@ public class ComponentService {
     var all=new ArrayList<Map<String,Object>>();
     if(builder.isBlank())all.addAll(recipes);
     // ponytail: bounded recipe catalogue plus paginated database remixes; no separate search infrastructure.
-    String sql="SELECT c.id,c.recipe_slug,c.slug,c.title,c.summary,c.contribution,c.revision,c.status,c.review_reason,c.published_at,c.published_source,c.published_context,d.display_name AS creator,d.slug AS builder_slug"+JOIN+" WHERE c.status='ACTIVE' AND "+ELIGIBLE;
+    String sql="SELECT c.id,c.recipe_slug,c.slug,c.title,c.summary,c.contribution,c.revision,c.status,c.review_reason,c.published_at,c.published_source,c.published_context,c.submitted_source,c.withdrawn_at,d.display_name AS creator,d.slug AS builder_slug"+JOIN+" WHERE c.status='ACTIVE' AND c.withdrawn_at IS NULL AND "+ELIGIBLE;
     var args=new ArrayList<Object>();
     if(!builder.isBlank()){
       sql+=" AND d.slug=?";
@@ -172,13 +180,13 @@ public class ComponentService {
   public Map<String,Object> detail(String slug) {
     var seed=recipes.stream().filter(x->slug.equals(x.get("slug"))).findFirst();
     if(seed.isPresent())return seed.get();
-    var rows=db.queryForList("SELECT c.id,c.recipe_slug,c.slug,c.title,c.summary,c.contribution,c.revision,c.status,c.review_reason,c.published_at,c.published_source,c.published_context,d.display_name AS creator,d.slug AS builder_slug"+JOIN+" WHERE c.slug=? AND c.published_at IS NOT NULL AND c.status IN ('ACTIVE','ARCHIVED','DRAFT','PENDING') AND "+ELIGIBLE,slug);
+    var rows=db.queryForList("SELECT c.id,c.recipe_slug,c.slug,c.title,c.summary,c.contribution,c.revision,c.status,c.review_reason,c.published_at,c.published_source,c.published_context,c.submitted_source,c.withdrawn_at,d.display_name AS creator,d.slug AS builder_slug"+JOIN+" WHERE c.slug=? AND c.withdrawn_at IS NULL AND c.published_at IS NOT NULL AND c.status IN ('ACTIVE','ARCHIVED','DRAFT','PENDING') AND "+ELIGIBLE,slug);
     if(rows.isEmpty())throw new ApiError(404,"NOT_FOUND","Component not found.");
     return publicEntry(rows.get(0));
   }
   public Map<String,Object> own(HttpServletRequest r) {
     UUID owner=security.developer(r,false);
-    return Map.of("items",db.queryForList("SELECT c.id,c.recipe_slug,c.slug,c.title,c.summary,c.contribution,c.revision,c.status,c.review_reason,c.published_at,c.published_source,c.published_context,d.display_name AS creator,d.slug AS builder_slug"+JOIN+" WHERE c.owner_id=? ORDER BY c.created_at DESC LIMIT 100",owner).stream().map(this::entry).map(ComponentService::card).toList(),"capacity",slots.capacity(owner),"pricing",slots.pricing(),"recipes",recipes.stream().map(ComponentService::card).toList());
+    return Map.of("items",db.queryForList("SELECT c.id,c.recipe_slug,c.slug,c.title,c.summary,c.contribution,c.revision,c.status,c.review_reason,c.published_at,c.published_source,c.published_context,c.submitted_source,c.withdrawn_at,d.display_name AS creator,d.slug AS builder_slug"+JOIN+" WHERE c.owner_id=? ORDER BY c.created_at DESC LIMIT 100",owner).stream().map(this::entry).map(ComponentService::card).toList(),"capacity",slots.capacity(owner),"pricing",slots.pricing(),"recipes",recipes.stream().map(ComponentService::card).toList());
   }
   @Transactional public Object create(Map<String,Object> b,HttpServletRequest r) {
     UUID owner=security.developer(r,true);
@@ -198,14 +206,14 @@ public class ComponentService {
     UUID owner=security.developer(r,true);
     slots.lock(owner);
     security.developer(r,true);
-    var rows=db.queryForList("SELECT id,owner_id,recipe_slug,slug,title,summary,contribution,revision,status,review_reason,published_at,published_source,published_context,created_at,updated_at FROM component_entries WHERE id=? AND owner_id=? FOR UPDATE",id,owner);
+    var rows=db.queryForList("SELECT id,owner_id,recipe_slug,slug,title,summary,contribution,revision,status,review_reason,published_at,published_source,published_context,submitted_source,withdrawn_at,created_at,updated_at FROM component_entries WHERE id=? AND owner_id=? FOR UPDATE",id,owner);
     if(rows.isEmpty())throw new ApiError(404,"NOT_FOUND","Component not found.");
     var c=rows.get(0);
     String next;
     if(action.equals("submit")&&Set.of("DRAFT","ARCHIVED").contains(c.get("status")))next="PENDING";
-    else if(action.equals("archive")&&!"SUSPENDED".equals(c.get("status")))next="ARCHIVED";
+    else if(Set.of("archive","withdraw").contains(action)&&!"SUSPENDED".equals(c.get("status")))next="ARCHIVED";
     else throw new ApiError(409,"INVALID_COMPONENT_STATE","This component cannot take that action.");
-    db.update("UPDATE component_entries SET status=?,revision=revision+1,updated_at=now() WHERE id=?",next,id);
+    db.update("UPDATE component_entries SET status=?,revision=revision+1,submitted_source=CASE WHEN ?='PENDING' THEN ?::jsonb ELSE submitted_source END,withdrawn_at=CASE WHEN ?='withdraw' THEN now() ELSE withdrawn_at END,updated_at=now() WHERE id=?",next,next,encode(c.get("published_source")==null?recipe(Objects.toString(c.get("recipe_slug"))):snapshot(c.get("published_source"))),action,id);
     slots.audit(owner,id,"COMPONENT_"+next,"Creator changed publication state.");
     return Map.of("status",next);
   }
@@ -213,7 +221,7 @@ public class ComponentService {
     UUID owner=security.developer(r,true);
     slots.lock(owner);
     security.developer(r,true);
-    var rows=db.queryForList("SELECT id,owner_id,recipe_slug,slug,title,summary,contribution,revision,status,review_reason,published_at,published_source,published_context,created_at,updated_at FROM component_entries WHERE id=? AND owner_id=? FOR UPDATE",id,owner);
+    var rows=db.queryForList("SELECT id,owner_id,recipe_slug,slug,title,summary,contribution,revision,status,review_reason,published_at,published_source,published_context,submitted_source,withdrawn_at,created_at,updated_at FROM component_entries WHERE id=? AND owner_id=? FOR UPDATE",id,owner);
     if(rows.isEmpty())throw new ApiError(404,"NOT_FOUND","Component not found.");
     var c=rows.get(0);
     if(!Set.of("DRAFT","ARCHIVED").contains(c.get("status")))throw new ApiError(409,"INVALID_COMPONENT_STATE","Archive an active component before editing its context.");
@@ -231,9 +239,11 @@ public class ComponentService {
     if(rows.isEmpty())throw new ApiError(404,"NOT_FOUND","Component not found.");
     UUID owner=(UUID)rows.get(0).get("owner_id");
     slots.lock(owner);
-    var c=db.queryForMap("SELECT id,owner_id,recipe_slug,slug,title,summary,contribution,revision,status,review_reason,published_at,published_source,published_context,created_at,updated_at FROM component_entries WHERE id=? FOR UPDATE",id);
+    var c=db.queryForMap("SELECT id,owner_id,recipe_slug,slug,title,summary,contribution,revision,status,review_reason,published_at,published_source,published_context,submitted_source,withdrawn_at,created_at,updated_at FROM component_entries WHERE id=? FOR UPDATE",id);
     security.admin(r);
     checkRevision(b,c);
+    var submitted=c.get("submitted_source")==null?recipe(Objects.toString(c.get("recipe_slug"))):snapshot(c.get("submitted_source"));
+    if(b.get("sourceHash")!=null&&!b.get("sourceHash").equals(submitted.get("sha256")))throw new ApiError(409,"REVIEW_SOURCE_CHANGED","The reviewed source hash does not match this submission.");
     String decision=text(b,"decision",3,30),reason=text(b,"reason",20,2000),next;
     if(decision.equals("APPROVE")&&Set.of("PENDING","SUSPENDED").contains(c.get("status"))){
       if(db.queryForObject("SELECT count(*) FROM users u JOIN developer_profiles d ON d.user_id=u.id WHERE u.id=? AND "+ELIGIBLE,Integer.class,owner)==0)throw new ApiError(409,"BUILDER_NOT_ELIGIBLE","The builder must have an active account and approved profile.");
@@ -244,7 +254,8 @@ public class ComponentService {
     else if(decision.equals("CHANGES_REQUESTED")&&"PENDING".equals(c.get("status")))next="DRAFT";
     else if(decision.equals("SUSPEND")&&Set.of("ACTIVE","PENDING","ARCHIVED").contains(c.get("status")))next="SUSPENDED";
     else throw new ApiError(409,"INVALID_COMPONENT_STATE","Choose a valid review decision.");
-    db.update("UPDATE component_entries SET status=?,revision=revision+1,review_reason=?,published_at=CASE WHEN ?='ACTIVE' THEN coalesce(published_at,now()) ELSE published_at END,published_source=CASE WHEN ?='ACTIVE' THEN coalesce(published_source,?::jsonb) ELSE published_source END,published_context=CASE WHEN ?='ACTIVE' THEN ?::jsonb ELSE published_context END,updated_at=now() WHERE id=?",next,reason,next,next,encode(recipe(Objects.toString(c.get("recipe_slug")))),next,encode(Map.of("title",c.get("title"),"summary",c.get("summary"),"contribution",c.get("contribution"))),id);
+    db.update("UPDATE component_entries SET status=?,revision=revision+1,review_reason=?,published_at=CASE WHEN ?='ACTIVE' THEN coalesce(published_at,now()) ELSE published_at END,published_source=CASE WHEN ?='ACTIVE' THEN coalesce(published_source,?::jsonb) ELSE published_source END,published_context=CASE WHEN ?='ACTIVE' THEN ?::jsonb ELSE published_context END,withdrawn_at=CASE WHEN ?='ACTIVE' THEN NULL ELSE withdrawn_at END,updated_at=now() WHERE id=?",next,reason,next,next,encode(submitted),next,encode(Map.of("title",c.get("title"),"summary",c.get("summary"),"contribution",c.get("contribution"))),next,id);
+    if(next.equals("ACTIVE"))db.update("INSERT INTO component_releases(component_id,revision,source,context,source_sha256) VALUES(?,?,?::jsonb,?::jsonb,?)",id,((Number)c.get("revision")).longValue(),encode(submitted),encode(Map.of("title",c.get("title"),"summary",c.get("summary"),"contribution",c.get("contribution"))),submitted.get("sha256"));
     slots.audit(admin,id,"REVIEW_"+decision,reason);
     return Map.of("status",next);
   }
@@ -252,11 +263,16 @@ public class ComponentService {
     Object value=b.get("revision");
     if(!(value instanceof Integer||value instanceof Long)||((Number)value).longValue()!=((Number)row.get("revision")).longValue())throw new ApiError(409,"REVIEW_CONTENT_CHANGED","This content changed after you loaded it. Reload and review the current revision.");
   }
-  public Object adminDetail(UUID id,HttpServletRequest r){security.admin(r);var rows=db.queryForList("SELECT c.id,c.recipe_slug,c.slug,c.title,c.summary,c.contribution,c.revision,c.status,c.review_reason,c.published_at,c.published_source,c.published_context,d.display_name AS creator,d.slug AS builder_slug"+JOIN+" WHERE c.id=?",id);if(rows.isEmpty())throw new ApiError(404,"NOT_FOUND","Component not found.");return entry(rows.get(0));}
+  public Object history(String slug) {
+    var component=detail(slug); // Recheck current account, publication and withdrawal authority.
+    if(component.get("id")==null)return Map.of("items",List.of(Map.of("version",component.get("version"),"sha256",component.get("sha256"))));
+    return Map.of("items",db.queryForList("SELECT revision,source_sha256 AS sha256,published_at FROM component_releases WHERE component_id=? ORDER BY revision DESC LIMIT 100",component.get("id")));
+  }
+  public Object adminDetail(UUID id,HttpServletRequest r){security.admin(r);var rows=db.queryForList("SELECT c.id,c.recipe_slug,c.slug,c.title,c.summary,c.contribution,c.revision,c.status,c.review_reason,c.published_at,c.published_source,c.published_context,c.submitted_source,c.withdrawn_at,d.display_name AS creator,d.slug AS builder_slug"+JOIN+" WHERE c.id=?",id);if(rows.isEmpty())throw new ApiError(404,"NOT_FOUND","Component not found.");return entry(rows.get(0));}
   public Object queue(HttpServletRequest r) {
     security.admin(r);
     int cp=com.getlancer.shared.Pages.number(r,"componentPage",0,100000),ep=com.getlancer.shared.Pages.number(r,"collegePage",0,100000);
-    var components=db.queryForList("SELECT c.id,c.recipe_slug,c.slug,c.title,c.summary,c.contribution,c.revision,c.status,c.review_reason,c.published_at,c.published_source,c.published_context,d.display_name AS creator,d.slug AS builder_slug"+JOIN+" WHERE c.status IN ('PENDING','ACTIVE','SUSPENDED') ORDER BY CASE WHEN c.status='PENDING' THEN 0 ELSE 1 END,c.id LIMIT 51 OFFSET ?",cp*50);
+    var components=db.queryForList("SELECT c.id,c.recipe_slug,c.slug,c.title,c.summary,c.contribution,c.revision,c.status,c.review_reason,c.published_at,c.published_source,c.published_context,c.submitted_source,c.withdrawn_at,d.display_name AS creator,d.slug AS builder_slug"+JOIN+" WHERE c.status IN ('PENDING','ACTIVE','SUSPENDED') ORDER BY CASE WHEN c.status='PENDING' THEN 0 ELSE 1 END,c.id LIMIT 51 OFFSET ?",cp*50);
     var college=db.queryForList("SELECT e.product_id,e.category,e.language,e.problem,e.outcome,e.prerequisites,e.contribution,e.institution,e.academic_year,e.branch,e.share_academic_details,e.revision,e.status,e.review_reason,e.updated_at,p.title,p.slug FROM college_project_metadata e JOIN products p ON p.id=e.product_id ORDER BY CASE WHEN e.status='PENDING' THEN 0 ELSE 1 END,e.updated_at,e.product_id LIMIT 51 OFFSET ?",ep*50);
     return Map.of("components",components.subList(0,Math.min(50,components.size())).stream().map(this::entry).map(ComponentService::card).toList(),"collegeProjects",college.subList(0,Math.min(50,college.size())),"componentHasMore",components.size()>50,"collegeHasMore",college.size()>50,"componentPage",cp,"collegePage",ep);
   }
