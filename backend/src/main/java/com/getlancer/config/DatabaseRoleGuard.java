@@ -62,13 +62,13 @@ public class DatabaseRoleGuard implements ApplicationRunner {
         WHERE n.nspname=? AND c.relname IN ('security_audit_events','inquiry_events','moderation_actions',
           'delivery_activity','payment_ledger','payment_account_audit','commerce_ledger','commerce_audit',
           'maintenance_ledger','maintenance_audit','hosting_audit','component_audit','component_releases','component_slot_ledger',
-          'component_slot_events','publishing_capacity_grants')
+          'component_slot_events','publishing_capacity_grants','lab_events','lab_operator_audit')
           AND (has_table_privilege(current_user,c.oid,'UPDATE') OR has_any_column_privilege(current_user,c.oid,'UPDATE')
             OR has_table_privilege(current_user,c.oid,'DELETE'))
         """, Integer.class, schema);
     Integer unsafeLocks = db.queryForObject("""
         SELECT count(*) FROM (VALUES ('user_roles','user_id'),('sessions','token_hash'),
-          ('business_members','business_id')) AS lock_requirement(table_name,column_name)
+          ('business_members','business_id'),('lab_manifests','id')) AS lock_requirement(table_name,column_name)
         LEFT JOIN pg_namespace n ON n.nspname=?
         LEFT JOIN pg_class c ON c.relnamespace=n.oid AND c.relname=lock_requirement.table_name AND c.relkind='r'
         WHERE c.oid IS NULL OR has_table_privilege(current_user,c.oid,'UPDATE')
@@ -93,6 +93,9 @@ public class DatabaseRoleGuard implements ApplicationRunner {
     if (!Boolean.TRUE.equals(exists)) reject("users_table");
     if (dangerousFunctions == null || dangerousFunctions != 0) reject("security_definer_execute");
     if (unsafeLocks == null || unsafeLocks != 0) reject("locking_permissions");
+    Boolean unsafeManifests = db.queryForObject("SELECT has_table_privilege(current_user,?,'INSERT') OR has_table_privilege(current_user,?,'DELETE')", Boolean.class,
+        schema+".lab_manifests", schema+".lab_manifests");
+    if (!Boolean.FALSE.equals(unsafeManifests)) reject("manifest_certification_permissions");
   }
 
   private static void reject(String check) {

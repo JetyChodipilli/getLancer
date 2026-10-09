@@ -262,3 +262,12 @@ GET /api/v1/me/components/{id}
 POST /api/v1/me/components/{id}/source
 POST /api/v1/me/components/{id}/preview
 GET /api/v1/components/{slug}/preview
+GET /api/v1/lab-manifests
+GET /api/v1/lab-quota
+POST /api/v1/lab-runs
+GET /api/v1/lab-runs/{id}
+POST /api/v1/lab-runs/{id}/stop
+POST /api/v1/lab-runs/{id}/requests
+GET /api/v1/lab-runs/{id}/events
+GET /api/v1/admin/labs
+POST /api/v1/admin/labs/pause-admissions

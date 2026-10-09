@@ -57,7 +57,9 @@ public record AccountExportResponse(Account account,
     List<CollegeContext> collegeContext,
     List<ComponentSlotPurchases> componentSlotPurchases,
     List<ComponentSlotLedger> componentSlotLedger,
-    HostedDemos hostedDemos) {
+    HostedDemos hostedDemos,
+    List<LabRun> labRuns,
+    List<LabRequest> labRequests) {
   public static AccountExportResponse from(Map<String, Object> source, ObjectMapper mapper) {
     return new AccountExportResponse(Account.from(ResponseRows.row(source, "account"), mapper),
         Profile.from(ResponseRows.row(source, "profile"), mapper),
@@ -100,7 +102,42 @@ public record AccountExportResponse(Account account,
         ResponseRows.rows(source, "collegeContext", row -> CollegeContext.from(row, mapper)),
         ResponseRows.rows(source, "componentSlotPurchases", row -> ComponentSlotPurchases.from(row, mapper)),
         ResponseRows.rows(source, "componentSlotLedger", row -> ComponentSlotLedger.from(row, mapper)),
-        HostedDemos.from(ResponseRows.row(source, "hostedDemos"), mapper));
+        HostedDemos.from(ResponseRows.row(source, "hostedDemos"), mapper),
+        ResponseRows.rows(source, "labRuns", row -> LabRun.from(row, mapper)),
+        ResponseRows.rows(source, "labRequests", row -> LabRequest.from(row, mapper)));
+  }
+
+  public record LabRun(UUID id, String manifest_id, String scenario_id, String status,
+      JsonNode inputs, Timestamp requested_at, Timestamp expires_at, Timestamp healthy_at,
+      Timestamp cleanup_confirmed_at) {
+    public static LabRun from(Map<String,Object> row,ObjectMapper mapper) {
+      return new LabRun(ResponseRows.uuid(row,"id"),ResponseRows.string(row,"manifest_id"),
+          ResponseRows.string(row,"scenario_id"),ResponseRows.string(row,"status"),labJson(row,"inputs",mapper),
+          ResponseRows.timestamp(row,"requested_at"),ResponseRows.timestamp(row,"expires_at"),
+          ResponseRows.timestamp(row,"healthy_at"),ResponseRows.timestamp(row,"cleanup_confirmed_at"));
+    }
+  }
+
+  public record LabRequest(UUID command_id, UUID run_id, String operation_id, JsonNode inputs,
+      JsonNode response, Timestamp created_at) {
+    public static LabRequest from(Map<String,Object> row,ObjectMapper mapper) {
+      JsonNode stored = labJson(row,"response",mapper);
+      var safe = mapper.createObjectNode();
+      // Only the documented gateway result fields survive account export.
+      for (String key : List.of("output","summary"))
+        if (stored.has(key) && stored.get(key).isTextual()) safe.put(key,stored.get(key).textValue());
+      return new LabRequest(ResponseRows.uuid(row,"command_id"),ResponseRows.uuid(row,"run_id"),
+          ResponseRows.string(row,"operation_id"),labJson(row,"inputs",mapper),
+          stored.isNull()?mapper.nullNode():safe,ResponseRows.timestamp(row,"created_at"));
+    }
+  }
+
+  private static JsonNode labJson(Map<String,Object> row,String key,ObjectMapper mapper) {
+    Object value = row.get(key);
+    if (value == null) return mapper.nullNode();
+    try { return value instanceof Map || value instanceof JsonNode
+        ? mapper.valueToTree(value) : mapper.readTree(value.toString()); }
+    catch (java.io.IOException invalid) { throw new IllegalStateException("Invalid stored lab snapshot",invalid); }
   }
 
   public record Account(UUID id,

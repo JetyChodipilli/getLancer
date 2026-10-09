@@ -4,7 +4,7 @@ import { ArrowUpRight, BriefcaseBusiness, ChevronDown, Code2, Compass, FlaskConi
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
-type Section = 'personal' | 'trust' | 'teams' | 'business' | 'delivery' | 'templates' | 'maintenance' | 'hosting' | 'components' | 'college' | 'slots';
+type Section = 'personal' | 'trust' | 'teams' | 'business' | 'delivery' | 'templates' | 'maintenance' | 'hosting' | 'components' | 'college' | 'slots' | 'labs';
 
 export function WorkspaceFrame({ children, title, description, section, preview = false, actions, className }: {
   children: ReactNode; title: string; description: string; section: Section;
@@ -16,6 +16,7 @@ export function WorkspaceFrame({ children, title, description, section, preview 
     { section: 'components', title: 'Components & slots', href: root + '/components', Icon: Code2 },
     { section: 'slots', title: 'Publishing slots', href: root + '/slots', Icon: Layers },
     { section: 'college', title: 'College projects', href: root + '/college-projects', Icon: Layers },
+    ...(!preview ? [{ section: 'labs', title: 'Lab operations', href: root + '/labs', Icon: FlaskConical }] : []),
     { section: 'trust', title: 'Trust & reliability', href: root + '/trust', Icon: ShieldCheck },
     { section: 'teams', title: 'Teams & studios', href: root + '/teams', Icon: Users },
     { section: 'delivery', title: 'Delivery & payments', href: root + '/delivery', Icon: Layers },

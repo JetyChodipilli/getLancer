@@ -11,7 +11,7 @@ export default function Footer({preview=false}:{preview?:boolean}) {
      <p>Great work.<br/><span>Better connections.</span></p>
      <span className="spectral-footer-note">Discover the work. Meet the people behind it.</span>
     </div>
-    <nav aria-labelledby="footer-discover"><h2 id="footer-discover">Discover</h2><Link href="/">Explore projects</Link><Link href="/templates">Source templates</Link><Link href="/teams">Teams & studios</Link><Link href="/how-it-works">How it works</Link></nav>
+    <nav aria-labelledby="footer-discover"><h2 id="footer-discover">Discover</h2><Link href="/">Explore projects</Link><Link href="/components">Free components</Link><Link href="/labs">Backend labs</Link><Link href="/templates">Source templates</Link><Link href="/teams">Teams & studios</Link><Link href="/how-it-works">How it works</Link></nav>
     <nav aria-labelledby="footer-work"><h2 id="footer-work">Make it happen</h2><Link href={workspace}>Builder workspace</Link><Link href={business}>Business workspace</Link><Link href={business}>Start a project request</Link><Link href="/saved">Saved projects</Link></nav>
     <nav aria-labelledby="footer-help"><h2 id="footer-help">Here to help</h2><Link href="/report">Support & reporting</Link><Link href="/policies#terms">Terms of use</Link><Link href="/policies#privacy">Privacy policy</Link></nav>
    </div>

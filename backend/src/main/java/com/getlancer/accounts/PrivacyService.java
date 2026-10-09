@@ -4,6 +4,7 @@ import static com.getlancer.shared.Support.id;
 import static com.getlancer.shared.Support.text;
 
 import com.getlancer.admin.AdminService;
+import com.getlancer.labs.LabService;
 import com.getlancer.responses.PageResponse;
 import com.getlancer.responses.PrivacyResponses;
 import com.getlancer.security.Security;
@@ -24,6 +25,7 @@ public class PrivacyService {
   final JdbcTemplate db;
   final Security security;
   final AdminService admin;
+  final LabService labs;
 
   final String version;
 
@@ -36,7 +38,7 @@ public class PrivacyService {
   final String copyright;
 
   public PrivacyService(JdbcTemplate db, Security security, AdminService admin) {
-    this(db, security, admin, "v1-draft", false, "", "", "");
+    this(db, security, admin, "v1-draft", false, "", "", "", null);
   }
 
   @Autowired
@@ -45,10 +47,11 @@ public class PrivacyService {
       @Value("${app.policies-approved:false}") boolean approved,
       @Value("${app.support-email:}") String support,
       @Value("${app.privacy-email:}") String privacy,
-      @Value("${app.copyright-email:}") String copyright) {
+      @Value("${app.copyright-email:}") String copyright, LabService labs) {
     this.db = db;
     this.security = security;
     this.admin = admin;
+    this.labs = labs;
     this.version = version; this.approved = approved; this.support = support;
     this.privacy = privacy; this.copyright = copyright;
   }
@@ -86,6 +89,10 @@ public class PrivacyService {
             409,
             "RETENTION_POLICY_REQUIRED",
             "Approve a retention policy before processing personal data.");
+      if (labs != null) {
+        labs.revokeOwner(id);
+        labs.redactOwner(id);
+      }
       db.update(
           "UPDATE developer_profiles SET display_name='Closed"
               + " account',headline='',bio='',technology='',category='',github_url=NULL,linkedin_url=NULL,website_url='',country='',time_zone='',languages='',availability_status='NOT_ACCEPTING',booked_until=NULL,approval_status='SUSPENDED',updated_at=now()"

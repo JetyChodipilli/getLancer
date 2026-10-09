@@ -167,6 +167,31 @@ class DatabaseRoleGuardIntegrationTest {
     } finally { provision("10_permissions.sql"); }
   }
 
+  @Test void labCertificationAndAuditPrivilegesRemainNarrow() throws Exception {
+    String id="role-manifest-"+UUID.randomUUID();
+    JdbcTemplate migration = jdbc("getlancer_migration",migrationPassword);
+    migration.update("INSERT INTO lab_manifests(id,payload_text,payload_sha256,signature) VALUES(?,'{}',?,'fixture')",id,"a".repeat(64));
+    TransactionTemplate transactions = new TransactionTemplate(new DataSourceTransactionManager(runtime.getDataSource()));
+    transactions.executeWithoutResult(tx -> assertEquals(1,runtime.queryForList("SELECT id FROM lab_manifests WHERE id=? FOR SHARE",id).size()));
+    assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("INSERT INTO lab_manifests(id,payload_text,payload_sha256,signature) VALUES(?,'{}',?,'fixture')",id+"-forbidden","a".repeat(64)));
+    assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE lab_manifests SET id=id WHERE id=?",id));
+    assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("DELETE FROM lab_manifests WHERE id=?",id));
+    for(String table:List.of("lab_events","lab_operator_audit")) {
+      assertEquals(Boolean.FALSE,runtime.queryForObject("SELECT has_any_column_privilege(current_user,?,'UPDATE') OR has_table_privilege(current_user,?,'DELETE')",Boolean.class,SCHEMA+"."+table,SCHEMA+"."+table));
+    }
+    try {
+      adminSql("GRANT INSERT ON "+SCHEMA+".lab_manifests TO getlancer_runtime");
+      assertRejected(runtime,"manifest_certification_permissions");
+    } finally { provision("10_permissions.sql"); }
+    for(String directRole:List.of("anon","authenticated")) {
+      try(Connection connection=DriverManager.getConnection(url,admin,adminPassword);Statement statement=connection.createStatement()) {
+        statement.execute("SET ROLE "+directRole);
+        for(String table:List.of("lab_manifests","lab_runs","lab_requests","lab_events","lab_outbox","lab_runtime_settings","lab_operator_audit"))
+          assertThrows(java.sql.SQLException.class,()->statement.executeQuery("SELECT count(*) FROM "+SCHEMA+"."+table));
+      }
+    }
+  }
+
   @Test void runtimeCanLockAuthenticationAndMembershipRowsWithoutBeingAbleToUpdateThem() throws Exception {
     UUID user = UUID.randomUUID(), business = UUID.randomUUID(), product = UUID.randomUUID(), request = UUID.randomUUID(), engagement = UUID.randomUUID();
     String token = UUID.randomUUID().toString();

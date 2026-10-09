@@ -16,7 +16,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 /** Transport controls run before authentication, including the documented browser CSRF equivalent. */
 public final class BrowserSecurityFilter extends OncePerRequestFilter {
   private static final Set<String> SAFE = Set.of("GET", "HEAD", "OPTIONS");
-  private static final Set<String> CORS_HEADERS = Set.of("content-type", "x-requested-with", "idempotency-key");
+  private static final Set<String> CORS_HEADERS = Set.of("content-type", "x-requested-with", "idempotency-key", "last-event-id");
   private static final ObjectMapper JSON = new ObjectMapper();
   private final Security security;
   private final AuthorizationService authorization;
@@ -62,7 +62,7 @@ public final class BrowserSecurityFilter extends OncePerRequestFilter {
         audit.record(null, "AUTHORIZATION_DENIED", "PREFLIGHT", "FAILURE", RequestIds.get(request));
         return;
       }
-      response.setHeader("Access-Control-Allow-Headers", "Content-Type,X-Requested-With,Idempotency-Key");
+      response.setHeader("Access-Control-Allow-Headers", "Content-Type,X-Requested-With,Idempotency-Key,Last-Event-ID");
       response.setHeader("Access-Control-Allow-Methods", "GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS");
       response.setStatus(204); return;
     }
@@ -93,7 +93,8 @@ public final class BrowserSecurityFilter extends OncePerRequestFilter {
         audit.record(null, "AUTHORIZATION_DENIED", target, "FAILURE", RequestIds.get(request));
         return;
       }
-      long cap = webhook ? 64 * 1024 : 6 * 1024 * 1024;
+      boolean labMutation = request.getRequestURI().matches("/api/v1/lab-runs(?:/.*)?");
+      long cap = webhook || labMutation ? 64 * 1024 : 6 * 1024 * 1024;
       if (request.getContentLengthLong() > cap) {
         writeError(request, response, 413, "PAYLOAD_TOO_LARGE", "Request too large."); return;
       }
