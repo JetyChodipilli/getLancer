@@ -1,5 +1,5 @@
-import {readFileSync, lstatSync, realpathSync} from 'node:fs';
-import {resolve, dirname, relative, isAbsolute} from 'node:path';
+import {openSync, closeSync, fstatSync, readSync, constants} from 'node:fs';
+import {resolve, dirname, isAbsolute} from 'node:path';
 import {createHash, createPublicKey, verify} from 'node:crypto';
 import {pathToFileURL} from 'node:url';
 
@@ -10,12 +10,40 @@ const CONTROLS = ['isolation', 'network', 'cleanup', 'restore', 'licence', 'cost
 const fail = message => {throw new Error(message);};
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 
+function openUnlinked(path) {
+  if (process.platform !== 'linux') fail('Verify evidence on Linux with descriptor-relative file access.');
+  const parts = resolve(path).split('/').filter(Boolean);
+  const flags = constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK;
+  let descriptor = openSync('/', flags | constants.O_DIRECTORY);
+  try {
+    for (let i = 0; i < parts.length; i++) {
+      // Anchor each component to its open parent; renamed directories cannot redirect the walk.
+      const next = openSync('/proc/self/fd/' + descriptor + '/' + parts[i], flags | (i < parts.length - 1 ? constants.O_DIRECTORY : 0));
+      closeSync(descriptor); descriptor = next;
+    }
+    return descriptor;
+  } catch (error) {closeSync(descriptor); throw error;}
+}
+
 function bounded(path) {
-  const info = lstatSync(path);
-  if (!info.isFile() || info.isSymbolicLink() || info.size > MAX_BYTES || info.size === 0) fail('Use bounded regular evidence files.');
-  const bytes = readFileSync(path);
-  if (bytes.length > MAX_BYTES) fail('Evidence exceeded the size limit.');
-  return bytes;
+  let descriptor;
+  try {
+    descriptor = openUnlinked(path);
+    const info = fstatSync(descriptor);
+    if (!info.isFile() || info.size > MAX_BYTES || info.size === 0) fail('Use bounded regular evidence files.');
+    const bytes = Buffer.alloc(MAX_BYTES + 1); let count = 0;
+    while (count < bytes.length) {
+      const length = readSync(descriptor, bytes, count, bytes.length - count, null);
+      if (length === 0) break;
+      count += length;
+    }
+    if (count === 0) fail('Use bounded regular evidence files.');
+    if (count > MAX_BYTES) fail('Evidence exceeded the size limit.');
+    return bytes.subarray(0, count);
+  } catch (error) {
+    if (error.code === 'ELOOP' || error.code === 'ENOTDIR') fail('Linked evidence is not admitted.');
+    throw error;
+  } finally {if (descriptor !== undefined) closeSync(descriptor);}
 }
 
 function base64(value) {
@@ -42,13 +70,7 @@ function currentApproval(value, now) {
 
 function evidencePath(root, name) {
   if (typeof name !== 'string' || !name || name.length > 200 || isAbsolute(name) || name.includes('\\') || name.split('/').some(p => !p || p === '.' || p === '..')) fail('Evidence path must stay inside its bundle.');
-  const path = resolve(root, name), canonicalRoot = realpathSync(root);
-  const canonical = realpathSync(path), rel = relative(canonicalRoot, canonical);
-  if (!rel || rel.startsWith('..') || isAbsolute(rel)) fail('Evidence path escaped its bundle.');
-  // Refuse symlinks anywhere in the evidence path, not merely a linked leaf.
-  let current = root;
-  for (const part of name.split('/')) {current = resolve(current, part); if (lstatSync(current).isSymbolicLink()) fail('Linked evidence is not admitted.');}
-  return path;
+  return resolve(root, name);
 }
 
 export function verifyBundle({admissionPath, inventoryPath, publicKeyPath, operatorEpoch, now = Date.now()}) {
