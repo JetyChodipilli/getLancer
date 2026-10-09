@@ -3,17 +3,21 @@ FROM python:3.12-bookworm AS redis-build
 RUN git init /tmp/redis \
     && git -C /tmp/redis fetch --depth 1 https://github.com/redis/redis.git 335554f18caf7bbf6b0ac2b3548133d750f00a1b \
     && git -C /tmp/redis checkout --detach FETCH_HEAD \
-    && make -C /tmp/redis -j2 MALLOC=libc redis-server
+    && make -C /tmp/redis -j2 MALLOC=libc redis-server \
+    && mkdir -p /out/redis-notices \
+    && cd /tmp/redis \
+    && find . -type f \( -iname 'COPYING*' -o -iname 'LICENSE*' -o -iname 'COPYRIGHT*' \) -exec cp --parents '{}' /out/redis-notices/ \;
 
 FROM node:22-bookworm-slim AS node-runtime
 
 FROM python:3.12-slim-bookworm
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends openjdk-17-jdk-headless libstdc++6 \
+    && apt-get install -y --no-install-recommends openjdk-17-jdk-headless libstdc++6 libatomic1 \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
+COPY --from=node-runtime /usr/local/LICENSE /usr/share/doc/getlancer-node/LICENSE
 COPY --from=redis-build /tmp/redis/src/redis-server /usr/local/bin/redis-server
-COPY --from=redis-build /tmp/redis/COPYING /tmp/redis/REDISCONTRIBUTIONS.txt /usr/share/doc/getlancer-redis/
+COPY --from=redis-build /out/redis-notices/ /usr/share/doc/getlancer-redis/
 WORKDIR /source
 COPY labs ./labs
 COPY scripts/verify-lab-scenarios.mjs ./scripts/verify-lab-scenarios.mjs
