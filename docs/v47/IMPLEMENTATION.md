@@ -12,11 +12,13 @@ Status: started from tested main c5bc9eb on `codex/v4.7-runtime-20261009`. Devel
 
 ## Checks and limits
 
-Production build and TypeScript compile passed. Full Node suite passed 177/177; certification tests use synthetic signed reports solely to exercise verifier rejection behavior. Java protocol, account export and architecture tests passed 17/17 (nine lab protocol, two export, six architecture checks). These unit checks do not establish database/provider isolation.
+Production build and TypeScript compile passed. Full Node suite passed 177/177; certification tests use synthetic signed reports solely to exercise verifier rejection behavior. After the publication review, Java protocol, request DTO, account export and architecture tests passed 22/22, including the complete request-validation architecture check. These unit checks do not establish database/provider isolation.
 
 The real PostgreSQL integration suite and production-role grants have not passed here: no disposable native PostgreSQL/Docker service is available. Browser journeys are written for desktop 1440px, phone 375px and tablet 768px, but local execution is blocked by missing Chromium and truncated official Playwright downloads. Test discovery/type checking is not a browser pass. Public-provider isolation, licence, pricing/budget, image/build, network, cleanup, restore and soak evidence remains open in ADMISSION_GATES.md.
 
-Before calling the development slice verified, execute the new lab integration and role tests on disposable real PostgreSQL, all browser journeys against the current production build, and repository CI/SAST/container checks on the exact branch tree. Keep all unmet gates open. A draft PR is the next reviewable publication step; merge and public admission are separate later steps.
+PR #41 publishes this development slice. Its first CI run found a stale lock-only permission inventory, lab fixtures retaining rate-limit buckets across tests, and dynamic map fields violating the concrete request DTO contract. The inventory now explicitly covers the manifest lock and immutable lab history; test setup resets its rate buckets; concrete validated input fields preserve the existing JSON object format and canonical retry identity. No security regression, permission boundary, SAST finding scope or expiry was relaxed. The reviewed provider request intent also drops an unused cached-response field; response recovery still rechecks authority in the delivery transaction.
+
+Before merging, require the lab integration and role tests on disposable real PostgreSQL, all browser journeys against the current production build, and repository CI/SAST/container checks on the exact updated branch tree. Keep all unmet public-runtime gates open; merging the disabled development slice cannot certify or activate the provider.
 
 ## Operator protocol and rollout
 

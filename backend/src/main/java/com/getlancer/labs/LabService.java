@@ -28,6 +28,7 @@ public class LabService {
     this.db=db;this.security=security;this.config=config;this.provider=provider;this.json=json;this.transaction=new TransactionTemplate(manager);
   }
   private <T>T tx(java.util.function.Supplier<T> work){return transaction.execute(status->work.get());}
+  // ponytail: one admission lock for ten runs; partition only if measured throughput requires it.
   private void readLock(){db.queryForList("SELECT id FROM lab_runtime_settings WHERE id=1 FOR UPDATE");}
   private void syncEpoch(){tx(()->settings());}
   @EventListener(ApplicationReadyEvent.class) public void initializeEpoch(){syncEpoch();}
@@ -76,7 +77,7 @@ public class LabService {
     var settings=settings();UUID owner=actor(request,false);String hash=hash(input);var old=db.queryForList("SELECT id,owner_id,manifest_id,scenario_id,request_hash,idempotency_key,inputs,manifest_sha256,image_digest,operator_epoch,lease_generation,status,requested_at,expires_at,last_activity_at,healthy_at,cleanup_confirmed_at,reason,attention,memory_mib,cost_micros,quota_counted FROM lab_runs WHERE owner_id=? AND idempotency_key=? FOR UPDATE",owner,key);
     if(!old.isEmpty()){if(!hash.equals(old.get(0).get("request_hash")))throw idempotency();reconcileAuthority(old.get(0));return projection(row((UUID)old.get(0).get("id")));}
     config.ready();if(Boolean.TRUE.equals(settings.get("paused")))throw new ApiError(503,"LAB_PAUSED","New lab admissions are paused. Source and setup remain free.");
-    LabManifest manifest=manifest(input.manifestId());source(manifest,true);var scenario=manifest.scenario(input.scenarioId());Map<String,String> inputs=manifest.inputs(scenario,input.inputs());
+    LabManifest manifest=manifest(input.manifestId());source(manifest,true);var scenario=manifest.scenario(input.scenarioId());Map<String,String> inputs=manifest.inputs(scenario,input.inputs().values());
     var quota=quota(owner);if(quota.remaining()<1)throw new ApiError(429,"LAB_QUOTA_EXHAUSTED","Your five daily runtime reservations are used. Source and setup remain free.");
     if(quota.activeRunId()!=null)throw new ApiError(429,"LAB_ACTIVE_RUN","Finish cleanup of your current run before starting another.");
     var resources=resources();if(number(resources,"active")>=10||number(resources,"memory")+manifest.memoryMiB()>5120||number(resources,"daily")+manifest.maxCostMicros()>50_000_000||number(resources,"monthly")+manifest.maxCostMicros()>1_000_000_000)
@@ -103,15 +104,15 @@ public class LabService {
     db.update("UPDATE lab_runs SET status='CANCELLING',lease_generation=?,reason=?,attention=true WHERE id=?",lease,reason,id);
     event(id,terminal,"CANCELLING",reason);outbox(id,lease,"STOP");
   }
-  private record RequestIntent(UUID owner,UUID command,String operation,Map<String,String> inputs,LabResponses.RequestResult previous) {}
+  private record RequestIntent(UUID owner,UUID command,String operation,Map<String,String> inputs) {}
   public LabResponses.RequestResult request(UUID id,LabRequests.Request input,String key,HttpServletRequest request){key(key);syncEpoch();
     RequestIntent intent=tx(()->{
       settings();UUID owner=actor(request,false);var run=owned(id,owner,false);current(run);if(!run.get("status").equals("RUNNING")||run.get("healthy_at")==null)throw new ApiError(409,"LAB_NOT_RUNNING","Only a currently healthy running lab accepts requests.");
       var manifest=manifest((String)run.get("manifest_id"));var scenario=manifest.scenario((String)run.get("scenario_id"));if(scenario.operations().stream().noneMatch(op->op.id().equals(input.operationId())))throw new ApiError(400,"INVALID_LAB_OPERATION","Choose an operation certified for this scenario.");
-      var inputs=manifest.inputs(scenario,input.inputs());String hash=hash(input);var previous=db.queryForList("SELECT command_id,run_id,idempotency_key,request_hash,lease_generation,operation_id,inputs,response,created_at FROM lab_requests WHERE run_id=? AND idempotency_key=? FOR UPDATE",id,key);UUID command;
-      if(!previous.isEmpty()){if(!hash.equals(previous.get(0).get("request_hash")))throw idempotency();if(previous.get(0).get("response")!=null)return new RequestIntent(owner,(UUID)previous.get(0).get("command_id"),input.operationId(),inputs,decode(previous.get(0).get("response").toString(),LabResponses.RequestResult.class));command=(UUID)previous.get(0).get("command_id");}
+      var inputs=manifest.inputs(scenario,input.inputs().values());String hash=hash(input);var previous=db.queryForList("SELECT command_id,run_id,idempotency_key,request_hash,lease_generation,operation_id,inputs,response,created_at FROM lab_requests WHERE run_id=? AND idempotency_key=? FOR UPDATE",id,key);UUID command;
+      if(!previous.isEmpty()){if(!hash.equals(previous.get(0).get("request_hash")))throw idempotency();command=(UUID)previous.get(0).get("command_id");}
       else{command=UUID.randomUUID();db.update("INSERT INTO lab_requests(command_id,run_id,idempotency_key,request_hash,lease_generation,operation_id,inputs) VALUES(?,?,?,?,?,?,?::jsonb)",command,id,key,hash,number(run,"lease_generation"),input.operationId(),encode(inputs));}
-      return new RequestIntent(owner,command,input.operationId(),inputs,null);
+      return new RequestIntent(owner,command,input.operationId(),inputs);
     });
     // A committed identity survives a lost response; delivery is serialized against stop and authority revocation.
     try{return tx(()->{settings();UUID owner=actor(request,false);var run=owned(id,owner,false);current(run);

@@ -22,10 +22,10 @@ for(const file of readdirSync(java,{recursive:true}).filter(file=>file.endsWith(
 }
 // Also cover reviewed dynamic table names and ON CONFLICT updates that simple SQL scans omit.
 for(const table of ['categories','technologies','product_access_grants','request_shortlist','commerce_provider_disputes','payment_provider_disputes','maintenance_provider_disputes','maintenance_refunds','rate_buckets'])assert.ok(updates.has(table),'Missing upsert permission for '+table);
-for(const table of ['security_audit_events','inquiry_events','moderation_actions','delivery_activity','payment_ledger','payment_account_audit','commerce_ledger','commerce_audit','maintenance_ledger','maintenance_audit','hosting_audit','component_audit','component_releases','component_slot_ledger','component_slot_events','publishing_capacity_grants']){
+for(const table of ['security_audit_events','inquiry_events','moderation_actions','delivery_activity','payment_ledger','payment_account_audit','commerce_ledger','commerce_audit','maintenance_ledger','maintenance_audit','hosting_audit','component_audit','component_releases','component_slot_ledger','component_slot_events','publishing_capacity_grants','lab_events','lab_operator_audit']){
  assert.ok(known.has(table),'Missing immutable table '+table);assert.ok(!updates.has(table)&&!deletes.has(table),'Immutable history grants mutation for '+table);
 }
-assert.deepEqual([...locks],['user_roles','sessions','business_members']);
+assert.deepEqual([...locks],['user_roles','sessions','business_members','lab_manifests']);
 for(const table of locks)assert.ok(!updates.has(table),'Lock-only table must not receive full UPDATE: '+table);
 const roles=readFileSync(new URL('./00_roles.sql',import.meta.url),'utf8');
 assert.ok(roles.includes('ALTER DEFAULT PRIVILEGES FOR ROLE getlancer_migration REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC'),'Global function PUBLIC defaults must be revoked');
