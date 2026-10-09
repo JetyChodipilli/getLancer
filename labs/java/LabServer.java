@@ -524,8 +524,9 @@ public class LabServer {
                 long size = number(line());
                 if (size == -1) return new Bulk(null);
                 if (size < 0 || size > 1024) throw new IOException("RESP bulk bound.");
-                ByteArrayOutputStream value = new ByteArrayOutputStream((int) size);
-                for (int i = 0; i < size; i++) value.write(read());
+                int length = (int) size;
+                ByteArrayOutputStream value = new ByteArrayOutputStream(length);
+                for (int i = 0; i < length; i++) value.write(read());
                 if (read() != '\r' || read() != '\n') throw new IOException("Invalid RESP bulk framing.");
                 return new Bulk(value.toString(StandardCharsets.UTF_8));
             }

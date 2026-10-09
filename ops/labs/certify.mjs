@@ -46,6 +46,9 @@ function bounded(path) {
   } finally {if (descriptor !== undefined) closeSync(descriptor);}
 }
 
+// Reuse the same descriptor-bound reader for independently signed phase evidence.
+export {bounded as readEvidence};
+
 function base64(value) {
   if (typeof value !== 'string' || !value || value.length > MAX_BYTES * 2 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)) fail('Invalid signed envelope.');
   const bytes = Buffer.from(value, 'base64');
@@ -73,9 +76,10 @@ function evidencePath(root, name) {
   return resolve(root, name);
 }
 
-export function verifyBundle({admissionPath, inventoryPath, publicKeyPath, operatorEpoch, now = Date.now()}) {
+export function verifyBundle({admissionPath, inventoryPath, publicKeyPath, publicKeyBytes, operatorEpoch, now = Date.now()}) {
   if (!UUID.test(operatorEpoch || '')) fail('Supply the external restore epoch.');
-  const inventoryBytes = bounded(inventoryPath), key = bounded(publicKeyPath);
+  const inventoryBytes = bounded(inventoryPath), key = publicKeyBytes ?? bounded(publicKeyPath);
+  if (!Buffer.isBuffer(key) || key.length === 0 || key.length > 16384) fail('Use bounded operator public-key bytes.');
   const admission = verifiedPayload(bounded(admissionPath), key);
   if (admission.operatorEpoch !== operatorEpoch || !UUID.test(admission.operatorEpoch)) fail('Admission belongs to another restore epoch.');
   if (typeof admission.provider !== 'string' || admission.provider.length < 2 || admission.provider.length > 100 || admission.isolation !== 'KVM') fail('A named independently verified KVM provider is required.');

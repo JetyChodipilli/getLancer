@@ -27,6 +27,21 @@ async function noExecution(page: Page) {
 }
 async function reflow(page: Page) {expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);}
 async function noHighlight(page: Page) {await expect(page.locator('.scenario-edge[data-observed="true"]')).toHaveCount(0);}
+async function inspectorHeading(page: Page) {
+  const title = (await page.locator('.scenario-detail-heading>div').boundingBox())!;
+  const badge = (await page.locator('.scenario-detail-heading>[data-slot=badge]').boundingBox())!;
+  const controls = (await page.locator('.scenario-view-controls').boundingBox())!;
+  expect(title.x + title.width <= badge.x + 1 || title.y + title.height <= badge.y + 1).toBe(true);
+  expect(controls.y).toBeGreaterThanOrEqual(Math.max(title.y + title.height, badge.y + badge.height) - 1);
+}
+async function showInspector(page: Page) {
+  // Capture the rendered inspector below the fixed navigation, without an element-screenshot scroll.
+  await page.locator('.scenario-detail-heading').evaluate(node => {
+    const navigation = document.querySelector('.site-header');
+    const inset = (navigation?.getBoundingClientRect().bottom ?? 0) + 24;
+    window.scrollBy({top: node.getBoundingClientRect().top - inset, behavior: 'instant'});
+  });
+}
 
 test('built source download and genuine recorded evidence retain their hashes and original metadata', async ({page}, testInfo) => {
   // The material and recording endpoints are served by the production build, without route fixtures.
@@ -38,8 +53,10 @@ test('built source download and genuine recorded evidence retain their hashes an
   await page.goto('/labs/scenarios');
   await expect(page.locator('.scenario-lab-card')).toHaveCount(9);
   await expect(page.locator('.scenario-metadata')).toContainText(current.archiveHash);
-  await noHighlight(page); await reflow(page);
+  await noHighlight(page); await reflow(page); await inspectorHeading(page);
   await page.screenshot({path: testInfo.outputPath('v48-source.png'), animations: 'disabled'});
+  await showInspector(page);
+  await page.screenshot({path: testInfo.outputPath('v48-inspector-source.png'), animations: 'disabled'});
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('link', {name: 'Download free source & setup', exact: true}).click()]);
   expect(download.suggestedFilename()).toBe('java.tar.gz');
   expect(createHash('sha256').update(readFileSync((await download.path())!)).digest('hex')).toBe(current.archiveHash);
@@ -54,8 +71,9 @@ test('built source download and genuine recorded evidence retain their hashes an
   await expect(page.locator('.scenario-observation')).toContainText('CACHE_HIT');
   await expect(page.locator('.scenario-edge[data-observed="true"]')).toHaveCount(1);
   await expect(page.locator('.scenario-state')).toContainText('HIT');
-  await reflow(page); expect(effects).toEqual([]);
-  await page.locator('.scenario-inspector').screenshot({path: testInfo.outputPath('v48-replay.png'), animations: 'disabled'});
+  await reflow(page); await inspectorHeading(page); expect(effects).toEqual([]);
+  await showInspector(page);
+  await page.screenshot({path: testInfo.outputPath('v48-replay.png'), animations: 'disabled'});
 });
 
 test('source-only nine-lab catalogue filters with native keyboard controls and keeps free source when APIs fail', async ({page}) => {

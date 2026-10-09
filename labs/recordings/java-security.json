@@ -3,14 +3,14 @@
   "labId": "java-security",
   "language": "java",
   "pattern": "security",
-  "runId": "1f812532-04c0-46fc-8557-008ddff4a46c",
-  "sourceHash": "22e1185a5b082f25052b7f686386b3697319ec62ceabbd3a49b074e278a12df2",
-  "recordedAt": "2026-10-09T10:08:47.554164997Z",
+  "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+  "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
+  "recordedAt": "2026-10-09T11:04:06.993127550Z",
   "responses": [
     {
-      "runId": "1f812532-04c0-46fc-8557-008ddff4a46c",
-      "sourceHash": "22e1185a5b082f25052b7f686386b3697319ec62ceabbd3a49b074e278a12df2",
-      "requestId": "43e60cc6-c823-4ff8-b6d7-8355ea543486",
+      "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+      "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
+      "requestId": "68461f01-7373-4370-ac04-6b13e5b79234",
       "pattern": "security",
       "status": 200,
       "durationMs": 0,
@@ -21,24 +21,24 @@
       },
       "events": [
         {
-          "runId": "1f812532-04c0-46fc-8557-008ddff4a46c",
-          "sourceHash": "22e1185a5b082f25052b7f686386b3697319ec62ceabbd3a49b074e278a12df2",
-          "requestId": "43e60cc6-c823-4ff8-b6d7-8355ea543486",
+          "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+          "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
+          "requestId": "68461f01-7373-4370-ac04-6b13e5b79234",
           "sequence": 13,
           "type": "AUTH_RESET",
           "edge": "policy-store",
-          "recordedAt": "2026-10-09T10:08:47.554164997Z",
+          "recordedAt": "2026-10-09T11:04:06.993127550Z",
           "summary": "The synthetic current-role policy was reset."
         }
       ]
     },
     {
-      "runId": "1f812532-04c0-46fc-8557-008ddff4a46c",
-      "sourceHash": "22e1185a5b082f25052b7f686386b3697319ec62ceabbd3a49b074e278a12df2",
-      "requestId": "45e2e956-a3a7-4c5a-af07-e227d29ccf07",
+      "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+      "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
+      "requestId": "116b7f33-5b23-4f75-93c3-02a6dccec1f9",
       "pattern": "security",
       "status": 200,
-      "durationMs": 25,
+      "durationMs": 23,
       "state": {
         "decision": "ALLOW",
         "reason": "ALLOW",
@@ -46,21 +46,21 @@
       },
       "events": [
         {
-          "runId": "1f812532-04c0-46fc-8557-008ddff4a46c",
-          "sourceHash": "22e1185a5b082f25052b7f686386b3697319ec62ceabbd3a49b074e278a12df2",
-          "requestId": "45e2e956-a3a7-4c5a-af07-e227d29ccf07",
+          "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+          "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
+          "requestId": "116b7f33-5b23-4f75-93c3-02a6dccec1f9",
           "sequence": 14,
           "type": "AUTH_ALLOWED",
           "edge": "service-policy",
-          "recordedAt": "2026-10-09T10:08:47.581918174Z",
+          "recordedAt": "2026-10-09T11:04:07.018917125Z",
           "summary": "Synthetic identity and current-role policy allowed the action."
         }
       ]
     },
     {
-      "runId": "1f812532-04c0-46fc-8557-008ddff4a46c",
-      "sourceHash": "22e1185a5b082f25052b7f686386b3697319ec62ceabbd3a49b074e278a12df2",
-      "requestId": "5da2b1f5-0b4d-47f7-bc7d-0ce54c50ba6d",
+      "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+      "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
+      "requestId": "342a1fca-e984-42c7-86fb-89c6646b8882",
       "pattern": "security",
       "status": 403,
       "durationMs": 0,
@@ -71,21 +71,21 @@
       },
       "events": [
         {
-          "runId": "1f812532-04c0-46fc-8557-008ddff4a46c",
-          "sourceHash": "22e1185a5b082f25052b7f686386b3697319ec62ceabbd3a49b074e278a12df2",
-          "requestId": "5da2b1f5-0b4d-47f7-bc7d-0ce54c50ba6d",
+          "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+          "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
+          "requestId": "342a1fca-e984-42c7-86fb-89c6646b8882",
           "sequence": 15,
           "type": "AUTH_DENIED",
           "edge": "service-policy",
-          "recordedAt": "2026-10-09T10:08:47.585334316Z",
+          "recordedAt": "2026-10-09T11:04:07.022233836Z",
           "summary": "Synthetic identity or current-role policy denied the action."
         }
       ]
     },
     {
-      "runId": "1f812532-04c0-46fc-8557-008ddff4a46c",
-      "sourceHash": "22e1185a5b082f25052b7f686386b3697319ec62ceabbd3a49b074e278a12df2",
-      "requestId": "6a969863-7562-422c-8f8c-c2dcef154cc7",
+      "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+      "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
+      "requestId": "3bc81cca-bfc0-4b55-8de7-c8c26d5c5e9a",
       "pattern": "security",
       "status": 403,
       "durationMs": 0,
@@ -96,21 +96,21 @@
       },
       "events": [
         {
-          "runId": "1f812532-04c0-46fc-8557-008ddff4a46c",
-          "sourceHash": "22e1185a5b082f25052b7f686386b3697319ec62ceabbd3a49b074e278a12df2",
-          "requestId": "6a969863-7562-422c-8f8c-c2dcef154cc7",
+          "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+          "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
+          "requestId": "3bc81cca-bfc0-4b55-8de7-c8c26d5c5e9a",
           "sequence": 16,
           "type": "AUTH_DENIED",
           "edge": "service-policy",
-          "recordedAt": "2026-10-09T10:08:47.587740368Z",
+          "recordedAt": "2026-10-09T11:04:07.024407051Z",
           "summary": "Synthetic identity or current-role policy denied the action."
         }
       ]
     },
     {
-      "runId": "1f812532-04c0-46fc-8557-008ddff4a46c",
-      "sourceHash": "22e1185a5b082f25052b7f686386b3697319ec62ceabbd3a49b074e278a12df2",
-      "requestId": "894ea10c-e1ac-4f14-adda-107cf6ecd534",
+      "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+      "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
+      "requestId": "6b3edfc2-d3ac-4ee7-8bf7-91159f2b7b62",
       "pattern": "security",
       "status": 401,
       "durationMs": 0,
@@ -121,21 +121,21 @@
       },
       "events": [
         {
-          "runId": "1f812532-04c0-46fc-8557-008ddff4a46c",
-          "sourceHash": "22e1185a5b082f25052b7f686386b3697319ec62ceabbd3a49b074e278a12df2",
-          "requestId": "894ea10c-e1ac-4f14-adda-107cf6ecd534",
+          "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+          "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
+          "requestId": "6b3edfc2-d3ac-4ee7-8bf7-91159f2b7b62",
           "sequence": 17,
           "type": "AUTH_DENIED",
           "edge": "service-policy",
-          "recordedAt": "2026-10-09T10:08:47.592796967Z",
+          "recordedAt": "2026-10-09T11:04:07.026547212Z",
           "summary": "Synthetic identity or current-role policy denied the action."
         }
       ]
     },
     {
-      "runId": "1f812532-04c0-46fc-8557-008ddff4a46c",
-      "sourceHash": "22e1185a5b082f25052b7f686386b3697319ec62ceabbd3a49b074e278a12df2",
-      "requestId": "42fa1f02-aa7f-4a93-a575-10078eaaea0d",
+      "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+      "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
+      "requestId": "407287b7-24b2-4883-8051-f6229d08f6f0",
       "pattern": "security",
       "status": 401,
       "durationMs": 0,
@@ -146,21 +146,21 @@
       },
       "events": [
         {
-          "runId": "1f812532-04c0-46fc-8557-008ddff4a46c",
-          "sourceHash": "22e1185a5b082f25052b7f686386b3697319ec62ceabbd3a49b074e278a12df2",
-          "requestId": "42fa1f02-aa7f-4a93-a575-10078eaaea0d",
+          "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+          "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
+          "requestId": "407287b7-24b2-4883-8051-f6229d08f6f0",
           "sequence": 18,
           "type": "AUTH_DENIED",
           "edge": "service-policy",
-          "recordedAt": "2026-10-09T10:08:47.596390556Z",
+          "recordedAt": "2026-10-09T11:04:07.028628864Z",
           "summary": "Synthetic identity or current-role policy denied the action."
         }
       ]
     },
     {
-      "runId": "1f812532-04c0-46fc-8557-008ddff4a46c",
-      "sourceHash": "22e1185a5b082f25052b7f686386b3697319ec62ceabbd3a49b074e278a12df2",
-      "requestId": "1dc32ade-839c-4a6e-b9b3-dde4de669a67",
+      "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+      "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
+      "requestId": "3f80b218-e5f4-413a-9386-bfd818fb75a6",
       "pattern": "security",
       "status": 200,
       "durationMs": 0,
@@ -171,21 +171,21 @@
       },
       "events": [
         {
-          "runId": "1f812532-04c0-46fc-8557-008ddff4a46c",
-          "sourceHash": "22e1185a5b082f25052b7f686386b3697319ec62ceabbd3a49b074e278a12df2",
-          "requestId": "1dc32ade-839c-4a6e-b9b3-dde4de669a67",
+          "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+          "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
+          "requestId": "3f80b218-e5f4-413a-9386-bfd818fb75a6",
           "sequence": 19,
           "type": "AUTH_REVOKED",
           "edge": "policy-store",
-          "recordedAt": "2026-10-09T10:08:47.599826418Z",
+          "recordedAt": "2026-10-09T11:04:07.030368662Z",
           "summary": "The synthetic current-role policy now denies editor authority."
         }
       ]
     },
     {
-      "runId": "1f812532-04c0-46fc-8557-008ddff4a46c",
-      "sourceHash": "22e1185a5b082f25052b7f686386b3697319ec62ceabbd3a49b074e278a12df2",
-      "requestId": "19955d03-22b8-4534-a848-5793f0c87f47",
+      "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+      "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
+      "requestId": "250ca0a5-255e-41c6-a6f2-187dc0b711c0",
       "pattern": "security",
       "status": 403,
       "durationMs": 0,
@@ -196,21 +196,21 @@
       },
       "events": [
         {
-          "runId": "1f812532-04c0-46fc-8557-008ddff4a46c",
-          "sourceHash": "22e1185a5b082f25052b7f686386b3697319ec62ceabbd3a49b074e278a12df2",
-          "requestId": "19955d03-22b8-4534-a848-5793f0c87f47",
+          "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+          "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
+          "requestId": "250ca0a5-255e-41c6-a6f2-187dc0b711c0",
           "sequence": 20,
           "type": "AUTH_DENIED",
           "edge": "service-policy",
-          "recordedAt": "2026-10-09T10:08:47.602013196Z",
+          "recordedAt": "2026-10-09T11:04:07.033001514Z",
           "summary": "Synthetic identity or current-role policy denied the action."
         }
       ]
     },
     {
-      "runId": "1f812532-04c0-46fc-8557-008ddff4a46c",
-      "sourceHash": "22e1185a5b082f25052b7f686386b3697319ec62ceabbd3a49b074e278a12df2",
-      "requestId": "621b5aca-87a7-40de-86cd-1997f44bd51c",
+      "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+      "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
+      "requestId": "32619e01-adc7-4f50-a48a-905ebf3b2894",
       "pattern": "security",
       "status": 200,
       "durationMs": 0,
@@ -221,21 +221,21 @@
       },
       "events": [
         {
-          "runId": "1f812532-04c0-46fc-8557-008ddff4a46c",
-          "sourceHash": "22e1185a5b082f25052b7f686386b3697319ec62ceabbd3a49b074e278a12df2",
-          "requestId": "621b5aca-87a7-40de-86cd-1997f44bd51c",
+          "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+          "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
+          "requestId": "32619e01-adc7-4f50-a48a-905ebf3b2894",
           "sequence": 21,
           "type": "AUTH_RESET",
           "edge": "policy-store",
-          "recordedAt": "2026-10-09T10:08:47.603635836Z",
+          "recordedAt": "2026-10-09T11:04:07.034746900Z",
           "summary": "The synthetic current-role policy was reset."
         }
       ]
     },
     {
-      "runId": "1f812532-04c0-46fc-8557-008ddff4a46c",
-      "sourceHash": "22e1185a5b082f25052b7f686386b3697319ec62ceabbd3a49b074e278a12df2",
-      "requestId": "a69955fe-b92f-44fd-939e-ba65c9d8cf10",
+      "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+      "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
+      "requestId": "19814e7c-b39a-48ae-8971-25ca84309e8d",
       "pattern": "security",
       "status": 200,
       "durationMs": 0,
@@ -246,13 +246,13 @@
       },
       "events": [
         {
-          "runId": "1f812532-04c0-46fc-8557-008ddff4a46c",
-          "sourceHash": "22e1185a5b082f25052b7f686386b3697319ec62ceabbd3a49b074e278a12df2",
-          "requestId": "a69955fe-b92f-44fd-939e-ba65c9d8cf10",
+          "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+          "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
+          "requestId": "19814e7c-b39a-48ae-8971-25ca84309e8d",
           "sequence": 22,
           "type": "AUTH_ALLOWED",
           "edge": "service-policy",
-          "recordedAt": "2026-10-09T10:08:47.605396093Z",
+          "recordedAt": "2026-10-09T11:04:07.037029554Z",
           "summary": "Synthetic identity and current-role policy allowed the action."
         }
       ]
