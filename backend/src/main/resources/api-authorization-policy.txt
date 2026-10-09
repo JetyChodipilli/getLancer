@@ -266,3 +266,12 @@ GET DEVELOPER /api/v1/me/components/{id}
 POST DEVELOPER /api/v1/me/components/{id}/source
 POST DEVELOPER /api/v1/me/components/{id}/preview
 GET PUBLIC /api/v1/components/{slug}/preview
+GET PUBLIC /api/v1/lab-manifests
+GET SESSION /api/v1/lab-quota
+POST SESSION /api/v1/lab-runs
+GET SESSION /api/v1/lab-runs/{id}
+POST SESSION /api/v1/lab-runs/{id}/stop
+POST SESSION /api/v1/lab-runs/{id}/requests
+GET SESSION /api/v1/lab-runs/{id}/events
+GET ADMIN_MFA /api/v1/admin/labs
+POST ADMIN_MFA /api/v1/admin/labs/pause-admissions

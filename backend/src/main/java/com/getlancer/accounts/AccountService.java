@@ -167,6 +167,8 @@ public class AccountService {
     result.put("componentSlotPurchases",db.queryForList("SELECT id,pool,amount_minor,currency,mode,status,order_id,payment_id,refunded_minor,dispute_status,created_at FROM component_slot_purchases WHERE owner_id=?",id));
     result.put("componentSlotLedger",db.queryForList("SELECT l.id,l.purchase_id,l.entry_key,l.kind,l.amount_minor,l.created_at FROM component_slot_ledger l JOIN component_slot_purchases p ON p.id=l.purchase_id WHERE p.owner_id=?",id));
     result.put("hostedDemos", hosting.export(id));
+    result.put("labRuns", db.queryForList("SELECT id,manifest_id,scenario_id,status,inputs,requested_at,expires_at,healthy_at,cleanup_confirmed_at FROM lab_runs WHERE owner_id=? ORDER BY requested_at,id", id));
+    result.put("labRequests", db.queryForList("SELECT q.command_id,q.run_id,q.operation_id,q.inputs,q.response,q.created_at FROM lab_requests q JOIN lab_runs r ON r.id=q.run_id WHERE r.owner_id=? ORDER BY q.created_at,q.command_id", id));
     return AccountExportResponse.from(result, json);
   }
 

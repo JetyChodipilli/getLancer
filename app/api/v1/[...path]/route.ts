@@ -1,7 +1,7 @@
 import { backendOrigin } from '@/lib/server';
 const MAX_BODY = 6 * 1024 * 1024;
-async function readBody(request: Request) {
-  if (Number(request.headers.get('content-length') || 0) > MAX_BODY) throw new RangeError('Request too large');
+async function readBody(request: Request, cap = MAX_BODY) {
+  if (Number(request.headers.get('content-length') || 0) > cap) throw new RangeError('Request too large');
   const reader = request.body?.getReader();
   if (!reader) return undefined;
   let size = 0; const chunks: Uint8Array[] = [];
@@ -9,7 +9,7 @@ async function readBody(request: Request) {
     for (;;) {
       const {done, value} = await reader.read(); if (done) break;
       size += value.byteLength;
-      if (size > MAX_BODY) { await reader.cancel(); throw new RangeError('Request too large'); }
+      if (size > cap) { await reader.cancel(); throw new RangeError('Request too large'); }
       chunks.push(value);
     }
   } finally { reader.releaseLock(); }
@@ -30,9 +30,15 @@ async function proxy(req: Request, {params}: {params: Promise<{path: string[]}>}
   const clientIp=req.headers.get('cf-connecting-ip');
   if(proxySecret){headers.set('X-GetLancer-Proxy',proxySecret);headers.set('X-GetLancer-Request-ID',requestId);if(clientIp&&/^[0-9a-fA-F:.]{3,45}$/.test(clientIp))headers.set('X-GetLancer-Client-IP',clientIp)}
   for (const key of ['cookie', 'idempotency-key']) { const value = req.headers.get(key); if (value) headers.set(key, value); }
+  if (req.method === 'GET' && path.length === 3 && path[0] === 'lab-runs' && path[2] === 'events') {
+    const cursor = req.headers.get('last-event-id');
+    if (cursor && !/^[0-9]{1,18}$/.test(cursor)) return Response.json({error:{code:'VALIDATION_ERROR',message:'Invalid event cursor.'}}, {status:400});
+    if (cursor) headers.set('Last-Event-ID', cursor);
+    headers.set('Accept', 'text/event-stream');
+  }
   try {
     const response = await fetch(origin + '/api/v1/' + path.map(encodeURIComponent).join('/') + url.search, {
-      method: req.method, headers, body: ['GET', 'HEAD'].includes(req.method) ? undefined : await readBody(req),
+      method: req.method, headers, body: ['GET', 'HEAD'].includes(req.method) ? undefined : await readBody(req, path[0] === 'lab-runs' ? 65536 : MAX_BODY),
       redirect: 'manual', signal: AbortSignal.timeout(20000),
     });
     const result = new Headers({'Content-Type': response.headers.get('content-type') || 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff'});
@@ -43,7 +49,7 @@ async function proxy(req: Request, {params}: {params: Promise<{path: string[]}>}
     if(['auth/google/callback','auth/github/callback'].includes(path.join('/'))&&response.status===303&&location&&/^\/(?:workspace|(?:login|signup)\?auth_error=[a-z_]+(?:&provider=github)?)$/.test(location))result.set('Location',location);
     return new Response(response.body, {status: response.status, headers: result});
   } catch (error) {
-    return Response.json({error: {code: error instanceof RangeError ? 'PAYLOAD_TOO_LARGE' : 'SERVICE_UNAVAILABLE', message: error instanceof RangeError ? 'Choose a file smaller than 5 MB.' : 'The marketplace is temporarily unavailable. Please try again.'}}, {status: error instanceof RangeError ? 413 : 503});
+    return Response.json({error: {code: error instanceof RangeError ? 'PAYLOAD_TOO_LARGE' : 'SERVICE_UNAVAILABLE', message: error instanceof RangeError ? (path[0] === 'lab-runs' ? 'Lab requests must fit within 64 KiB.' : 'Choose a file smaller than 5 MB.') : 'The marketplace is temporarily unavailable. Please try again.'}}, {status: error instanceof RangeError ? 413 : 503});
   }
 }
 export {proxy as GET, proxy as POST, proxy as PUT, proxy as PATCH, proxy as DELETE};
