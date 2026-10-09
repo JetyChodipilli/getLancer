@@ -2,7 +2,7 @@
 
 Status: **implementation prepared for CI; full phase acceptance remains open**.
 Branch: `codex/v4.8-learning-labs-20261009`, based on main `b78cd25a926b40771c4597ee49bc4140db881f53`.
-The user authorized publication and merge on 2026-10-09. This implementation is being published as a draft for real CI; full phase acceptance is required before merge or hosted activation.
+The user authorized publication and merge on 2026-10-09. Draft PR [#42](https://github.com/JetyChodipilli/getLancer/pull/42) publishes the implementation for real CI; full phase acceptance is required before merge or hosted activation.
 
 The `/labs/scenarios` route provides nine free backend labs: Redis cache, synthetic authorization and a payment emulator, each implemented independently in Java, TypeScript and Python. Every language runs native HTTP and cryptography standard libraries without Maven, npm or pip dependencies. Cache cases use an actual disposable Redis 7.2.16 process. Synthetic payment events never move money or touch account entitlements.
 
@@ -25,7 +25,7 @@ The dashboard adapts the pinned ShadcnStore dashboard grid/header from commit `6
 - All three generated source archives pass the same matrix from fresh temporary extraction directories, without repository dependencies or package installation. Archive bytes, inventories and hashes are checked before extraction.
 - Nine recordings were generated only after actual lab execution passed. Build checks reject stale source hashes, foreign run/request IDs, invalid event order, unsupported fields, inconsistent state/status/action projections and malformed or oversized JSON.
 - **22 evidence-parser regressions pass.** Full frontend type checking, production build and the existing Node regression suite pass. Scoped ESLint, frontend asset security, typed route contracts and database permission source coverage pass.
-- **36 browser cases are collected**, across desktop, phone and tablet. Execution fails before browser launch because the required Chromium headless executable is missing. These are not counted as passing browser tests; visual, keyboard and reflow acceptance is pending.
+- **39 browser cases are collected**, across desktop, phone and tablet. The additional journey serves the actual build-generated material index, downloads and checks the archive hash, renders the genuine local recording, and captures source/replay screenshots for visual review. Local execution fails before browser launch because the required Chromium headless executable is missing; actual browser/visual acceptance is being verified by GitHub CI and is not claimed from collection.
 - A fresh local backend Maven run could not resolve dependencies because this environment cannot reach Maven Central. Backend application source is unchanged. Backend, browser, Docker, dependency and semantic-security checks remain required in CI for any future V4.8 publication.
 
 ## Bugs found and fixed during review

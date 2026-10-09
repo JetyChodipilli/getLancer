@@ -1,5 +1,6 @@
 import {test, expect, type Page, type Route} from '@playwright/test';
 import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
 import type {ScenarioEdge, ScenarioLanguage, ScenarioPattern} from '../../lib/scenario-evidence';
 
 // Explicit browser protocol fixtures. These do not establish local or hosted execution evidence.
@@ -26,6 +27,36 @@ async function noExecution(page: Page) {
 }
 async function reflow(page: Page) {expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);}
 async function noHighlight(page: Page) {await expect(page.locator('.scenario-edge[data-observed="true"]')).toHaveCount(0);}
+
+test('built source download and genuine recorded evidence retain their hashes and original metadata', async ({page}, testInfo) => {
+  // The material and recording endpoints are served by the production build, without route fixtures.
+  const built = JSON.parse(readFileSync(new URL('../../public/labs/material-index.json', import.meta.url), 'utf8')) as {items: {id: string; sourceHash: string; archiveHash: string}[]};
+  const current = built.items.find(item => item.id === 'java-cache')!;
+  const original = JSON.parse(readFileSync(new URL('../../labs/recordings/java-cache.json', import.meta.url), 'utf8')) as {runId: string; sourceHash: string; recordedAt: string; responses: {state: {cache: string}}[]};
+  expect(current.sourceHash).toBe(createHash('sha256').update(readFileSync(new URL('../../labs/java/LabServer.java', import.meta.url))).digest('hex'));
+  const effects = await noExecution(page);
+  await page.goto('/labs/scenarios');
+  await expect(page.locator('.scenario-lab-card')).toHaveCount(9);
+  await expect(page.locator('.scenario-metadata')).toContainText(current.archiveHash);
+  await noHighlight(page); await reflow(page);
+  await page.screenshot({path: testInfo.outputPath('v48-source.png'), animations: 'disabled'});
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('link', {name: 'Download free source & setup', exact: true}).click()]);
+  expect(download.suggestedFilename()).toBe('java.tar.gz');
+  expect(createHash('sha256').update(readFileSync((await download.path())!)).digest('hex')).toBe(current.archiveHash);
+  await page.getByRole('button', {name: 'Recorded evidence', exact: true}).click();
+  await expect(page.getByText('Replay · Recorded local execution', {exact: true})).toBeVisible();
+  await expect(page.locator('.scenario-metadata')).toContainText(original.runId);
+  await expect(page.locator('.scenario-metadata')).toContainText(original.recordedAt);
+  await expect(page.locator('.scenario-metadata')).toContainText(original.sourceHash);
+  const hit = original.responses.findIndex(response => response.state.cache === 'HIT');
+  expect(hit).toBeGreaterThanOrEqual(0);
+  await page.getByLabel('Recorded response', {exact: true}).selectOption(String(hit));
+  await expect(page.locator('.scenario-observation')).toContainText('CACHE_HIT');
+  await expect(page.locator('.scenario-edge[data-observed="true"]')).toHaveCount(1);
+  await expect(page.locator('.scenario-state')).toContainText('HIT');
+  await reflow(page); expect(effects).toEqual([]);
+  await page.locator('.scenario-inspector').screenshot({path: testInfo.outputPath('v48-replay.png'), animations: 'disabled'});
+});
 
 test('source-only nine-lab catalogue filters with native keyboard controls and keeps free source when APIs fail', async ({page}) => {
   const effects = await noExecution(page); await index(page); await page.goto('/labs/scenarios');
