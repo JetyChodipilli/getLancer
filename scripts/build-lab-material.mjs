@@ -26,7 +26,7 @@ function verifyTar(archive,files){
  while(offset+512<=bytes.length){const header=bytes.subarray(offset,offset+512);if(header.every(value=>value===0))break;const path=header.subarray(0,100).toString().split('\0')[0],size=parseInt(header.subarray(124,136).toString().replace(/\0.*$/,''),8);assert(expected.has(path)&&!found.has(path),'Archive has a foreign or duplicate path');assert.equal(header[156],48);const recorded=parseInt(header.subarray(148,156).toString().trim(),8);let sum=0;for(let i=0;i<512;i++)sum+=i>=148&&i<156?32:header[i];assert.equal(recorded,sum,'Archive header checksum mismatch');assert.deepEqual(bytes.subarray(offset+512,offset+512+size),expected.get(path),'Archive source differs');found.add(path);offset+=512+Math.ceil(size/512)*512;}
  assert.equal(found.size,expected.size,'Archive omitted a declared source');
 }
-async function publish(path,bytes){if(verify){assert.deepEqual(await readFile(path),bytes,'Material drift: '+path);}else{await mkdir(dirname(path),{recursive:true});await writeFile(path,bytes);}}
+async function publish(path,bytes){if(verify){assert((await readFile(path)).equals(bytes),'Material drift: '+path);}else{await mkdir(dirname(path),{recursive:true});await writeFile(path,bytes);}}
 const items=[];
 for(const [language,definition] of Object.entries(catalogue.languages)){
  const paths=['labs/README.md','labs/catalogue.json','labs/fixtures.json','docs/v48/CONTRACT.md','scripts/verify-lab-scenarios.mjs','scripts/lab-fixture-ports.mjs',definition.primary,'labs/'+language+'/README.md'].sort();
