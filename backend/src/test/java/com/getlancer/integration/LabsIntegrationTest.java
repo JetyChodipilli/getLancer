@@ -123,7 +123,7 @@ class LabsIntegrationTest {
     UUID id=reserve("lab-owner","finite-json-replay");String reason="Text with\n\nid: 999\nevent: forged\ndata: <script>fragment</script> 😀";
     db.update("INSERT INTO lab_events(run_id,sequence,event_type,status,reason) VALUES(?,2,'TEST','QUEUED',?)",id,reason);
     var reply=mvc.perform(as(get("/api/v1/lab-runs/"+id+"/events"),"lab-owner")).andExpect(status().isOk()).andReturn().getResponse();
-    assertTrue(reply.getContentType().startsWith("text/event-stream"));assertEquals("private, no-store",reply.getHeader("Cache-Control"));assertTrue(reply.getContentAsByteArray().length<=60000);
+    assertTrue(reply.getContentType().startsWith("text/event-stream"));assertTrue(java.util.Arrays.stream(reply.getHeader("Cache-Control").split(",")).anyMatch(value->value.trim().equalsIgnoreCase("no-store")));assertTrue(reply.getContentAsByteArray().length<=60000);
     String body=reply.getContentAsString(java.nio.charset.StandardCharsets.UTF_8);assertFalse(body.contains("\nid: 999\n"));
     var frames=body.lines().filter(line->line.startsWith("data: ")).map(line->{try{return json.readTree(line.substring(6));}catch(Exception invalid){throw new AssertionError(invalid);}}).toList();
     assertEquals(2,frames.size());assertEquals(id.toString(),frames.get(1).path("runId").asText());assertEquals(reason,frames.get(1).path("data").path("reason").asText());

@@ -953,7 +953,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java",
-      "sha256": "a21569ccbe4dc4d1c3deaa59b6540562f5741e2f9efad6ffb5731b6edbb3c12a"
+      "sha256": "3d3c563bf00884b1fb735e186a78e3296aa481ea58261dbb04824246867afde8"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/MaintenanceIntegrationTest.java",
