@@ -43,6 +43,7 @@ The dashboard adapts the pinned ShadcnStore dashboard grid/header from commit `6
 - Evidence observations must agree with authorization status and final cache/payment facts, while preserving legitimate intermediate miss/fallback and refund-reconciliation observations.
 - Inspector headings and view controls occupy separate rows despite the application's shared `.grid` rule; the hosted-availability badge cannot overlap the title.
 - Admission and benchmark envelopes use one captured operator public key so a replaced key file cannot switch trust between checks. Individual raw benchmark samples must also be current, even when the report timestamp is older.
+- Laptop Docker testing exposed reuse of closed ephemeral fixture ports: the failure destination could become the working Redis port and return a hit. The shared allocator now rejects every previously assigned fixture port, including timeout and HTTP ports, with bounded retries. A real-socket regression deliberately forces repeated candidates; the original verifier fails with `HIT` instead of `FALLBACK`, and the corrected verifier passes all 156 TypeScript requests under the same forced reuse. Source downloads and the Docker image include the shared allocator.
 
 Correctness/privacy review covered native servers, shared protocol, verifier, archive inventory, raw JSON validation, recordings, UI effects and CI integration. The separate Ponytail complexity review found no unnecessary dependencies, speculative service abstractions or dead extension mechanisms to remove.
 

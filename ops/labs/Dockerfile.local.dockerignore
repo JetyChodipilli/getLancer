@@ -4,3 +4,4 @@
 !labs/**
 !scripts
 !scripts/verify-lab-scenarios.mjs
+!scripts/lab-fixture-ports.mjs

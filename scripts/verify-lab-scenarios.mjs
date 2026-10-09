@@ -7,6 +7,7 @@ import {mkdtemp,readFile,mkdir,writeFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join,resolve,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {fixturePort as port} from './lab-fixture-ports.mjs';
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const args=process.argv.slice(2),selected=args.includes('--language')?args[args.indexOf('--language')+1]:null;
@@ -21,7 +22,6 @@ const delay=ms=>new Promise(done=>setTimeout(done,ms));
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const hash=/^[0-9a-f]{64}$/;
 const eventTypes=new Set(['CACHE_MISS','CACHE_HIT','CACHE_EXPIRED','CACHE_FALLBACK','CACHE_RESET','STORE_READ','AUTH_ALLOWED','AUTH_DENIED','AUTH_REVOKED','AUTH_RESET','PAYMENT_APPLIED','PAYMENT_DUPLICATE','PAYMENT_SIGNATURE_DENIED','PAYMENT_CONFLICT','PAYMENT_PENDING','PAYMENT_RESET','REFUND_PENDING','REFUND_APPLIED']);
-async function port(){const server=createServer();await new Promise((yes,no)=>server.once('error',no).listen(0,'127.0.0.1',yes));const value=server.address().port;await new Promise(done=>server.close(done));return value;}
 function processStart(command,argv,env,cwd=root){
  const child=spawn(command,argv,{cwd,env:{PATH:process.env.PATH,...env},stdio:['ignore','pipe','pipe']});let output='';let problem;
  child.on('error',error=>{problem=error;});for(const stream of [child.stdout,child.stderr])stream.on('data',chunk=>{output=(output+chunk.toString()).slice(-4000);});
@@ -35,7 +35,7 @@ async function redisCommand(redisPort,...parts){
 async function verifyLanguage(language){
  const workspace=await mkdtemp(join(tmpdir(),'getlancer-lab-'));const redisPort=await port(),failurePort=await port();const clients=new Set();
  const blackhole=createServer(socket=>{clients.add(socket);socket.on('error',()=>{});socket.on('close',()=>clients.delete(socket));});
- await new Promise((yes,no)=>blackhole.once('error',no).listen(0,'127.0.0.1',yes));const timeoutPort=blackhole.address().port;
+ const timeoutPort=await port();await new Promise((yes,no)=>blackhole.once('error',no).listen(timeoutPort,'127.0.0.1',yes));
  const redis=processStart(process.env.REDIS_SERVER||'redis-server',['--bind','127.0.0.1','--port',String(redisPort),'--save','','--appendonly','no','--protected-mode','yes','--maxmemory','16mb','--maxclients','32'],{},workspace);
  const apps=[];let requests=0;const captures=[];
  try{

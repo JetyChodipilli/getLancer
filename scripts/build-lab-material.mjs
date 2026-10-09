@@ -29,7 +29,7 @@ function verifyTar(archive,files){
 async function publish(path,bytes){if(verify){assert.deepEqual(await readFile(path),bytes,'Material drift: '+path);}else{await mkdir(dirname(path),{recursive:true});await writeFile(path,bytes);}}
 const items=[];
 for(const [language,definition] of Object.entries(catalogue.languages)){
- const paths=['labs/README.md','labs/catalogue.json','labs/fixtures.json','docs/v48/CONTRACT.md','scripts/verify-lab-scenarios.mjs',definition.primary,'labs/'+language+'/README.md'].sort();
+ const paths=['labs/README.md','labs/catalogue.json','labs/fixtures.json','docs/v48/CONTRACT.md','scripts/verify-lab-scenarios.mjs','scripts/lab-fixture-ports.mjs',definition.primary,'labs/'+language+'/README.md'].sort();
  const files=await Promise.all(paths.map(async path=>[path,await source(path)]));const archive=tar(files);verifyTar(archive,files);
  const sourceHash=sha(await source(definition.primary)),archiveHash=sha(archive);
  await publish(join(publicRoot,'sources',language+'.tar.gz'),archive);

@@ -20,7 +20,7 @@ COPY --from=redis-build /tmp/redis/src/redis-server /usr/local/bin/redis-server
 COPY --from=redis-build /out/redis-notices/ /usr/share/doc/getlancer-redis/
 WORKDIR /source
 COPY labs ./labs
-COPY scripts/verify-lab-scenarios.mjs ./scripts/verify-lab-scenarios.mjs
+COPY scripts/verify-lab-scenarios.mjs scripts/lab-fixture-ports.mjs ./scripts/
 USER 1000:1000
 ENV REDIS_SERVER=/usr/local/bin/redis-server
 CMD ["node", "scripts/verify-lab-scenarios.mjs"]
