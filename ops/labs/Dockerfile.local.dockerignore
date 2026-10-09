@@ -1,0 +1,6 @@
+# Allow only public lab material and the shared verifier into the build context.
+**
+!labs
+!labs/**
+!scripts
+!scripts/verify-lab-scenarios.mjs

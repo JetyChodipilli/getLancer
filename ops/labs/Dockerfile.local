@@ -1,0 +1,22 @@
+# Trusted local scenario verification only; not a hosted isolation certificate.
+FROM python:3.12-bookworm AS redis-build
+RUN git init /tmp/redis \
+    && git -C /tmp/redis fetch --depth 1 https://github.com/redis/redis.git 335554f18caf7bbf6b0ac2b3548133d750f00a1b \
+    && git -C /tmp/redis checkout --detach FETCH_HEAD \
+    && make -C /tmp/redis -j2 MALLOC=libc redis-server
+
+FROM node:22-bookworm-slim AS node-runtime
+
+FROM python:3.12-slim-bookworm
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openjdk-17-jdk-headless libstdc++6 \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
+COPY --from=redis-build /tmp/redis/src/redis-server /usr/local/bin/redis-server
+COPY --from=redis-build /tmp/redis/COPYING /tmp/redis/REDISCONTRIBUTIONS.txt /usr/share/doc/getlancer-redis/
+WORKDIR /source
+COPY labs ./labs
+COPY scripts/verify-lab-scenarios.mjs ./scripts/verify-lab-scenarios.mjs
+USER 1000:1000
+ENV REDIS_SERVER=/usr/local/bin/redis-server
+CMD ["node", "scripts/verify-lab-scenarios.mjs"]

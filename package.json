@@ -17,6 +17,7 @@
     "setup:docker": "node scripts/setup-local.mjs --docker",
     "services:docker": "docker compose up -d --build --wait --wait-timeout 240",
     "stop:docker": "docker compose stop",
+    "labs:docker": "docker compose -f compose.labs-local.yaml run --rm --build lab-checks",
     "doctor:local": "node scripts/doctor-local.mjs",
     "services:local": "docker compose -f compose.local-services.yaml up -d",
     "dev:local": "node scripts/dev-local.mjs",

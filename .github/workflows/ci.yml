@@ -37,6 +37,10 @@ jobs:
         run: node scripts/verify-lab-packages.mjs
         env:
           REDIS_SERVER: ${{ github.workspace }}/.ci-redis/src/redis-server
+      - name: Verify account-free laptop Docker environment with the real nine-lab matrix
+        run: |
+          docker compose -f compose.labs-local.yaml config --quiet
+          npm run labs:docker
   backend:
     runs-on: ubuntu-latest
     timeout-minutes: 20

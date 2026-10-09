@@ -1,23 +1,27 @@
 # V4.8 implementation and review
 
-Status: **implementation prepared for CI; full phase acceptance remains open**.
+Status: **native source/replay implementation verified; laptop Docker extension awaits CI; full hosted phase acceptance remains open**.
 Branch: `codex/v4.8-learning-labs-20261009`, based on main `b78cd25a926b40771c4597ee49bc4140db881f53`.
-The user authorized publication and merge on 2026-10-09. Draft PR [#42](https://github.com/JetyChodipilli/getLancer/pull/42) publishes the implementation for real CI; full phase acceptance is required before merge or hosted activation.
+The user authorized publication and merge on 2026-10-09. PR [#42](https://github.com/JetyChodipilli/getLancer/pull/42) publishes the implementation for real CI. The user has clarified that there is no hosted provider and provider setup is for later, after laptop testing. Local delivery and hosted acceptance are distinct: merging development code does not certify or activate public execution, and full S04 phase completion still requires the hosted gates below.
 
 The `/labs/scenarios` route provides nine free backend labs: Redis cache, synthetic authorization and a payment emulator, each implemented independently in Java, TypeScript and Python. Every language runs native HTTP and cryptography standard libraries without Maven, npm or pip dependencies. Cache cases use an actual disposable Redis 7.2.16 process. Synthetic payment events never move money or touch account entitlements.
 
 | Plan item | Delivered locally | Remaining acceptance |
 |---|---|---|
-| S04-B01 workbench | Source catalogue, filters, request/state/event inspector and source downloads | Hosted gateway integration and browser/visual acceptance |
+| S04-B01 workbench | Source catalogue, filters, request/state/event inspector and source downloads; responsive browser/visual acceptance | Hosted gateway integration |
 | S04-B02 Java patterns | Three native JDK 17 patterns with genuine HTTP evidence | Immutable isolated image and admitted provider |
 | S04-B03 TypeScript patterns | Three native Node patterns with genuine HTTP evidence | Immutable isolated image and admitted provider |
 | S04-B04 Python patterns | Three native Python patterns with genuine HTTP evidence | Immutable isolated image and admitted provider |
-| S04-B05 observed transitions | Safe ordered events, run-scoped resets, equivalent text and replay controls | Actual desktop/phone/tablet browser verification |
+| S04-B05 observed transitions | Safe ordered events, run-scoped resets, equivalent text and replay controls; verified desktop/phone/tablet journeys | Hosted execution observations |
 | S04-B06 source and replay | Three deterministic archives covering nine labs; nine genuine recordings bound to primary-source SHA-256 | Public publication and hosted replay integration |
 | S04-B07 bounded projections | Input/output limits, fixed loopback destinations, redaction, duplicate protection and negative HTTP regressions | Provider network/isolation/privacy audit |
 | S04-B08 nine-lab catalogue | Free source/setup catalogue, explicit Source only / Replay / Hosted unavailable states | Recruited comprehension study and public release |
 
-The dashboard adapts the pinned ShadcnStore dashboard grid/header from commit `65fc11224e96d56a62e224a58f7ed590aea5ac24`, preserving the existing Spectral Studio theme and Card/Badge components. Its exact MIT attribution is in `License.md`. No frontend dependencies were added. Native controls, focus styles, 44px targets, 16px fields, narrow-screen reflow and reduced-motion rules are implemented; source inspection is not a completed visual audit.
+The dashboard adapts the pinned ShadcnStore dashboard grid/header from commit `65fc11224e96d56a62e224a58f7ed590aea5ac24`, preserving the existing Spectral Studio theme and Card/Badge components. Its exact MIT attribution is in `License.md`. No frontend dependencies were added. Native controls, focus styles, 44px targets, 16px fields, narrow-screen reflow and reduced-motion rules are implemented and exercised in responsive browser checks. Source and replay screenshots were visually inspected on desktop, phone and tablet.
+
+## Laptop testing
+
+[Laptop setup](../../ops/LAPTOP_TESTING.md) uses the existing Docker application services, without a cloud account. `npm run labs:docker` adds a separate disposable container with the actual native verifier, JDK 17, Node 22, Python 3.12 and pinned Redis 7.2.16. Its runtime has no external network or host mounts. It runs the real scenarios in the terminal; it does not implement the browser's hosted provider gateway. First construction requires internet access. `APP_LABS_ENABLED=false` remains the local default.
 
 ## Verified outcomes
 
@@ -25,9 +29,9 @@ The dashboard adapts the pinned ShadcnStore dashboard grid/header from commit `6
 - All three generated source archives pass the same matrix from fresh temporary extraction directories, without repository dependencies or package installation. Archive bytes, inventories and hashes are checked before extraction.
 - Nine recordings were generated only after actual lab execution passed. Build checks reject stale source hashes, foreign run/request IDs, invalid event order, unsupported fields, inconsistent state/status/action projections and malformed or oversized JSON.
 - **22 evidence-parser regressions pass.** Full frontend type checking, production build and the existing Node regression suite pass. Scoped ESLint, frontend asset security, typed route contracts and database permission source coverage pass.
-- GitHub run `37919626084` passed **311 browser checks, including all 39 V4.8 cases**, across desktop, phone and tablet. The genuine-material journey downloads and checks the archive hash and renders original recorded metadata. Visual inspection of its screenshots found an inherited grid-column collision in the inspector heading; this is fixed with a scoped one-column header and a browser geometry regression. The updated exact head must pass CI again.
+- Both GitHub workflows on `a95191d93e7d504e7ee944aa91a03ae75cd23e86` passed all **14 checks**: [PR run 37922059388](https://github.com/JetyChodipilli/getLancer/actions/runs/37922059388) and [push run 37922054049](https://github.com/JetyChodipilli/getLancer/actions/runs/37922054049). Each passed **311 browser checks, including all 39 V4.8 cases**, across desktop, phone and tablet. The genuine-material journey downloads and checks the archive hash and renders original recorded metadata. The scoped inspector-header fix and its browser geometry regression passed; final screenshots were inspected.
 - The local production build and **209 Node regression tests** pass, including startup-report and captured signing-key regressions. All three freshly generated source archives reproduce the actual 468-request matrix independently.
-- Backend, native lab scenarios, runtime container security and JavaScript/TypeScript semantic scanning passed in that GitHub run. Java semantic scanning found a bounded Redis reply loop comparing `int` to `long`; the validated length is now narrowed before iteration and all 156 actual Java requests were reverified. No scan disposition or blocking policy was relaxed. Docker and final exact-head checks remain required.
+- That head also passed **469 backend tests**, native lab scenarios, runtime container security, both semantic scans, Docker startup, **18 connected browser journeys** and encrypted database restore. Java's validated Redis reply length is narrowed before iteration. No scan disposition or blocking policy was relaxed. The subsequent laptop-container addition must pass its own exact-head CI checks before it is reported verified.
 - `ops/labs/check-v48-benchmark.mjs` validates actual signed operator reports, current source/image pins, raw fresh-run counts, global overlapping reservations, queue wait and nearest-rank startup p95. Its protocol fixtures cannot establish hosted execution. `ACCEPTANCE_HANDOFF.md` specifies the missing provider inputs, report format and recruited comprehension-session procedure.
 
 ## Bugs found and fixed during review
@@ -63,4 +67,4 @@ The local Unlazy ledger has 17 gates: **13 met, 3 unmet, 1 abandoned for environ
 2. P2: at least 100 fresh hosted starts per adapter, queue-separated startup measurements, p95 warm ≤5s and cold ≤30s.
 3. P3: recruited-user evidence that replay, the payment emulator and actual execution are understood correctly.
 
-These require actual operator/provider and research evidence. Local fixture timings, recordings and parser/browser fixtures cannot substitute for them. Public runtime remains disabled. V4.8 is not certified complete and is not ready to merge solely on these local results.
+These require actual operator/provider and research evidence. The user has deferred hosted setup until after laptop testing; no existing provider is assumed or requested. Local fixture timings, recordings and parser/browser fixtures cannot substitute for hosted acceptance. Public runtime remains disabled. The native source/replay development milestone is verified; full V4.8 hosted execution is not certified complete.

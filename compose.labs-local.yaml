@@ -1,0 +1,16 @@
+# Independent local test environment. No app configuration or cloud credentials.
+services:
+  lab-checks:
+    build:
+      context: .
+      dockerfile: ops/labs/Dockerfile.local
+    user: '1000:1000'
+    network_mode: none
+    read_only: true
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=128m,mode=1777']
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 1g
+    cpus: 2
+    init: true

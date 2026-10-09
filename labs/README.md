@@ -4,6 +4,8 @@ Nine labs share three patterns across Java, TypeScript and Python. Each language
 
 ## Prepare actual Redis
 
+For laptop testing without installing Java, Python or Redis separately, run `npm run labs:docker` from the full repository. Docker executes the real nine-lab matrix in a disposable local container. See [laptop setup](../ops/LAPTOP_TESTING.md) for the application and browser replay dashboard. Native setup below remains available for editing and inspecting each example.
+
 Use Redis **7.2.16**, commit `335554f18caf7bbf6b0ac2b3548133d750f00a1b`. It is labelled Redis, not Valkey. Source: https://github.com/redis/redis/tree/7.2.16. Redis 7.2 is BSD-3-Clause; see its COPYING and REDISCONTRIBUTIONS.txt. This package does not distribute Redis. Later Redis versions use different licensing; this pin does not approve hosted deployment.
 
 ```bash

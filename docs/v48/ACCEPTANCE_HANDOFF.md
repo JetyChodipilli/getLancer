@@ -2,6 +2,8 @@
 
 The application remains disabled until the actual operator passes `../v47/ADMISSION_GATES.md`. Local tests, browser fixtures and signed synthetic reports are not admission evidence.
 
+The user has no hosted provider and has deferred hosted setup until after laptop testing. No cloud account is needed for [the local Docker environment](../../ops/LAPTOP_TESTING.md). The inputs below apply when hosted execution is commissioned; they are not prerequisites for running the application or the native scenarios on a laptop. The hosted gateway implementation is still required, not merely credentials.
+
 ## Required provider input
 
 Supply the selected KVM provider/host, its fixed HTTPS gateway implementing `POST /v1/lab-commands`, reviewed costs, external restore epoch, current signed admission envelope, seven-report evidence inventory and operator public key. Keep gateway credentials and the signing private key out of Git, lab images, screenshots and reports. The backend needs protected `app.labs` configuration described in `../v47/IMPLEMENTATION.md`; signing and build execution remain outside the application.
