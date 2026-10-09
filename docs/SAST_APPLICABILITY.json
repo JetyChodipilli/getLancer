@@ -423,7 +423,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/labs/LabConfiguration.java",
-      "sha256": "5ff9b8dd925b266fb5b82e556379ce566cb0dad2235e6066b30a5c69a0289bff"
+      "sha256": "0481fe6c50491d3d84e84c7c6cb8fdf35aec33ae1b2c8db59637fb138907f0f0"
     },
     {
       "path": "backend/src/main/java/com/getlancer/labs/LabController.java",
@@ -981,7 +981,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/labs/LabProtocolTest.java",
-      "sha256": "ad53ae80a534d0a4058fd22ec5ec5350e7cc12f40b2800fca10fb2d766007754"
+      "sha256": "99acf089fa4595a2580fd2d97e86e1b8b5c8f88d670d1047f323b8d7bd6e8836"
     },
     {
       "path": "backend/src/test/java/com/getlancer/labs/LabRequestsTest.java",

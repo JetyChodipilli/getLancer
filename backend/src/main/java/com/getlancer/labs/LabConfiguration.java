@@ -53,7 +53,7 @@ public final class LabConfiguration {
     }catch(Exception error){throw new ApiError(503,"LAB_MANIFEST_UNAVAILABLE","This immutable lab manifest has no current operator certification.");}
   }
   static boolean validOrigin(URI uri){String host=uri.getHost(),path=uri.getRawPath();return host!=null&&uri.getRawUserInfo()==null&&uri.getRawQuery()==null&&uri.getRawFragment()==null&&(path==null||path.isEmpty()||path.equals("/"))
-      &&("https".equals(uri.getScheme())||"http".equals(uri.getScheme())&&(host.equals("localhost")||host.equals("127.0.0.1")||host.equals("::1")));}
+      &&("https".equals(uri.getScheme())||"http".equals(uri.getScheme())&&(host.equals("localhost")||host.equals("127.0.0.1")||host.equals("[::1]")));}
   static boolean signature(PublicKey key,byte[] payload,String detached){try{byte[] bytes=Base64.getDecoder().decode(detached);if(bytes.length!=64)return false;Signature verifier=Signature.getInstance("Ed25519");verifier.initVerify(key);verifier.update(payload);return verifier.verify(bytes);}catch(Exception error){return false;}}
   static String hex(byte[] bytes){try{return java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));}catch(Exception impossible){throw new IllegalStateException(impossible);}}
 }

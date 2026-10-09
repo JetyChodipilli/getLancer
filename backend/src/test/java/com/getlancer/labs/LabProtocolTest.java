@@ -14,7 +14,7 @@ class LabProtocolTest {
     assertFalse(new LabConfiguration(true,"https://operator.example","s".repeat(40),"","","",3000,json).projection().enabled());}
   @Test void fixedOriginsDenyExternalHttpCredentialsPathsFragmentsAndRedirectDestinations(){
     for(String url:java.util.List.of("http://evil.example","https://user:pass@operator.example","https://operator.example/path","https://operator.example?url=secret","https://operator.example#secret","file:///tmp/script"))assertFalse(LabConfiguration.validOrigin(URI.create(url)),url);
-    assertTrue(LabConfiguration.validOrigin(URI.create("https://operator.example")));assertTrue(LabConfiguration.validOrigin(URI.create("http://127.0.0.1:8000")));}
+    assertTrue(LabConfiguration.validOrigin(URI.create("https://operator.example")));assertTrue(LabConfiguration.validOrigin(URI.create("http://127.0.0.1:8000")));assertTrue(LabConfiguration.validOrigin(URI.create("http://[::1]:8000")));assertFalse(LabConfiguration.validOrigin(URI.create("http://[::2]:8000")));}
   @Test void signedAdmissionAndManifestRequireExactEpochHashSignatureCurrentEvidence(){try(var fixture=new LabProtocolFixture()){
     var config=fixture.config();assertTrue(config.projection().enabled());var manifest=fixture.manifest(UUID.randomUUID());String payload;
     try{payload=fixture.json.writeValueAsString(manifest);}catch(Exception impossible){throw new IllegalStateException(impossible);}

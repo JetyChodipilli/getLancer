@@ -26,6 +26,8 @@ CI on `03e7660` passed all 469 backend tests, including fifteen lab cases, both 
 
 Before merging, require the lab integration and role tests on disposable real PostgreSQL, all browser journeys against the current production build, and repository CI/SAST/container checks on the exact updated branch tree. Keep all unmet public-runtime gates open; merging the disabled development slice cannot certify or activate the provider.
 
+Gateway validation also accounts for Java URI's bracketed IPv6 host format: local HTTP `[::1]` is accepted, while another IPv6 HTTP host remains rejected. The existing origin regression covers both cases; HTTPS remains required for a remote operator gateway.
+
 ## Operator protocol and rollout
 
 1. Deploy schema V31 with the migration role, then rerun `ops/database/10_permissions.sql` with the reviewed administrator procedure. Never serve production with the database owner.
