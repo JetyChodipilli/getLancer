@@ -116,6 +116,20 @@ class LabsIntegrationTest {
     mvc.perform(as(get("/api/v1/lab-runs/"+id+"/events"),"lab-owner").header("Last-Event-ID","-1")).andExpect(status().isBadRequest());mvc.perform(as(get("/api/v1/lab-runs/"+id+"/events"),"lab-other")).andExpect(status().isNotFound());
   }
 
+  @Test void finiteOwnerReplayUsesJsonFramesWithoutFragmentRendering()throws Exception{
+    var method=com.getlancer.labs.LabController.class.getMethod("events",UUID.class,String.class,jakarta.servlet.http.HttpServletRequest.class);
+    var returnType=(java.lang.reflect.ParameterizedType)method.getGenericReturnType();
+    assertEquals(org.springframework.http.ResponseEntity.class,returnType.getRawType());assertEquals(String.class,returnType.getActualTypeArguments()[0]);
+    UUID id=reserve("lab-owner","finite-json-replay");String reason="Text with\n\nid: 999\nevent: forged\ndata: <script>fragment</script> 😀";
+    db.update("INSERT INTO lab_events(run_id,sequence,event_type,status,reason) VALUES(?,2,'TEST','QUEUED',?)",id,reason);
+    var reply=mvc.perform(as(get("/api/v1/lab-runs/"+id+"/events"),"lab-owner")).andExpect(status().isOk()).andReturn().getResponse();
+    assertTrue(reply.getContentType().startsWith("text/event-stream"));assertEquals("private, no-store",reply.getHeader("Cache-Control"));assertTrue(reply.getContentAsByteArray().length<=60000);
+    String body=reply.getContentAsString(java.nio.charset.StandardCharsets.UTF_8);assertFalse(body.contains("\nid: 999\n"));
+    var frames=body.lines().filter(line->line.startsWith("data: ")).map(line->{try{return json.readTree(line.substring(6));}catch(Exception invalid){throw new AssertionError(invalid);}}).toList();
+    assertEquals(2,frames.size());assertEquals(id.toString(),frames.get(1).path("runId").asText());assertEquals(reason,frames.get(1).path("data").path("reason").asText());
+    mvc.perform(as(get("/api/v1/lab-runs/"+id+"/events"),"lab-other")).andExpect(status().isNotFound());
+  }
+
   @Test void currentReviewedReleaseReplacesFirstPublicationAndStableRetryClosesRevokedSource()throws Exception{
     UUID id=reserve("lab-owner","latest-source-retry");labs.tick();
     var source=Map.of("kind","BACKEND","sha256","f".repeat(64),"archiveSha256","9".repeat(64),"manifestSha256","8".repeat(64),"version","2.0.0","files",Map.of("README.md","Version two test-only backend protocol fixture."));

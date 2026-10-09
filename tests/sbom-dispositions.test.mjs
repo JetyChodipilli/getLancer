@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,mkdirSync,writeFileSync,readdirSync,utimesSync,rmSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,readdirSync,utimesSync,rmSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {assessBackendFindings} from '../scripts/sbom-dispositions.mjs';
@@ -21,7 +21,7 @@ function fixture(t,clock=now){
  const saveReport=evidence=>{
   // Keep fixture clocks independent of when CI runs; the assessment date is fixed.
   const before=new Date(clock.getTime()-1000);
-  for(const relative of ['pom.xml','src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java',...readdirSync(join(root,'src/main')).map(name=>'src/main/'+name)])utimesSync(join(root,relative),before,before);
+  for(const relative of ['pom.xml',...readdirSync(join(root,'src/test'),{recursive:true}).map(name=>'src/test/'+name),...readdirSync(join(root,'src/main'),{recursive:true}).map(name=>'src/main/'+name)])utimesSync(join(root,relative),before,before);
   writeFileSync(report,evidence);utimesSync(report,clock,clock);
  };
  saveReport(passed);
@@ -99,5 +99,21 @@ test('adding any SSE or reactive streaming configuration invalidates the assessm
  for(const source of ['new SseEmitter()','new ResponseBodyEmitter()','StreamingResponseBody','FragmentsRendering','TEXT_EVENT_STREAM','text/event-stream','org.springframework.web.reactive','reactor.core']){
   writeFileSync(join(root,'src/main/Controller0.java'),source);saveReport(proof);
   assert.throws(()=>assessBackendFindings([sse],root,sseNow),/SSE fragment rendering configuration/);
+ }
+});
+test('only the exact finite lab replay with current passing owner/JSON proof can qualify',t=>{
+ const {root,passed,saveReport}=fixture(t,sseNow),proof=passed.replace('mvcHandlersDoNotExposeXsltViewRendering','mvcHandlersDoNotExposeSseFragmentRendering');
+ const dir=join(root,'src/main/java/com/getlancer/labs');mkdirSync(dir,{recursive:true});
+ const source=readFileSync(new URL('../backend/src/main/java/com/getlancer/labs/LabController.java',import.meta.url),'utf8'),path=join(dir,'LabController.java');writeFileSync(path,source);
+ writeFileSync(join(root,'src/test/java/com/getlancer/integration/LabsIntegrationTest.java'),'class LabsIntegrationTest {}');saveReport(proof);
+ const report=join(root,'target/surefire-reports/TEST-com.getlancer.integration.LabsIntegrationTest.xml');
+ const labProof='<testsuite><testcase name="finiteOwnerReplayUsesJsonFramesWithoutFragmentRendering" classname="com.getlancer.integration.LabsIntegrationTest" time="0.1"/></testsuite>';
+ const saveLab=value=>{writeFileSync(report,value);utimesSync(report,sseNow,sseNow);};
+ assert.throws(()=>assessBackendFindings([sse],root,sseNow),/ENOENT/);saveLab(labProof);
+ assert.equal(assessBackendFindings([sse],root,sseNow)[0].disposition.status,'not_affected');
+ for(const invalid of [labProof.replace('/>','><failure/></testcase>'),labProof.replace('/>','><skipped/></testcase>'),labProof.replace('com.getlancer.integration.LabsIntegrationTest','fake.Test')]){saveLab(invalid);assert.throws(()=>assessBackendFindings([sse],root,sseNow),/security regression/);}
+ saveLab(labProof);utimesSync(report,new Date(sseNow.getTime()-3600001),new Date(sseNow.getTime()-3600001));assert.throws(()=>assessBackendFindings([sse],root,sseNow),/current finite replay/);saveLab(labProof);
+ for(const changed of [source.replace('ResponseEntity<String> events','ResponseEntity<Object> events'),source.replace('body(service.events(id,cursor,request))','body(otherService.events(id,cursor,request))'),source+'\ntext/event-stream',source+'\nnew SseEmitter()']){
+  writeFileSync(path,changed);saveReport(proof);assert.throws(()=>assessBackendFindings([sse],root,sseNow),/SSE fragment rendering configuration/);
  }
 });

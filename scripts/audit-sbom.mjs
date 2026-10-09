@@ -25,5 +25,7 @@ try{if(assessment) assessed=assessBackendFindings(findings,resolve('backend'));}
 const blocking=assessed.filter(finding=>finding.disposition?.status!=='not_affected');
 writeFileSync(output,JSON.stringify({checkedAt:new Date().toISOString(),source:'https://api.osv.dev/v1/querybatch',input,packages:packages.length,findings:assessed,blockingFindings:blocking.length,assessmentError,licenses:components.map(({purl,name,version,licenses})=>({purl,name,version,licenses:licenses||[],reviewRequired:!licenses?.length})),licenseApproval:'Operator compatibility review required; metadata is not approval.'},null,2)+'\n');
 console.log(`OSV scanned ${packages.length} package versions: ${assessed.length} known advisory matches, ${assessed.length-blocking.length} verified not applicable, ${blocking.length} blocking. License metadata saved for review.`);
+if(assessmentError)console.error('Dependency applicability review failed: '+assessmentError);
+for(const finding of blocking)console.error('Blocked advisory '+finding.id+' in '+finding.purl);
 assert.equal(blocking.length,0,'Known vulnerable dependencies require remediation or an explicit reviewed disposition.');
 assert.ok(!assessmentError,assessmentError);
