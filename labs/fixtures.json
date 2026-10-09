@@ -1,0 +1,1 @@
+{"paymentKey":"getlancer-payment-fixture-only","paymentBody":"evt-1|order-1|payment.succeeded","refundBody":"evt-2|order-1|refund.succeeded","cacheValue":"fixture-item","cacheTtlMs":5000}

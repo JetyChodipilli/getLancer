@@ -1067,7 +1067,7 @@
     },
     {
       "path": ".github/workflows/ci.yml",
-      "sha256": "53b2016479af56e6dca696f82b6aa89c187431a985ed4a4e5f0537cb8658b483"
+      "sha256": "3159e9cb3d8bd67d37743f5f2bc4d0cb2df4736cc39ca26af27412a9fdd42c91"
     },
     {
       "path": "scripts/check-sast-results.mjs",
