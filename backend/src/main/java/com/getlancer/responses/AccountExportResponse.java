@@ -55,6 +55,7 @@ public record AccountExportResponse(Account account,
     List<Components> components,
     List<ComponentRelease> componentReleases,
     List<CollegeContext> collegeContext,
+    List<EducationRelease> educationReleases,
     List<ComponentSlotPurchases> componentSlotPurchases,
     List<ComponentSlotLedger> componentSlotLedger,
     HostedDemos hostedDemos,
@@ -100,6 +101,7 @@ public record AccountExportResponse(Account account,
         ResponseRows.rows(source, "components", row -> Components.from(row, mapper)),
         ResponseRows.rows(source, "componentReleases", row -> ComponentRelease.from(row, mapper)),
         ResponseRows.rows(source, "collegeContext", row -> CollegeContext.from(row, mapper)),
+        ResponseRows.rows(source, "educationReleases", row -> EducationRelease.from(row, mapper)),
         ResponseRows.rows(source, "componentSlotPurchases", row -> ComponentSlotPurchases.from(row, mapper)),
         ResponseRows.rows(source, "componentSlotLedger", row -> ComponentSlotLedger.from(row, mapper)),
         HostedDemos.from(ResponseRows.row(source, "hostedDemos"), mapper),
@@ -138,6 +140,43 @@ public record AccountExportResponse(Account account,
     try { return value instanceof Map || value instanceof JsonNode
         ? mapper.valueToTree(value) : mapper.readTree(value.toString()); }
     catch (java.io.IOException invalid) { throw new IllegalStateException("Invalid stored lab snapshot",invalid); }
+  }
+
+  /** Private artifact locators and future internal fields never enter exported agreements. */
+  static JsonNode educationJson(Map<String,Object> row,String key,ObjectMapper mapper) {
+    JsonNode source=labJson(row,key,mapper);
+    if(source.isNull())return source;
+    var safe=pick(source,mapper,List.of("schemaVersion","productId","slug","title","summary","category","mode","difficulty","demoMode","demoUrl","versionId","rightsConsent","priceMinor","currency","language","problem","outcome","prerequisites","hostedDemoId","releaseId","sourceHash"));
+    safe.set("package",pick(source.path("package"),mapper,List.of("includedAssets","excludedAssets","setupSteps","prerequisites","limitations","supportTerms","licenseTerms")));
+    safe.set("categoryEvidence",pick(source.path("categoryEvidence"),mapper,List.of("modules","schemaApi","demoAccounts","setupMigrations","versions","tests","deployment","dataSourceLicense","sampleSchema","transformations","notebook","charts","interpretation","reproducibility","task","datasetModelLicense","splits","evaluation","metrics","inference","limitations","boardFirmware","billOfMaterials","wiring","powerConnectivity","topics","evidence")));
+    safe.set("sourceBinding",pick(source.path("sourceBinding"),mapper,List.of("packageId","versionId","templateId","version","sha256","sizeBytes","entryCount","files","licenseTerms")));
+    safe.set("contribution",source.path("contribution").isTextual()?source.path("contribution"):pick(source.path("contribution"),mapper,List.of("kind","text","individual","ownerId","ownerName","builderSlug","teamId","teamName","teamSlug","consent")));
+    var links=mapper.createArrayNode();
+    if(source.path("componentLinks").isArray())for(JsonNode link:source.path("componentLinks"))links.add(pick(link,mapper,List.of("componentId","revision","sourceHash","sha256","license","licenseTerms","attribution","slug","title","builderSlug")));
+    safe.set("componentLinks",links);
+    return safe;
+  }
+
+  private static com.fasterxml.jackson.databind.node.ObjectNode pick(JsonNode source,ObjectMapper mapper,List<String> keys) {
+    var out=mapper.createObjectNode();
+    for(String key:keys)if(source.has(key)) {
+      JsonNode value=source.get(key);
+      // Leaf values are scalars or arrays of scalar disclosures/paths, never arbitrary objects.
+      if(value.isValueNode()||(value.isArray()&&java.util.stream.StreamSupport.stream(value.spliterator(),false).allMatch(JsonNode::isValueNode)))out.set(key,value);
+    }
+    return out;
+  }
+
+  public record EducationRelease(UUID id,UUID product_id,Long revision,String status,
+      JsonNode draft,JsonNode snapshot,String source_hash,UUID free_package_id,UUID source_version_id,
+      String review_reason,Timestamp submitted_at,Timestamp reviewed_at,Timestamp created_at,Timestamp updated_at,
+      String institution,String academic_year,String branch,Boolean share_academic_details,Long academic_revision) {
+    public static EducationRelease from(Map<String,Object> row,ObjectMapper mapper) {
+      return new EducationRelease(ResponseRows.uuid(row,"id"),ResponseRows.uuid(row,"product_id"),ResponseRows.integer64(row,"revision"),ResponseRows.string(row,"status"),
+          educationJson(row,"draft",mapper),educationJson(row,"snapshot",mapper),ResponseRows.string(row,"source_hash"),ResponseRows.uuid(row,"free_package_id"),ResponseRows.uuid(row,"source_version_id"),
+          ResponseRows.string(row,"review_reason"),ResponseRows.timestamp(row,"submitted_at"),ResponseRows.timestamp(row,"reviewed_at"),ResponseRows.timestamp(row,"created_at"),ResponseRows.timestamp(row,"updated_at"),
+          ResponseRows.string(row,"institution"),ResponseRows.string(row,"academic_year"),ResponseRows.string(row,"branch"),ResponseRows.bool(row,"share_academic_details"),ResponseRows.integer64(row,"academic_revision"));
+    }
   }
 
   public record Account(UUID id,
@@ -599,7 +638,8 @@ public record AccountExportResponse(Account account,
       @JsonProperty("refunded_minor") Long refunded_minor,
       @JsonProperty("entitlement_revoked") Boolean entitlement_revoked,
       @JsonProperty("license_consented_at") Timestamp license_consented_at,
-      @JsonProperty("created_at") Timestamp created_at) {
+      @JsonProperty("created_at") Timestamp created_at,
+      UUID education_release_id,JsonNode education_snapshot) {
     public static SourcePurchases from(Map<String, Object> row, ObjectMapper mapper) {
       return new SourcePurchases(ResponseRows.uuid(row, "id"),
           ResponseRows.uuid(row, "template_id"),
@@ -615,7 +655,7 @@ public record AccountExportResponse(Account account,
           ResponseRows.integer64(row, "refunded_minor"),
           ResponseRows.bool(row, "entitlement_revoked"),
           ResponseRows.timestamp(row, "license_consented_at"),
-          ResponseRows.timestamp(row, "created_at"));
+          ResponseRows.timestamp(row, "created_at"),ResponseRows.uuid(row,"education_release_id"),educationJson(row,"education_snapshot",mapper));
     }
   }
 

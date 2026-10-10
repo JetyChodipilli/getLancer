@@ -36,7 +36,8 @@ public final class InquiryRequests {
       @NotBlank @Pattern(regexp = "PRODUCT|USER|REVIEW|INQUIRY") String targetType,
       @NotNull UUID targetId,
       @NotBlank @Pattern(regexp = "FAKE_PRODUCT|STOLEN_WORK|IMPERSONATION|MALICIOUS_LINK|PHISHING|SPAM|HARASSMENT|COPYRIGHT_IP|CONFIDENTIAL_DATA|MISLEADING_CLAIM|FAKE_REVIEW|CLIENT_SPAM|APPEAL|OTHER") String reason,
-      @NotBlank @Size(min = 10, max = 3000) String detail) {}
+      @NotBlank @Size(min = 10, max = 3000) String detail,
+      UUID educationReleaseId) {}
 
   public record Decision(
       @NotBlank @Pattern(regexp = "HIRE_CONFIRMATION|COMPLETION_CONFIRMATION") String kind,

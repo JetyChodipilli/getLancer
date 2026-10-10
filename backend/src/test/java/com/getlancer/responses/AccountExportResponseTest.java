@@ -6,6 +6,20 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class AccountExportResponseTest {
+  @Test void educationExportKeepsAgreementsAndAcademicAnnotationsWithoutPrivateOrFutureFields() throws Exception {
+    var mapper=new ObjectMapper();
+    String snapshot="{\"mode\":\"FREE\",\"package\":{\"includedAssets\":[\"source\"],\"licenseTerms\":\"MIT\",\"providerToken\":\"secret-canary\"},\"sourceBinding\":{\"sha256\":\"reviewed-hash\",\"files\":[\"README.md\"],\"storageKey\":\"secret-canary\"},\"categoryEvidence\":{\"modules\":\"API\",\"futureSecret\":\"secret-canary\"},\"componentLinks\":[{\"revision\":2,\"attribution\":\"Original author\",\"privateNotes\":\"secret-canary\"}],\"academicDetails\":\"secret-canary\",\"providerToken\":\"secret-canary\"}";
+    var row=Map.<String,Object>of("draft",snapshot,"snapshot",snapshot,"institution","Owner private university","share_academic_details",false,"storage_key","secret-canary");
+    var exported=mapper.valueToTree(AccountExportResponse.EducationRelease.from(row,mapper));
+    assertEquals("Owner private university",exported.path("institution").asText());
+    assertEquals("MIT",exported.path("snapshot").path("package").path("licenseTerms").asText());
+    assertEquals("README.md",exported.path("draft").path("sourceBinding").path("files").get(0).asText());
+    assertEquals(2,exported.path("snapshot").path("componentLinks").get(0).path("revision").asInt());
+    assertFalse(exported.toString().contains("secret-canary"));
+    var purchase=mapper.valueToTree(AccountExportResponse.SourcePurchases.from(Map.of("education_snapshot",snapshot),mapper));
+    assertEquals("MIT",purchase.path("education_snapshot").path("package").path("licenseTerms").asText());
+    assertFalse(purchase.toString().contains("secret-canary"));
+  }
   @Test void labExportRetainsUsefulInputsAndOnlyDocumentedResultFields() throws Exception {
     var mapper=new ObjectMapper();
     var row=Map.<String,Object>of("operation_id","inspect","inputs","{\"count\":\"2\"}",

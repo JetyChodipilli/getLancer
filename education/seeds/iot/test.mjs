@@ -1,0 +1,1 @@
+import assert from 'node:assert/strict';import {simulate} from './simulate.mjs';const readings=simulate();assert.equal(readings.length,5);assert.equal(readings.filter(row=>row.alert).length,2);assert.ok(readings.every(row=>row.simulated));assert.deepEqual(readings,simulate());console.log('Deterministic sensor simulation regression passed; no hardware was exercised.');

@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import {useState,useEffect} from 'react';
 import {api} from '@/lib/api';
 import AdminMarketplaceMetrics from './admin-marketplace-metrics';
@@ -17,7 +18,7 @@ export default function AdminTools(){
  useEffect(()=>{api('/admin/metrics').then(setMetrics).catch(e=>{setMetrics(null);setError(e.message)})},[]);
  useEffect(()=>{api('/admin/audit').then(r=>setHistory(r.items)).catch(e=>{setHistory([]);setError(e.message)});},[]);
  async function mutate(path:string,body:any){setBusy(true);setError('');try{await api(path,{method:'POST',body:JSON.stringify(body)});setMessage('Saved.');setHistory((await api('/admin/audit')).items);return true;}catch(e){setError((e as Error).message);return false;}finally{setBusy(false)}}
- return <section style={{marginTop:40}}><h2>Community controls</h2>{error&&<p className="error" role="alert">{error}</p>}{message&&<p className="success" role="status">{message}</p>}
+ return <section style={{marginTop:40}}><h2>Community controls</h2><Link className="button" href="/admin/education">Review education releases ↗</Link>{error&&<p className="error" role="alert">{error}</p>}{message&&<p className="success" role="status">{message}</p>}
  <details className="panel"><summary>Categories and technologies</summary><label htmlFor="taxonomy-kind">Manage</label><select id="taxonomy-kind" value={kind} onChange={e=>setKind(e.target.value)}><option value="categories">Business categories</option><option value="technologies">Technologies</option></select>
  {items.map(item=><form key={kind+item.slug} className="row" onSubmit={async e=>{e.preventDefault();const data=new FormData(e.currentTarget);if(await mutate('/admin/'+kind,{slug:item.slug,name:data.get('name'),active:data.get('active')==='on'}))setItems((await api('/admin/'+kind)).items);}}><label className="grow">{item.slug}<input name="name" aria-label={'Name for '+item.slug} defaultValue={item.name} required minLength={2} maxLength={100}/></label><label><input type="checkbox" name="active" defaultChecked={item.active}/> Active</label><button className="button" disabled={busy}>Save</button></form>)}
  <form className="form" onSubmit={async e=>{e.preventDefault();const form=e.currentTarget;if(await mutate('/admin/'+kind,{...Object.fromEntries(new FormData(form)),active:true})){form.reset();setItems((await api('/admin/'+kind)).items);}}}><h3>Add a new option</h3><label htmlFor="taxonomy-slug">Permanent slug</label><input id="taxonomy-slug" name="slug" pattern="[a-z0-9-]+" minLength={2} maxLength={100} required/><label htmlFor="taxonomy-name">Display name</label><input id="taxonomy-name" name="name" minLength={2} maxLength={100} required/><button className="button" disabled={busy}>Add option</button></form></details>

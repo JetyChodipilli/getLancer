@@ -62,7 +62,7 @@ public class DatabaseRoleGuard implements ApplicationRunner {
         WHERE n.nspname=? AND c.relname IN ('security_audit_events','inquiry_events','moderation_actions',
           'delivery_activity','payment_ledger','payment_account_audit','commerce_ledger','commerce_audit',
           'maintenance_ledger','maintenance_audit','hosting_audit','component_audit','component_releases','component_slot_ledger',
-          'component_slot_events','publishing_capacity_grants','lab_events','lab_operator_audit')
+          'component_slot_events','publishing_capacity_grants','lab_events','lab_operator_audit','education_audit','education_free_packages')
           AND (has_table_privilege(current_user,c.oid,'UPDATE') OR has_any_column_privilege(current_user,c.oid,'UPDATE')
             OR has_table_privilege(current_user,c.oid,'DELETE'))
         """, Integer.class, schema);

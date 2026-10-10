@@ -1,0 +1,186 @@
+[
+  {
+    "folder": "full-stack",
+    "slug": "stockroom",
+    "title": "Task-board API",
+    "summary": "HTTP task creation and completion in local memory. No database, authentication, frontend or hosted production deployment.",
+    "category": "FULL_STACK",
+    "mode": "FREE",
+    "language": "JavaScript",
+    "difficulty": "BEGINNER",
+    "demoMode": "SOURCE_ONLY",
+    "demoUrl": "",
+    "categoryEvidence": {
+      "modules": "HTTP tasks resource with GET, POST and completion PATCH handlers.",
+      "schemaApi": "Task fields id, title and completed; JSON responses and explicit 400/404 limits.",
+      "demoAccounts": "No authentication or accounts; bind only local loopback for the exercise.",
+      "setupMigrations": "Run node test.mjs then node server.mjs; all state resets on process restart.",
+      "versions": "Node.js 22 or newer; only built-in node:http and assertions are used.",
+      "tests": "Regression exercises empty list, trimmed task creation, completion, invalid JSON and missing task.",
+      "deployment": "Local loopback only; persistence, access control and production deployment are excluded."
+    },
+    "contribution": "Original sample implementation and regression evidence. Illustrative creator attribution is separate from source rights.",
+    "package": {
+      "includedAssets": [
+        "Original JavaScript program, regression checks, README, MIT LICENSE and NOTICE."
+      ],
+      "excludedAssets": [
+        "HTTP task creation and completion in local memory. No database, authentication, frontend or hosted production deployment."
+      ],
+      "setupSteps": [
+        "Install Node.js 22 or newer.",
+        "Run node test.mjs before node server.mjs. Approximately five minutes after runtime installation."
+      ],
+      "prerequisites": [
+        "Node.js 22 or newer and command-line fundamentals. No third-party dependencies or credentials."
+      ],
+      "limitations": [
+        "HTTP task creation and completion in local memory. No database, authentication, frontend or hosted production deployment.",
+        "No authorship, academic marks or university certification is transferred by a license."
+      ],
+      "supportTerms": "Self-guided learning sample; no maintenance contract or paid support is included.",
+      "licenseTerms": "MIT License. Preserve copyright, permission notice and third-party attribution notices. No warranty is provided."
+    },
+    "componentLinks": [],
+    "priceMinor": null,
+    "currency": null
+  },
+  {
+    "folder": "data-analytics",
+    "slug": "booklane",
+    "title": "Synthetic sales analysis",
+    "summary": "Exact Decimal aggregation of six original synthetic rows. No real customer data, interactive dashboard or business inference.",
+    "category": "DATA_ANALYTICS",
+    "mode": "FREE",
+    "language": "Python",
+    "difficulty": "BEGINNER",
+    "demoMode": "SOURCE_ONLY",
+    "demoUrl": "",
+    "categoryEvidence": {
+      "dataSourceLicense": "Six original synthetic CSV rows under MIT; no real people or scraped data.",
+      "sampleSchema": "day ISO date, channel web/store, amount non-negative decimal string.",
+      "transformations": "Parse CSV and Decimal amounts, reject negative revenue, sum per channel.",
+      "notebook": "analysis.py is an ordinary reproducible stdlib script; no notebook dependency.",
+      "charts": "JSON grouped output: web 21.50, store 15.00 across six rows. No plotting package is included.",
+      "interpretation": "Only synthetic example totals are meaningful; no market or customer conclusions.",
+      "reproducibility": "Run python3 test.py and python3 analysis.py using Python 3.11 or newer."
+    },
+    "contribution": "Original sample implementation and regression evidence. Illustrative creator attribution is separate from source rights.",
+    "package": {
+      "includedAssets": [
+        "Original Python program, regression checks, README, MIT LICENSE and NOTICE.",
+        "Six synthetic CSV rows."
+      ],
+      "excludedAssets": [
+        "Exact Decimal aggregation of six original synthetic rows. No real customer data, interactive dashboard or business inference."
+      ],
+      "setupSteps": [
+        "Install Python 3.11 or newer.",
+        "Run python3 test.py before python3 analysis.py. Approximately five minutes after runtime installation."
+      ],
+      "prerequisites": [
+        "Python 3.11 or newer and command-line fundamentals. No third-party dependencies or credentials."
+      ],
+      "limitations": [
+        "Exact Decimal aggregation of six original synthetic rows. No real customer data, interactive dashboard or business inference.",
+        "No authorship, academic marks or university certification is transferred by a license."
+      ],
+      "supportTerms": "Self-guided learning sample; no maintenance contract or paid support is included.",
+      "licenseTerms": "MIT License. Preserve copyright, permission notice and third-party attribution notices. No warranty is provided."
+    },
+    "componentLinks": [],
+    "priceMinor": null,
+    "currency": null
+  },
+  {
+    "folder": "ai-ml",
+    "slug": "tableflow",
+    "title": "Tiny text classifier",
+    "summary": "Original stdlib Naive Bayes exercise with four training and two synthetic test rows. No pretrained weights, real dataset, fairness study or general accuracy claim.",
+    "category": "AI_ML",
+    "mode": "PAID",
+    "language": "Python",
+    "difficulty": "BEGINNER",
+    "demoMode": "SOURCE_ONLY",
+    "demoUrl": "",
+    "categoryEvidence": {
+      "task": "Classify tiny English snippets into synthetic positive or negative labels.",
+      "datasetModelLicense": "Four training and two test strings and classifier code are original MIT material; no external model.",
+      "splits": "TRAIN has four handwritten rows; TEST has two held-out handwritten rows in the same toy vocabulary.",
+      "evaluation": "Fixed deterministic hold-out exercise; no cross-validation or population sampling.",
+      "metrics": "2 of 2 toy test rows classified correctly; 1.0 accuracy applies only to those two rows.",
+      "inference": "classifier.py exposes classify(text); ignores unseen vocabulary and ties follow a deterministic label order.",
+      "limitations": "Not suitable for real sentiment, languages beyond toy English, safety decisions or academic performance claims."
+    },
+    "contribution": "Original sample implementation and regression evidence. Illustrative creator attribution is separate from source rights.",
+    "package": {
+      "includedAssets": [
+        "Original Python program, regression checks, README, MIT LICENSE and NOTICE."
+      ],
+      "excludedAssets": [
+        "Original stdlib Naive Bayes exercise with four training and two synthetic test rows. No pretrained weights, real dataset, fairness study or general accuracy claim."
+      ],
+      "setupSteps": [
+        "Install Python 3.11 or newer.",
+        "Run python3 test.py before python3 classifier.py. Approximately five minutes after runtime installation."
+      ],
+      "prerequisites": [
+        "Python 3.11 or newer and command-line fundamentals. No third-party dependencies or credentials."
+      ],
+      "limitations": [
+        "Original stdlib Naive Bayes exercise with four training and two synthetic test rows. No pretrained weights, real dataset, fairness study or general accuracy claim.",
+        "No authorship, academic marks or university certification is transferred by a license."
+      ],
+      "supportTerms": "Self-guided learning sample; no maintenance contract or paid support is included.",
+      "licenseTerms": "MIT License. Preserve copyright, permission notice and third-party attribution notices. No warranty is provided."
+    },
+    "componentLinks": [],
+    "priceMinor": 25000,
+    "currency": "INR"
+  },
+  {
+    "folder": "iot",
+    "slug": "fieldnote",
+    "title": "Simulated sensor flow",
+    "summary": "Deterministic five-reading simulation. No physical board, firmware flashing, cloud broker or verified hardware operation.",
+    "category": "IOT",
+    "mode": "SHOWCASE",
+    "language": "JavaScript",
+    "difficulty": "BEGINNER",
+    "demoMode": "SOURCE_ONLY",
+    "demoUrl": "",
+    "categoryEvidence": {
+      "boardFirmware": "No board or firmware; simulate.mjs emits five deterministic in-memory readings.",
+      "billOfMaterials": "Computer and Node.js 22 only; physical sensors and electronics are excluded.",
+      "wiring": "No wiring or electrical work; hardware safety and physical calibration are not verified.",
+      "powerConnectivity": "Runs locally offline without battery, network service or MQTT broker.",
+      "topics": "simulated/temperature records tick, temperature, unit C, alert and simulated true.",
+      "evidence": "Regression verifies five repeatable readings and two alerts at or above 30 C; no hardware was exercised."
+    },
+    "contribution": "Original sample implementation and regression evidence. Illustrative creator attribution is separate from source rights.",
+    "package": {
+      "includedAssets": [
+        "Original JavaScript program, regression checks, README, MIT LICENSE and NOTICE."
+      ],
+      "excludedAssets": [
+        "Deterministic five-reading simulation. No physical board, firmware flashing, cloud broker or verified hardware operation."
+      ],
+      "setupSteps": [
+        "Install Node.js 22 or newer.",
+        "Run node test.mjs before node simulate.mjs. Approximately five minutes after runtime installation."
+      ],
+      "prerequisites": [
+        "Node.js 22 or newer and command-line fundamentals. No third-party dependencies or credentials."
+      ],
+      "limitations": [
+        "Deterministic five-reading simulation. No physical board, firmware flashing, cloud broker or verified hardware operation.",
+        "No authorship, academic marks or university certification is transferred by a license."
+      ],
+      "supportTerms": "Self-guided learning sample; no maintenance contract or paid support is included.",
+      "licenseTerms": "MIT License. Preserve copyright, permission notice and third-party attribution notices. No warranty is provided."
+    },
+    "componentLinks": [],
+    "priceMinor": null,
+    "currency": null
+  }
+]
