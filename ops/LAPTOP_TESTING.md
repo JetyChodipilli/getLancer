@@ -13,7 +13,7 @@ npm run services:docker
 npm run dev:local
 ```
 
-Open http://localhost:3000. Docker runs Java/Spring Boot, PostgreSQL on localhost:5433, a local email inbox at http://localhost:8025 and private object storage. The frontend runs on your laptop. The first build needs internet access to download dependencies and images; the application services run locally afterward. Follow [DOCKER_LOCAL.md](DOCKER_LOCAL.md) for existing passwords, administrator setup, optional OAuth and preserving database volumes. `npm run stop:docker` stops these services without deleting their data.
+Open http://localhost:3000. Docker runs Java/Spring Boot, PostgreSQL on localhost:5433, a local email inbox at http://localhost:8025 and private object storage. The frontend runs on your laptop. `dev:local` first generates the source packages and replay assets, including on a fresh clone; Git preserves lab-file line endings so recorded source hashes work on Windows too. The first build needs internet access to download dependencies and images; the application services run locally afterward. Follow [DOCKER_LOCAL.md](DOCKER_LOCAL.md) for existing passwords, administrator setup, optional OAuth and preserving database volumes. `npm run stop:docker` stops these services without deleting their data.
 
 ## Execute all nine learning labs
 
