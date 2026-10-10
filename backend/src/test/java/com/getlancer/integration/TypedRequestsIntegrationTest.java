@@ -3,6 +3,8 @@ package com.getlancer.integration;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.withSettings;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -15,6 +17,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.getlancer.shared.Support;
 import com.getlancer.testing.TestDatabaseGuard;
 import jakarta.servlet.http.Cookie;
+import java.net.InetAddress;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -23,6 +26,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.mockito.MockMakers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -198,9 +203,14 @@ class TypedRequestsIntegrationTest {
 
     // The retained URL must satisfy the same public-DNS checks as a newly supplied profile URL.
     db.update("UPDATE developer_profiles SET website_url='https://example.com',country='IN',time_zone='Asia/Kolkata',languages='English' WHERE user_id=?", builder);
-    ok(body(put("/api/v1/developer/profile"), "typed-builder", Map.of(
-        "displayName", "Typed builder", "headline", "Customer software builder", "bio", "Builds complete customer software workflows",
-        "technology", "React", "category", "CRM", "availabilityStatus", "AVAILABLE_NOW")));
+    // Fix only this DNS response; the real URL parser/address policy and profile service still run.
+    var publicAddress = InetAddress.getByAddress(new byte[] {8, 8, 8, 8});
+    try (MockedStatic<InetAddress> dns = mockStatic(InetAddress.class, withSettings().mockMaker(MockMakers.INLINE))) {
+      dns.when(() -> InetAddress.getAllByName("example.com")).thenReturn(new InetAddress[] {publicAddress});
+      ok(body(put("/api/v1/developer/profile"), "typed-builder", Map.of(
+          "displayName", "Typed builder", "headline", "Customer software builder", "bio", "Builds complete customer software workflows",
+          "technology", "React", "category", "CRM", "availabilityStatus", "AVAILABLE_NOW")));
+    }
     assertEquals("https://example.com", db.queryForObject("SELECT website_url FROM developer_profiles WHERE user_id=?", String.class, builder));
     assertEquals("DRAFT", db.queryForObject("SELECT approval_status FROM developer_profiles WHERE user_id=?", String.class, builder));
 

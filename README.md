@@ -1,10 +1,12 @@
-# getLancer V4.6 — Spectral Studio
+# getLancer V4.9 — Spectral Studio
 
 A proof-of-work marketplace connecting clients with the builders behind working software, with team workspaces and private business hiring.
 
 ## Current implementation status
 
-**V4.6 implements reusable frontend contributions:** 24 original MIT examples, private resumable drafts, bounded source ZIP uploads, immutable reviewed versions, free isolated previews through the V4 publisher, and private saved components. Review pins source, setup, licence and publication text; every preview request checks current account, role, profile, release and withdrawal authority. See the [V4.6 implementation](docs/v46/IMPLEMENTATION.md), [verification status](docs/v46/STATUS.md) and [completion gates](docs/v46/COMPLETION_GATES.md). Backend labs remain source-only; live backend execution belongs to later phases.
+**V4.9 codes the college-project service:** immutable reviewed showcase/free/paid packages across full stack, analytics, AI/ML and IoT; controlled free source downloads; exact existing paid-source commerce; current contribution/component relationships and artifact reports. Source-only, external and hosted states are explicit. Live college collection remains disabled pending the merchant/provider activation gate. See [V4.9 scope and local testing](docs/v49/README.md), [review](docs/v49/REVIEW.md) and [validation](docs/v49/VALIDATION.md).
+
+**V4.6 implements reusable frontend contributions:** 24 original MIT examples, private resumable drafts, bounded source ZIP uploads, immutable reviewed versions, free isolated previews through the V4 publisher, and private saved components. Review pins source, setup, licence and publication text; every preview request checks current account, role, profile, release and withdrawal authority. See the [V4.6 implementation](docs/v46/IMPLEMENTATION.md), [verification status](docs/v46/STATUS.md) and [completion gates](docs/v46/COMPLETION_GATES.md). The later V4.7–V4.8 phases add certified isolated runtime contracts and native learning labs; live admissions remain separately controlled.
 
 **V4.0 implements maintenance/support and reviewed static frontend demos:** immutable monthly care agreements, separate recurring billing consent, verified paid-period access, bounded support requests, MFA recovery, built ZIP review and isolated publication. See the [V4 contract](docs/V4_CONTRACT.md), [maintenance operations](docs/V4_OPERATIONS.md) and [hosting operations](docs/V4_HOSTING_OPERATIONS.md). Collection and hosting remain disabled by default. Merchant approval, live provider acceptance and separate publisher/DNS/TLS setup remain deployment requirements. The private cloud Site provides labelled frontend exercises at `/preview/maintenance` and `/preview/hosting`.
 
@@ -21,6 +23,9 @@ The active visual system is [Spectral Studio](docs/SPECTRAL_STUDIO_ACCEPTANCE.md
 | V4.0 | Monthly maintenance, recurring invoice authority, bounded requests, operator recovery and reviewed static hosting | `app/workspace/{maintenance,hosting}`, `backend/src/main/java/com/getlancer/{maintenance,hosting}`, `ops/demo-publisher`, migrations V21–V23; [V4 contract](docs/V4_CONTRACT.md) |
 | V4.5 | Independent component/project/template publishing pools, component and college discovery, moderation and admin-priced additional slots | [V4.5 baseline](docs/V4_5_COMPONENTS_AND_COLLEGE.md) |
 | V4.6 | Original frontend catalogue, resumable source contributions, immutable releases, controlled free previews and private bookmarks | [Implementation and S02 traceability](docs/v46/IMPLEMENTATION.md); [current verification](docs/v46/STATUS.md) |
+| V4.7 | Isolated runtime provider, quota/budget reservations, fenced lifecycle, gateway and operator controls | [Runtime contract](docs/v47/CONTRACT.md) |
+| V4.8 | Nine native Redis/security/payment-emulator labs; source verification and account-free local Docker provider | [Native lab contract](docs/v48/CONTRACT.md); [laptop testing](ops/LAPTOP_TESTING.md) |
+| V4.9 | Reviewed college packages, four-category evidence, free distribution, exact source commerce, support and reports | [S05 implementation](docs/v49/README.md); [validation](docs/v49/VALIDATION.md) |
 
 Merged V4 baseline: [main CI run 37122827837](https://github.com/JetyChodipilli/getLancer/actions/runs/37122827837) passed on `e61316043a057befa2ba4ac8849bec0787ac92df` with 278 Java tests, 105 Node tests, 89 responsive browser checks and 15 connected browser checks, plus encrypted database restore. This is the pre-audit-fix checkpoint; use the current pull request checks for subsequent changes.
 

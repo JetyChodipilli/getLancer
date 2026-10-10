@@ -99,6 +99,8 @@ public class PrivacyService {
               + " WHERE user_id=?",
           id);
       db.update("DELETE FROM saved_components WHERE user_id=?", id);
+      db.update("DELETE FROM education_private_details WHERE release_id IN (SELECT id FROM education_releases WHERE owner_id=?)", id);
+      db.update("UPDATE college_project_metadata SET institution='',academic_year='',branch='',share_academic_details=false,revision=revision+1,updated_at=now() WHERE product_id IN (SELECT id FROM products WHERE owner_user_id=?)", id);
       db.update("DELETE FROM saved_products WHERE user_id=?", id);
       db.update("DELETE FROM notifications WHERE user_id=?", id);
       db.update("DELETE FROM oauth_identities WHERE user_id=?", id);

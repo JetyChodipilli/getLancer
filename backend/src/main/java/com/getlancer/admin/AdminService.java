@@ -72,7 +72,7 @@ public class AdminService {
 
   public PageResponse<AdminResponses.Report> reports(HttpServletRequest r) {
     security.admin(r);
-    String sql = "SELECT id,reporter_id,target_type,target_id,reason,detail,status,resolution,created_at,severity,triage_note,updated_at,enforcement_action FROM reports WHERE 1=1";
+    String sql = "SELECT id,reporter_id,target_type,target_id,reason,detail,status,resolution,created_at,severity,triage_note,updated_at,enforcement_action,education_release_id,source_hash,education_snapshot FROM reports WHERE 1=1";
     List<Object> values = new ArrayList<>();
     for (String key : List.of("status", "reason", "severity")) {
       String value = r.getParameter(key);
@@ -173,7 +173,7 @@ public class AdminService {
 
   public Map<String, Object> reportDetail(UUID id, HttpServletRequest request) {
     UUID actor = security.admin(request);
-    var rows = db.queryForList("SELECT id,reporter_id,target_type,target_id,reason,detail,status,resolution,created_at,severity,triage_note,updated_at,enforcement_action FROM reports WHERE id=?", id);
+    var rows = db.queryForList("SELECT id,reporter_id,target_type,target_id,reason,detail,status,resolution,created_at,severity,triage_note,updated_at,enforcement_action,education_release_id,source_hash,education_snapshot FROM reports WHERE id=?", id);
     if (rows.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Report not found.");
     var report = rows.get(0);
     if (report.get("target_type").equals("INQUIRY"))
@@ -208,7 +208,7 @@ public class AdminService {
                   report.get("target_id"));
       default -> targets = List.of();
     }
-    return Map.of("report", report, "target", targets.isEmpty() ? Map.of() : targets.get(0));
+    return Map.of("report", AdminResponses.Report.from(report), "target", targets.isEmpty() ? Map.of() : targets.get(0));
   }
 
   @Transactional
@@ -216,7 +216,7 @@ public class AdminService {
       UUID id, Map<String, Object> body, HttpServletRequest request) {
     UUID admin = security.admin(request);
     String reason = text(body, "reason", 3, 2000), action = text(body, "targetAction", 0, 20);
-    var reports = db.queryForList("SELECT id,reporter_id,target_type,target_id,reason,detail,status,resolution,created_at,severity,triage_note,updated_at,enforcement_action FROM reports WHERE id=? FOR UPDATE", id);
+    var reports = db.queryForList("SELECT id,reporter_id,target_type,target_id,reason,detail,status,resolution,created_at,severity,triage_note,updated_at,enforcement_action,education_release_id,source_hash,education_snapshot FROM reports WHERE id=? FOR UPDATE", id);
     if (reports.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Report not found.");
     var report = reports.get(0);
     if (report.get("status").equals("RESOLVED")) return Map.of("ok", true);

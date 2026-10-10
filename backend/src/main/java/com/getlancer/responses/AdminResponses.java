@@ -1,6 +1,8 @@
 package com.getlancer.responses;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
@@ -9,6 +11,14 @@ import java.util.UUID;
 /** Fixed administrator review projections; authentication and MFA stay in the service. */
 public final class AdminResponses {
   private AdminResponses() {}
+  private static final ObjectMapper ARTIFACT_JSON=new ObjectMapper();
+
+  private static JsonNode artifact(Map<String,Object> row) {
+    Object value=row.get("education_snapshot");
+    if(value==null)return null;
+    try {return value instanceof Map || value instanceof JsonNode ? ARTIFACT_JSON.valueToTree(value):ARTIFACT_JSON.readTree(value.toString());}
+    catch(java.io.IOException invalid){throw new IllegalStateException("Invalid reported education evidence",invalid);}
+  }
 
   public record TaxonomyItems(List<Taxonomy> items) {}
 
@@ -54,7 +64,8 @@ public final class AdminResponses {
       String severity,
       @JsonProperty("triage_note") String triage_note,
       @JsonProperty("updated_at") Timestamp updated_at,
-      @JsonProperty("enforcement_action") String enforcement_action) {
+      @JsonProperty("enforcement_action") String enforcement_action,
+      UUID education_release_id,String source_hash,JsonNode education_snapshot) {
     public static Report from(Map<String, Object> row) {
       return new Report(ResponseRows.uuid(row,"id"),
           ResponseRows.uuid(row,"reporter_id"),
@@ -68,7 +79,7 @@ public final class AdminResponses {
           ResponseRows.string(row,"severity"),
           ResponseRows.string(row,"triage_note"),
           ResponseRows.timestamp(row,"updated_at"),
-          ResponseRows.string(row,"enforcement_action"));
+          ResponseRows.string(row,"enforcement_action"),ResponseRows.uuid(row,"education_release_id"),ResponseRows.string(row,"source_hash"),artifact(row));
     }
   }
 

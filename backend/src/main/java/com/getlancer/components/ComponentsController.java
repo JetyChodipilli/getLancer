@@ -56,12 +56,6 @@ public class ComponentsController {
   @PostMapping("/admin/components/{id}/review") public Object review(@PathVariable UUID id,@Valid @RequestBody ComponentRequests.Review b,HttpServletRequest r){
     return service.review(id,TypedInputs.map(b),r);
   }
-  @GetMapping("/college-projects") public Object college(@RequestParam(defaultValue="")String q,@RequestParam(defaultValue="")String category,@RequestParam(defaultValue="")String language,@RequestParam(defaultValue="")String builder,@RequestParam(defaultValue="0")int page){
-    return service.college(q,category,language,builder,page);
-  }
-  @GetMapping("/college-projects/{slug}") public Object collegeDetail(@PathVariable String slug){
-    return service.collegeDetail(slug);
-  }
   @GetMapping("/me/college-projects") public Object ownCollege(HttpServletRequest r){
     return service.ownCollege(r);
   }

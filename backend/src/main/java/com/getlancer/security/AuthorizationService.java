@@ -78,6 +78,7 @@ public class AuthorizationService {
   public static boolean recentMfaRequired(Route route) {
     return route.policy() == Policy.ADMIN_MFA
         && (!List.of("GET", "HEAD", "OPTIONS").contains(route.method()) || route.path().endsWith("/package")
-            || route.path().equals("/api/v1/admin/components/{id}"));
+            || route.path().equals("/api/v1/admin/components/{id}")
+            || route.path().startsWith("/api/v1/admin/education-releases"));
   }
 }

@@ -31,7 +31,8 @@ public final class CommerceRequests {
 
   public record Order(
       @NotNull UUID versionId,
-      Boolean licenseConsent) {}
+      Boolean licenseConsent,
+      UUID educationReleaseId) {}
 
   public record Dispute(
       @NotBlank @Size(min = 20, max = 2000) String reason) {}

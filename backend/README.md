@@ -45,3 +45,7 @@ V3 adds `delivery` (source-authorized agreements and milestones) and `payments` 
 V4 includes maintenance/support and reviewed static hosting. V21 creates retained care/financial records, V22 creates hosting records, and V23 retains known refund references. Collection and publisher activation remain separate, disabled deployment choices. See [maintenance operations](../docs/V4_OPERATIONS.md) and [hosting operations](../docs/V4_HOSTING_OPERATIONS.md).
 
 V4.6 adds V29/V30 for pinned submission source and context, retained releases, private bookmarks, uploaded drafts and immutable preview identities. The existing V4 publisher serves reviewed component bytes with an opaque sandbox and no network access. See [V4.6 operations and traceability](../docs/v46/IMPLEMENTATION.md).
+
+## V4.9 education domain
+
+`com.getlancer.education` owns bounded draft/release schemas, exact source/hash review, private free packages, public discovery and current contribution/component/demo projections. Submitted terms are immutable; new content requires a new release. `CommerceEducationBinding` connects an approved paid release to the existing source-purchase ledger; `APP_EDUCATION_PAID_ENABLED=false` keeps live college checkout unavailable pending merchant readiness. Migrations V32–V34 are additive. Run the reviewed database permission provisioning after migration. See [V4.9 contract](../docs/v49/CONTRACT.md) and [validation](../docs/v49/VALIDATION.md).

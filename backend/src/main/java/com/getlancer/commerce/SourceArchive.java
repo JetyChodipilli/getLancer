@@ -26,7 +26,10 @@ import java.util.zip.ZipInputStream;
 /** Static bounded inspection only. Submitted source is never extracted or executed. */
 public final class SourceArchive {
   public static final int MAX_COMPRESSED=5*1024*1024, MAX_EXPANDED=25*1024*1024, MAX_ENTRIES=500;
-  public record Inspection(String sha256,int sizeBytes,int entryCount,List<String> manifestFiles) {}
+  public record Inspection(String sha256,int sizeBytes,int entryCount,List<String> manifestFiles,List<String> files) {
+    public Inspection {manifestFiles=List.copyOf(manifestFiles);files=List.copyOf(files);}
+    public Inspection(String sha256,int sizeBytes,int entryCount,List<String> manifestFiles) {this(sha256,sizeBytes,entryCount,manifestFiles,List.of());}
+  }
   private record Entry(String name,long size,long crc) {}
   private static ApiError unsafe(String message) { return new ApiError(400,"UNSAFE_SOURCE_ARCHIVE",message); }
   private static final Pattern SECRET=Pattern.compile("(?is)-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----|\\bAKIA[A-Z0-9]{16}\\b|\\b(?:ghp_|github_pat_)[A-Za-z0-9_]{20,}\\b|\\brzp_live_[A-Za-z0-9]{8,}\\b|(?m)^\\s*(?:export\\s+)?(?:(?:const|let|var|public|private|protected|static|final|String)\\s+)*[\"']?(?:[A-Z0-9_]*(?:SECRET|PRIVATE_?KEY|PASSWORD|ACCESS_?TOKEN|API_?KEY)[A-Z0-9_]*)[\"']?\\s*[:=]\\s*[\"']?(?![\"']?(?:$|\\$|<|your|example|change|placeholder|process\\.|env\\.|test|demo|false|true|null|undefined))[A-Za-z0-9+/=_-]{16,}");
@@ -57,7 +60,7 @@ public final class SourceArchive {
         entries.put(name,new Entry(name,size,u32(b,p+16)));p+=46+nameLength+extra+comment;
       }
       if(p!=end) throw unsafe("Invalid ZIP directory bounds.");
-      boolean readme=false,license=false;int actual=0;long total=0;List<String> manifests=new ArrayList<>();
+      boolean readme=false,license=false;int actual=0;long total=0;List<String> manifests=new ArrayList<>(),files=new ArrayList<>();
       try(var stream=new ZipInputStream(new ByteArrayInputStream(bytes),StandardCharsets.UTF_8)) {
         ZipEntry z;
         while((z=stream.getNextEntry())!=null) {
@@ -66,6 +69,7 @@ public final class SourceArchive {
           while((read=stream.read(buf))!=-1) {entrySize+=read;total+=read;if(entrySize>expected.size || total>MAX_EXPANDED) throw unsafe("Expanded ZIP bounds were exceeded.");data.write(buf,0,read);crc.update(buf,0,read);}
           if(entrySize!=expected.size || crc.getValue()!=expected.crc) throw unsafe("ZIP file integrity failed.");
           if(!z.isDirectory()) {
+            files.add(z.getName());
             String basename=z.getName().substring(z.getName().lastIndexOf('/')+1).toLowerCase(Locale.ROOT);
             byte[] file=data.toByteArray();inspectFile(basename,file);
             if(basename.matches("readme(?:\\.(?:md|txt|rst))?") && entrySize>=20) readme=true;
@@ -76,7 +80,7 @@ public final class SourceArchive {
         }
       }
       if(!entries.isEmpty() || actual!=count || !readme || !license || manifests.isEmpty()) throw unsafe("Include a useful README, LICENSE with third-party notices and a supported build manifest.");
-      return new Inspection(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)),bytes.length,count,List.copyOf(manifests));
+      return new Inspection(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)),bytes.length,count,manifests,files);
     } catch(ApiError e) {throw e;} catch(Exception e) {throw unsafe("This ZIP archive could not be safely inspected.");}
   }
   private static int u16(ByteBuffer b,int p) {return Short.toUnsignedInt(b.getShort(p));}

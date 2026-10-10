@@ -7,6 +7,8 @@ import static com.getlancer.shared.Support.text;
 import static com.getlancer.shared.Support.uuid;
 
 import com.getlancer.analytics.AnalyticsService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.getlancer.education.EducationService;
 import com.getlancer.notifications.Mail;
 import com.getlancer.products.ProductRepository;
 import com.getlancer.security.Security;
@@ -25,6 +27,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,11 +36,20 @@ public class InquiryService {
   final JdbcTemplate db;
   final Security security;
   final Mail mail;
+  final EducationService education;
+  final ObjectMapper json;
 
   public InquiryService(JdbcTemplate db, Security security, Mail mail) {
+    this(db, security, mail, null, new ObjectMapper());
+  }
+
+  @Autowired
+  public InquiryService(JdbcTemplate db, Security security, Mail mail, EducationService education, ObjectMapper json) {
     this.db = db;
     this.security = security;
     this.mail = mail;
+    this.education = education;
+    this.json = json;
   }
 
   @Transactional
@@ -300,6 +312,17 @@ public class InquiryService {
             : Set.of("STOLEN_WORK", "IMPERSONATION", "COPYRIGHT_IP").contains(reason)
                 ? "HIGH"
                 : "MEDIUM";
+    if (b.get("educationReleaseId") != null) {
+      if (!"PRODUCT".equals(type)) throw new ApiError(400,"VALIDATION_ERROR","Education reports must identify their project.");
+      var artifact = education.frozenReportArtifact(uuid(b.get("educationReleaseId")));
+      UUID product = uuid(b.get("targetId"));
+      if (!product.equals(artifact.get("productId"))) throw new ApiError(404,"NOT_FOUND","Education release not found.");
+      try {
+        db.update("INSERT INTO reports(id,target_type,target_id,reason,detail,reporter_id,severity,education_release_id,source_hash,education_snapshot) VALUES(?,?,?,?,?,?,?,?,?,?::jsonb)",
+            id,type,product,reason,text(b,"detail",10,3000),reporter,severity,artifact.get("releaseId"),artifact.get("sourceHash"),json.writeValueAsString(artifact.get("snapshot")));
+      } catch (java.io.IOException invalid) { throw new IllegalStateException("Invalid reviewed education snapshot",invalid); }
+      return Map.of("reference",id);
+    }
     db.update(
         "INSERT INTO reports(id,target_type,target_id,reason,detail,reporter_id,severity)"
             + " VALUES(?,?,?,?,?,?,?)",

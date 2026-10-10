@@ -275,3 +275,18 @@ POST SESSION /api/v1/lab-runs/{id}/requests
 GET SESSION /api/v1/lab-runs/{id}/events
 GET ADMIN_MFA /api/v1/admin/labs
 POST ADMIN_MFA /api/v1/admin/labs/pause-admissions
+
+# V4.9 reviewed education releases
+GET PUBLIC /api/v1/education-releases/{id}/source-offer
+GET PUBLIC /api/v1/education-releases/{id}/source
+GET DEVELOPER /api/v1/me/education-releases
+GET DEVELOPER /api/v1/me/education-releases/{id}
+POST DEVELOPER /api/v1/me/college-projects/{productId}/releases
+PATCH DEVELOPER /api/v1/me/education-releases/{id}
+PATCH DEVELOPER /api/v1/me/education-releases/{id}/academic
+POST DEVELOPER /api/v1/me/education-releases/{id}/source
+POST DEVELOPER /api/v1/me/education-releases/{id}/submit
+GET ADMIN_MFA /api/v1/admin/education-releases
+GET ADMIN_MFA /api/v1/admin/education-releases/{id}
+POST ADMIN_MFA /api/v1/admin/education-releases/{id}/package
+POST ADMIN_MFA /api/v1/admin/education-releases/{id}/review

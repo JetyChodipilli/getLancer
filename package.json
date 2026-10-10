@@ -23,7 +23,9 @@
     "predev:local": "node --experimental-strip-types scripts/build-lab-material.mjs",
     "dev:local": "node scripts/dev-local.mjs",
     "backend:local": "node scripts/dev-local.mjs backend",
-    "test:local-tools": "node --test tests/local-tools.test.mjs"
+    "test:local-tools": "node --test tests/local-tools.test.mjs",
+    "education:build": "python3 scripts/build-education-material.py",
+    "education:verify": "node --test tests/college-seed-packages.test.mjs"
   },
   "dependencies": {
     "class-variance-authority": "0.7.1",
