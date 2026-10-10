@@ -15,8 +15,8 @@ python3 classifier.py
 
 ## Included and excluded
 
-Original stdlib Naive Bayes exercise with four training and two synthetic test rows. No pretrained weights, real dataset, fairness study or general accuracy claim.
+Original stdlib Naive Bayes exercise using a fixed original JSON likelihood model, four synthetic reference rows and two separate synthetic evaluation rows. The program never trains or loads executable models. No real dataset, fairness study or general accuracy claim is included.
 
 ## License and support
 
-MIT, preserving LICENSE and NOTICE. This self-guided example includes no maintenance contract, paid support, university certification, marks or authorship transfer.
+Code and synthetic data use MIT, preserving LICENSE and NOTICE. The separately authored frozen model uses MIT under MODEL_LICENSE. This self-guided example includes no maintenance contract, paid support, university certification, marks or authorship transfer.

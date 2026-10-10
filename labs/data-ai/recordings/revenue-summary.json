@@ -1,0 +1,182 @@
+{
+  "schemaVersion": "getlancer-data-ai-recording-v1",
+  "mode": "REPLAY",
+  "scenarioId": "revenue-summary",
+  "sourceSha256": "62944222476a16bc5a742b503bcaf2ebede544bc4a9bfe231563eef215cae1e8",
+  "dataSha256": "e279aeac207560bc1d8b6590c0e9f91db4420a7d987fa6f662521338e686b10a",
+  "modelSha256": null,
+  "evaluationSha256": null,
+  "recordedAt": "2026-10-10T18:19:41.326Z",
+  "runs": [
+    {
+      "dataSha256": "e279aeac207560bc1d8b6590c0e9f91db4420a7d987fa6f662521338e686b10a",
+      "elapsedMs": 0,
+      "evaluationSha256": null,
+      "input": {
+        "region": "all",
+        "upliftPercent": "0"
+      },
+      "inputSha256": "3a180f9fd1090d517affb75772a846a72f715cc63d2b7e0a057a76ba46c00681",
+      "mode": "LOCAL",
+      "modelSha256": null,
+      "result": {
+        "evaluation": null,
+        "metrics": [
+          {
+            "key": "revenue",
+            "label": "Revenue",
+            "unit": "INR",
+            "value": 78000
+          },
+          {
+            "key": "orders",
+            "label": "Orders",
+            "unit": "orders",
+            "value": 6
+          },
+          {
+            "key": "averageOrder",
+            "label": "Average order",
+            "unit": "INR",
+            "value": 13000
+          }
+        ],
+        "prediction": null,
+        "tables": [
+          {
+            "columns": [
+              {
+                "key": "month",
+                "label": "Month",
+                "type": "string",
+                "unit": "none"
+              },
+              {
+                "key": "revenue",
+                "label": "Revenue",
+                "type": "number",
+                "unit": "INR"
+              },
+              {
+                "key": "orders",
+                "label": "Orders",
+                "type": "number",
+                "unit": "orders"
+              }
+            ],
+            "id": "monthly-revenue",
+            "rows": [
+              {
+                "month": "Jan",
+                "orders": 2,
+                "revenue": 21000
+              },
+              {
+                "month": "Feb",
+                "orders": 2,
+                "revenue": 26000
+              },
+              {
+                "month": "Mar",
+                "orders": 2,
+                "revenue": 31000
+              }
+            ],
+            "title": "Monthly revenue"
+          }
+        ]
+      },
+      "resultSha256": "ba2f21a5796f5d1b316ff69f62bea5897c717b06298375b208650027ee740613",
+      "runId": "db6670d5-4ef7-403a-abe3-50e149207a6d",
+      "scenarioId": "revenue-summary",
+      "schemaVersion": "getlancer-data-ai-result-v1",
+      "sourceSha256": "62944222476a16bc5a742b503bcaf2ebede544bc4a9bfe231563eef215cae1e8",
+      "startedAt": "2026-10-10T18:19:41.312Z"
+    },
+    {
+      "dataSha256": "e279aeac207560bc1d8b6590c0e9f91db4420a7d987fa6f662521338e686b10a",
+      "elapsedMs": 0,
+      "evaluationSha256": null,
+      "input": {
+        "region": "south",
+        "upliftPercent": "10"
+      },
+      "inputSha256": "be04bac5cbd06265f26e5479f2cb6887be25453fc6de59f4f2709f26092ac0d6",
+      "mode": "LOCAL",
+      "modelSha256": null,
+      "result": {
+        "evaluation": null,
+        "metrics": [
+          {
+            "key": "revenue",
+            "label": "Revenue",
+            "unit": "INR",
+            "value": 36300
+          },
+          {
+            "key": "orders",
+            "label": "Orders",
+            "unit": "orders",
+            "value": 3
+          },
+          {
+            "key": "averageOrder",
+            "label": "Average order",
+            "unit": "INR",
+            "value": 12100
+          }
+        ],
+        "prediction": null,
+        "tables": [
+          {
+            "columns": [
+              {
+                "key": "month",
+                "label": "Month",
+                "type": "string",
+                "unit": "none"
+              },
+              {
+                "key": "revenue",
+                "label": "Revenue",
+                "type": "number",
+                "unit": "INR"
+              },
+              {
+                "key": "orders",
+                "label": "Orders",
+                "type": "number",
+                "unit": "orders"
+              }
+            ],
+            "id": "monthly-revenue",
+            "rows": [
+              {
+                "month": "Jan",
+                "orders": 1,
+                "revenue": 9900
+              },
+              {
+                "month": "Feb",
+                "orders": 1,
+                "revenue": 12100
+              },
+              {
+                "month": "Mar",
+                "orders": 1,
+                "revenue": 14300
+              }
+            ],
+            "title": "Monthly revenue"
+          }
+        ]
+      },
+      "resultSha256": "001a905fb08c811e67b717347816c0ec8ac1504cc0fde386ef0e6d2261274147",
+      "runId": "db6670d5-4ef7-403a-abe3-50e149207a6d",
+      "scenarioId": "revenue-summary",
+      "schemaVersion": "getlancer-data-ai-result-v1",
+      "sourceSha256": "62944222476a16bc5a742b503bcaf2ebede544bc4a9bfe231563eef215cae1e8",
+      "startedAt": "2026-10-10T18:19:41.322Z"
+    }
+  ]
+}

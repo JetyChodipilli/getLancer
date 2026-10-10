@@ -1,13 +1,14 @@
-import math,re,json
-from collections import Counter
-TRAIN=[('good helpful','positive'),('happy useful','positive'),('bad broken','negative'),('sad useless','negative')]
-TEST=[('helpful useful','positive'),('bad useless','negative')]
+"""Original frozen JSON likelihood exercise; no training or executable model loader."""
+import json,math,re
+from pathlib import Path
+ROOT=Path(__file__).resolve().parent
+MODEL=json.loads((ROOT/'model.json').read_text(encoding='utf-8'))
+TEST=json.loads((ROOT/'evaluation.json').read_text(encoding='utf-8'))
+REFERENCE=json.loads((ROOT/'synthetic.json').read_text(encoding='utf-8'))
 def tokens(text):return re.findall(r'[a-z]+',text.lower())
 def classify(text):
-    labels=sorted({label for _,label in TRAIN});vocabulary={word for value,_ in TRAIN for word in tokens(value)};scores={}
-    for label in labels:
-        rows=[value for value,current in TRAIN if current==label];counts=Counter(word for value in rows for word in tokens(value));scores[label]=math.log(len(rows)/len(TRAIN))+sum(math.log((counts[word]+1)/(sum(counts.values())+len(vocabulary))) for word in tokens(text) if word in vocabulary)
-    return max(labels,key=lambda label:scores[label])
+    scores={label:math.log(MODEL['priors'][label])+sum(math.log(MODEL['likelihoods'][label][word]) for word in tokens(text) if word in MODEL['likelihoods'][label]) for label in MODEL['labels']}
+    return max(MODEL['labels'],key=lambda label:scores[label])
 def evaluate():
-    predictions=[classify(text) for text,_ in TEST];correct=sum(prediction==label for prediction,(_,label) in zip(predictions,TEST));return {'trainRows':len(TRAIN),'testRows':len(TEST),'correct':correct,'accuracy':correct/len(TEST),'predictions':predictions,'context':'Two hand-written synthetic test rows; no population performance claim.'}
+    predictions=[classify(row['text']) for row in TEST];correct=sum(prediction==row['label'] for prediction,row in zip(predictions,TEST));return {'referenceRows':len(REFERENCE),'testRows':len(TEST),'correct':correct,'accuracy':correct/len(TEST),'predictions':predictions,'frozenModel':True,'context':'Two separate hand-written synthetic evaluation rows; no training or real-world accuracy claim.'}
 if __name__=='__main__':print(json.dumps(evaluate(),sort_keys=True))

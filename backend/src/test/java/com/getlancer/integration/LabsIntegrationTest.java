@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.getlancer.labs.LabProtocolFixture;
 import com.getlancer.labs.LabService;
+import com.getlancer.labs.LabDataAiPolicy;
 import com.getlancer.shared.Support;
 import com.getlancer.testing.TestDatabaseGuard;
 import jakarta.servlet.http.Cookie;
@@ -36,10 +37,11 @@ class LabsIntegrationTest {
   static final LabProtocolFixture fixture=new LabProtocolFixture();
   @DynamicPropertySource static void labs(DynamicPropertyRegistry registry){registry.add("app.labs.enabled",()->true);registry.add("app.labs.gateway-origin",fixture::origin);registry.add("app.labs.gateway-secret",()->LabProtocolFixture.SECRET);registry.add("app.labs.operator-public-key",fixture::publicKey);registry.add("app.labs.admission-evidence",()->fixture.evidence.toString());registry.add("app.labs.operator-epoch",()->fixture.epoch.toString());registry.add("app.labs.timeout-ms",()->1000);}
   @AfterAll static void close(){fixture.close();}
-  @Autowired JdbcTemplate db;@Autowired MockMvc mvc;@Autowired ObjectMapper json;@Autowired LabService labs;
+  @Autowired JdbcTemplate db;@Autowired MockMvc mvc;@Autowired ObjectMapper json;@Autowired LabService labs;@Autowired LabDataAiPolicy dataAi;
   UUID sourceOwner,owner,other,admin,component;
   UUID user(String token,boolean builder){UUID id=UUID.randomUUID();db.update("INSERT INTO users(id,email,password_hash,email_verified_at) VALUES(?,?,'unused',now())",id,token+"@example.test");db.update("INSERT INTO user_roles(user_id,role) VALUES(?,'CLIENT')",id);if(builder){db.update("INSERT INTO user_roles(user_id,role) VALUES(?,'DEVELOPER')",id);db.update("INSERT INTO developer_profiles(user_id,slug,display_name,approval_status) VALUES(?,?,?,'APPROVED')",id,token,token);}db.update("INSERT INTO sessions(token_hash,user_id,expires_at) VALUES(?,?,now()+interval '1 hour')",Support.hash(token),id);return id;}
   @BeforeEach void seed()throws Exception{
+    org.springframework.test.util.ReflectionTestUtils.setField(dataAi,"enabled",false);
     fixture.reset();db.execute("TRUNCATE lab_manifests CASCADE");db.execute("TRUNCATE users CASCADE");db.execute("TRUNCATE rate_buckets");db.update("UPDATE lab_runtime_settings SET observed_epoch=NULL,paused=false,pause_reason='' WHERE id=1");
     sourceOwner=user("lab-source",true);owner=user("lab-owner",false);other=user("lab-other",false);admin=user("lab-admin",false);
     db.update("INSERT INTO user_roles(user_id,role) VALUES(?,'ADMIN')",admin);db.update("UPDATE sessions SET mfa_verified=true,issued_at=now() WHERE user_id=?",admin);
@@ -51,6 +53,50 @@ class LabsIntegrationTest {
   MockHttpServletRequestBuilder as(MockHttpServletRequestBuilder request,String token){return request.cookie(new Cookie("gl_session",token));}
   MockHttpServletRequestBuilder body(MockHttpServletRequestBuilder request,String token,Object value)throws Exception{return as(request,token).header("Origin","http://localhost:3000").header("X-Requested-With","getlancer").contentType("application/json").content(json.writeValueAsString(value));}
   MockHttpServletRequestBuilder start(String token,String key)throws Exception{return body(post("/api/v1/lab-runs"),token,Map.of("manifestId","protocol-fixture","scenarioId","request","inputs",Map.of("message","Hello"))).header("Idempotency-Key",key);}
+  void certifyDataAi(String id,String scenario,String kind)throws Exception{
+    var manifest=(com.fasterxml.jackson.databind.node.ObjectNode)json.valueToTree(fixture.manifest(component));manifest.put("id",id).put("memoryMiB",256);
+    if(kind!=null)manifest.put("resourceClass",kind);((com.fasterxml.jackson.databind.node.ObjectNode)manifest.path("scenarios").get(0)).put("id",scenario);
+    String payload=manifest.toString();db.update("INSERT INTO lab_manifests(id,payload_text,payload_sha256,signature) VALUES(?,?,?,?)",id,payload,Support.hash(payload),fixture.sign(payload));
+  }
+  MockHttpServletRequestBuilder startDataAi(String token,String key,String id,String scenario)throws Exception{return body(post("/api/v1/lab-runs"),token,Map.of("manifestId",id,"scenarioId",scenario,"inputs",Map.of("message","Controlled HTTP fixture only"))).header("Idempotency-Key",key);}
+  UUID reserveDataAi(String token,String key,String id,String scenario)throws Exception{return UUID.fromString(json.readTree(mvc.perform(startDataAi(token,key,id,scenario)).andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString()).path("id").asText());}
+  @Test void dataAiDefaultDenialPrecedesReservationAndPreservesGeneralLabs()throws Exception{
+    certifyDataAi("renamed-data","revenue-summary",null);certifyDataAi("renamed-inference","renamed-scenario","AI_ML");certifyDataAi("data-ai-namespace","request",null);
+    for(var pair:java.util.List.of(new String[]{"renamed-data","revenue-summary"},new String[]{"renamed-inference","renamed-scenario"},new String[]{"data-ai-namespace","request"})){
+      mvc.perform(startDataAi("lab-owner","deny-"+pair[0],pair[0],pair[1])).andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.error.code").value("DATA_AI_DISABLED"));
+    }
+    assertEquals(0,db.queryForObject("SELECT count(*) FROM lab_runs",Integer.class));assertEquals(0,db.queryForObject("SELECT count(*) FROM lab_outbox",Integer.class));
+    var catalogue=json.readTree(mvc.perform(get("/api/v1/lab-manifests")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());assertEquals(1,catalogue.path("items").size());
+    reserve("lab-owner","ordinary-still-admitted");
+  }
+  @Test void dataAiRevocationClosesRequestsEventsAndFencesConfirmedCleanup()throws Exception{
+    certifyDataAi("signed-ai","equipment-inference","AI_ML");org.springframework.test.util.ReflectionTestUtils.setField(dataAi,"enabled",true);
+    UUID id=reserveDataAi("lab-owner","ai-healthy","signed-ai","equipment-inference");labs.tick();assertTrue(getRun(id,"lab-owner").path("verified").asBoolean());
+    org.springframework.test.util.ReflectionTestUtils.setField(dataAi,"enabled",false);
+    mvc.perform(body(post("/api/v1/lab-runs/"+id+"/requests"),"lab-owner",Map.of("operationId","echo","inputs",Map.of("message","Denied"))).header("Idempotency-Key","ai-denied-request")).andExpect(status().isForbidden());
+    mvc.perform(as(get("/api/v1/lab-runs/"+id+"/events"),"lab-owner")).andExpect(status().isForbidden());assertFalse(getRun(id,"lab-owner").path("verified").asBoolean());
+    assertEquals(0,db.queryForObject("SELECT count(*) FROM lab_requests WHERE run_id=?",Integer.class,id));
+    labs.tick();assertEquals("FAILED",getRun(id,"lab-owner").path("status").asText());assertNotNull(db.queryForObject("SELECT cleanup_confirmed_at FROM lab_runs WHERE id=?",java.sql.Timestamp.class,id));assertTrue(db.queryForObject("SELECT quota_counted FROM lab_runs WHERE id=?",Boolean.class,id));
+    reserve("lab-owner","ordinary-after-ai-cleanup");
+  }
+  @Test void dataAiQueuedRevocationNeverStartsProviderAndRefundsAfterCleanup()throws Exception{
+    certifyDataAi("signed-data","sensor-quality","DATA_ANALYTICS");org.springframework.test.util.ReflectionTestUtils.setField(dataAi,"enabled",true);
+    UUID id=reserveDataAi("lab-owner","data-queued","signed-data","sensor-quality");org.springframework.test.util.ReflectionTestUtils.setField(dataAi,"enabled",false);
+    fixture.failStop=true;labs.tick();assertEquals("CANCELLING",getRun(id,"lab-owner").path("status").asText());assertNull(db.queryForObject("SELECT cleanup_confirmed_at FROM lab_runs WHERE id=?",java.sql.Timestamp.class,id));assertTrue(db.queryForObject("SELECT quota_counted FROM lab_runs WHERE id=?",Boolean.class,id));
+    assertTrue(fixture.commands.values().stream().noneMatch(c->c.runId().equals(id)&&c.action().equals("START")));
+    fixture.failStop=false;db.update("UPDATE lab_outbox SET next_attempt_at=now() WHERE run_id=?",id);labs.tick();assertEquals("FAILED",getRun(id,"lab-owner").path("status").asText());assertFalse(db.queryForObject("SELECT quota_counted FROM lab_runs WHERE id=?",Boolean.class,id));
+  }
+  @Test void dataAndAiHaveSeparateReservationsWhichUncertainCleanupRetains()throws Exception{
+    certifyDataAi("signed-data","revenue-summary","DATA_ANALYTICS");certifyDataAi("signed-ai","sentiment-inference","AI_ML");org.springframework.test.util.ReflectionTestUtils.setField(dataAi,"enabled",true);
+    UUID first=null;
+    for(int i=0;i<4;i++){String token="data-class-"+i;user(token,false);UUID id=reserveDataAi(token,"class-data-"+i,"signed-data","revenue-summary");if(i==0)first=id;}
+    user("data-overflow",false);mvc.perform(startDataAi("data-overflow","data-class-overflow","signed-data","revenue-summary")).andExpect(status().isTooManyRequests()).andExpect(jsonPath("$.error.code").value("DATA_AI_CAPACITY"));
+    for(int i=0;i<4;i++){String token="ai-class-"+i;user(token,false);reserveDataAi(token,"class-ai-"+i,"signed-ai","sentiment-inference");}
+    assertEquals(2048,db.queryForObject("SELECT sum(memory_mib) FROM lab_runs WHERE cleanup_confirmed_at IS NULL",Integer.class));
+    fixture.failStop=true;mvc.perform(body(post("/api/v1/lab-runs/"+first+"/stop"),"data-class-0",Map.of())).andExpect(status().isOk());labs.tick();
+    mvc.perform(startDataAi("data-overflow","data-before-confirmed-cleanup","signed-data","revenue-summary")).andExpect(status().isTooManyRequests());
+    fixture.failStop=false;db.update("UPDATE lab_outbox SET next_attempt_at=now() WHERE run_id=?",first);labs.tick();reserveDataAi("data-overflow","data-after-confirmed-cleanup","signed-data","revenue-summary");
+  }
   UUID reserve(String token,String key)throws Exception{return UUID.fromString(json.readTree(mvc.perform(start(token,key)).andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString()).path("id").asText());}
   JsonNode getRun(UUID id,String token)throws Exception{return json.readTree(mvc.perform(as(get("/api/v1/lab-runs/"+id),token)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());}
   @Test void ownerPrivateIdempotentReservationAndHealthyFixtureOperation()throws Exception{

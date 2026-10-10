@@ -1,0 +1,22 @@
+{
+  "bias": 0,
+  "classes": [
+    "negative",
+    "positive"
+  ],
+  "format": "getlancer-linear-json-v1",
+  "id": "sentiment-inference",
+  "provenance": "Original hand-authored illustrative constants; not trained or fitted.",
+  "weights": {
+    "bad": -1.2,
+    "broken": -1.5,
+    "excellent": 1.6,
+    "good": 1.0,
+    "great": 1.5,
+    "helpful": 1.1,
+    "poor": -1.1,
+    "reliable": 1.2,
+    "slow": -0.9,
+    "terrible": -1.8
+  }
+}

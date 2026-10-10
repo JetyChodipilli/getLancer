@@ -143,13 +143,24 @@ public record AccountExportResponse(Account account,
   }
 
   /** Private artifact locators and future internal fields never enter exported agreements. */
-  static JsonNode educationJson(Map<String,Object> row,String key,ObjectMapper mapper) {
+  public static JsonNode educationJson(Map<String,Object> row,String key,ObjectMapper mapper) {
     JsonNode source=labJson(row,key,mapper);
     if(source.isNull())return source;
     var safe=pick(source,mapper,List.of("schemaVersion","productId","slug","title","summary","category","mode","difficulty","demoMode","demoUrl","versionId","rightsConsent","priceMinor","currency","language","problem","outcome","prerequisites","hostedDemoId","releaseId","sourceHash"));
     safe.set("package",pick(source.path("package"),mapper,List.of("includedAssets","excludedAssets","setupSteps","prerequisites","limitations","supportTerms","licenseTerms")));
     safe.set("categoryEvidence",pick(source.path("categoryEvidence"),mapper,List.of("modules","schemaApi","demoAccounts","setupMigrations","versions","tests","deployment","dataSourceLicense","sampleSchema","transformations","notebook","charts","interpretation","reproducibility","task","datasetModelLicense","splits","evaluation","metrics","inference","limitations","boardFirmware","billOfMaterials","wiring","powerConnectivity","topics","evidence")));
-    safe.set("sourceBinding",pick(source.path("sourceBinding"),mapper,List.of("packageId","versionId","templateId","version","sha256","sizeBytes","entryCount","files","licenseTerms")));
+    safe.set("sourceBinding",pick(source.path("sourceBinding"),mapper,List.of("packageId","versionId","templateId","version","sha256","sizeBytes","entryCount","files","manifestFiles","licenseTerms")));
+    if(source.path("dataAiEvidence").isObject()){
+      var evidence=mapper.createObjectNode();var original=source.path("dataAiEvidence");
+      for(String field:List.of("codeLicense","dataLicense","dataProvenance","dataSha256","modelLicense","modelProvenance","modelSha256","modelFormat","evaluationSplit","evaluationProtocol","outputSchema","limitations")){
+        JsonNode value=original.path(field);if(!value.isTextual()||value.textValue().length()>4000)continue;
+        if(field.endsWith("Sha256")&&!value.textValue().matches("|[a-f0-9]{64}"))continue;
+        if(field.equals("modelFormat")&&!value.textValue().matches("|JSON"))continue;
+        evidence.set(field,value);
+      }
+      for(String field:List.of("redistributionAllowed","syntheticData","noRemoteCode"))if(original.path(field).isBoolean())evidence.set(field,original.get(field));
+      safe.set("dataAiEvidence",evidence);
+    }
     safe.set("contribution",source.path("contribution").isTextual()?source.path("contribution"):pick(source.path("contribution"),mapper,List.of("kind","text","individual","ownerId","ownerName","builderSlug","teamId","teamName","teamSlug","consent")));
     var links=mapper.createArrayNode();
     if(source.path("componentLinks").isArray())for(JsonNode link:source.path("componentLinks"))links.add(pick(link,mapper,List.of("componentId","revision","sourceHash","sha256","license","licenseTerms","attribution","slug","title","builderSlug")));

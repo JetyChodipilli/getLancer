@@ -1,0 +1,162 @@
+{
+  "schemaVersion": "getlancer-data-ai-recording-v1",
+  "mode": "REPLAY",
+  "scenarioId": "sentiment-inference",
+  "sourceSha256": "62944222476a16bc5a742b503bcaf2ebede544bc4a9bfe231563eef215cae1e8",
+  "dataSha256": "c92ee885de9d1667d2f1173d059c8224124028bc00b4a94921859888205896fe",
+  "modelSha256": "c5f504c7579f9a692d9e687bea8249a406bd15a57d6ceda0c83a5f0a92294391",
+  "evaluationSha256": "b335cd11f7de48de238c97ff5201151f34f85beca37b78d7c30edd776b5f5e73",
+  "recordedAt": "2026-10-10T18:19:41.348Z",
+  "runs": [
+    {
+      "dataSha256": "c92ee885de9d1667d2f1173d059c8224124028bc00b4a94921859888205896fe",
+      "elapsedMs": 0,
+      "evaluationSha256": "b335cd11f7de48de238c97ff5201151f34f85beca37b78d7c30edd776b5f5e73",
+      "input": {
+        "text": "excellent reliable service"
+      },
+      "inputSha256": "fcae48e8d75b1fa47a28b60a8de1a995262a33fb9b137d721d87c4dd706d2cb3",
+      "mode": "LOCAL",
+      "modelSha256": "c5f504c7579f9a692d9e687bea8249a406bd15a57d6ceda0c83a5f0a92294391",
+      "result": {
+        "evaluation": {
+          "accuracy": 1,
+          "correct": 8,
+          "limitations": "Eight held-out synthetic samples and illustrative frozen coefficients do not establish real-world accuracy.",
+          "protocol": "frozen-model-no-training",
+          "samples": 8,
+          "split": "held-out-synthetic"
+        },
+        "metrics": [
+          {
+            "key": "confidence",
+            "label": "Confidence",
+            "unit": "probability",
+            "value": 0.942676
+          },
+          {
+            "key": "evaluationAccuracy",
+            "label": "Held-out accuracy",
+            "unit": "ratio",
+            "value": 1
+          }
+        ],
+        "prediction": {
+          "label": "positive",
+          "probability": 0.942676
+        },
+        "tables": [
+          {
+            "columns": [
+              {
+                "key": "class",
+                "label": "Class",
+                "type": "string",
+                "unit": "none"
+              },
+              {
+                "key": "probability",
+                "label": "Probability",
+                "type": "number",
+                "unit": "probability"
+              }
+            ],
+            "id": "probabilities",
+            "rows": [
+              {
+                "class": "negative",
+                "probability": 0.057324
+              },
+              {
+                "class": "positive",
+                "probability": 0.942676
+              }
+            ],
+            "title": "Class probabilities"
+          }
+        ]
+      },
+      "resultSha256": "79c086ec93185e926b060dcfa1e41cbefd86069e089d6786012d79e9797698bf",
+      "runId": "db6670d5-4ef7-403a-abe3-50e149207a6d",
+      "scenarioId": "sentiment-inference",
+      "schemaVersion": "getlancer-data-ai-result-v1",
+      "sourceSha256": "62944222476a16bc5a742b503bcaf2ebede544bc4a9bfe231563eef215cae1e8",
+      "startedAt": "2026-10-10T18:19:41.339Z"
+    },
+    {
+      "dataSha256": "c92ee885de9d1667d2f1173d059c8224124028bc00b4a94921859888205896fe",
+      "elapsedMs": 0,
+      "evaluationSha256": "b335cd11f7de48de238c97ff5201151f34f85beca37b78d7c30edd776b5f5e73",
+      "input": {
+        "text": "terrible broken service"
+      },
+      "inputSha256": "53014dfd192608649a9b586f45d957a1bc797dfbafb952f1601921173d21d4ea",
+      "mode": "LOCAL",
+      "modelSha256": "c5f504c7579f9a692d9e687bea8249a406bd15a57d6ceda0c83a5f0a92294391",
+      "result": {
+        "evaluation": {
+          "accuracy": 1,
+          "correct": 8,
+          "limitations": "Eight held-out synthetic samples and illustrative frozen coefficients do not establish real-world accuracy.",
+          "protocol": "frozen-model-no-training",
+          "samples": 8,
+          "split": "held-out-synthetic"
+        },
+        "metrics": [
+          {
+            "key": "confidence",
+            "label": "Confidence",
+            "unit": "probability",
+            "value": 0.964429
+          },
+          {
+            "key": "evaluationAccuracy",
+            "label": "Held-out accuracy",
+            "unit": "ratio",
+            "value": 1
+          }
+        ],
+        "prediction": {
+          "label": "negative",
+          "probability": 0.964429
+        },
+        "tables": [
+          {
+            "columns": [
+              {
+                "key": "class",
+                "label": "Class",
+                "type": "string",
+                "unit": "none"
+              },
+              {
+                "key": "probability",
+                "label": "Probability",
+                "type": "number",
+                "unit": "probability"
+              }
+            ],
+            "id": "probabilities",
+            "rows": [
+              {
+                "class": "negative",
+                "probability": 0.964429
+              },
+              {
+                "class": "positive",
+                "probability": 0.035571
+              }
+            ],
+            "title": "Class probabilities"
+          }
+        ]
+      },
+      "resultSha256": "1c3f105a153581e0ad544f08c2892e987da06579a7fa5753537cb4b1e1eedd38",
+      "runId": "db6670d5-4ef7-403a-abe3-50e149207a6d",
+      "scenarioId": "sentiment-inference",
+      "schemaVersion": "getlancer-data-ai-result-v1",
+      "sourceSha256": "62944222476a16bc5a742b503bcaf2ebede544bc4a9bfe231563eef215cae1e8",
+      "startedAt": "2026-10-10T18:19:41.345Z"
+    }
+  ]
+}
