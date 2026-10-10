@@ -18,6 +18,8 @@ if [[ ! -x "${vinext}" ]]; then
   exit 69
 fi
 
+node --experimental-strip-types "${SITES_PROJECT_ROOT}/scripts/build-lab-material.mjs"
+
 echo "Running bounded vinext build..."
 timeout \
   --signal=TERM \

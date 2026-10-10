@@ -50,6 +50,8 @@ Historical V1 checkpoints: [implementation status](docs/V1_IMPLEMENTATION.md), [
 
 ## Local setup
 
+For laptop testing with no cloud provider, follow [the local Docker guide](ops/LAPTOP_TESTING.md). `npm run labs:docker` executes all nine V4.8 learning labs with actual Redis in a disposable container; `/labs/scenarios` provides source downloads and labelled recorded evidence. Live hosted execution remains a separate deployment milestone.
+
 The current local setup uses [Docker PostgreSQL](ops/DOCKER_LOCAL.md), database `getLancer`, with the API, local email and private storage. For cloud flow testing without services, open `/preview/workspace`; the [interactive UAT guide](docs/UAT_DEMO.md) lists supported journeys and simulation boundaries.
 
 ```sh

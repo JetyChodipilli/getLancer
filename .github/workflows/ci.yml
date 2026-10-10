@@ -1,4 +1,4 @@
-name: getLancer validation (V1-V4.6)
+name: getLancer validation (V1-V4.8)
 on: [push, pull_request]
 permissions:
   contents: read
@@ -6,6 +6,41 @@ concurrency:
   group: validation-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 jobs:
+  lab-scenarios:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: {node-version: '22'}
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with: {distribution: temurin, java-version: '17'}
+      - name: Retrieve exact Redis source for disposable local reproduction
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: redis/redis
+          ref: 335554f18caf7bbf6b0ac2b3548133d750f00a1b # Redis 7.2.16, BSD-3-Clause
+          path: .ci-redis
+          persist-credentials: false
+      - name: Compile actual Redis without persistence or public service exposure
+        run: make -C .ci-redis -j2 MALLOC=libc redis-server
+      - name: Reproduce all nine native-language normal and failure scenarios
+        run: node scripts/verify-lab-scenarios.mjs
+        env:
+          REDIS_SERVER: ${{ github.workspace }}/.ci-redis/src/redis-server
+      - name: Verify source package and replay version binding
+        run: |
+          node --experimental-strip-types scripts/build-lab-material.mjs
+          node --experimental-strip-types scripts/build-lab-material.mjs --verify
+      - name: Execute free source downloads without repository dependencies
+        run: node scripts/verify-lab-packages.mjs
+        env:
+          REDIS_SERVER: ${{ github.workspace }}/.ci-redis/src/redis-server
+      - name: Verify account-free laptop Docker environment with the real nine-lab matrix
+        run: |
+          docker compose -f compose.labs-local.yaml config --quiet
+          npm run labs:docker
   backend:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -247,6 +282,9 @@ jobs:
       - name: Compile Java for semantic security analysis
         if: matrix.language == 'java-kotlin'
         run: mvn -B -f backend/pom.xml -DskipTests package
+      - name: Compile native Java teaching source for semantic security analysis
+        if: matrix.language == 'java-kotlin'
+        run: javac -d /tmp/getlancer-lab-analysis labs/java/LabServer.java
       - name: Retrieve current security test evidence for reviewed GET assessments
         if: matrix.language == 'java-kotlin'
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4

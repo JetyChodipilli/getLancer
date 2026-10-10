@@ -1,0 +1,2 @@
+# Preserve genuine recorded source hashes across Windows and Linux checkouts.
+labs/** text eol=lf

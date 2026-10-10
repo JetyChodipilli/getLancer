@@ -5,7 +5,7 @@ import {syncBuiltinESMExports} from 'node:module';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {generateKeyPairSync, createHash, sign, randomUUID} from 'node:crypto';
-import {verifyBundle, verifiedPayload} from '../ops/labs/certify.mjs';
+import {readEvidence, verifyBundle, verifiedPayload} from '../ops/labs/certify.mjs';
 
 const now = Date.parse('2026-10-09T06:00:00Z');
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -32,6 +32,17 @@ function fixture(t) {
 test('offline verifier accepts a signed complete fixture and rejects independently altered bytes',t=>{
   const f=fixture(t);assert.equal(verifyBundle(f.args).controls.length,7);
   writeFileSync(join(f.root,'isolation.txt'),'Changed host report');assert.throws(()=>verifyBundle(f.args),/artifact changed/);
+});
+test('captured trust key remains authoritative when its file is replaced between envelope checks',t=>{
+  const f=fixture(t), captured=readEvidence(f.args.publicKeyPath);
+  const replacement=generateKeyPairSync('ed25519');
+  writeFileSync(f.args.publicKeyPath,replacement.publicKey.export({type:'spki',format:'pem'}));
+  assert.throws(()=>verifyBundle(f.args),/signature/);
+  assert.equal(verifyBundle({...f.args,publicKeyBytes:captured}).controls.length,7);
+  const payload=Buffer.from(JSON.stringify({provider:f.admission.provider,mode:'HOSTED_EXECUTION'}));
+  const envelope=key=>Buffer.from(JSON.stringify({payload:payload.toString('base64'),signature:sign(null,payload,key).toString('base64')}));
+  assert.equal(verifiedPayload(envelope(f.privateKey),captured).provider,f.admission.provider);
+  assert.throws(()=>verifiedPayload(envelope(replacement.privateKey),captured),/signature/);
 });
 test('signed booleans without each independent evidence control cannot pass',t=>{
   const f=fixture(t);f.inventory.records.pop();f.save();assert.throws(()=>verifyBundle(f.args),/recorded once/);
