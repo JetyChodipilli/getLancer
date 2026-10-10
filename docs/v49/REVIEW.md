@@ -15,6 +15,7 @@ The correctness review covers the new education domain and its integration with 
 - The full existing component regression caught an omitted legacy `executionMode` field. The new public adapter preserves its existing “Source only” value and supplies current-mode disclosures for reviewed releases; the previous privacy/identity/review assertion remains unchanged.
 - The existing optional-profile request test now supplies a scoped deterministic public DNS response. The real URL syntax/address policy and profile service still execute, and production DNS handling is unchanged. This removes its external DNS dependency without changing the behavior assertions.
 - Typed bounded request records, explicit SQL/imports, deny-by-default routes and the real runtime-role permission guard remain enforced. Migrations V32–V34 are additive. Existing security-disposition findings, mandatory tests and expiry are unchanged; only reviewed input hashes are refreshed for the actual V4.9 source.
+- GitHub CodeQL identified a fourth GET/CSRF finding through the shared public-download/operator-inspection helper. Public downloads now call a read-only package reader; administrator inspection records evidence only through its separate CSRF-protected POST path. The regression confirms anonymous and administrator GET downloads leave audit history unchanged. No new finding exemption or scanner suppression was added.
 
 ## Ponytail diff review
 

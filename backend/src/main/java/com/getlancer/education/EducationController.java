@@ -49,11 +49,11 @@ public class EducationController {
   @GetMapping("/admin/education-releases/{id}")
   public Object adminDetail(@PathVariable UUID id,HttpServletRequest request){return service.adminDetail(id,request);}
   @PostMapping("/admin/education-releases/{id}/package")
-  public ResponseEntity<byte[]> inspect(@PathVariable UUID id,HttpServletRequest request){return service.source(id,request,true);}
+  public ResponseEntity<byte[]> inspect(@PathVariable UUID id,HttpServletRequest request){return service.inspect(id,request);}
   @PostMapping("/admin/education-releases/{id}/review")
   public Object review(@PathVariable UUID id,@Valid @RequestBody EducationRequests.Review body,HttpServletRequest request){return service.review(id,TypedInputs.map(body),request);}
   @GetMapping("/education-releases/{id}/source-offer")
   public Object sourceOffer(@PathVariable UUID id){return service.sourceOffer(id);}
   @GetMapping("/education-releases/{id}/source")
-  public ResponseEntity<byte[]> source(@PathVariable UUID id,HttpServletRequest request){return service.source(id,request,false);}
+  public ResponseEntity<byte[]> source(@PathVariable UUID id){return service.source(id);}
 }

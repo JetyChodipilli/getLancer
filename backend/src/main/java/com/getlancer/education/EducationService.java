@@ -209,12 +209,22 @@ public class EducationService {
   @Transactional
   public Map<String,Object> sourceOffer(UUID id){commerce.lockProduct((UUID)row(id,false).get("product_id"));var row=publicRelease(id);var snapshot=schema.read(row.get("snapshot"));var out=new LinkedHashMap<String,Object>();out.put("release",dto(row,false));out.put("package",EducationSnapshot.object(snapshot.get("sourceBinding")));if("FREE".equals(snapshot.get("mode"))){out.put("available",true);out.put("checkoutAvailable",false);}else if("PAID".equals(snapshot.get("mode"))){out.putAll(commerce.offer(id));out.put("available",Boolean.TRUE.equals(out.get("checkoutAvailable")));}else{out.put("available",false);out.put("checkoutAvailable",false);out.put("reason","Showcase only; no source package is distributed.");}return out;}
   @Transactional
-  public ResponseEntity<byte[]> source(UUID id,HttpServletRequest request,boolean operator){
-    var original=row(id,false);commerce.lockProduct((UUID)original.get("product_id"));UUID reviewer=null;Map<String,Object> row;
-    if(operator){reviewer=actor(request,true,false);row=row(id,true);}else{row=publicRelease(id);db.queryForList("SELECT id FROM education_releases WHERE id=? FOR SHARE",id);}
+  public ResponseEntity<byte[]> source(UUID id){
+    commerce.lockProduct((UUID)row(id,false).get("product_id"));var release=publicRelease(id);
+    db.queryForList("SELECT id FROM education_releases WHERE id=? FOR SHARE",id);
+    return sourcePackage(id,release);
+  }
+  @Transactional
+  public ResponseEntity<byte[]> inspect(UUID id,HttpServletRequest request){
+    commerce.lockProduct((UUID)row(id,false).get("product_id"));UUID reviewer=actor(request,true,false);var release=row(id,true);
+    var response=sourcePackage(id,release);actor(request,true,false);
+    audit(id,reviewer,"PACKAGE_REVIEW_DOWNLOAD","Downloaded checksum-verified source for exact package inspection.",(String)release.get("source_hash"));
+    return response;
+  }
+  private ResponseEntity<byte[]> sourcePackage(UUID id,Map<String,Object> row){
     var content=schema.read(row.get("snapshot")!=null?row.get("snapshot"):row.get("draft"));if(!"FREE".equals(content.get("mode"))||row.get("free_package_id")==null)throw missing();
     var packs=db.queryForList("SELECT "+PACKAGE_COLUMNS+" FROM education_free_packages WHERE id=? AND owner_id=?",row.get("free_package_id"),row.get("owner_id"));if(packs.isEmpty())throw missing();var pack=packs.get(0);
-    byte[] bytes=storage.read((String)pack.get("storage_key"),(String)pack.get("sha256"),((Number)pack.get("size_bytes")).intValue());if(operator){actor(request,true,false);audit(id,reviewer,"PACKAGE_REVIEW_DOWNLOAD","Downloaded checksum-verified source for exact package inspection.",(String)row.get("source_hash"));}
+    byte[] bytes=storage.read((String)pack.get("storage_key"),(String)pack.get("sha256"),((Number)pack.get("size_bytes")).intValue());
     return ResponseEntity.ok().contentType(MediaType.parseMediaType("application/zip")).header(HttpHeaders.CACHE_CONTROL,"private, no-store").header("X-Content-Type-Options","nosniff").header(HttpHeaders.CONTENT_DISPOSITION,"attachment; filename=\"education-source-"+id+".zip\"").body(bytes);
   }
   /** The root report adapter pins these canonical facts, never caller-supplied hashes or academics. */

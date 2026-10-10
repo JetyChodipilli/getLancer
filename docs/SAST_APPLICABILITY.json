@@ -371,11 +371,11 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/education/EducationController.java",
-      "sha256": "d23f0a5b601d71cd2391f5233a39ba61a6c0a47f291f7ffdd56eb3f82d5f8efb"
+      "sha256": "ed6328bc224f1cccf9deafa02bd0005c5799aa240f986ca681ec6ac3d5bf3720"
     },
     {
       "path": "backend/src/main/java/com/getlancer/education/EducationService.java",
-      "sha256": "c9dd01812212a3d241032ccc0a1d2e08bcef30438b3cbcf1c593c016d8834079"
+      "sha256": "21a930a4eb5661c2e00c5c09d7a2aa6153c6d00ee7669c214005db3d52f398ee"
     },
     {
       "path": "backend/src/main/java/com/getlancer/education/EducationSnapshot.java",
@@ -889,7 +889,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/EducationIntegrationTest.java",
-      "sha256": "8dd3fbb7c481a87a4e556cc1f099a93a68c64a8a9cdd7a15ca54986f3d4a3e3c"
+      "sha256": "d5a335eb5ec01e370372cbdd11461f553d7c958a29d7d1ed130d8c109719bb9f"
     },
     {
       "path": "backend/src/test/java/com/getlancer/architecture/BackendArchitectureTest.java",
