@@ -1,0 +1,182 @@
+{
+  "schemaVersion": "getlancer-data-ai-recording-v1",
+  "mode": "REPLAY",
+  "scenarioId": "sensor-quality",
+  "sourceSha256": "62944222476a16bc5a742b503bcaf2ebede544bc4a9bfe231563eef215cae1e8",
+  "dataSha256": "b66c21d2e7d0ee93533bfde8b56bcbae06ea1e72397803c5c5e2ed433d59e599",
+  "modelSha256": null,
+  "evaluationSha256": null,
+  "recordedAt": "2026-10-10T18:19:41.337Z",
+  "runs": [
+    {
+      "dataSha256": "b66c21d2e7d0ee93533bfde8b56bcbae06ea1e72397803c5c5e2ed433d59e599",
+      "elapsedMs": 0,
+      "evaluationSha256": null,
+      "input": {
+        "channel": "all",
+        "tolerance": "3"
+      },
+      "inputSha256": "7dc32a257160fedbad504d5843b2a2498639413662c61e6a54774a92ba956e87",
+      "mode": "LOCAL",
+      "modelSha256": null,
+      "result": {
+        "evaluation": null,
+        "metrics": [
+          {
+            "key": "accepted",
+            "label": "Accepted",
+            "unit": "readings",
+            "value": 5
+          },
+          {
+            "key": "rejected",
+            "label": "Rejected",
+            "unit": "readings",
+            "value": 3
+          },
+          {
+            "key": "acceptance",
+            "label": "Acceptance",
+            "unit": "percent",
+            "value": 62.5
+          }
+        ],
+        "prediction": null,
+        "tables": [
+          {
+            "columns": [
+              {
+                "key": "channel",
+                "label": "Channel",
+                "type": "string",
+                "unit": "none"
+              },
+              {
+                "key": "accepted",
+                "label": "Accepted",
+                "type": "number",
+                "unit": "readings"
+              },
+              {
+                "key": "rejected",
+                "label": "Rejected",
+                "type": "number",
+                "unit": "readings"
+              },
+              {
+                "key": "total",
+                "label": "Total",
+                "type": "number",
+                "unit": "readings"
+              }
+            ],
+            "id": "sensor-quality",
+            "rows": [
+              {
+                "accepted": 3,
+                "channel": "temperature",
+                "rejected": 1,
+                "total": 4
+              },
+              {
+                "accepted": 2,
+                "channel": "vibration",
+                "rejected": 2,
+                "total": 4
+              }
+            ],
+            "title": "Reading quality"
+          }
+        ]
+      },
+      "resultSha256": "95cefd27a5b930a9f9d0505aa3f5fabae39d38f7c92b75b2223d0399eaf27b4d",
+      "runId": "db6670d5-4ef7-403a-abe3-50e149207a6d",
+      "scenarioId": "sensor-quality",
+      "schemaVersion": "getlancer-data-ai-result-v1",
+      "sourceSha256": "62944222476a16bc5a742b503bcaf2ebede544bc4a9bfe231563eef215cae1e8",
+      "startedAt": "2026-10-10T18:19:41.329Z"
+    },
+    {
+      "dataSha256": "b66c21d2e7d0ee93533bfde8b56bcbae06ea1e72397803c5c5e2ed433d59e599",
+      "elapsedMs": 0,
+      "evaluationSha256": null,
+      "input": {
+        "channel": "temperature",
+        "tolerance": "1"
+      },
+      "inputSha256": "8bf3f02ed9e1a6714ae0af4925a8980c861913319b0fdb9328c4b483c5c31a6b",
+      "mode": "LOCAL",
+      "modelSha256": null,
+      "result": {
+        "evaluation": null,
+        "metrics": [
+          {
+            "key": "accepted",
+            "label": "Accepted",
+            "unit": "readings",
+            "value": 2
+          },
+          {
+            "key": "rejected",
+            "label": "Rejected",
+            "unit": "readings",
+            "value": 2
+          },
+          {
+            "key": "acceptance",
+            "label": "Acceptance",
+            "unit": "percent",
+            "value": 50
+          }
+        ],
+        "prediction": null,
+        "tables": [
+          {
+            "columns": [
+              {
+                "key": "channel",
+                "label": "Channel",
+                "type": "string",
+                "unit": "none"
+              },
+              {
+                "key": "accepted",
+                "label": "Accepted",
+                "type": "number",
+                "unit": "readings"
+              },
+              {
+                "key": "rejected",
+                "label": "Rejected",
+                "type": "number",
+                "unit": "readings"
+              },
+              {
+                "key": "total",
+                "label": "Total",
+                "type": "number",
+                "unit": "readings"
+              }
+            ],
+            "id": "sensor-quality",
+            "rows": [
+              {
+                "accepted": 2,
+                "channel": "temperature",
+                "rejected": 2,
+                "total": 4
+              }
+            ],
+            "title": "Reading quality"
+          }
+        ]
+      },
+      "resultSha256": "8d35a83d7a1dd4c6bf3c31f7164f7f03a9d9cc61004397965b8075cf48ada883",
+      "runId": "db6670d5-4ef7-403a-abe3-50e149207a6d",
+      "scenarioId": "sensor-quality",
+      "schemaVersion": "getlancer-data-ai-result-v1",
+      "sourceSha256": "62944222476a16bc5a742b503bcaf2ebede544bc4a9bfe231563eef215cae1e8",
+      "startedAt": "2026-10-10T18:19:41.334Z"
+    }
+  ]
+}

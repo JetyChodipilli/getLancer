@@ -1,0 +1,164 @@
+{
+  "schemaVersion": "getlancer-data-ai-recording-v1",
+  "mode": "REPLAY",
+  "scenarioId": "equipment-inference",
+  "sourceSha256": "62944222476a16bc5a742b503bcaf2ebede544bc4a9bfe231563eef215cae1e8",
+  "dataSha256": "1597e2a1ecc97e4f2d376cfc3a8f97128ec61b3b836006d11d6978cee20fecc0",
+  "modelSha256": "7529dd9ed5627ce4f62d8c9b924d148d650b812c1aaebe9cfb510a2110a25e30",
+  "evaluationSha256": "b77c2d8e2636e87fe7a5ecd2099835fd3c9878ad54d2630974d0b528a2db7937",
+  "recordedAt": "2026-10-10T18:19:41.360Z",
+  "runs": [
+    {
+      "dataSha256": "1597e2a1ecc97e4f2d376cfc3a8f97128ec61b3b836006d11d6978cee20fecc0",
+      "elapsedMs": 0,
+      "evaluationSha256": "b77c2d8e2636e87fe7a5ecd2099835fd3c9878ad54d2630974d0b528a2db7937",
+      "input": {
+        "temperature": "35",
+        "vibration": "2"
+      },
+      "inputSha256": "7129857253624932f3a13c3f010a1b5998d202d0d46ce97e7005c252394d0c19",
+      "mode": "LOCAL",
+      "modelSha256": "7529dd9ed5627ce4f62d8c9b924d148d650b812c1aaebe9cfb510a2110a25e30",
+      "result": {
+        "evaluation": {
+          "accuracy": 1,
+          "correct": 8,
+          "limitations": "Eight held-out synthetic samples and illustrative frozen coefficients do not establish real-world accuracy.",
+          "protocol": "frozen-model-no-training",
+          "samples": 8,
+          "split": "held-out-synthetic"
+        },
+        "metrics": [
+          {
+            "key": "confidence",
+            "label": "Confidence",
+            "unit": "probability",
+            "value": 0.916827
+          },
+          {
+            "key": "evaluationAccuracy",
+            "label": "Held-out accuracy",
+            "unit": "ratio",
+            "value": 1
+          }
+        ],
+        "prediction": {
+          "label": "normal",
+          "probability": 0.916827
+        },
+        "tables": [
+          {
+            "columns": [
+              {
+                "key": "class",
+                "label": "Class",
+                "type": "string",
+                "unit": "none"
+              },
+              {
+                "key": "probability",
+                "label": "Probability",
+                "type": "number",
+                "unit": "probability"
+              }
+            ],
+            "id": "probabilities",
+            "rows": [
+              {
+                "class": "normal",
+                "probability": 0.916827
+              },
+              {
+                "class": "attention",
+                "probability": 0.083173
+              }
+            ],
+            "title": "Class probabilities"
+          }
+        ]
+      },
+      "resultSha256": "fceb03ad64953a8a623edf194ff07ac75fa7d2646b56745f3fd6cefb41efdd84",
+      "runId": "db6670d5-4ef7-403a-abe3-50e149207a6d",
+      "scenarioId": "equipment-inference",
+      "schemaVersion": "getlancer-data-ai-result-v1",
+      "sourceSha256": "62944222476a16bc5a742b503bcaf2ebede544bc4a9bfe231563eef215cae1e8",
+      "startedAt": "2026-10-10T18:19:41.349Z"
+    },
+    {
+      "dataSha256": "1597e2a1ecc97e4f2d376cfc3a8f97128ec61b3b836006d11d6978cee20fecc0",
+      "elapsedMs": 0,
+      "evaluationSha256": "b77c2d8e2636e87fe7a5ecd2099835fd3c9878ad54d2630974d0b528a2db7937",
+      "input": {
+        "temperature": "90",
+        "vibration": "16"
+      },
+      "inputSha256": "024a81128da0a5d8a31325fa55fccf88f88784f95b870ab5e1321c08c8ecd046",
+      "mode": "LOCAL",
+      "modelSha256": "7529dd9ed5627ce4f62d8c9b924d148d650b812c1aaebe9cfb510a2110a25e30",
+      "result": {
+        "evaluation": {
+          "accuracy": 1,
+          "correct": 8,
+          "limitations": "Eight held-out synthetic samples and illustrative frozen coefficients do not establish real-world accuracy.",
+          "protocol": "frozen-model-no-training",
+          "samples": 8,
+          "split": "held-out-synthetic"
+        },
+        "metrics": [
+          {
+            "key": "confidence",
+            "label": "Confidence",
+            "unit": "probability",
+            "value": 0.987872
+          },
+          {
+            "key": "evaluationAccuracy",
+            "label": "Held-out accuracy",
+            "unit": "ratio",
+            "value": 1
+          }
+        ],
+        "prediction": {
+          "label": "attention",
+          "probability": 0.987872
+        },
+        "tables": [
+          {
+            "columns": [
+              {
+                "key": "class",
+                "label": "Class",
+                "type": "string",
+                "unit": "none"
+              },
+              {
+                "key": "probability",
+                "label": "Probability",
+                "type": "number",
+                "unit": "probability"
+              }
+            ],
+            "id": "probabilities",
+            "rows": [
+              {
+                "class": "normal",
+                "probability": 0.012128
+              },
+              {
+                "class": "attention",
+                "probability": 0.987872
+              }
+            ],
+            "title": "Class probabilities"
+          }
+        ]
+      },
+      "resultSha256": "fbce556d725b7222f616676ae84731641d4f475b829883e59110e6f8c5fc87ea",
+      "runId": "db6670d5-4ef7-403a-abe3-50e149207a6d",
+      "scenarioId": "equipment-inference",
+      "schemaVersion": "getlancer-data-ai-result-v1",
+      "sourceSha256": "62944222476a16bc5a742b503bcaf2ebede544bc4a9bfe231563eef215cae1e8",
+      "startedAt": "2026-10-10T18:19:41.354Z"
+    }
+  ]
+}

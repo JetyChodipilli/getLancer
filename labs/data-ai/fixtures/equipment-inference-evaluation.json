@@ -1,0 +1,42 @@
+[
+  {
+    "label": "normal",
+    "temperature": "25",
+    "vibration": "1"
+  },
+  {
+    "label": "normal",
+    "temperature": "30",
+    "vibration": "3"
+  },
+  {
+    "label": "normal",
+    "temperature": "40",
+    "vibration": "2"
+  },
+  {
+    "label": "normal",
+    "temperature": "50",
+    "vibration": "1"
+  },
+  {
+    "label": "attention",
+    "temperature": "80",
+    "vibration": "12"
+  },
+  {
+    "label": "attention",
+    "temperature": "90",
+    "vibration": "15"
+  },
+  {
+    "label": "attention",
+    "temperature": "75",
+    "vibration": "10"
+  },
+  {
+    "label": "attention",
+    "temperature": "95",
+    "vibration": "8"
+  }
+]

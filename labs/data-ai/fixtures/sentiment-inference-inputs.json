@@ -1,0 +1,9 @@
+{
+  "changed": {
+    "text": "terrible broken service"
+  },
+  "default": {
+    "text": "excellent reliable service"
+  },
+  "synthetic": true
+}

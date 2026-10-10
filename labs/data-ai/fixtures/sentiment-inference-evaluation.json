@@ -1,0 +1,34 @@
+[
+  {
+    "label": "positive",
+    "text": "great helpful"
+  },
+  {
+    "label": "positive",
+    "text": "good reliable"
+  },
+  {
+    "label": "positive",
+    "text": "excellent"
+  },
+  {
+    "label": "positive",
+    "text": "helpful good"
+  },
+  {
+    "label": "negative",
+    "text": "poor broken"
+  },
+  {
+    "label": "negative",
+    "text": "slow bad"
+  },
+  {
+    "label": "negative",
+    "text": "terrible"
+  },
+  {
+    "label": "negative",
+    "text": "poor slow"
+  }
+]

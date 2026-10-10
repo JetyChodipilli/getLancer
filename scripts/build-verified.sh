@@ -20,6 +20,8 @@ fi
 
 node --experimental-strip-types "${SITES_PROJECT_ROOT}/scripts/build-lab-material.mjs"
 
+node "${SITES_PROJECT_ROOT}/scripts/build-data-ai-material.mjs"
+
 echo "Running bounded vinext build..."
 timeout \
   --signal=TERM \

@@ -53,3 +53,8 @@ playwright-report/
 /.ci-connected.json
 /public/labs/
 /labs/python/__pycache__/
+/labs/data-ai/__pycache__/
+/public/data-ai/
+/.tooling/
+
+/education/seeds/ai-ml/__pycache__/

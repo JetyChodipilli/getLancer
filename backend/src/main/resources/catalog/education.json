@@ -109,7 +109,7 @@
       "productId": "booklane",
       "revision": 1,
       "status": "APPROVED",
-      "sourceHash": "7ca2abaf296ca237f7a831493b2f4d6866e85f55f4de80c64a26c6cb9d4f14a3",
+      "sourceHash": "16ac0d4b4aff93d47c92c61b0f37b152dee7a65792a8d6444db86706c915eb93",
       "snapshot": {
         "slug": "booklane",
         "title": "Synthetic sales analysis",
@@ -153,6 +153,23 @@
           "licenseTerms": "MIT License. Preserve copyright, permission notice and third-party attribution notices. No warranty is provided."
         },
         "componentLinks": [],
+        "dataAiEvidence": {
+          "codeLicense": "MIT: original code; preserve LICENSE and NOTICE.",
+          "dataLicense": "MIT: original synthetic data; preserve LICENSE and NOTICE.",
+          "dataProvenance": "Original six synthetic sales rows; no real people or external records.",
+          "dataSha256": "becffd7f1481af9d0df374a1b5aba96da5eaf3db86ef8387c03073c7d9e1e528",
+          "modelLicense": "",
+          "modelProvenance": "",
+          "modelSha256": "",
+          "modelFormat": "",
+          "evaluationSplit": "",
+          "evaluationProtocol": "",
+          "outputSchema": "rows:int; revenue:map(channel,decimal-string), units synthetic currency",
+          "limitations": "Six synthetic rows; totals imply no real-world customer or business outcome.",
+          "redistributionAllowed": true,
+          "syntheticData": true,
+          "noRemoteCode": true
+        },
         "productId": "booklane",
         "sourceBinding": {
           "packageId": "20000000-0000-4000-8000-000000000002",
@@ -207,17 +224,17 @@
   {
     "productSlug": "tableflow",
     "title": "Tiny text classifier",
-    "summary": "Original stdlib Naive Bayes exercise with four training and two synthetic test rows. No pretrained weights, real dataset, fairness study or general accuracy claim.",
+    "summary": "Original stdlib inference from a frozen JSON likelihood model and two held-out synthetic evaluation rows. No training or real-world accuracy claim.",
     "release": {
       "id": "10000000-0000-4000-8000-000000000003",
       "productId": "tableflow",
       "revision": 1,
       "status": "APPROVED",
-      "sourceHash": "a45acdf0cd1374f5b761a063de513622ff5ddf9e48ef5c2152eb8e430a57d408",
+      "sourceHash": "0830d9cd7af8fe02c92f674c1e3befd004187defcf8a7eb9ccf0121c0506a422",
       "snapshot": {
         "slug": "tableflow",
         "title": "Tiny text classifier",
-        "summary": "Original stdlib Naive Bayes exercise with four training and two synthetic test rows. No pretrained weights, real dataset, fairness study or general accuracy claim.",
+        "summary": "Original stdlib inference from a frozen JSON likelihood model and two held-out synthetic evaluation rows. No training or real-world accuracy claim.",
         "category": "AI_ML",
         "mode": "PAID",
         "language": "Python",
@@ -226,20 +243,21 @@
         "demoUrl": "",
         "categoryEvidence": {
           "task": "Classify tiny English snippets into synthetic positive or negative labels.",
-          "datasetModelLicense": "Four training and two test strings and classifier code are original MIT material; no external model.",
-          "splits": "TRAIN has four handwritten rows; TEST has two held-out handwritten rows in the same toy vocabulary.",
+          "datasetModelLicense": "Code, four synthetic reference rows and two held-out evaluation strings use original MIT notices; original frozen JSON likelihoods have separate MODEL_LICENSE.",
+          "splits": "synthetic.json has four reference rows; evaluation.json has two separate held-out rows. No training occurs during inference.",
           "evaluation": "Fixed deterministic hold-out exercise; no cross-validation or population sampling.",
           "metrics": "2 of 2 toy test rows classified correctly; 1.0 accuracy applies only to those two rows.",
-          "inference": "classifier.py exposes classify(text); ignores unseen vocabulary and ties follow a deterministic label order.",
+          "inference": "classifier.py reads only the original fixed local model.json; plain JSON likelihood inference ignores unseen vocabulary and resolves ties deterministically.",
           "limitations": "Not suitable for real sentiment, languages beyond toy English, safety decisions or academic performance claims."
         },
         "contribution": "Original sample implementation and regression evidence. Illustrative creator attribution is separate from source rights.",
         "package": {
           "includedAssets": [
-            "Original Python program, regression checks, README, MIT LICENSE and NOTICE."
+            "Original Python program, regression checks, README, MIT LICENSE and NOTICE.",
+            "Original frozen model.json with separate MODEL_LICENSE, synthetic.json and evaluation.json."
           ],
           "excludedAssets": [
-            "Original stdlib Naive Bayes exercise with four training and two synthetic test rows. No pretrained weights, real dataset, fairness study or general accuracy claim."
+            "Original stdlib inference from a frozen JSON likelihood model and two held-out synthetic evaluation rows. No training or real-world accuracy claim."
           ],
           "setupSteps": [
             "Install Python 3.11 or newer.",
@@ -249,7 +267,7 @@
             "Python 3.11 or newer and command-line fundamentals. No third-party dependencies or credentials."
           ],
           "limitations": [
-            "Original stdlib Naive Bayes exercise with four training and two synthetic test rows. No pretrained weights, real dataset, fairness study or general accuracy claim.",
+            "Original stdlib inference from a frozen JSON likelihood model and two held-out synthetic evaluation rows. No training or real-world accuracy claim.",
             "No authorship, academic marks or university certification is transferred by a license."
           ],
           "supportTerms": "Self-guided learning sample; no maintenance contract or paid support is included.",
@@ -258,17 +276,38 @@
         "componentLinks": [],
         "priceMinor": 25000,
         "currency": "INR",
+        "dataAiEvidence": {
+          "codeLicense": "MIT: original code; preserve LICENSE and NOTICE.",
+          "dataLicense": "MIT: original synthetic data; preserve LICENSE and NOTICE.",
+          "dataProvenance": "Original four hand-written synthetic reference rows; no real people or external records.",
+          "dataSha256": "f87ad8da66df1b638522acc08ab69359944d034b89b5f8210a20596628287b78",
+          "modelLicense": "MIT: original frozen JSON model; preserve MODEL_LICENSE.",
+          "modelProvenance": "Original fixed likelihood coefficients stored as plain JSON; no training or remote loader.",
+          "modelSha256": "8e7b84b9a0145b60ebabd1b14ccd080f8ab130c63bf43be0786fe726feec0c77",
+          "modelFormat": "JSON",
+          "evaluationSplit": "Two separate held-out synthetic evaluation.json rows; four reference rows are not used for training at execution.",
+          "evaluationProtocol": "Compare predicted labels with the two fixed synthetic labels; report correct/testRows and accuracy.",
+          "outputSchema": "referenceRows:int; testRows:int; correct:int; accuracy:number; predictions:string[]; frozenModel:bool; context:string",
+          "limitations": "Only two synthetic rows; no population accuracy, fairness, safety or academic performance claim.",
+          "redistributionAllowed": true,
+          "syntheticData": true,
+          "noRemoteCode": true
+        },
         "productId": "tableflow",
         "sourceBinding": {
-          "sha256": "bf0162f31dc344ee89ebfb939ef8e74c78ee50cc336d89e7bf18388426c11775",
-          "sizeBytes": 4378,
-          "entryCount": 6,
+          "sha256": "2b3f7e1aa7c1730ecb214369c1e6bc79984ca419a7da257732e9f71f9ab8263b",
+          "sizeBytes": 6990,
+          "entryCount": 10,
           "files": [
             "LICENSE",
+            "MODEL_LICENSE",
             "NOTICE",
             "README.md",
             "classifier.py",
+            "evaluation.json",
+            "model.json",
             "pyproject.toml",
+            "synthetic.json",
             "test.py"
           ],
           "manifestFiles": [
@@ -290,15 +329,19 @@
     },
     "packageAudit": {
       "packageId": "20000000-0000-4000-8000-000000000003",
-      "sha256": "bf0162f31dc344ee89ebfb939ef8e74c78ee50cc336d89e7bf18388426c11775",
-      "sizeBytes": 4378,
-      "entryCount": 6,
+      "sha256": "2b3f7e1aa7c1730ecb214369c1e6bc79984ca419a7da257732e9f71f9ab8263b",
+      "sizeBytes": 6990,
+      "entryCount": 10,
       "files": [
         "LICENSE",
+        "MODEL_LICENSE",
         "NOTICE",
         "README.md",
         "classifier.py",
+        "evaluation.json",
+        "model.json",
         "pyproject.toml",
+        "synthetic.json",
         "test.py"
       ],
       "manifestFiles": [

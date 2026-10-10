@@ -90,8 +90,8 @@ public class CommerceRepository {
   private String encode(Object value) {try {return json.writeValueAsString(value);}catch(java.io.IOException e) {throw new IllegalStateException(e);}}
   private Object educationSnapshot(Map<String,Object> p) {
     if(p.get("education_snapshot")==null) return null;
-    try {Map<String,Object> snapshot=json.readValue(p.get("education_snapshot").toString(),new com.fasterxml.jackson.core.type.TypeReference<LinkedHashMap<String,Object>>(){});snapshot.put("componentLinks",CommerceEducationBinding.currentComponentLinks(db,snapshot.get("componentLinks")));return snapshot;}
-    catch(java.io.IOException e) {throw new IllegalStateException("Stored education purchase snapshot is invalid",e);}
+    try {Map<String,Object> snapshot=json.convertValue(com.getlancer.responses.AccountExportResponse.educationJson(p,"education_snapshot",json),new com.fasterxml.jackson.core.type.TypeReference<LinkedHashMap<String,Object>>(){});snapshot.put("componentLinks",CommerceEducationBinding.currentComponentLinks(db,snapshot.get("componentLinks")));return snapshot;}
+    catch(IllegalArgumentException e) {throw new IllegalStateException("Stored education purchase snapshot is invalid",e);}
   }
   public String eventHash(String event) {var rows=db.queryForList("SELECT payload_hash FROM commerce_webhook_events WHERE event_id=?",String.class,event);return rows.isEmpty()?null:rows.get(0);}
   public void event(String id,String hash,String kind) {db.update("INSERT INTO commerce_webhook_events(event_id,payload_hash,event_kind) VALUES(?,?,?)",id,hash,kind);}

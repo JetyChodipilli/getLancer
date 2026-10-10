@@ -164,3 +164,5 @@ Set `PAYMENTS_ENABLED=false` until commercial policies, Route and seller KYC are
 ### V4 static frontend demos
 
 Use `/workspace/hosting` for built static ZIP upload, operator review and isolated publication; `/preview/hosting` is a labelled local exercise. Hosting is disabled by default and requires a separately deployed publisher. See [V4 hosting operations](docs/V4_HOSTING_OPERATIONS.md) for origin isolation, private ingress, caps, recovery and setup. V4 also includes the maintenance/support workflow in [V4 operations](docs/V4_OPERATIONS.md).
+
+V5.0 adds free reproducible analytics and frozen CPU inference at `/labs/data-ai`, with typed immutable education provenance. See [V5.0 architecture and validation](docs/v50/README.md). Hosted execution remains independently disabled by default.

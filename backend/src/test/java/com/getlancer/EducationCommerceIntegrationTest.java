@@ -68,8 +68,12 @@ class EducationCommerceIntegrationTest {
     return newRelease(List.of());
   }
   UUID newRelease(List<Map<String,Object>> links) throws Exception {
+    return newRelease(links,null);
+  }
+  UUID newRelease(List<Map<String,Object>> links,Map<String,Object> dataAiEvidence) throws Exception {
     var snapshot=new LinkedHashMap<String,Object>();snapshot.put("productId",product.toString());snapshot.put("slug",product.toString());snapshot.put("title","College booking project");
     snapshot.put("category","FULL_STACK");snapshot.put("mode","PAID");snapshot.put("difficulty","INTERMEDIATE");snapshot.put("demoMode","SOURCE_ONLY");
+    if(dataAiEvidence!=null){snapshot.put("category","AI_ML");snapshot.put("dataAiEvidence",dataAiEvidence);}
     snapshot.put("contribution",Map.of("text","Built the original application and its setup guide."));snapshot.put("componentLinks",links);
     snapshot.put("institution","private-university");snapshot.put("academicYear","private-year");snapshot.put("branch","private-branch");
     snapshot.put("package",Map.of("includedAssets",List.of("Original application, tests and setup guide."),"excludedAssets",List.of("Hosting and production data."),
@@ -126,6 +130,15 @@ class EducationCommerceIntegrationTest {
     mvc.perform(get("/api/v1/me/template-purchases").cookie(new Cookie("gl_session","buyer"))).andExpect(jsonPath("$.items[0].amountMinor").value(10000)).andExpect(jsonPath("$.items[0].educationSnapshot.priceMinor").value(10000));
     mvc.perform(order(release,UUID.randomUUID().toString())).andExpect(status().isConflict());assertEquals(1,provider.creates.get());
     assertEquals("DRAFT",db.queryForObject("SELECT approval_status FROM developer_profiles WHERE user_id=?",String.class,buyer));
+  }
+  @Test void newDataAiAgreementPinsDistinctRightsAcrossLaterOfferAndOwnerExport()throws Exception{
+    var evidence=com.getlancer.education.EducationDataAiTest.evidence(true);UUID current=newRelease(List.of(),evidence);mvc.perform(order(current,UUID.randomUUID().toString())).andExpect(status().isOk()).andExpect(jsonPath("$.educationSnapshot.dataAiEvidence.codeLicense").value(evidence.get("codeLicense"))).andExpect(jsonPath("$.educationSnapshot.dataAiEvidence.modelFormat").value("JSON"));String frozen=db.queryForObject("SELECT education_snapshot::text FROM template_purchases",String.class);assertEquals(json.valueToTree(evidence),json.readTree(frozen).path("dataAiEvidence"));
+    newRelease();mvc.perform(get("/api/v1/me/template-purchases").cookie(new Cookie("gl_session","buyer"))).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].educationSnapshot.dataAiEvidence.modelSha256").value(evidence.get("modelSha256"))).andExpect(jsonPath("$.items[0].educationSnapshot.priceMinor").value(10000));mvc.perform(get("/api/v1/me/export").cookie(new Cookie("gl_session","buyer"))).andExpect(status().isOk()).andExpect(jsonPath("$.sourcePurchases[0].education_snapshot.dataAiEvidence.modelLicense").value(evidence.get("modelLicense")));assertEquals(frozen,db.queryForObject("SELECT education_snapshot::text FROM template_purchases",String.class));
+  }
+  @Test void historicalAcceptedAgreementProjectsPrivateNestedFieldsWithoutRewritingStoredTerms()throws Exception{
+    var t=repo.template(template,false);var v=repo.version(template,version,false);var accepted=new TransactionTemplate(manager).execute(s->education.bind(release,t,v));assertFalse(accepted.containsKey("dataAiEvidence"));accepted.put("institution","historical-private-canary");var pack=new LinkedHashMap<>((Map<String,Object>)accepted.get("package"));pack.put("providerToken","historical-private-canary");accepted.put("package",pack);var source=new LinkedHashMap<>((Map<String,Object>)accepted.get("sourceBinding"));source.put("storage_key","historical-private-canary");source.put("sourceBytes",List.of("historical-private-canary"));accepted.put("sourceBinding",source);UUID purchase=UUID.randomUUID();
+    // Disposable historical reservation exercises current reads, never a live payment or entitlement.
+    repo.reserve(purchase,buyer,UUID.randomUUID(),t,v,CommerceProviderIntegrationTest.ACCOUNT,"test",release,education.encode(accepted));String stored=db.queryForObject("SELECT education_snapshot::text FROM template_purchases WHERE id=?",String.class,purchase);assertTrue(stored.contains("historical-private-canary"));var shown=json.readTree(mvc.perform(get("/api/v1/me/template-purchases").cookie(new Cookie("gl_session","buyer"))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString()).path("items").get(0).path("educationSnapshot");assertFalse(shown.toString().contains("historical-private-canary"));assertFalse(shown.has("dataAiEvidence"));assertEquals(10000,shown.path("priceMinor").asInt());assertEquals(version.toString(),shown.path("sourceBinding").path("versionId").asText());assertEquals(stored,db.queryForObject("SELECT education_snapshot::text FROM template_purchases WHERE id=?",String.class,purchase));
   }
 
   @Test void changedReviewedReleaseCannotReuseIdempotencyOrDuplicateExistingVersionPurchase() throws Exception {
