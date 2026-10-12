@@ -1,4 +1,4 @@
-import {test, expect, type Page} from '@playwright/test';
+import {test, expect, type Page, type TestInfo} from '@playwright/test';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {createRequire} from 'node:module';
@@ -12,8 +12,24 @@ const seeds = JSON.parse(readFileSync('backend/src/main/resources/catalog/educat
 const sample = seeds[0].release;
 const axe = readFileSync(createRequire(import.meta.url).resolve('axe-core/axe.min.js'), 'utf8');
 const evidence: EducationDataAiEvidence = {codeLicense: 'MIT', dataLicense: 'MIT', dataProvenance: 'Original synthetic fixture.', dataSha256: 'a'.repeat(64), modelLicense: 'MIT', modelProvenance: 'Original frozen JSON model.', modelSha256: 'b'.repeat(64), modelFormat: 'JSON', evaluationSplit: 'Held-out synthetic fixture.', evaluationProtocol: 'Frozen model without training.', outputSchema: 'Typed tables and numeric metrics with declared units.', limitations: 'Tiny synthetic fixture; no real-world accuracy claim.', redistributionAllowed: true, syntheticData: true, noRemoteCode: true};
+// Audit actual settled colors: axe must not sample the approved finite entrance halfway through its opacity ramp.
+async function settleOutput(page: Page) {
+  await page.locator('.data-ai-output').evaluateAll(async sections => {
+    const animations = sections.flatMap(section => section.getAnimations({subtree: true}));
+    await Promise.all(animations.filter(animation => {
+      const end = animation.effect?.getComputedTiming().endTime;
+      return typeof end === 'number' && Number.isFinite(end);
+    }).map(animation => animation.finished));
+  });
+  if (await page.locator('.data-ai-output').count()) await expect(page.locator('.data-ai-output')).toHaveCSS('opacity', '1');
+}
+async function attachScreenshot(page: Page, testInfo: TestInfo, name: string) {
+  await settleOutput(page);
+  await testInfo.attach(`${name}-${testInfo.project.name}`, {body: await page.screenshot({fullPage: true, animations: 'disabled'}), contentType: 'image/png'});
+}
 async function reflow(page: Page) {expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);}
 async function scan(page: Page) {
+  await settleOutput(page);
   await page.evaluate(axe);
   const result = await page.evaluate(async () => (window as unknown as {axe: {run: (element: Element | null, options: unknown) => Promise<{violations: {id: string; impact: string; nodes: {target: string[]}[]}[]}>}}).axe.run(document.querySelector('main'), {runOnly: {type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']}}));
   expect(result.violations.filter(item => ['critical', 'serious'].includes(item.impact)).map(item => ({id: item.id, targets: item.nodes.map(node => node.target)}))).toEqual([]);
@@ -26,19 +42,20 @@ async function openRecording(page: Page, title?: string) {
   await expect(page.getByRole('heading', {name: 'Rendered output · Recorded local result', exact: true})).toBeVisible();
 }
 
-test('source, replay and hosted disclosures stay distinct with zero execution requests', async ({page}) => {
+test('source, replay and hosted disclosures stay distinct with zero execution requests', async ({page}, testInfo) => {
   const mutations: string[] = []; page.on('request', request => {if (request.method() !== 'GET' && request.method() !== 'HEAD') mutations.push(request.method() + ' ' + request.url());});
   await page.goto('/labs/data-ai');
   await expect(page.getByRole('heading', {name: 'Read the source. Inspect the evidence.', exact: true})).toBeVisible();
   await expect(page.getByText('Reproduce the source locally', {exact: true})).toBeVisible();
   await expect(page.getByRole('heading', {name: 'Rendered output · Recorded local result', exact: true})).toHaveCount(0);
+  await expect(page.getByText('Loading source versions and recording availability…', {exact: true})).toHaveCount(0); await attachScreenshot(page, testInfo, 'data-ai-source');
   await page.getByRole('button', {name: 'Recorded execution', exact: true}).click();
-  await expect(page.getByText('Replay · Recorded local execution', {exact: true})).toBeVisible();
+  await expect(page.getByText('Replay · Recorded local execution', {exact: true})).toBeVisible(); await attachScreenshot(page, testInfo, 'data-ai-replay');
   await page.getByRole('button', {name: 'Hosted runtime', exact: true}).click();
   await expect(page.getByRole('heading', {name: 'Hosted runtime · Current admission', exact: true})).toBeVisible();
   await expect(page.getByRole('link', {name: 'Check hosted admission', exact: true})).toHaveAttribute('href', '/labs');
   await expect(page.getByLabel('Recorded case', {exact: true})).toHaveCount(0);
-  expect(mutations).toEqual([]); await reflow(page); await scan(page);
+  expect(mutations).toEqual([]); await reflow(page); await scan(page); await attachScreenshot(page, testInfo, 'data-ai-hosted-disclosure');
 });
 
 test('free source download matches the build-pinned archive SHA-256', async ({page}) => {
@@ -50,7 +67,7 @@ test('free source download matches the build-pinned archive SHA-256', async ({pa
   expect(createHash('sha256').update(readFileSync((await download.path())!)).digest('hex')).toBe(index.archiveSha256);
 });
 
-for (const item of index.items) test(`${item.id}: default and changed inspection render actual returned tables and identities`, async ({page}) => {
+for (const item of index.items) test(`${item.id}: default and changed inspection render actual returned tables and identities`, async ({page}, testInfo) => {
   await openRecording(page, item.title); const recording = recordings[item.id];
   for (let position = 0; position < 2; position++) {
     await page.getByLabel('Recorded case', {exact: true}).selectOption(String(position));
@@ -64,7 +81,7 @@ for (const item of index.items) test(`${item.id}: default and changed inspection
     await page.getByText('Actual original result envelope', {exact: true}).click();
     const original = JSON.parse((await page.locator('.data-ai-raw pre').textContent())!); expect(original).toEqual(run);
     await page.getByText('Actual original result envelope', {exact: true}).click();
-    if (item.kind === 'AI_ML') {await expect(page.getByRole('heading', {name: 'Held-out synthetic evaluation', exact: true})).toBeVisible(); await expect(page.getByRole('heading', {name: 'Recorded prediction: ' + run.result.prediction!.label, exact: true})).toBeVisible();}
+    if (item.kind === 'AI_ML') {await expect(page.getByRole('heading', {name: 'Held-out synthetic evaluation', exact: true})).toBeVisible(); await expect(page.getByRole('heading', {name: 'Recorded prediction: ' + run.result.prediction!.label, exact: true})).toBeVisible(); await attachScreenshot(page, testInfo, `${item.id}-${position ? 'changed' : 'default'}-output`);}
   }
   await reflow(page); await scan(page);
 });
@@ -77,7 +94,7 @@ test('native filters preserve source state and distinguish two analytics from tw
   await expect(page.getByRole('button', {name: index.items[0].title, exact: true})).toHaveAttribute('aria-pressed', 'true'); await reflow(page);
 });
 
-test('malformed units and a recomputed result hash fail closed, focus an error and support retry', async ({page}) => {
+test('malformed units and a recomputed result hash fail closed, focus an error and support retry', async ({page}, testInfo) => {
   let broken = true; const original = recordings['revenue-summary'], altered = structuredClone(original);
   altered.runs[0].result.metrics[0].unit = 'USD';
   const sorted = (value: unknown): unknown => Array.isArray(value) ? value.map(sorted) : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a < b ? -1 : 1).map(([key, child]) => [key, sorted(child)])) : value;
@@ -86,7 +103,7 @@ test('malformed units and a recomputed result hash fail closed, focus an error a
   await page.goto('/labs/data-ai'); await page.getByRole('button', {name: 'Recorded execution', exact: true}).click();
   const error = page.getByRole('alert').filter({hasText: 'Recording unavailable or rejected'}); await expect(error).toBeFocused();
   await expect(page.locator('.data-ai-output')).toHaveCount(0); broken = false; await page.getByRole('button', {name: 'Retry recording', exact: true}).click();
-  await expect(page.getByRole('heading', {name: 'Rendered output · Recorded local result', exact: true})).toBeVisible(); await scan(page);
+  await expect(page.getByRole('heading', {name: 'Rendered output · Recorded local result', exact: true})).toBeVisible(); await scan(page); await attachScreenshot(page, testInfo, 'data-ai-retry-settled-contrast');
 });
 
 test('index failure leaves free source available without claiming confirmed recordings', async ({page}) => {
@@ -129,18 +146,18 @@ async function educationWorkspace(page: Page, onSave: (body: EducationDraft) => 
   }); await page.goto('/workspace/college-projects'); await page.getByRole('button', {name: 'New education release', exact: true}).click();
 }
 
-test('private creator drafts preserve partial evidence while new submissions remain incomplete', async ({page}) => {
+test('private creator drafts preserve partial evidence while new submissions remain incomplete', async ({page}, testInfo) => {
   let saved: EducationDraft | undefined; await educationWorkspace(page, body => {saved = body;});
   await page.getByLabel('Release category', {exact: true}).selectOption('AI_ML'); await page.getByRole('button', {name: '2. Build / Evidence', exact: true}).click();
   await page.getByLabel('Code license', {exact: true}).fill('MI'); await page.getByLabel('Code license', {exact: true}).blur(); await expect(page.getByLabel('Code license', {exact: true})).toHaveAttribute('aria-invalid', 'true');
-  await page.getByLabel('Model format', {exact: true}).selectOption('JSON'); await page.getByLabel('Data SHA-256', {exact: true}).fill('a'.repeat(64));
+  await page.getByLabel('Model format', {exact: true}).selectOption('JSON'); await page.getByLabel('Data SHA-256', {exact: true}).fill('a'.repeat(64)); await attachScreenshot(page, testInfo, 'education-creator-partial-evidence');
   await page.getByRole('button', {name: 'Save unfinished draft', exact: true}).click(); await expect(page.getByText(/Draft saved\. Unfinished fields/)).toBeVisible();
   expect(saved?.dataAiEvidence).toEqual({codeLicense: 'MI', modelFormat: 'JSON', dataSha256: 'a'.repeat(64)}); expect(saved?.categoryEvidence).not.toHaveProperty('dataAiEvidence');
   await page.getByRole('button', {name: '4. Review', exact: true}).click(); await expect(page.getByRole('button', {name: 'Submit exact revision for review', exact: true})).toBeDisabled();
   await expect(page.getByText('MI', {exact: true})).toBeVisible(); await reflow(page); await scan(page);
 });
 
-test('new AI submission saves the exact complete structured evidence before freezing a revision', async ({page}) => {
+test('new AI submission saves the exact complete structured evidence before freezing a revision', async ({page}, testInfo) => {
   const saved: EducationDraft[] = []; await educationWorkspace(page, body => {saved.push(body);});
   await page.getByLabel('Release category', {exact: true}).selectOption('AI_ML'); await page.getByRole('button', {name: '2. Build / Evidence', exact: true}).click();
   const textLabels: Record<string, string> = {codeLicense: 'Code license', dataLicense: 'Data license', dataProvenance: 'Data provenance', dataSha256: 'Data SHA-256', modelLicense: 'Model license', modelProvenance: 'Model provenance', modelSha256: 'Model SHA-256', evaluationSplit: 'Evaluation split', evaluationProtocol: 'Evaluation protocol', outputSchema: 'Output schema', limitations: 'Data and model limitations'};
@@ -148,6 +165,7 @@ test('new AI submission saves the exact complete structured evidence before free
   await page.getByLabel('Model format', {exact: true}).selectOption('JSON');
   for (const label of [/I have verified separate code/, /All included datasets and evaluation fixtures/, /The package uses no executable model loader/]) await page.getByRole('checkbox', {name: label}).check();
   for (const label of ['Model task','Dataset & model licenses','Training / evaluation splits','Evaluation method','Observed metrics & context','Inference entry point','Model limitations']) await page.getByLabel(label, {exact: true}).fill('Concrete original reproducibility evidence.');
+  await attachScreenshot(page, testInfo, 'education-creator-complete-evidence');
   await page.getByRole('button', {name: '3. Access / License', exact: true}).click();
   for (const label of ['Included source & assets','Excluded source, data, models & hardware','Setup effort & reproduction steps','External dependencies & prerequisites','Limitations & responsibilities']) await page.getByLabel(label + ' · one item per line', {exact: true}).fill('Explicit original package disclosure.');
   await page.getByLabel('Support scope & duration', {exact: true}).fill('Self-guided source learning without maintenance.'); await page.getByLabel('License & attribution terms', {exact: true}).fill('MIT License. Preserve copyright and permission notices.');
@@ -167,17 +185,17 @@ async function packageHarness(page: Page, withEvidence: boolean) {await componen
 test('frozen disclosures show separate dataset/model rights and actual evaluation context', async ({page}) => {await packageHarness(page, true); await expect(page.getByRole('heading', {name: 'Dataset, model and evaluation evidence', exact: true})).toBeVisible(); await expect(page.getByText(evidence.modelSha256!, {exact: true})).toBeVisible(); await expect(page.getByText(evidence.evaluationProtocol!, {exact: true})).toBeVisible(); await expect(page.getByText(evidence.limitations!, {exact: true})).toBeVisible(); await scan(page);});
 test('historical missing structured evidence stays explicitly absent and readable', async ({page}) => {await packageHarness(page, false); await expect(page.getByText(/This historical release has no structured data\/AI evidence/)).toBeVisible(); await expect(page.getByText('Confirmed', {exact: true})).toHaveCount(0); await expect(page.getByRole('heading', {name: 'Project artifacts & license', exact: true})).toBeVisible(); await scan(page);});
 
-test('private reviewer sees frozen provenance before the exact hash decision', async ({page}) => {
+test('private reviewer sees frozen provenance before the exact hash decision', async ({page}, testInfo) => {
   const pending: EducationRelease = {...sample, status: 'PENDING', sourceHash: 'd'.repeat(64), snapshot: {...sample.snapshot, category: 'AI_ML', mode: 'SHOWCASE', dataAiEvidence: evidence, sourceBinding: undefined}};
   let decision: {revision: number; sourceHash: string; rightsReviewed: boolean; packageReviewed: boolean} | undefined;
   await page.route('**/api/v1/admin/education-releases**', async route => {if (route.request().method() === 'GET') await route.fulfill({contentType: 'application/json', body: JSON.stringify({items: [pending], hasMore: false})}); else {decision = route.request().postDataJSON(); await route.fulfill({contentType: 'application/json', body: JSON.stringify({...pending, status: 'APPROVED'})});}});
   await componentHarness(page, 'education-review', {}); await expect(page.getByText(evidence.modelProvenance!, {exact: true})).toBeVisible(); await expect(page.getByText(evidence.evaluationSplit!, {exact: true})).toBeVisible();
-  const apply = page.getByRole('button', {name: 'Apply exact revision & hash decision', exact: true}); await expect(apply).toBeDisabled();
+  const apply = page.getByRole('button', {name: 'Apply exact revision & hash decision', exact: true}); await expect(apply).toBeDisabled(); await attachScreenshot(page, testInfo, 'education-reviewer-frozen-evidence');
   await page.getByLabel('Private decision reason', {exact: true}).fill('Reviewed exact synthetic model, dataset, rights and evaluation.'); await page.getByRole('checkbox', {name: /I reviewed source rights/}).check(); await page.getByRole('checkbox', {name: /I inspected the package/}).check(); await apply.click();
   await expect(page.getByRole('status')).toContainText('now approved'); expect(decision).toMatchObject({revision: pending.revision, sourceHash: pending.sourceHash, rightsReviewed: true, packageReviewed: true});
 });
-test('accepted purchase disclosures preserve the frozen model and evaluation claims', async ({page}) => {
+test('accepted purchase disclosures preserve the frozen model and evaluation claims', async ({page}, testInfo) => {
   const purchase = {educationReleaseId: sample.id, educationSnapshot: {...sample.snapshot, category: 'AI_ML', dataAiEvidence: evidence}};
   await componentHarness(page, 'education-purchase', {purchase}); await page.getByText('Inspect purchased education package & support', {exact: true}).click();
-  await expect(page.getByText(evidence.modelSha256!, {exact: true})).toBeVisible(); await expect(page.getByText(evidence.limitations!, {exact: true})).toBeVisible(); await expect(page.getByText(/Source licensing does not transfer authorship/)).toBeVisible(); await reflow(page); await scan(page);
+  await expect(page.getByText(evidence.modelSha256!, {exact: true})).toBeVisible(); await expect(page.getByText(evidence.limitations!, {exact: true})).toBeVisible(); await expect(page.getByText(/Source licensing does not transfer authorship/)).toBeVisible(); await reflow(page); await scan(page); await attachScreenshot(page, testInfo, 'education-purchase-frozen-evidence');
 });

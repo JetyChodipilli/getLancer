@@ -163,7 +163,20 @@ public record AccountExportResponse(Account account,
     }
     safe.set("contribution",source.path("contribution").isTextual()?source.path("contribution"):pick(source.path("contribution"),mapper,List.of("kind","text","individual","ownerId","ownerName","builderSlug","teamId","teamName","teamSlug","consent")));
     var links=mapper.createArrayNode();
-    if(source.path("componentLinks").isArray())for(JsonNode link:source.path("componentLinks"))links.add(pick(link,mapper,List.of("componentId","revision","sourceHash","sha256","license","licenseTerms","attribution","slug","title","builderSlug")));
+    if(source.path("componentLinks").isArray())for(JsonNode link:source.path("componentLinks")) {
+      if(links.size()>=20)break;
+      if(!link.path("componentId").isTextual()||!link.path("revision").isIntegralNumber()||!link.path("revision").canConvertToLong()||link.path("revision").longValue()<1)continue;
+      UUID component;try {component=UUID.fromString(link.path("componentId").textValue());}catch(IllegalArgumentException invalid){continue;}
+      if(!component.toString().equals(link.path("componentId").textValue()))continue;
+      var projected=mapper.createObjectNode();projected.put("componentId",component.toString());projected.set("revision",link.get("revision"));
+      for(String field:List.of("sourceHash","sha256","license","licenseTerms","attribution","slug","title","builderSlug")) {
+        JsonNode value=link.path(field);int max=field.equals("licenseTerms")?8000:field.equals("attribution")?1000:field.equals("license")?200:240;
+        if(!value.isTextual()||value.textValue().length()>max)continue;
+        if((field.equals("sourceHash")||field.equals("sha256"))&&!value.textValue().matches("[a-f0-9]{64}"))continue;
+        projected.set(field,value);
+      }
+      links.add(projected);
+    }
     safe.set("componentLinks",links);
     return safe;
   }

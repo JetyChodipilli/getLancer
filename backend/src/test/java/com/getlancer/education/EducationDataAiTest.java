@@ -8,9 +8,11 @@ import com.getlancer.responses.AccountExportResponse;
 import com.getlancer.shared.ApiError;
 import com.getlancer.shared.TypedInputs;
 import jakarta.validation.Validation;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
@@ -54,14 +56,19 @@ public class EducationDataAiTest {
   }
   @Test void publicAndExportProjectionsRetainSafeEvidenceButCannotLeakNestedInternalFields(){
     var current=draft("AI_ML",evidence(true));var poisoned=new LinkedHashMap<>(evidence(true));poisoned.put("storageKey","private-canary");poisoned.put("sourceBytes",List.of("private-canary"));current.put("dataAiEvidence",poisoned);current.put("institution","private-canary");current.put("sourceBinding",Map.of("sha256","d".repeat(64),"files",List.of("README.md"),"manifestFiles",List.of("pyproject.toml"),"storage_key","private-canary"));current.put("package",Map.of("licenseTerms","MIT notice retained","private","private-canary"));
+    UUID component=UUID.randomUUID();var links=new ArrayList<Map<String,Object>>();links.add(Map.of("componentId",component.toString(),"revision",1,"license","MIT","attribution",List.of("private-canary"),"slug",List.of("private-canary"),"title",77,"builderSlug",false,"sha256",Map.of("internal","private-canary"),"sourceHash","A".repeat(64),"licenseTerms",List.of("private-canary")));
+    var validLink=Map.<String,Object>of("componentId",component.toString(),"revision",2L,"license","MIT","attribution","Original contributor; preserve notice","sha256","b".repeat(64),"slug","original-component");links.add(validLink);
+    for(Object invalidId:List.<Object>of("invalid-uuid",77,List.of("private-canary"),Map.of("internal","private-canary")))links.add(Map.of("componentId",invalidId,"revision",1,"license","MIT"));
+    for(Object invalidRevision:List.<Object>of(0,-1,1.5,"1",List.of("private-canary"),new java.math.BigInteger("9223372036854775808")))links.add(Map.of("componentId",component.toString(),"revision",invalidRevision,"license","MIT"));current.put("componentLinks",links);
     String stored=schema.encode(current);assertTrue(stored.contains("private-canary"));var publicView=schema.publicView(current);assertEquals(evidence(true),publicView.get("dataAiEvidence"));assertFalse(schema.encode(publicView).contains("private-canary"));assertEquals(stored,schema.encode(current));
+    var publicLinks=json.valueToTree(publicView.get("componentLinks"));assertEquals(2,publicLinks.size());var publicLink=publicLinks.get(0);assertEquals(component.toString(),publicLink.path("componentId").asText());assertEquals(1,publicLink.path("revision").asLong());assertEquals("MIT",publicLink.path("license").asText());for(String unsafe:List.of("attribution","slug","title","builderSlug","sha256","sourceHash","licenseTerms"))assertFalse(publicLink.has(unsafe));assertEquals(json.valueToTree(validLink),publicLinks.get(1));
     var export=json.valueToTree(AccountExportResponse.EducationRelease.from(Map.of("snapshot",stored,"draft",stored,"institution","Owner private annotation"),json));assertEquals("Owner private annotation",export.path("institution").asText());assertEquals(json.valueToTree(evidence(true)),export.path("snapshot").path("dataAiEvidence"));assertFalse(export.toString().contains("private-canary"));
     var malformed=new LinkedHashMap<>(poisoned);malformed.put("noRemoteCode","private-canary");malformed.put("modelFormat","pickle");malformed.put("codeLicense",Map.of("private","private-canary"));current.put("dataAiEvidence",malformed);var safe=schema.publicView(current);assertFalse(schema.encode(safe).contains("private-canary"));assertFalse(EducationSnapshot.object(safe.get("dataAiEvidence")).containsKey("modelFormat"));
   }
   @Test void concreteDtoUsesActualStrictApplicationMapperAndNestedBeanValidation()throws Exception{
     var builder=new Jackson2ObjectMapperBuilder();Jackson2ObjectMapperBuilderCustomizer policy=ReflectionTestUtils.invokeMethod(new SecurityConfiguration(),"strictJsonRequests");policy.customize(builder);ObjectMapper strict=builder.build();
     var valid=strict.readValue(json.writeValueAsBytes(Map.of("mode","SHOWCASE","category","AI_ML","dataAiEvidence",evidence(true))),EducationRequests.Draft.class);assertEquals(evidence(true),TypedInputs.map(valid).get("dataAiEvidence"));
-    for(Map<String,Object> invalid:List.of(Map.of("unknownField","private"),Map.of("syntheticData","true"),Map.of("noRemoteCode",1),Map.of("codeLicense",42),Map.of("outputSchema",List.of("private"))))assertThrows(com.fasterxml.jackson.core.JsonProcessingException.class,()->strict.readValue(json.writeValueAsBytes(Map.of("mode","SHOWCASE","dataAiEvidence",invalid)),EducationRequests.Draft.class));
+    for(Map<String,Object> invalid:List.<Map<String,Object>>of(Map.of("unknownField","private"),Map.of("syntheticData","true"),Map.of("noRemoteCode",1),Map.of("codeLicense",42),Map.of("outputSchema",List.of("private"))))assertThrows(com.fasterxml.jackson.core.JsonProcessingException.class,()->strict.readValue(json.writeValueAsBytes(Map.of("mode","SHOWCASE","dataAiEvidence",invalid)),EducationRequests.Draft.class));
     try(var factory=Validation.buildDefaultValidatorFactory()){
       assertTrue(factory.getValidator().validate(valid).isEmpty());var bad=new LinkedHashMap<>(evidence(true));bad.put("limitations","x".repeat(4001));bad.put("dataSha256","A".repeat(64));bad.put("modelFormat","joblib");var invalid=strict.readValue(json.writeValueAsBytes(Map.of("mode","SHOWCASE","dataAiEvidence",bad)),EducationRequests.Draft.class);assertEquals(3,factory.getValidator().validate(invalid).size());
     }

@@ -96,7 +96,7 @@ public class EducationService {
   private Map<String,Object> dto(Map<String,Object> row,boolean privateView){
     var out=new LinkedHashMap<String,Object>();out.put("id",row.get("id"));out.put("productId",row.get("product_id"));out.put("revision",row.get("revision"));out.put("status",row.get("status"));out.put("sourceHash",row.get("source_hash"));
     Map<String,Object> snapshot;if(row.get("snapshot")!=null)snapshot=schema.read(row.get("snapshot"));else{var product=db.queryForMap(ProductRepository.SELECT+" WHERE p.id=?",row.get("product_id"));snapshot=core(schema.read(row.get("draft")),product);}
-    out.put("snapshot",privateView?snapshot:schema.publicView(snapshot));out.put("academic",academic((UUID)row.get("id"),privateView));out.put("componentLinks",components(snapshot,false));out.putAll(demo(snapshot,(UUID)row.get("product_id"),false));out.put("teams",teams((UUID)row.get("product_id"),(UUID)row.get("owner_id")));
+    var projected=schema.publicView(snapshot);out.put("snapshot",privateView?snapshot:projected);out.put("academic",academic((UUID)row.get("id"),privateView));out.put("componentLinks",components(projected,false));out.putAll(demo(snapshot,(UUID)row.get("product_id"),false));out.put("teams",teams((UUID)row.get("product_id"),(UUID)row.get("owner_id")));
     if(privateView){
       out.put("reviewReason",row.get("review_reason"));out.put("freePackageId",row.get("free_package_id"));out.put("versionId",row.get("source_version_id"));
       if(row.get("snapshot")==null&&"FREE".equals(snapshot.get("mode"))&&row.get("free_package_id")!=null)out.put("sourceBinding",freeBinding(row,snapshot));
@@ -195,7 +195,7 @@ public class EducationService {
       var rows=db.queryForList("SELECT c.slug,r.source,r.source_sha256,d.display_name AS creator,d.slug AS creator_slug FROM component_releases r JOIN component_entries c ON c.id=r.component_id JOIN users u ON u.id=c.owner_id JOIN developer_profiles d ON d.user_id=c.owner_id WHERE r.component_id=? AND r.revision=? AND c.status IN ('ACTIVE','ARCHIVED','DRAFT','PENDING') AND c.published_at IS NOT NULL AND c.withdrawn_at IS NULL AND u.account_status='ACTIVE' AND u.email_verified_at IS NOT NULL AND d.approval_status='APPROVED' AND EXISTS(SELECT 1 FROM user_roles ur WHERE ur.user_id=u.id AND ur.role='DEVELOPER')",component,revision);
       if(rows.isEmpty()){if(required)throw new ApiError(409,"EDUCATION_COMPONENT_UNAVAILABLE","A linked component version is no longer eligible.");continue;}
       var row=rows.get(0);String license=Objects.toString(schema.read(row.get("source")).get("license"),"");if(license.isBlank()||!license.equals(link.get("license"))||link.get("sha256")!=null&&!link.get("sha256").equals(row.get("source_sha256"))){if(required)throw new ApiError(409,"EDUCATION_COMPONENT_UNAVAILABLE","The exact component license or content could not be verified.");continue;}
-      var safe=new LinkedHashMap<String,Object>();for(String field:List.of("componentId","revision","license","attribution"))safe.put(field,link.get(field));safe.put("sha256",row.get("source_sha256"));
+      var safe=new LinkedHashMap<String,Object>();safe.put("componentId",component.toString());safe.put("revision",revision);safe.put("license",license);if(link.get("attribution") instanceof String attribution)safe.put("attribution",attribution);safe.put("sha256",row.get("source_sha256"));
       if(!required){safe.put("slug",row.get("slug"));safe.put("creator",row.get("creator"));safe.put("creatorSlug",row.get("creator_slug"));}result.add(safe);
     }return result;
   }

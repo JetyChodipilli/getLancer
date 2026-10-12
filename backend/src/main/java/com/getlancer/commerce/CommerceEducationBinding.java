@@ -100,7 +100,7 @@ public class CommerceEducationBinding {
     for(String key:List.of("productId","slug","title","summary","category","mode","difficulty","demoMode","demoUrl",
         "package","categoryEvidence","contribution","componentLinks","sourceBinding","priceMinor","currency","dataAiEvidence"))
       if(projected.containsKey(key)) accepted.put(key,projected.get(key));
-    accepted.put("componentLinks",currentComponentLinks(db,snapshot.get("componentLinks")));
+    accepted.put("componentLinks",currentComponentLinks(db,projected.get("componentLinks")));
     accepted.put("releaseId",release.toString());accepted.put("sourceHash",e.get("source_hash"));return accepted;
   }
 
@@ -144,7 +144,8 @@ public class CommerceEducationBinding {
       if(revision<1) continue;
       if(db.queryForObject("SELECT count(*) FROM component_releases cr JOIN component_entries c ON c.id=cr.component_id JOIN users u ON u.id=c.owner_id JOIN developer_profiles d ON d.user_id=u.id WHERE cr.component_id=? AND cr.revision=? AND c.published_at IS NOT NULL AND c.withdrawn_at IS NULL AND c.status IN ('ACTIVE','ARCHIVED','DRAFT','PENDING') AND u.account_status='ACTIVE' AND u.email_verified_at IS NOT NULL AND d.approval_status='APPROVED' AND EXISTS(SELECT 1 FROM user_roles r WHERE r.user_id=u.id AND r.role='DEVELOPER')",Integer.class,id,revision)==0) continue;
       var safe=new LinkedHashMap<String,Object>();
-      for(String key:List.of("componentId","revision","license","attribution","sha256","slug")) if(link.containsKey(key)) safe.put(key,link.get(key));out.add(safe);
+      safe.put("componentId",id.toString());safe.put("revision",revision);
+      for(String key:List.of("license","attribution","sha256","slug")) if(link.get(key) instanceof String value) safe.put(key,value);out.add(safe);
     }
     return out;
   }

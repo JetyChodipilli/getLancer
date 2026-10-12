@@ -117,8 +117,11 @@ def read_json(path, pinned=None):
             require(key not in result)
             result[key] = value
         return result
-    return json.loads(data.decode('utf-8'), object_pairs_hook=pairs,
-                      parse_constant=lambda _: (_ for _ in ()).throw(ValueError('Invalid JSON number')))
+    try:
+        return json.loads(data.decode('utf-8'), object_pairs_hook=pairs,
+                          parse_constant=lambda _: (_ for _ in ()).throw(ValueError('Invalid JSON number')))
+    except RecursionError:
+        raise ValueError('Invalid JSON structure') from None
 
 
 def parse_form(raw):
