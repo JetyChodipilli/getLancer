@@ -1,4 +1,4 @@
-name: getLancer validation (V1-V4.9)
+name: getLancer validation (V1-V5.0)
 on: [push, pull_request]
 permissions:
   contents: read
@@ -37,7 +37,13 @@ jobs:
         run: node scripts/verify-lab-packages.mjs
         env:
           REDIS_SERVER: ${{ github.workspace }}/.ci-redis/src/redis-server
-      - name: Verify account-free laptop Docker environment with the real nine-lab matrix
+      - name: Reproduce bounded analytics, frozen CPU inference, and clean source downloads
+        run: |
+          python3 --version
+          node scripts/build-data-ai-material.mjs
+          node scripts/build-data-ai-material.mjs --verify
+          node scripts/verify-data-ai.mjs --verify
+      - name: Verify account-free laptop Docker environment with the real thirteen-lab matrix
         run: |
           docker compose -f compose.labs-local.yaml config --quiet
           npm run labs:docker

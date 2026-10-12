@@ -95,11 +95,12 @@ public class CommerceEducationBinding {
         || !Objects.toString(t.get("price_minor")).equals(Objects.toString(snapshot.get("priceMinor")))
         || !Objects.equals(t.get("currency"),snapshot.get("currency")))
       throw unavailable("The source price, license or package changed. A newly reviewed college release is required.");
+    var projected=json.convertValue(com.getlancer.responses.AccountExportResponse.educationJson(Map.of("snapshot",snapshot),"snapshot",json),new TypeReference<LinkedHashMap<String,Object>>(){});
     var accepted=new LinkedHashMap<String,Object>();
     for(String key:List.of("productId","slug","title","summary","category","mode","difficulty","demoMode","demoUrl",
-        "package","categoryEvidence","contribution","componentLinks","sourceBinding","priceMinor","currency"))
-      if(snapshot.containsKey(key)) accepted.put(key,snapshot.get(key));
-    accepted.put("componentLinks",currentComponentLinks(db,snapshot.get("componentLinks")));
+        "package","categoryEvidence","contribution","componentLinks","sourceBinding","priceMinor","currency","dataAiEvidence"))
+      if(projected.containsKey(key)) accepted.put(key,projected.get(key));
+    accepted.put("componentLinks",currentComponentLinks(db,projected.get("componentLinks")));
     accepted.put("releaseId",release.toString());accepted.put("sourceHash",e.get("source_hash"));return accepted;
   }
 
@@ -109,8 +110,10 @@ public class CommerceEducationBinding {
     if(rows.isEmpty() || !"APPROVED".equals(rows.get(0).get("status")) || rows.get(0).get("source_version_id")==null)
       throw new ApiError(404,"NOT_FOUND","Paid college release not found.");
     var e=rows.get(0);var snapshot=snapshot(e);var out=new LinkedHashMap<String,Object>();
-    if(snapshot.get("sourceBinding") instanceof Map<?,?> source)
+    var projected=json.convertValue(com.getlancer.responses.AccountExportResponse.educationJson(Map.of("snapshot",snapshot),"snapshot",json),new TypeReference<LinkedHashMap<String,Object>>(){});
+    if(projected.get("sourceBinding") instanceof Map<?,?> source)
       for(var entry:source.entrySet()) out.put(Objects.toString(entry.getKey()),entry.getValue());
+    if(projected.containsKey("dataAiEvidence"))out.put("dataAiEvidence",projected.get("dataAiEvidence"));
     out.put("priceMinor",snapshot.get("priceMinor"));out.put("currency",snapshot.get("currency"));
     boolean available=false;String reason="Paid college-project collection awaits operator activation.";
     if(paidEnabled) {
@@ -141,7 +144,8 @@ public class CommerceEducationBinding {
       if(revision<1) continue;
       if(db.queryForObject("SELECT count(*) FROM component_releases cr JOIN component_entries c ON c.id=cr.component_id JOIN users u ON u.id=c.owner_id JOIN developer_profiles d ON d.user_id=u.id WHERE cr.component_id=? AND cr.revision=? AND c.published_at IS NOT NULL AND c.withdrawn_at IS NULL AND c.status IN ('ACTIVE','ARCHIVED','DRAFT','PENDING') AND u.account_status='ACTIVE' AND u.email_verified_at IS NOT NULL AND d.approval_status='APPROVED' AND EXISTS(SELECT 1 FROM user_roles r WHERE r.user_id=u.id AND r.role='DEVELOPER')",Integer.class,id,revision)==0) continue;
       var safe=new LinkedHashMap<String,Object>();
-      for(String key:List.of("componentId","revision","license","attribution","sha256","slug")) if(link.containsKey(key)) safe.put(key,link.get(key));out.add(safe);
+      safe.put("componentId",id.toString());safe.put("revision",revision);
+      for(String key:List.of("license","attribution","sha256","slug")) if(link.get(key) instanceof String value) safe.put(key,value);out.add(safe);
     }
     return out;
   }

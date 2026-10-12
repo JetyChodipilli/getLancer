@@ -1,0 +1,32 @@
+[
+  {
+    "month": "Jan",
+    "region": "north",
+    "revenue": 12000
+  },
+  {
+    "month": "Jan",
+    "region": "south",
+    "revenue": 9000
+  },
+  {
+    "month": "Feb",
+    "region": "north",
+    "revenue": 15000
+  },
+  {
+    "month": "Feb",
+    "region": "south",
+    "revenue": 11000
+  },
+  {
+    "month": "Mar",
+    "region": "north",
+    "revenue": 18000
+  },
+  {
+    "month": "Mar",
+    "region": "south",
+    "revenue": 13000
+  }
+]

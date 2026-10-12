@@ -1,8 +1,10 @@
-# getLancer V4.9 — Spectral Studio
+# getLancer V5.0 — Spectral Studio
 
 A proof-of-work marketplace connecting clients with the builders behind working software, with team workspaces and private business hiring.
 
 ## Current implementation status
+
+**V5.0 implements reproducible analytics and frozen CPU inference:** two original analytics and two inference labs, free source downloads, actual local recordings, an accessible evidence inspector and immutable dataset/model/evaluation provenance for education releases and accepted source agreements. Hosted execution remains independently disabled by default. See [V5.0 architecture and validation](docs/v50/README.md).
 
 **V4.9 codes the college-project service:** immutable reviewed showcase/free/paid packages across full stack, analytics, AI/ML and IoT; controlled free source downloads; exact existing paid-source commerce; current contribution/component relationships and artifact reports. Source-only, external and hosted states are explicit. Live college collection remains disabled pending the merchant/provider activation gate. See [V4.9 scope and local testing](docs/v49/README.md), [review](docs/v49/REVIEW.md) and [validation](docs/v49/VALIDATION.md).
 
@@ -26,6 +28,7 @@ The active visual system is [Spectral Studio](docs/SPECTRAL_STUDIO_ACCEPTANCE.md
 | V4.7 | Isolated runtime provider, quota/budget reservations, fenced lifecycle, gateway and operator controls | [Runtime contract](docs/v47/CONTRACT.md) |
 | V4.8 | Nine native Redis/security/payment-emulator labs; source verification and account-free local Docker provider | [Native lab contract](docs/v48/CONTRACT.md); [laptop testing](ops/LAPTOP_TESTING.md) |
 | V4.9 | Reviewed college packages, four-category evidence, free distribution, exact source commerce, support and reports | [S05 implementation](docs/v49/README.md); [validation](docs/v49/VALIDATION.md) |
+| V5.0 | Reproducible analytics, frozen CPU inference, typed source/replay evidence and immutable education provenance | [Architecture and scope](docs/v50/README.md); [validation](docs/v50/VALIDATION.md) |
 
 Merged V4 baseline: [main CI run 37122827837](https://github.com/JetyChodipilli/getLancer/actions/runs/37122827837) passed on `e61316043a057befa2ba4ac8849bec0787ac92df` with 278 Java tests, 105 Node tests, 89 responsive browser checks and 15 connected browser checks, plus encrypted database restore. This is the pre-audit-fix checkpoint; use the current pull request checks for subsequent changes.
 

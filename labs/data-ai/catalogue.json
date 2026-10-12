@@ -1,0 +1,411 @@
+{
+  "assets": {
+    "equipment-inference": {
+      "dataPath": "fixtures/equipment-inference-inputs.json",
+      "evaluationPath": "fixtures/equipment-inference-evaluation.json",
+      "modelPath": "models/equipment-inference.json"
+    },
+    "revenue-summary": {
+      "dataPath": "fixtures/revenue.json",
+      "evaluationPath": null,
+      "modelPath": null
+    },
+    "sensor-quality": {
+      "dataPath": "fixtures/sensors.json",
+      "evaluationPath": null,
+      "modelPath": null
+    },
+    "sentiment-inference": {
+      "dataPath": "fixtures/sentiment-inference-inputs.json",
+      "evaluationPath": "fixtures/sentiment-inference-evaluation.json",
+      "modelPath": "models/sentiment-inference.json"
+    }
+  },
+  "contracts": {
+    "equipment-inference": {
+      "classes": [
+        "normal",
+        "attention"
+      ],
+      "metrics": [
+        {
+          "key": "confidence",
+          "label": "Confidence",
+          "unit": "probability"
+        },
+        {
+          "key": "evaluationAccuracy",
+          "label": "Held-out accuracy",
+          "unit": "ratio"
+        }
+      ],
+      "tables": [
+        {
+          "columns": [
+            {
+              "key": "class",
+              "label": "Class",
+              "type": "string",
+              "unit": "none"
+            },
+            {
+              "key": "probability",
+              "label": "Probability",
+              "type": "number",
+              "unit": "probability"
+            }
+          ],
+          "id": "probabilities",
+          "title": "Class probabilities"
+        }
+      ]
+    },
+    "revenue-summary": {
+      "classes": null,
+      "metrics": [
+        {
+          "key": "revenue",
+          "label": "Revenue",
+          "unit": "INR"
+        },
+        {
+          "key": "orders",
+          "label": "Orders",
+          "unit": "orders"
+        },
+        {
+          "key": "averageOrder",
+          "label": "Average order",
+          "unit": "INR"
+        }
+      ],
+      "tables": [
+        {
+          "columns": [
+            {
+              "key": "month",
+              "label": "Month",
+              "type": "string",
+              "unit": "none"
+            },
+            {
+              "key": "revenue",
+              "label": "Revenue",
+              "type": "number",
+              "unit": "INR"
+            },
+            {
+              "key": "orders",
+              "label": "Orders",
+              "type": "number",
+              "unit": "orders"
+            }
+          ],
+          "id": "monthly-revenue",
+          "title": "Monthly revenue"
+        }
+      ]
+    },
+    "sensor-quality": {
+      "classes": null,
+      "metrics": [
+        {
+          "key": "accepted",
+          "label": "Accepted",
+          "unit": "readings"
+        },
+        {
+          "key": "rejected",
+          "label": "Rejected",
+          "unit": "readings"
+        },
+        {
+          "key": "acceptance",
+          "label": "Acceptance",
+          "unit": "percent"
+        }
+      ],
+      "tables": [
+        {
+          "columns": [
+            {
+              "key": "channel",
+              "label": "Channel",
+              "type": "string",
+              "unit": "none"
+            },
+            {
+              "key": "accepted",
+              "label": "Accepted",
+              "type": "number",
+              "unit": "readings"
+            },
+            {
+              "key": "rejected",
+              "label": "Rejected",
+              "type": "number",
+              "unit": "readings"
+            },
+            {
+              "key": "total",
+              "label": "Total",
+              "type": "number",
+              "unit": "readings"
+            }
+          ],
+          "id": "sensor-quality",
+          "title": "Reading quality"
+        }
+      ]
+    },
+    "sentiment-inference": {
+      "classes": [
+        "negative",
+        "positive"
+      ],
+      "metrics": [
+        {
+          "key": "confidence",
+          "label": "Confidence",
+          "unit": "probability"
+        },
+        {
+          "key": "evaluationAccuracy",
+          "label": "Held-out accuracy",
+          "unit": "ratio"
+        }
+      ],
+      "tables": [
+        {
+          "columns": [
+            {
+              "key": "class",
+              "label": "Class",
+              "type": "string",
+              "unit": "none"
+            },
+            {
+              "key": "probability",
+              "label": "Probability",
+              "type": "number",
+              "unit": "probability"
+            }
+          ],
+          "id": "probabilities",
+          "title": "Class probabilities"
+        }
+      ]
+    }
+  },
+  "inventory": [
+    "DATA_LICENSE.md",
+    "License.md",
+    "MODEL_LICENSE.md",
+    "README.md",
+    "catalogue.json",
+    "fixtures/equipment-inference-evaluation.json",
+    "fixtures/equipment-inference-inputs.json",
+    "fixtures/revenue.json",
+    "fixtures/sensors.json",
+    "fixtures/sentiment-inference-evaluation.json",
+    "fixtures/sentiment-inference-inputs.json",
+    "models/equipment-inference.json",
+    "models/sentiment-inference.json",
+    "runtime.py"
+  ],
+  "items": [
+    {
+      "changedInputs": {
+        "region": "south",
+        "upliftPercent": "10"
+      },
+      "dataLicense": "MIT",
+      "dataProvenance": "Original synthetic fixture, hand-authored for getLancer, no personal records.",
+      "dataSha256": "e279aeac207560bc1d8b6590c0e9f91db4420a7d987fa6f662521338e686b10a",
+      "defaultInputs": {
+        "region": "all",
+        "upliftPercent": "0"
+      },
+      "evaluationProtocol": null,
+      "evaluationSha256": null,
+      "evaluationSplit": null,
+      "id": "revenue-summary",
+      "inputs": [
+        {
+          "choices": [
+            "all",
+            "north",
+            "south"
+          ],
+          "label": "Region",
+          "max": 0,
+          "maxLength": 5,
+          "min": 0,
+          "name": "region",
+          "required": true,
+          "type": "ENUM"
+        },
+        {
+          "choices": [],
+          "label": "Revenue adjustment (%)",
+          "max": 20,
+          "maxLength": 3,
+          "min": -20,
+          "name": "upliftPercent",
+          "required": true,
+          "type": "INTEGER"
+        }
+      ],
+      "kind": "DATA_ANALYTICS",
+      "limitations": "Synthetic data illustrates reproducible processing, not business forecasts.",
+      "modelFormat": null,
+      "modelLicense": null,
+      "modelProvenance": null,
+      "modelSha256": null,
+      "outputSchema": "getlancer-data-ai-result-v1",
+      "recordingUrl": "/data-ai/recordings/revenue-summary.json",
+      "summary": "Aggregate synthetic regional orders by month and compare a bounded revenue adjustment.",
+      "title": "Revenue summary"
+    },
+    {
+      "changedInputs": {
+        "channel": "temperature",
+        "tolerance": "1"
+      },
+      "dataLicense": "MIT",
+      "dataProvenance": "Original synthetic fixture, hand-authored for getLancer, no personal records.",
+      "dataSha256": "b66c21d2e7d0ee93533bfde8b56bcbae06ea1e72397803c5c5e2ed433d59e599",
+      "defaultInputs": {
+        "channel": "all",
+        "tolerance": "3"
+      },
+      "evaluationProtocol": null,
+      "evaluationSha256": null,
+      "evaluationSplit": null,
+      "id": "sensor-quality",
+      "inputs": [
+        {
+          "choices": [
+            "all",
+            "temperature",
+            "vibration"
+          ],
+          "label": "Channel",
+          "max": 0,
+          "maxLength": 11,
+          "min": 0,
+          "name": "channel",
+          "required": true,
+          "type": "ENUM"
+        },
+        {
+          "choices": [],
+          "label": "Tolerance (calibrated units)",
+          "max": 10,
+          "maxLength": 2,
+          "min": 1,
+          "name": "tolerance",
+          "required": true,
+          "type": "INTEGER"
+        }
+      ],
+      "kind": "DATA_ANALYTICS",
+      "limitations": "Synthetic data illustrates reproducible processing, not business forecasts.",
+      "modelFormat": null,
+      "modelLicense": null,
+      "modelProvenance": null,
+      "modelSha256": null,
+      "outputSchema": "getlancer-data-ai-result-v1",
+      "recordingUrl": "/data-ai/recordings/sensor-quality.json",
+      "summary": "Measure synthetic reading acceptance against a calibrated tolerance.",
+      "title": "Sensor quality"
+    },
+    {
+      "changedInputs": {
+        "text": "terrible broken service"
+      },
+      "dataLicense": "MIT",
+      "dataProvenance": "Original synthetic fixture, hand-authored for getLancer, no personal records.",
+      "dataSha256": "c92ee885de9d1667d2f1173d059c8224124028bc00b4a94921859888205896fe",
+      "defaultInputs": {
+        "text": "excellent reliable service"
+      },
+      "evaluationProtocol": "frozen-model-no-training",
+      "evaluationSha256": "b335cd11f7de48de238c97ff5201151f34f85beca37b78d7c30edd776b5f5e73",
+      "evaluationSplit": "held-out-synthetic",
+      "id": "sentiment-inference",
+      "inputs": [
+        {
+          "choices": [],
+          "label": "Synthetic sentiment text",
+          "max": 0,
+          "maxLength": 160,
+          "min": 0,
+          "name": "text",
+          "required": true,
+          "type": "TEXT"
+        }
+      ],
+      "kind": "AI_ML",
+      "limitations": "Eight held-out synthetic samples and illustrative frozen coefficients do not establish real-world accuracy.",
+      "modelFormat": "JSON",
+      "modelLicense": "MIT",
+      "modelProvenance": "Original hand-authored illustrative constants; not trained or fitted.",
+      "modelSha256": "c5f504c7579f9a692d9e687bea8249a406bd15a57d6ceda0c83a5f0a92294391",
+      "outputSchema": "getlancer-data-ai-result-v1",
+      "recordingUrl": "/data-ai/recordings/sentiment-inference.json",
+      "summary": "Run a frozen lexical logistic model and a separate synthetic evaluation split.",
+      "title": "Sentiment inference"
+    },
+    {
+      "changedInputs": {
+        "temperature": "90",
+        "vibration": "16"
+      },
+      "dataLicense": "MIT",
+      "dataProvenance": "Original synthetic fixture, hand-authored for getLancer, no personal records.",
+      "dataSha256": "1597e2a1ecc97e4f2d376cfc3a8f97128ec61b3b836006d11d6978cee20fecc0",
+      "defaultInputs": {
+        "temperature": "35",
+        "vibration": "2"
+      },
+      "evaluationProtocol": "frozen-model-no-training",
+      "evaluationSha256": "b77c2d8e2636e87fe7a5ecd2099835fd3c9878ad54d2630974d0b528a2db7937",
+      "evaluationSplit": "held-out-synthetic",
+      "id": "equipment-inference",
+      "inputs": [
+        {
+          "choices": [],
+          "label": "Temperature (Celsius)",
+          "max": 100,
+          "maxLength": 3,
+          "min": 0,
+          "name": "temperature",
+          "required": true,
+          "type": "INTEGER"
+        },
+        {
+          "choices": [],
+          "label": "Vibration (mm/s)",
+          "max": 20,
+          "maxLength": 2,
+          "min": 0,
+          "name": "vibration",
+          "required": true,
+          "type": "INTEGER"
+        }
+      ],
+      "kind": "AI_ML",
+      "limitations": "Eight held-out synthetic samples and illustrative frozen coefficients do not establish real-world accuracy.",
+      "modelFormat": "JSON",
+      "modelLicense": "MIT",
+      "modelProvenance": "Original hand-authored illustrative constants; not trained or fitted.",
+      "modelSha256": "7529dd9ed5627ce4f62d8c9b924d148d650b812c1aaebe9cfb510a2110a25e30",
+      "outputSchema": "getlancer-data-ai-result-v1",
+      "recordingUrl": "/data-ai/recordings/equipment-inference.json",
+      "summary": "Run a frozen two-feature logistic model with explicit units and held-out evaluation.",
+      "title": "Equipment inference"
+    }
+  ],
+  "schemaVersion": "getlancer-data-ai-catalogue-v1"
+}

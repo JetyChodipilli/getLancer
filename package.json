@@ -20,12 +20,15 @@
     "labs:docker": "docker compose -f compose.labs-local.yaml run --rm --build lab-checks",
     "doctor:local": "node scripts/doctor-local.mjs",
     "services:local": "docker compose -f compose.local-services.yaml up -d",
-    "predev:local": "node --experimental-strip-types scripts/build-lab-material.mjs",
+    "predev:local": "node --experimental-strip-types scripts/build-lab-material.mjs && node scripts/build-data-ai-material.mjs",
     "dev:local": "node scripts/dev-local.mjs",
     "backend:local": "node scripts/dev-local.mjs backend",
     "test:local-tools": "node --test tests/local-tools.test.mjs",
     "education:build": "python3 scripts/build-education-material.py",
-    "education:verify": "node --test tests/college-seed-packages.test.mjs"
+    "education:verify": "node --test tests/college-seed-packages.test.mjs",
+    "data-ai:build": "node scripts/build-data-ai-material.mjs",
+    "data-ai:verify": "node scripts/verify-data-ai.mjs",
+    "data-ai:material": "node scripts/build-data-ai-material.mjs --verify"
   },
   "dependencies": {
     "class-variance-authority": "0.7.1",

@@ -11,11 +11,18 @@ import java.util.UUID;
 /** Operator-signed immutable manifest. Infrastructure fields never enter the public projection. */
 public record LabManifest(String id,UUID componentId,long revision,String sourceSha256,String imageDigest,
     String archiveSha256,String manifestSha256,String buildSourceSha256,String protocolVersion,String title,String summary,String language,String framework,String setup,
-    int memoryMiB,long maxCostMicros,Instant approvedUntil,String evidenceSha256,List<Scenario> scenarios) {
+    int memoryMiB,long maxCostMicros,Instant approvedUntil,String evidenceSha256,List<Scenario> scenarios,String resourceClass) {
+  /** Historical operator manifests remain GENERAL unless their curated identities require V5.0 policy. */
+  public LabManifest(String id,UUID componentId,long revision,String sourceSha256,String imageDigest,
+      String archiveSha256,String manifestSha256,String buildSourceSha256,String protocolVersion,String title,String summary,String language,String framework,String setup,
+      int memoryMiB,long maxCostMicros,Instant approvedUntil,String evidenceSha256,List<Scenario> scenarios){
+    this(id,componentId,revision,sourceSha256,imageDigest,archiveSha256,manifestSha256,buildSourceSha256,protocolVersion,title,summary,language,framework,setup,memoryMiB,maxCostMicros,approvedUntil,evidenceSha256,scenarios,null);
+  }
   public record Input(String name,String label,String type,boolean required,int maxLength,long min,long max,List<String> choices) {public Input {choices=choices==null?null:List.copyOf(choices);}}
   public record Operation(String id,String label) {}
   public record Scenario(String id,String title,String description,List<Input> inputs,List<Operation> operations) {public Scenario {inputs=inputs==null?null:List.copyOf(inputs);operations=operations==null?null:List.copyOf(operations);}}
   public LabManifest {
+    if(resourceClass!=null&&!Set.of("GENERAL","DATA_ANALYTICS","AI_ML").contains(resourceClass))throw invalid();
     if(id==null||!id.matches("[a-z0-9][a-z0-9-]{0,79}")||componentId==null||revision<1
         ||sourceSha256==null||!sourceSha256.matches("[a-f0-9]{64}")||imageDigest==null||!imageDigest.matches("sha256:[a-f0-9]{64}")
         ||archiveSha256==null||!archiveSha256.matches("[a-f0-9]{64}")||manifestSha256==null||!manifestSha256.matches("[a-f0-9]{64}")

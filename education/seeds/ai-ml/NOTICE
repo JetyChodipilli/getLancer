@@ -1,1 +1,1 @@
-Original getLancer educational sample, 2026. No third-party source, datasets, models or hardware assets are bundled. MIT LICENSE applies to the code and synthetic data.
+Original getLancer educational sample, 2026. No third-party source, datasets, models or hardware assets are bundled. MIT LICENSE applies separately to original code and synthetic data; MODEL_LICENSE covers the original frozen JSON model. Two held-out synthetic evaluation examples do not establish real-world accuracy. No uploaded source is executed by the platform.

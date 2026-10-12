@@ -1,0 +1,11 @@
+{
+  "changed": {
+    "temperature": "90",
+    "vibration": "16"
+  },
+  "default": {
+    "temperature": "35",
+    "vibration": "2"
+  },
+  "synthetic": true
+}

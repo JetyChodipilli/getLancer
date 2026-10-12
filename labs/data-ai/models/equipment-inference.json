@@ -1,0 +1,14 @@
+{
+  "bias": -5,
+  "classes": [
+    "normal",
+    "attention"
+  ],
+  "format": "getlancer-linear-json-v1",
+  "id": "equipment-inference",
+  "provenance": "Original hand-authored illustrative constants; not trained or fitted.",
+  "weights": {
+    "temperature": 0.06,
+    "vibration": 0.25
+  }
+}

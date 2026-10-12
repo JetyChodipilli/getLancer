@@ -36,6 +36,14 @@ public final class EducationRequests {
   public record ComponentLink(@NotNull UUID componentId,
       @NotNull @JsonDeserialize(using=WholeNumber.class) @Min(1) Long revision,
       @NotBlank @Size(max=200) String license,@NotBlank @Size(min=3,max=1000) String attribution) {}
+  /** Optional draft disclosure; publication checks completeness and separate distribution rights. */
+  public record DataAiEvidence(@Size(max=4000) String codeLicense,@Size(max=4000) String dataLicense,
+      @Size(max=4000) String dataProvenance,@Pattern(regexp="|[a-f0-9]{64}") String dataSha256,
+      @Size(max=4000) String modelLicense,@Size(max=4000) String modelProvenance,
+      @Pattern(regexp="|[a-f0-9]{64}") String modelSha256,@Pattern(regexp="|JSON") String modelFormat,
+      @Size(max=4000) String evaluationSplit,@Size(max=4000) String evaluationProtocol,
+      @Size(max=4000) String outputSchema,@Size(max=4000) String limitations,
+      Boolean redistributionAllowed,Boolean syntheticData,Boolean noRemoteCode) {}
   public record Draft(@JsonDeserialize(using=WholeNumber.class) @Min(1) Long revision,
       @Pattern(regexp="|FULL_STACK|DATA_ANALYTICS|AI_ML|IOT") String category,
       @NotBlank @Pattern(regexp="SHOWCASE|FREE|PAID") String mode,
@@ -43,7 +51,7 @@ public final class EducationRequests {
       @Pattern(regexp="|SOURCE_ONLY|EXTERNAL|HOSTED") String demoMode,
       @Size(max=1000) String demoUrl,@JsonProperty("package") @Valid PackageDetails packageDetails,
       @Valid CategoryEvidence categoryEvidence,@Size(max=20) List<@Valid ComponentLink> componentLinks,
-      UUID versionId,Boolean rightsConsent) {}
+      UUID versionId,Boolean rightsConsent,@Valid DataAiEvidence dataAiEvidence) {}
   public record Submit(@NotNull @JsonDeserialize(using=WholeNumber.class) @Min(1) Long revision,
       Boolean rightsConsent) {}
   public record Review(@NotNull @JsonDeserialize(using=WholeNumber.class) @Min(1) Long revision,
