@@ -10,6 +10,13 @@ const material=id=>index.items.find(item=>item.id===id);
 async function reject(id,mutate){const value=copy(id);await mutate(value);await assert.rejects(parseDataAiRecording(value,index,material(id)));}
 async function rehash(run){run.resultSha256=await dataAiHash(run.result);}
 
+test('recorded durations require the same integer millisecond budget as actual execution',async()=>{
+ const value=copy('revenue-summary'),start=Date.parse(value.runs[0].startedAt);
+ value.runs[0].elapsedMs=1000;value.runs[1].startedAt=new Date(start+2000).toISOString();value.recordedAt=new Date(start+4000).toISOString();
+ const now=start+5000;await parseDataAiRecording(value,index,material('revenue-summary'),now);
+ for(const elapsedMs of [0.5,1001,1500]){const bad=structuredClone(value);bad.runs[0].elapsedMs=elapsedMs;await assert.rejects(parseDataAiRecording(bad,index,material('revenue-summary'),now));}
+});
+
 test('all four actual source recordings retain their LOCAL identities and distinct default/changed results',async()=>{for(const item of index.items){const actual=await parseDataAiRecording(recordings[item.id],index,item);assert.equal(actual.mode,'REPLAY');assert.equal(actual.runs.length,2);assert.equal(actual.runs[0].mode,'LOCAL');assert.deepEqual(actual.runs[0].input,item.defaultInputs);assert.deepEqual(actual.runs[1].input,item.changedInputs);assert.notEqual(actual.runs[0].inputSha256,actual.runs[1].inputSha256);assert.notEqual(actual.runs[0].resultSha256,actual.runs[1].resultSha256);assert.ok(actual.runs.every(run=>Buffer.byteLength(JSON.stringify(run))<=DATA_AI_RESULT_LIMIT));}});
 test('canonical result hashes match Node SHA-256 over recursively sorted bounded numbers',async()=>{const value={z:[.000003,1.0,{b:12,a:.123456}],a:'synthetic'};assert.equal(canonicalDataAiJson(value),'\u007b"a":"synthetic","z":[0.000003,1,{"a":0.123456,"b":12}]\u007d');assert.equal(await dataAiHash(value),createHash('sha256').update(canonicalDataAiJson(value)).digest('hex'));assert.throws(()=>canonicalDataAiJson({a:Infinity}));});
 test('index rejects private fields, stale artifacts, repeated scenarios and nonlocal recording URLs',()=>{for(const mutate of [value=>value.privateEmail='private@example.org',value=>value.sourceSha256='a'.repeat(64),value=>value.archiveSha256='a'.repeat(64),value=>value.items[0].dataSha256='a'.repeat(64),value=>value.items[1]=value.items[0],value=>value.items[0].recordingUrl='https://example.org/evidence.json',value=>value.items[2].modelFormat='pickle',value=>value.items[0].inputs[0].choices.push('foreign'),value=>value.items[0].inputs[1].max+=.0000001]){const value=JSON.parse(indexText);mutate(value);assert.throws(()=>parseDataAiIndex(value));}});

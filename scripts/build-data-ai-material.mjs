@@ -1,7 +1,8 @@
 /** Fixed free source inventory; deterministic tar/gzip, actual execution before publication. */
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {readFile,writeFile,mkdir,lstat} from 'node:fs/promises';
+import {readFile,writeFile,mkdir,lstat,open} from 'node:fs/promises';
+import {constants} from 'node:fs';
 import {gzipSync,gunzipSync} from 'node:zlib';
 import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -40,10 +41,20 @@ export function validateCatalogue(catalogue){
  }
  return catalogue;
 }
+export async function readSourceFile(path){
+ const file=await open(path,constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);
+ try{
+  const stat=await file.stat();assert(stat.isFile()&&stat.size<=65536,'Unsafe source file');
+  if(!constants.O_NOFOLLOW){const named=await lstat(path);assert(named.isFile()&&named.dev===stat.dev&&named.ino===stat.ino,'Unsafe source file');}
+  const bytes=Buffer.alloc(65537);let size=0;
+  while(size<bytes.length){const {bytesRead}=await file.read(bytes,size,bytes.length-size,size);if(!bytesRead)break;size+=bytesRead;}
+  assert(size<=65536,'Unsafe source file');return bytes.subarray(0,size);
+ }finally{await file.close();}
+}
 export async function sourceFiles(){
- const catalogue=validateCatalogue(parseStrictJson(await readFile(join(base,'catalogue.json'),'utf8')));assert.deepEqual(catalogue.inventory,inventory,'Fixed inventory changed');
  for(const path of [base,join(base,'fixtures'),join(base,'models')])assert(!(await lstat(path)).isSymbolicLink(),'Unsafe source directory');
- const files=[];for(const name of inventory){const path=join(base,name),stat=await lstat(path);assert(stat.isFile()&&!stat.isSymbolicLink()&&stat.size<=65536,'Unsafe source file');files.push([name,await readFile(path)]);}return {catalogue,files};
+ const files=[];for(const name of inventory)files.push([name,await readSourceFile(join(base,name))]);
+ const catalogue=validateCatalogue(parseStrictJson(files.find(([name])=>name==='catalogue.json')[1].toString('utf8')));assert.deepEqual(catalogue.inventory,inventory,'Fixed inventory changed');return {catalogue,files};
 }
 export function archiveFor(files){
  const chunks=[];for(const [name,bytes] of files){assert(/^[A-Za-z0-9_./-]{1,99}$/.test(name)&&!name.startsWith('/')&&!name.split('/').includes('..'),'Unsafe archive name');const h=Buffer.alloc(512);h.write(name,0,100);h.write('0000644\0',100);h.write('0000000\0',108);h.write('0000000\0',116);h.write(bytes.length.toString(8).padStart(11,'0')+'\0',124);h.write('00000000000\0',136);h.fill(32,148,156);h[156]=48;h.write('ustar\0',257);h.write('00',263);let sum=0;for(const byte of h)sum+=byte;h.write(sum.toString(8).padStart(6,'0')+'\0 ',148);chunks.push(h,bytes,Buffer.alloc((512-bytes.length%512)%512));}return gzipSync(Buffer.concat([...chunks,Buffer.alloc(1024)]),{level:9});
@@ -57,10 +68,11 @@ export async function buildMaterial(verify=false){
  const {verifyRuntime,validateRecording}=await import('./verify-data-ai.mjs');
  // All execution, independent oracle, hostile parser and clean reproduction checks finish before any write.
  const checked=await verifyRuntime({requireRecordings:verify,validateStored:verify}),{catalogue,files}=await sourceFiles(),archive=archiveFor(files);unpackArchive(archive,files);const sourceSha256=sha(files.find(([n])=>n==='runtime.py')[1]),archiveSha256=sha(archive);
+ assert.equal(sourceSha256,checked.sourceSha256,'Source changed during verification');assert.equal(archiveSha256,checked.archiveSha256,'Source archive changed during verification');
  const manifest=Buffer.from(JSON.stringify({schemaVersion:'getlancer-data-ai-build-manifest-v1',sourceSha256,archiveSha256},null,2)+'\n');
  const index={schemaVersion:'getlancer-data-ai-index-v1',sourceSha256,archiveSha256,sourceUrl:'/data-ai/source.tar.gz',setup,items:catalogue.items};
  const outputs=[['source.tar.gz',archive],['material-index.json',Buffer.from(JSON.stringify(index,null,2)+'\n')],...files.filter(([name])=>['License.md','DATA_LICENSE.md','MODEL_LICENSE.md'].includes(name))];
- for(const {item,recording} of checked.recordings){let bytes;if(verify){bytes=await readFile(join(base,'recordings',item.id+'.json'));validateRecording(parseStrictJson(bytes.toString('utf8')),item,sourceSha256,catalogue.contracts[item.id]);}else bytes=Buffer.from(JSON.stringify(recording,null,2)+'\n');outputs.push(['recordings/'+item.id+'.json',bytes]);}
+ for(const {item,recording} of checked.recordings){let bytes;if(verify)bytes=await readFile(join(base,'recordings',item.id+'.json'));else bytes=Buffer.from(JSON.stringify(recording,null,2)+'\n');validateRecording(parseStrictJson(bytes.toString('utf8')),item,sourceSha256,catalogue.contracts[item.id]);outputs.push(['recordings/'+item.id+'.json',bytes]);}
  for(const [name,bytes] of outputs){const path=join(publicBase,name);if(verify)assert((await readFile(path)).equals(bytes),'Material drift: '+name);else{await mkdir(dirname(path),{recursive:true});await writeFile(path,bytes);}}
  if(verify)assert((await readFile(join(base,'evidence-manifest.json'))).equals(manifest),'Build-pinned evidence manifest drift');else await writeFile(join(base,'evidence-manifest.json'),manifest);
  if(!verify){await mkdir(join(base,'recordings'),{recursive:true});for(const [name,bytes] of outputs.filter(([n])=>n.startsWith('recordings/')))await writeFile(join(base,name),bytes);}

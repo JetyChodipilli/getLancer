@@ -1,12 +1,13 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {readFile,mkdtemp,cp,writeFile,rm,symlink,mkdir} from 'node:fs/promises';
+import {readFile,mkdtemp,cp,writeFile,rm,symlink,mkdir,lstat,open,rename} from 'node:fs/promises';
 import {spawnSync} from 'node:child_process';
 import {connect} from 'node:net';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {pathToFileURL} from 'node:url';
 import {randomUUID} from 'node:crypto';
-import {parseStrictJson,validateCatalogue,sourceFiles,archiveFor,unpackArchive,sha,base} from '../scripts/build-data-ai-material.mjs';
+import {parseStrictJson,validateCatalogue,sourceFiles,readSourceFile,archiveFor,unpackArchive,sha,base} from '../scripts/build-data-ai-material.mjs';
 import {canonical,digest,validateEnvelope,validateRecording,validateRecordedResults,startRuntime,send,verifyRuntime} from '../scripts/verify-data-ai.mjs';
 const catalogue=parseStrictJson(await readFile(join(base,'catalogue.json'),'utf8'));
 const sourceSha256=sha(await readFile(join(base,'runtime.py')));
@@ -33,6 +34,44 @@ test('catalogue accepts originals and rejects private/executable/unbounded metad
 
 test('free fourteen-file archive is deterministic; foreign names, omissions and corruption deny',async()=>{
  const {files}=await sourceFiles(),archive=archiveFor(files);assert(archive.equals(archiveFor(files)));assert.equal(unpackArchive(archive,files).size,14);for(const name of ['../env','/etc/passwd','fixtures/../../env'])assert.throws(()=>archiveFor([[name,Buffer.from('secret')]]));assert.throws(()=>unpackArchive(archiveFor(files.slice(1)),files));const corrupt=Buffer.from(archive);corrupt[Math.floor(corrupt.length/2)]^=64;assert.throws(()=>unpackArchive(corrupt,files));
+});
+
+test('source packaging reads only the opened regular file and rejects links, oversized files and FIFOs',async t=>{
+ const directory=await mkdtemp(join(tmpdir(),'getlancer-source-read-'));t.after(()=>rm(directory,{recursive:true,force:true}));
+ const file=join(directory,'source.json'),bytes=Buffer.alloc(65536,65);await writeFile(file,bytes);assert((await readSourceFile(file)).equals(bytes));
+ await writeFile(file,Buffer.alloc(65537));await assert.rejects(()=>readSourceFile(file),/Unsafe source file/);await assert.rejects(()=>readSourceFile(directory));
+ if(process.platform!=='win32'){
+  const link=join(directory,'link.json');await symlink(file,link);await assert.rejects(()=>readSourceFile(link),{code:'ELOOP'});
+  const fifo=join(directory,'fifo.json');assert.equal(spawnSync('mkfifo',[fifo]).status,0);await assert.rejects(()=>readSourceFile(fifo),/Unsafe source file/);
+ }
+});
+
+test('a path replaced after opening cannot redirect packaged source bytes', {skip:process.platform==='win32'},async t=>{
+ const directory=await mkdtemp(join(tmpdir(),'getlancer-source-swap-'));t.after(()=>rm(directory,{recursive:true,force:true}));
+ const path=join(directory,'source.json'),foreign=join(directory,'foreign.json');await writeFile(path,'original');await writeFile(foreign,'foreign');
+ const probe=await open(path),prototype=Object.getPrototypeOf(probe),read=prototype.read;await probe.close();let swapped=false;
+ const mock=t.mock.method(prototype,'read',async function(...args){if(!swapped){swapped=true;await rename(path,join(directory,'opened.json'));await symlink(foreign,path);}return read.apply(this,args);});
+ try{assert.equal((await readSourceFile(path)).toString(),'original');assert(swapped);}finally{mock.mock.restore();}
+ await assert.rejects(()=>readSourceFile(path),{code:'ELOOP'});
+});
+
+test('source growth after descriptor validation stays inside the actual byte budget',async t=>{
+ const directory=await mkdtemp(join(tmpdir(),'getlancer-source-growth-'));t.after(()=>rm(directory,{recursive:true,force:true}));const path=join(directory,'source.json');await writeFile(path,'original');
+ const probe=await open(path),prototype=Object.getPrototypeOf(probe),stat=prototype.stat;await probe.close();
+ const mock=t.mock.method(prototype,'stat',async function(...args){const checked=await stat.apply(this,args);await writeFile(path,Buffer.alloc(65537));return checked;});
+ try{await assert.rejects(()=>readSourceFile(path),/Unsafe source file/);}finally{mock.mock.restore();}
+});
+
+test('source edits during verification reject publication before writing any build artifact',async t=>{
+ const directory=await mkdtemp(join(tmpdir(),'getlancer-source-snapshot-'));t.after(()=>rm(directory,{recursive:true,force:true}));
+ for(const name of ['runtime.py','README.md']){
+  const copy=join(directory,name.replace('.','-'));await cp(base,join(copy,'labs/data-ai'),{recursive:true});await mkdir(join(copy,'scripts'),{recursive:true});
+  await writeFile(join(copy,'scripts/build-data-ai-material.mjs'),await readFile(new URL('../scripts/build-data-ai-material.mjs',import.meta.url)));
+  await writeFile(join(copy,'scripts/verify-data-ai.mjs'),`import {sourceFiles,archiveFor,sha,base} from './build-data-ai-material.mjs';import {appendFile} from 'node:fs/promises';import {join} from 'node:path';export async function verifyRuntime(){const {files}=await sourceFiles();const checked={sourceSha256:sha(files.find(([name])=>name==='runtime.py')[1]),archiveSha256:sha(archiveFor(files)),recordings:[]};await appendFile(join(base,${JSON.stringify(name)}),'\\n# concurrent local edit\\n');return checked;}export function validateRecording(){throw Error('Unexpected recording publication');}`);
+  const {buildMaterial}=await import(pathToFileURL(join(copy,'scripts/build-data-ai-material.mjs')).href);
+  await assert.rejects(()=>buildMaterial(),/Source(?: archive)? changed during verification/);
+  await assert.rejects(()=>lstat(join(copy,'public/data-ai')),{code:'ENOENT'});
+ }
 });
 
 test('changed fixtures, executable format, absolute paths and symlink parents reject startup',async t=>{

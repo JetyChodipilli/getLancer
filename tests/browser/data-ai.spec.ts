@@ -154,7 +154,13 @@ test('private creator drafts preserve partial evidence while new submissions rem
   await page.getByRole('button', {name: 'Save unfinished draft', exact: true}).click(); await expect(page.getByText(/Draft saved\. Unfinished fields/)).toBeVisible();
   expect(saved?.dataAiEvidence).toEqual({codeLicense: 'MI', modelFormat: 'JSON', dataSha256: 'a'.repeat(64)}); expect(saved?.categoryEvidence).not.toHaveProperty('dataAiEvidence');
   await page.getByRole('button', {name: '4. Review', exact: true}).click(); await expect(page.getByRole('button', {name: 'Submit exact revision for review', exact: true})).toBeDisabled();
-  await expect(page.getByText('MI', {exact: true})).toBeVisible(); await reflow(page); await scan(page);
+  await expect(page.getByText('MI', {exact: true})).toBeVisible();
+  await expect(page.getByRole('heading', {name: 'Review', exact: true})).toBeFocused();
+  await expect.poll(() => page.getByRole('navigation', {name: 'Education release steps', exact: true}).evaluate(nav => {
+    const header = document.querySelector('header'), button = nav.querySelector('button');
+    return Boolean(header && button && button.getBoundingClientRect().top >= header.getBoundingClientRect().bottom);
+  })).toBe(true);
+  await reflow(page); await scan(page);
 });
 
 test('new AI submission saves the exact complete structured evidence before freezing a revision', async ({page}, testInfo) => {
