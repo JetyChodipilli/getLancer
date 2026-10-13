@@ -9,10 +9,10 @@ Observed local acceptance on 2026-10-13:
 | Clean source downloads | All six archives extracted into fresh directories and executed independently |
 | Go native regressions | Nine race tests and vet passed; real shutdown/Redis cleanup probe passed |
 | .NET native regressions | Actual ASP.NET execution passed 38 HTTP/resource/concurrency checks; canonical UTC-Z evidence passed |
-| PHP native regressions | Actual CLI process passed 951 checks |
+| PHP native regressions | Actual CLI process passed 977 checks, including strict HTTP response framing |
 | IoT source/runtime | 21 focused tests; direct builder CLI, deterministic verification, real current/extracted MQTT actions and complete cleanup passed |
-| Framework source/runtime | Six focused checks; all three native compilers and clean deterministic reproduction passed; three dependency audits reported zero advisories |
-| Backend local lab tests | Java compilation and 21 lab unit tests passed |
+| Framework source/runtime | Seven focused checks; all three native compilers/linker and clean deterministic reproduction passed; three dependency audits reported zero advisories |
+| Backend lab tests | Local Java compilation and 21 lab unit tests passed; initial PR CI passed all 534 Java/PostgreSQL tests |
 | Node regression suite | 306 tests passed with zero skips, including actual production Worker hash-CSP responses |
 
 The production browser suite exercises changed telemetry, disconnection/recovery,
@@ -40,6 +40,11 @@ framework previews preserve their hash-only CSP rather than app nonce rewriting.
 Negative cases reject linked/oversized package sources and foreign/encoded
 preview destinations. Framework advisory findings in initial pins were patched
 before the checked native builds.
+The initial CI run also required refreshing the source/test inventory for the
+existing three reviewed GET assessments. Their allowlist, proof requirements and
+expiry were retained; no new finding was suppressed. PHP's test client was fixed
+to validate the declared HTTP response frame rather than await TCP EOF after an
+already-complete rejection. Truncated or ambiguous responses still fail.
 
 The requested Codex CLI review was attempted read-only, but its authentication
 failed and the bounded command produced no review verdict. Native leaf reviews,

@@ -21,6 +21,7 @@
     "@angular/compiler": "20.3.33",
     "@angular/compiler-cli": "20.3.33",
     "typescript": "5.9.3",
-    "esbuild": "0.25.12"
+    "esbuild": "0.25.12",
+    "@babel/core": "7.29.7"
   }
 }

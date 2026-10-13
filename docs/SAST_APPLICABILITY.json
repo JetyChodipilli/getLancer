@@ -1,6 +1,6 @@
 {
   "schema": 2,
-  "reviewedAt": "2026-10-12",
+  "reviewedAt": "2026-10-13",
   "expiresAt": "2026-11-05T00:00:00Z",
   "findings": [
     {
@@ -442,8 +442,12 @@
       "sha256": "06e8cf50dc6274062414bb28e23b0664a812205c47840d53095da3ad2357f294"
     },
     {
+      "path": "backend/src/main/java/com/getlancer/labs/LabAdapterPolicy.java",
+      "sha256": "327ac0e534846b50384ef22f4c7c8a440189409d5900fc779c45ff876cc15d91"
+    },
+    {
       "path": "backend/src/main/java/com/getlancer/labs/LabConfiguration.java",
-      "sha256": "0481fe6c50491d3d84e84c7c6cb8fdf35aec33ae1b2c8db59637fb138907f0f0"
+      "sha256": "3945fed1a8f458f891054aba8bbe249ec725bd0cad2a81319e2d90e315ade76c"
     },
     {
       "path": "backend/src/main/java/com/getlancer/labs/LabController.java",
@@ -454,8 +458,12 @@
       "sha256": "6842f2c338b5ea3ace9eca592841379c0ec5c342467140ea1f799f04be814ee4"
     },
     {
+      "path": "backend/src/main/java/com/getlancer/labs/LabIotPolicy.java",
+      "sha256": "2a933ee200d75708cb35970fa3b6d93adf0dff367a7a3966d9b14afcf3957dc3"
+    },
+    {
       "path": "backend/src/main/java/com/getlancer/labs/LabManifest.java",
-      "sha256": "9138f1b4bc105ca1d548f3412f54b2c96451c3ad373f15da0e3aba27d5b201d8"
+      "sha256": "7887d12b446f0234ac33df5a38e1dd69a736f649c902b5ab5277782d65621303"
     },
     {
       "path": "backend/src/main/java/com/getlancer/labs/LabProviderClient.java",
@@ -463,7 +471,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/labs/LabResponses.java",
-      "sha256": "0d0d53931a236a293185c1609d05f689e99549d50244f42d54eafe2bccf126d1"
+      "sha256": "31db51d7d48e51126a9a3d9c72b9fb904decfc0f8078f80d96794d485ef37d43"
     },
     {
       "path": "backend/src/main/java/com/getlancer/labs/LabScheduler.java",
@@ -471,7 +479,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/labs/LabService.java",
-      "sha256": "5fa3ff1372d44115f8b0e8eb3a386313f5b79497bff2eb1332aaea8ae5f08b1a"
+      "sha256": "8c041b5a683b245e16de530a834d93da4325c9e2ac931d7ed5a2ed42a7b72c56"
     },
     {
       "path": "backend/src/main/java/com/getlancer/maintenance/MaintenanceAccess.java",
@@ -735,7 +743,7 @@
     },
     {
       "path": "backend/src/main/resources/application.properties",
-      "sha256": "70f6b2499ef32d3e9e9c04ea423bb8c949f1dab9276a166e93388c291168578f"
+      "sha256": "2fa8f0ceee8f19645463dd9ad8a93d993f9445e95f77dcff8a1fc81d8b2dbd38"
     },
     {
       "path": "backend/src/main/resources/catalog/components.json",
@@ -1009,7 +1017,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java",
-      "sha256": "f26e4bd69aca227771588e1c6379cd6b4974b9ad7108d495cee1de9bf8db8fbd"
+      "sha256": "6d5f27537d7b915b1e1a72fe13266bf314965aab43541f8cd288800628299c40"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/MaintenanceIntegrationTest.java",
@@ -1032,12 +1040,20 @@
       "sha256": "1b9bd9a4207d327582a7d530418003f8872283346044a5b2dcbc3f84a59f1746"
     },
     {
+      "path": "backend/src/test/java/com/getlancer/labs/LabAdapterPolicyTest.java",
+      "sha256": "205dc4b64e0501682ddca729f5de0c0fdd182c548bb0f0b9a9533f6853815cd1"
+    },
+    {
       "path": "backend/src/test/java/com/getlancer/labs/LabDataAiPolicyTest.java",
       "sha256": "b7c7127d14a3cb1c70aa296303cf8e8408fca113b253b9560757edef2143d811"
     },
     {
+      "path": "backend/src/test/java/com/getlancer/labs/LabIotPolicyTest.java",
+      "sha256": "7a7faf27adcf168e711d850bd0ef0cc5691dbd50f82e701ea104720888578c30"
+    },
+    {
       "path": "backend/src/test/java/com/getlancer/labs/LabProtocolFixture.java",
-      "sha256": "0e6286e4d4506e0c1508a012bb5b8cc9934b03872b433e3fdf2922d7e764e5e2"
+      "sha256": "9ee5b9c8b05367e37ff68ce1beecbc29fb595ad2f67e95e5fb10165eb4a47f3d"
     },
     {
       "path": "backend/src/test/java/com/getlancer/labs/LabProtocolTest.java",
@@ -1123,7 +1139,7 @@
   "buildInputs": [
     {
       "path": ".github/workflows/ci.yml",
-      "sha256": "0d57fd4f29a3c09b708ce33e969e1415c23b58a2c05478ebcd9d4cf0ad5cbaf2"
+      "sha256": "1a3de7e3a5bd73df7a1bff9c775384d2684d694f30233e78bcb25328d3ac856e"
     },
     {
       "path": "backend/pom.xml",

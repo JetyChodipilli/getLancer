@@ -33,6 +33,7 @@ COPY --from=php-runtime /out/php-notices/ /usr/share/doc/getlancer-php/
 ENV PATH="/usr/local/go/bin:/usr/share/dotnet:${PATH}" DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1 GOTOOLCHAIN=local
 WORKDIR /source
 COPY labs ./labs
+COPY global.json ./global.json
 COPY lib/iot.ts ./lib/iot.ts
 RUN mkdir -p /source/labs/dotnet/obj /source/labs/dotnet/bin /source/.native-cache && chmod -R a+rwX /source/labs/dotnet /source/.native-cache
 COPY scripts/verify-lab-scenarios.mjs scripts/lab-fixture-ports.mjs scripts/verify-data-ai.mjs scripts/build-data-ai-material.mjs scripts/verify-local-labs.mjs scripts/verify-iot.mjs scripts/build-iot-material.mjs ./scripts/

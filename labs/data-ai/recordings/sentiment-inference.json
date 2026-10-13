@@ -6,11 +6,11 @@
   "dataSha256": "c92ee885de9d1667d2f1173d059c8224124028bc00b4a94921859888205896fe",
   "modelSha256": "c5f504c7579f9a692d9e687bea8249a406bd15a57d6ceda0c83a5f0a92294391",
   "evaluationSha256": "b335cd11f7de48de238c97ff5201151f34f85beca37b78d7c30edd776b5f5e73",
-  "recordedAt": "2026-10-13T05:25:37.876Z",
+  "recordedAt": "2026-10-13T05:36:21.567Z",
   "runs": [
     {
       "dataSha256": "c92ee885de9d1667d2f1173d059c8224124028bc00b4a94921859888205896fe",
-      "elapsedMs": 2,
+      "elapsedMs": 0,
       "evaluationSha256": "b335cd11f7de48de238c97ff5201151f34f85beca37b78d7c30edd776b5f5e73",
       "input": {
         "text": "excellent reliable service"
@@ -77,11 +77,11 @@
         ]
       },
       "resultSha256": "79c086ec93185e926b060dcfa1e41cbefd86069e089d6786012d79e9797698bf",
-      "runId": "4994a182-06e7-4db6-aa6c-62d2ffd3e852",
+      "runId": "daa2aaa2-94ec-4291-a645-2f44170a7a22",
       "scenarioId": "sentiment-inference",
       "schemaVersion": "getlancer-data-ai-result-v1",
       "sourceSha256": "e2e8512dfe9133a0e5d6e3ff8dcae2662cdd624a6c97b455c189bf3f4d3910f4",
-      "startedAt": "2026-10-13T05:25:37.849Z"
+      "startedAt": "2026-10-13T05:36:21.541Z"
     },
     {
       "dataSha256": "c92ee885de9d1667d2f1173d059c8224124028bc00b4a94921859888205896fe",
@@ -152,11 +152,11 @@
         ]
       },
       "resultSha256": "1c3f105a153581e0ad544f08c2892e987da06579a7fa5753537cb4b1e1eedd38",
-      "runId": "4994a182-06e7-4db6-aa6c-62d2ffd3e852",
+      "runId": "daa2aaa2-94ec-4291-a645-2f44170a7a22",
       "scenarioId": "sentiment-inference",
       "schemaVersion": "getlancer-data-ai-result-v1",
       "sourceSha256": "e2e8512dfe9133a0e5d6e3ff8dcae2662cdd624a6c97b455c189bf3f4d3910f4",
-      "startedAt": "2026-10-13T05:25:37.866Z"
+      "startedAt": "2026-10-13T05:36:21.560Z"
     }
   ]
 }

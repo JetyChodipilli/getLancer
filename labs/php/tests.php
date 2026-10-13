@@ -59,11 +59,29 @@ function fixturePort(): int
     return (int) substr($address, strrpos($address, ':') + 1);
 }
 
-function rawRequest(int $port, string $wire, bool $halfClose = false): array
+function responseFrameLength(string $reply): ?int
 {
+    $split = strpos($reply, "\r\n\r\n");
+    if ($split === false) {
+        return null;
+    }
+    $headers = substr($reply, 0, $split);
+    if (preg_match_all('/(?:\A|\r\n)Content-Length:/i', $headers) !== 1 ||
+        preg_match_all('/(?:\A|\r\n)Content-Length:[ \t]*([0-9]{1,5})[ \t]*(?=\r\n|\z)/i', $headers, $lengths) !== 1 ||
+        preg_match('/(?:\A|\r\n)Transfer-Encoding:/i', $headers) === 1 || (int) $lengths[1][0] > RESPONSE_LIMIT) {
+        throw new RuntimeException('Native HTTP response framing is invalid.');
+    }
+    return $split + 4 + (int) $lengths[1][0];
+}
+
+function rawRequest(int $port, string $wire, bool $halfClose = false, string $case = ''): array
+{
+    static $requestNumber = 0;
+    ++$requestNumber;
+    $case = $case === '' ? 'request-' . $requestNumber : $case;
     $socket = stream_socket_client('tcp://127.0.0.1:' . $port, $error, $message, 1.0);
     if ($socket === false) {
-        throw new RuntimeException('Native HTTP fixture unavailable.');
+        throw new RuntimeException('Native HTTP fixture unavailable: case=' . $case);
     }
     stream_set_blocking($socket, false);
     $started = monotonicSeconds();
@@ -73,23 +91,40 @@ function rawRequest(int $port, string $wire, bool $halfClose = false): array
             stream_socket_shutdown($socket, STREAM_SHUT_WR);
         }
         $reply = '';
-        while (!feof($socket)) {
+        $expectedBytes = null;
+        while (true) {
             socketReady($socket, $started + 3.0, false);
-            $chunk = fread($socket, 4096);
-            if ($chunk === false) {
+            $chunk = @fread($socket, 4096);
+            if ($chunk === false || $chunk === '') {
                 throw new RuntimeException('Native HTTP response incomplete.');
             }
             $reply .= $chunk;
             if (strlen($reply) > 8192) {
                 throw new RuntimeException('Native HTTP response exceeded its test bound.');
             }
+            $expectedBytes ??= responseFrameLength($reply);
+            if ($expectedBytes !== null) {
+                if (strlen($reply) > $expectedBytes) {
+                    throw new RuntimeException('Native HTTP response contains bytes outside its declared frame.');
+                }
+                // HTTP completion is its exact Content-Length, not a subsequent TCP EOF.
+                // A rejecting server can reset a socket with unread oversized input after
+                // it has already delivered the complete denial frame.
+                if (strlen($reply) === $expectedBytes) {
+                    break;
+                }
+            }
         }
+    } catch (Throwable $error) {
+        throw new RuntimeException($error->getMessage() . ' case=' . $case . ' received=' . strlen($reply ?? '') .
+            ' expected=' . ($expectedBytes ?? 'headers') . ' elapsedMs=' . (int) ((monotonicSeconds() - $started) * 1000), 0, $error);
     } finally {
         fclose($socket);
     }
     check(preg_match('/\AHTTP\/1\.1 ([0-9]{3}) /', $reply, $match) === 1, 'real HTTP response');
     $split = strpos($reply, "\r\n\r\n");
     check($split !== false, 'real HTTP header completion');
+    check(strlen($reply) === $expectedBytes, 'exact complete HTTP response frame');
     $json = substr($reply, $split + 4);
     check(strlen($json) <= RESPONSE_LIMIT, 'HTTP projection byte limit');
     check(str_contains(substr($reply, 0, $split), 'Connection: close'), 'no retained HTTP connection');
@@ -154,6 +189,19 @@ function stopFixture(array $handle): void
 
 try {
     check(parseForm('identity=other-tenant&empty=&text=hello+world')['text'] === 'hello world', 'form decoding');
+    $completeFrame = "HTTP/1.1 400 Bad Request\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}";
+    check(responseFrameLength($completeFrame) === strlen($completeFrame), 'complete denial uses declared byte length');
+    check(responseFrameLength(substr($completeFrame, 0, -1)) > strlen(substr($completeFrame, 0, -1)), 'truncated denial still requires its missing byte');
+    check(responseFrameLength("HTTP/1.1 200 OK\r\nContent-Len") === null, 'partial response headers cannot complete');
+    foreach (["Content-Length: 2\r\nContent-Length: 2", "Content-Length: 2\r\nContent-Length: invalid", "Content-Length: 2\r\nTransfer-Encoding: chunked"] as $headers) {
+        $rejected = false;
+        try {
+            responseFrameLength("HTTP/1.1 400 Bad Request\r\n" . $headers . "\r\n\r\n{}");
+        } catch (RuntimeException $error) {
+            $rejected = true;
+        }
+        check($rejected, 'ambiguous response framing cannot complete');
+    }
     foreach (['', 'x', '=x', 'x=1&x=2', 'x=1&%78=2', 'x=%FF', 'x=%Q0', 'x=%', 'x=%C0%AF', "x=\xff", 'x=1&'] as $raw) {
         expectProtocol(fn() => parseForm($raw), 400);
     }
@@ -199,26 +247,26 @@ try {
     $port = fixturePort();
     $handle = launchFixture($port, $runId);
     try {
-        [$status, $health] = rawRequest($port, "GET /health HTTP/1.1\r\nHost: 127.0.0.1:" . $port . "\r\n\r\n");
+        [$status, $health] = rawRequest($port, "GET /health HTTP/1.1\r\nHost: 127.0.0.1:" . $port . "\r\n\r\n", false, 'health');
         check($status === 200 && $health === ['mode' => 'Local execution', 'language' => 'php', 'runId' => $runId, 'sourceHash' => hash_file('sha256', __DIR__ . '/server.php')], 'actual native health identity');
         $encoded = http_build_query($base, '', '&', PHP_QUERY_RFC3986);
-        foreach ([[$encoded . '&identity=viewer', 400, '/request', 'POST', ''], [$encoded . '&x=%FF', 400, '/request', 'POST', ''],
-            [$encoded, 400, '/request?target=other', 'POST', ''], [$encoded, 404, '/elsewhere', 'POST', ''],
-            [$encoded, 405, '/request', 'PUT', ''], [$encoded, 400, '/request', 'POST', "Content-Length: 1\r\n"],
-            [$encoded, 400, '/request', 'POST', "Transfer-Encoding: chunked\r\n"], [$encoded, 415, '/request', 'POST', "Content-Type: application/json\r\n"],
-            ['x=' . str_repeat('x', BODY_LIMIT + 1), 413, '/request', 'POST', '']] as [$body, $expected, $path, $method, $additional]) {
-            [$status, $denied] = rawRequest($port, httpWire($port, $body, $path, $method, $additional));
-            check($status === $expected && isset($denied['error']) && !isset($denied['events']), 'HTTP denial has no fabricated events');
+        foreach ([[$encoded . '&identity=viewer', 400, '/request', 'POST', '', 'duplicate-identity'], [$encoded . '&x=%FF', 400, '/request', 'POST', '', 'invalid-utf8'],
+            [$encoded, 400, '/request?target=other', 'POST', '', 'query'], [$encoded, 404, '/elsewhere', 'POST', '', 'unknown-path'],
+            [$encoded, 405, '/request', 'PUT', '', 'method'], [$encoded, 400, '/request', 'POST', "Content-Length: 1\r\n", 'duplicate-length'],
+            [$encoded, 400, '/request', 'POST', "Transfer-Encoding: chunked\r\n", 'transfer-encoding'], [$encoded, 415, '/request', 'POST', "Content-Type: application/json\r\n", 'duplicate-content-type'],
+            ['x=' . str_repeat('x', BODY_LIMIT + 1), 413, '/request', 'POST', '', 'oversized-body']] as [$body, $expected, $path, $method, $additional, $case]) {
+            [$status, $denied] = rawRequest($port, httpWire($port, $body, $path, $method, $additional), false, $case);
+            check($status === $expected && isset($denied['error']) && !isset($denied['events']), 'HTTP denial has no fabricated events: ' . $case);
         }
-        [$status] = rawRequest($port, "POST /request HTTP/1.1\r\nHost: 127.0.0.1:" . $port . "\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: 100\r\n\r\n", true);
+        [$status] = rawRequest($port, "POST /request HTTP/1.1\r\nHost: 127.0.0.1:" . $port . "\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: 100\r\n\r\n", true, 'half-closed-body');
         check($status === 400, 'incomplete body rejected before effects');
-        [$status, , $elapsed] = rawRequest($port, "POST /request HTTP/1.1\r\nHost: 127.0.0.1:" . $port . "\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: 100\r\n\r\n");
+        [$status, , $elapsed] = rawRequest($port, "POST /request HTTP/1.1\r\nHost: 127.0.0.1:" . $port . "\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: 100\r\n\r\n", false, 'stalled-body-deadline');
         check($status === 408 && $elapsed >= 0.8 && $elapsed < 2.0, 'stalled actual HTTP socket expires');
-        [$status] = rawRequest($port, httpWire($port, $encoded) . 'extra');
+        [$status] = rawRequest($port, httpWire($port, $encoded) . 'extra', false, 'extra-body-bytes');
         check($status === 400, 'extra/pipelined bytes rejected');
-        [$status] = rawRequest($port, "GET /health HTTP/1.1\r\nHost: foreign.example\r\n\r\n");
+        [$status] = rawRequest($port, "GET /health HTTP/1.1\r\nHost: foreign.example\r\n\r\n", false, 'foreign-host');
         check($status === 400, 'foreign host rejected');
-        [$status] = rawRequest($port, "GET /health HTTP/1.1\r\nHost: 127.0.0.1:" . $port . "\r\nX-Padding: " . str_repeat('x', HEADER_LIMIT) . "\r\n\r\n");
+        [$status] = rawRequest($port, "GET /health HTTP/1.1\r\nHost: 127.0.0.1:" . $port . "\r\nX-Padding: " . str_repeat('x', HEADER_LIMIT) . "\r\n\r\n", false, 'oversized-headers');
         check($status === 431, 'oversized actual headers rejected');
         [$status, $allowed] = rawRequest($port, httpWire($port, $encoded));
         check($status === 200 && $allowed['state']['decision'] === 'ALLOW', 'HTTP parser rejections did not mutate role');

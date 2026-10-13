@@ -10,6 +10,9 @@ Node 22.13+ and npm are required. From this extracted directory:
 
 Open `dist/native.js` only through an HTTP page that mounts it; the application builder wraps the reviewed bundle in a self-contained document. A local HTTP server can mount `<div id="app"></div>` (Angular uses `<native-preview></native-preview>`), load `dist/native.css`, then `<script type="module" src="./dist/native.js"></script>`. Native framework compilation occurs during the trusted CI job, never on user upload or page request. The parent script rebuilds and checks deterministic preview and source checksums.
 
+## Native Angular build
+The reviewed build runs `ngc` AOT for the component, then the official `@angular/compiler-cli/linker/babel` plugin through exact-pinned Babel to finish compilation of Angular’s partial-Ivy libraries before bundling. Linker JIT mode is disabled; no compiler is shipped in the iframe and no unsafe-eval policy is required.
+
 ## Rights and dependency costs
 `LICENSE` applies to this original component and build script. Frameworks, compiler, TypeScript, esbuild and their transitive libraries retain their own licenses; see `THIRD_PARTY_NOTICES.md`, `THIRD_PARTY_LICENSES.md` and the exact versions/integrity in `package-lock.json`. npm installation downloads those dependencies; no remote runtime CDN is used. Node/npm installation, internet bandwidth and your local computer costs are excluded. Sources are free; no subscription or paid service is required.
 

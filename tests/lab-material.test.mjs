@@ -9,7 +9,7 @@ test('stale source archive fails with a bounded diagnostic instead of expanding 
   const dir = mkdtempSync(join(tmpdir(), 'getlancer-material-'));
   t.after(() => rmSync(dir, {recursive: true, force: true}));
   cpSync(new URL('../labs', import.meta.url), join(dir, 'labs'), {recursive: true});
-  for (const file of ['scripts/build-lab-material.mjs', 'scripts/verify-lab-scenarios.mjs', 'scripts/lab-fixture-ports.mjs', 'lib/scenario-evidence.ts', 'docs/v48/CONTRACT.md', 'docs/v48/License.md']) {
+  for (const file of ['global.json','scripts/build-lab-material.mjs', 'scripts/verify-lab-scenarios.mjs', 'scripts/lab-fixture-ports.mjs', 'lib/scenario-evidence.ts', 'docs/v48/CONTRACT.md', 'docs/v48/License.md']) {
     mkdirSync(dirname(join(dir, file)), {recursive: true});
     copyFileSync(new URL('../' + file, import.meta.url), join(dir, file));
   }

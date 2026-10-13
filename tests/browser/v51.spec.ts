@@ -35,7 +35,7 @@ test('IoT invalid input has linked inline errors and a foreign topic cannot modi
 test('IoT independently opened pages use unique topics and bounded message histories',async({page,context})=>{
  await iot(page);const sibling=await context.newPage();try{await iot(sibling);expect(await sibling.getByTestId('iot-run-id').innerText()).not.toBe(await page.getByTestId('iot-run-id').innerText());await readings(sibling,'50');await expect(page.getByTestId('iot-sequence')).toHaveText('0');await expect(page.getByTestId('iot-actuator')).toHaveText('OFF');}finally{await sibling.close();}
  await readings(page,'24.1234567');await expect(page.getByRole('alert')).toContainText(/six decimal places/);await expect(page.getByTestId('iot-sequence')).toHaveText('0');
- for(let position=0;position<21;position++)await readings(page,String(position));await expect(page.locator('.iot-message-list>li')).toHaveCount(20);await expect(page.locator('.iot-event-list>li')).toHaveCount(20);await expect(page.getByTestId('iot-sequence')).toHaveText('21');await reflow(page);
+ for(let position=0;position<21;position++)await readings(page,String(position));await expect(page.locator('.iot-message-list>li')).toHaveCount(20);await expect(page.getByRole('list',{name:'Published messages',exact:true})).toHaveAttribute('tabindex','0');await expect(page.getByRole('list',{name:'Session events',exact:true})).toHaveAttribute('tabindex','0');await expect(page.locator('.iot-event-list>li')).toHaveCount(20);await expect(page.getByTestId('iot-sequence')).toHaveText('21');await reflow(page);
 });
 
 test('all three real native runtimes execute their distinct original controls under actual hash CSP',async({page,request},info)=>{

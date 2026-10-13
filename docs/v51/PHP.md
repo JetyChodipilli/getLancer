@@ -40,11 +40,18 @@ to verify per-run namespace isolation. Actual current-source execution and
 clean extracted-source reproduction must be observed before phase acceptance.
 Observed local acceptance on 2026-10-13 with native PHP 8.3.6 CLI and real Redis
 7.2.16: both source files passed native `php -n -l`; `php -n labs/php/tests.php`
-reported `PHP_NATIVE_TESTS_OK checks=951 actual_cli_http=true`; the shared
+reported `PHP_NATIVE_TESTS_OK checks=977 actual_cli_http=true`; the shared
 matrix reported `SCENARIO_MATRIX_OK language=php labs=3 requests=156
 redis=7.2.16 mode=local`. The tested primary SHA-256 was
 `175670dc09dddfb82129040d20f5a6a13c17573d772d88ebf5e883809e84acbf`.
 These observations include actual native HTTP processes and Redis wire traffic.
+The native HTTP test client completes only at the exact bounded Content-Length;
+truncated replies, duplicate lengths and transfer encoding are rejected. It
+does not wait for TCP EOF after receiving the complete frame, because an early
+oversized-input denial can subsequently close with a TCP reset. Ten repeated
+native runs passed after this client-framing correction; server socket and
+lifetime limits were preserved. Failure diagnostics identify the synthetic test
+case, received/expected byte counts and elapsed time without dumping bodies.
 Current-head CI and clean extracted-source reproduction remain separate root
 integration checks. Hosted PHP is disabled unless existing signed evidence,
 source/image identity, budget and operator admission gates pass.
