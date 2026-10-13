@@ -487,7 +487,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/maintenance/MaintenanceBillingService.java",
-      "sha256": "598115a8e5ff67e09ae82edb61916e376b99c652d72c5a4d8a161f34d98b556f"
+      "sha256": "cfe4094e33dfb0b008ddec2b7a8aa4807fe684dbdc3ae163da675228fa2e812a"
     },
     {
       "path": "backend/src/main/java/com/getlancer/maintenance/MaintenanceController.java",
@@ -499,7 +499,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/maintenance/MaintenanceRepository.java",
-      "sha256": "b8c4248d9abd0564081fb974f7c52a84feb916e8fb25237629e441b6167fdc9d"
+      "sha256": "3a8d89d5369af39dace46d28bb8c8de550f021d73eacd0a4a4f3c55973aa02d8"
     },
     {
       "path": "backend/src/main/java/com/getlancer/maintenance/MaintenanceService.java",
@@ -559,7 +559,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/products/ProductService.java",
-      "sha256": "39528fb441b23c6edec6aac9ba43c2e938a6ba4655607ac40f99b67de1a20718"
+      "sha256": "24698910f1e1f6cce65622fb3e571864a52b2936c1848c1c046718b09ea80e9f"
     },
     {
       "path": "backend/src/main/java/com/getlancer/products/ProductsController.java",
@@ -647,7 +647,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/security/GetLancerPrincipal.java",
-      "sha256": "b42cca3eba98c06723d854d79706866bac394ced6b05aa4cbd3c7038f7d4fa36"
+      "sha256": "aa50029980bbcc84eae0e49662f532f4f3d5643ece12ed895c31d99634ef2fd3"
     },
     {
       "path": "backend/src/main/java/com/getlancer/security/RateLimits.java",
@@ -659,7 +659,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/security/Security.java",
-      "sha256": "5a193082407ee21a8de1e7236cd26e4f65da30623db9a6679d9571c943b746ea"
+      "sha256": "cb2f01bc36146c33eae70d4244e97dbe99301cd19d1577045abe64b09e394ddb"
     },
     {
       "path": "backend/src/main/java/com/getlancer/security/SecurityAudit.java",
@@ -1021,11 +1021,11 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/MaintenanceIntegrationTest.java",
-      "sha256": "70897c5fdedd5f3a1c0fbacdce9ea88abd1b9547a46d35c5ee18b4a7bd7f8f29"
+      "sha256": "2e331b6483d64b2a87f5a58738d68247a90d9b9a70e2c0fb7f3b760d5429cfa3"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/MarketplaceIntegrationTest.java",
-      "sha256": "95aa98dba413b763145287d1bb7c496f62efd9973089c931b14cecb18ce133ea"
+      "sha256": "379e097ffc6bca6782efdc7675808fc6335562f45829375c5362752fd4060a1e"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/PaymentIntegrationTest.java",
@@ -1064,6 +1064,10 @@
       "sha256": "1ef69db5de0f6e6a023a78eaaf55e5a7aa8a7a60ba551a7aaf118672e0e477b6"
     },
     {
+      "path": "backend/src/test/java/com/getlancer/maintenance/MaintenanceClockRegressionTest.java",
+      "sha256": "5ecf7ef7efcb5ae0cef010097fa2ebe8bc256a2721d0dd346b1e532b7541e742"
+    },
+    {
       "path": "backend/src/test/java/com/getlancer/payments/CommerceProviderIntegrationTest.java",
       "sha256": "09cbf8c9e6bf7a0780a7589f766362e21f581330999281d453e85b96067225a9"
     },
@@ -1098,6 +1102,10 @@
     {
       "path": "backend/src/test/java/com/getlancer/security/DiscoveryRateTest.java",
       "sha256": "4d94a8fbfd66fc323adcd5ca7b276d18577e10bf62f2da3c29ff35e35168efc1"
+    },
+    {
+      "path": "backend/src/test/java/com/getlancer/security/MfaClockRegressionTest.java",
+      "sha256": "b6d6b77630c9db2a6e437c3821c34714f3a4e76f5280e3b17e00bf8885acc3b2"
     },
     {
       "path": "backend/src/test/java/com/getlancer/security/ReleaseWorkflowTest.java",
@@ -1155,7 +1163,7 @@
     },
     {
       "path": "scripts/sast-dispositions.mjs",
-      "sha256": "9c39febb29e023bf565f08acb957071b1a1f7f0cead262ab401f85340259bd26"
+      "sha256": "df7fb89f3577f0c20ed288c2a9e0f3c2e3025fda0d1b50bc8ea3ac283b750ead"
     }
   ]
 }

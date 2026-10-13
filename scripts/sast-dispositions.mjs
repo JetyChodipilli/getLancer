@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {readFileSync,readdirSync,writeFileSync,openSync,closeSync,fstatSync,constants} from 'node:fs';
-import {resolve,join,relative} from 'node:path';
+import {resolve,join,relative,sep} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {junitCases,requirePassingTest} from './junit-evidence.mjs';
 const digest=value=>createHash('sha256').update(value).digest('hex');
@@ -26,7 +26,7 @@ const inputs=(root,directory)=>{
   assert.ok(!entry.isSymbolicLink(),'Review inputs cannot contain symlinks.');
   const next=join(path,entry.name);return entry.isDirectory()?walk(next):[next];
  });}
- return walk(join(root,directory)).map(path=>relative(root,path)).sort();
+ return walk(join(root,directory)).map(path=>relative(root,path).split(sep).join('/')).sort();
 };
 function read(path){
  const fd=openSync(path,constants.O_RDONLY|constants.O_NOFOLLOW);

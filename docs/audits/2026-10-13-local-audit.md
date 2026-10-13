@@ -40,6 +40,8 @@ Final V5.1 candidate:
 - Captured local email/auth journey: signup 201; verify/login/profile 200; ordinary-user admin access 403; logout 204; subsequent profile access 401. Eight checks passed.
 - Complete Windows Node suite: **309 tests, 257 passed, 51 failed, 1 skipped**. It is not green. Failures include POSIX filesystem/locking assumptions, unavailable symlink privileges, path-separator expectations and timing/extraction checks. All failures require Linux CI review or individual reproduction before dismissal.
 
+Publication validation for remediation commit `ed1e897a6fbb6b27b9646bb216025da8d7021ac9` ran the full Linux backend: **541 tests, zero failures/errors/skips**. Its native/container lab job passed, as did the complete Linux Node suite, build and typecheck. The backend job then correctly rejected the stale GET-review inventory, including the two added regression files. The three existing GET assessments were re-read against the changed authorization implementation; only reviewed production/test/build hashes and the added test inventory were refreshed. Finding rules, regression requirements and expiry remain unchanged. The inventory helper now emits repository paths consistently on Windows and Linux. **34 OAuth/admin GET backend regressions and seven manifest positive/negative tests passed**, and the binding command accepted the real reports. The follow-up commit still requires its own same-run CI evidence; GitHub Actions for the latest main head is authoritative.
+
 Earlier V5.0 coverage, not certification of V5.1:
 
 - Full browser run: 399 passed, 8 failed, 4 skipped. The failures included an incorrect test-runner origin and missing Python setup; subsequent V5.1 reruns of the affected suites passed.
