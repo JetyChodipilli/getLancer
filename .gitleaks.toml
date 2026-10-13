@@ -2,6 +2,14 @@ title = "getLancer reviewed synthetic fixture exceptions"
 [extend]
 useDefault = true
 
+[[allowlists]]
+description = "HTTP rejection documentation prose; no credential or key value"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "match"
+paths = ['^labs/dotnet/README\.md$']
+regexes = ['^escaping, duplicate/unknown $']
+
 # Exceptions require BOTH the exact repository path and the exact reviewed non-credential
 # value. No test directory, commit, or line-number suppression is permitted.
 [[allowlists]]

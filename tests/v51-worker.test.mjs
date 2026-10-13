@@ -13,9 +13,9 @@ test('production Worker serves only reviewed framework bytes under their exact o
   assert.equal(response.status,200);assert.equal(response.headers.get('Content-Security-Policy'),item.policy);
   assert.equal(response.headers.get('Cache-Control'),'no-store');assert.equal(response.headers.get('X-Content-Type-Options'),'nosniff');
   const html=await response.text();assert.equal(html,item.html);
-  const script=/<script>([\s\S]*?)<\/script>/.exec(html),style=/<style>([\s\S]*?)<\/style>/.exec(html);
+  const script=/<script>([\s\S]*?)<\/script>/i.exec(html),style=/<style>([\s\S]*?)<\/style>/i.exec(html);
   assert(script&&style);assert.equal(hash(script[1]),item.scriptHash);assert.equal(hash(style[1]),item.styleHash);
-  assert(!/<script\b[^>]*\bnonce\s*=/.test(html));assert(!item.policy.includes('unsafe-'));assert(!item.policy.includes('allow-same-origin'));
+  assert(!/<script\b[^>]*\bnonce\s*=/i.test(html));assert(!item.policy.includes('unsafe-'));assert(!item.policy.includes('allow-same-origin'));
  }
 });
 test('unknown or encoded preview destinations cannot acquire the native preview CSP',async()=>{

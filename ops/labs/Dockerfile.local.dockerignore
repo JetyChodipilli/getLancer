@@ -5,3 +5,11 @@
 !scripts
 !scripts/verify-lab-scenarios.mjs
 !scripts/lab-fixture-ports.mjs
+!scripts/verify-data-ai.mjs
+!scripts/build-data-ai-material.mjs
+!scripts/verify-local-labs.mjs
+!scripts/verify-iot.mjs
+!scripts/build-iot-material.mjs
+!global.json
+!lib
+!lib/iot.ts
