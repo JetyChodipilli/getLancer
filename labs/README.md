@@ -1,10 +1,10 @@
 # getLancer local backend labs
 
-Nine labs share three patterns across Java, TypeScript and Python. Each language is its own small native HTTP program. These are local execution examples, not a hosted runtime or a certification of isolation. Payment uses a synthetic emulator; authorization uses synthetic identities. No account token or merchant credential is needed.
+Eighteen labs share three patterns across Java, TypeScript, Python, Go, C#/.NET and PHP. Each language is its own small native HTTP program. These are local execution examples, not a hosted runtime or a certification of isolation. Payment uses a synthetic emulator; authorization uses synthetic identities. No account token or merchant credential is needed.
 
 ## Prepare actual Redis
 
-For laptop testing without installing Java, Python or Redis separately, run `npm run labs:docker` from the full repository. Docker executes the real nine-lab matrix in a disposable local container. See [laptop setup](../ops/LAPTOP_TESTING.md) for the application and browser replay dashboard. Native setup below remains available for editing and inspecting each example.
+For laptop testing without installing Java, Python or Redis separately, run `npm run labs:docker` from the full repository. Docker executes the real eighteen-core-lab matrix in a disposable local container. See [laptop setup](../ops/LAPTOP_TESTING.md) for the application and browser replay dashboard. Native setup below remains available for editing and inspecting each example.
 
 Use Redis **7.2.16**, commit `335554f18caf7bbf6b0ac2b3548133d750f00a1b`. It is labelled Redis, not Valkey. Source: https://github.com/redis/redis/tree/7.2.16. Redis 7.2 is BSD-3-Clause; see its COPYING. The downloadable source packages do not distribute Redis; the local Docker test image retains Redis's COPYING and Node's LICENSE. Later Redis versions use different licensing; this pin does not approve hosted deployment.
 
@@ -40,10 +40,13 @@ Node 22.18+ drives the real HTTP matrix, including foreign run, malformed inputs
 REDIS_SERVER="$PWD/redis-source/src/redis-server" node scripts/verify-lab-scenarios.mjs --language python
 ```
 
-Replace `python` with `java` or `typescript`. In the full repository, omit `--language` to verify all nine labs. `--record` writes only successful, actual local recordings after the complete matrix passes. These recordings retain the original time and primary-source SHA-256 and are labelled Replay in the dashboard. They cannot establish KVM/network/provider isolation or the hosted startup target.
+Replace `python` with `java`, `typescript`, `go`, `dotnet` or `php`. In the full repository, omit `--language` to verify all eighteen labs. `--record` writes only successful, actual local recordings after the complete matrix passes. These recordings retain the original time and primary-source SHA-256 and are labelled Replay in the dashboard. They cannot establish KVM/network/provider isolation or the hosted startup target.
 
 The repository also runs `REDIS_SERVER=/path/to/redis-server node scripts/verify-lab-packages.mjs` on Linux with GNU tar. It verifies the generated archives, extracts each into a fresh temporary directory, and runs the included HTTP verifier there without repository dependencies or package installation.
 
 References: https://redis.io/docs/latest/commands/set/ and https://redis.io/docs/latest/commands/pexpire/ for real expiry; https://docs.stripe.com/webhooks for the raw-body verification, duplicate and ordering concerns being illustrated. The emulator's compact payload and fixture protocol are getLancer teaching examples, not Stripe-compatible events.
 
 Full contract and release boundaries: `docs/v48/CONTRACT.md`.
+
+
+V5.1 adds exact Go1.24, .NET8 and PHP8.3 source profiles. The shared verifier compiles Go/.NET once into a disposable directory, starts directly supervised native executables, and removes only its own processes and temporary output. Cold SDK compilation is setup time, not hosted provisioning evidence. Active, disabled, retired and unsupported signed adapters have separate execution eligibility; their current source remains inspectable. IoT protocol/device simulation has its own original [source and wiring](iot/README.md), distinct from physical device evidence.

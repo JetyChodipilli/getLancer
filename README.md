@@ -1,8 +1,10 @@
-# getLancer V5.0 — Spectral Studio
+# getLancer V5.1 — Spectral Studio
 
 A proof-of-work marketplace connecting clients with the builders behind working software, with team workspaces and private business hiring.
 
 ## Current implementation status
+
+**V5.1 implements protocol simulation and six-language coverage:** eighteen native core labs, free IoT telemetry/recovery with firmware/BOM/wiring source, and original Vue/Svelte/Angular components compiled into isolated static previews. Signed adapter runtime/version/retirement metadata makes unavailable execution explicit while preserving eligible free source. All eight S07 slices and verification boundaries are recorded in [V5.1 implementation and acceptance](docs/v51/README.md). Hosted execution remains independently disabled by default.
 
 **V5.0 implements reproducible analytics and frozen CPU inference:** two original analytics and two inference labs, free source downloads, actual local recordings, an accessible evidence inspector and immutable dataset/model/evaluation provenance for education releases and accepted source agreements. Hosted execution remains independently disabled by default. See [V5.0 architecture and validation](docs/v50/README.md).
 
@@ -29,6 +31,7 @@ The active visual system is [Spectral Studio](docs/SPECTRAL_STUDIO_ACCEPTANCE.md
 | V4.8 | Nine native Redis/security/payment-emulator labs; source verification and account-free local Docker provider | [Native lab contract](docs/v48/CONTRACT.md); [laptop testing](ops/LAPTOP_TESTING.md) |
 | V4.9 | Reviewed college packages, four-category evidence, free distribution, exact source commerce, support and reports | [S05 implementation](docs/v49/README.md); [validation](docs/v49/VALIDATION.md) |
 | V5.0 | Reproducible analytics, frozen CPU inference, typed source/replay evidence and immutable education provenance | [Architecture and scope](docs/v50/README.md); [validation](docs/v50/VALIDATION.md) |
+| V5.1 | Real local MQTT simulation, eighteen native core labs, three native frontend frameworks and signed adapter retirement policy | [S07 implementation](docs/v51/README.md); [validation](docs/v51/VALIDATION.md) |
 
 Merged V4 baseline: [main CI run 37122827837](https://github.com/JetyChodipilli/getLancer/actions/runs/37122827837) passed on `e61316043a057befa2ba4ac8849bec0787ac92df` with 278 Java tests, 105 Node tests, 89 responsive browser checks and 15 connected browser checks, plus encrypted database restore. This is the pre-audit-fix checkpoint; use the current pull request checks for subsequent changes.
 
@@ -58,7 +61,7 @@ Historical V1 checkpoints: [implementation status](docs/V1_IMPLEMENTATION.md), [
 
 ## Local setup
 
-For laptop testing with no cloud provider, follow [the local Docker guide](ops/LAPTOP_TESTING.md). `npm run labs:docker` executes all nine V4.8 learning labs with actual Redis in a disposable container; `/labs/scenarios` provides source downloads and labelled recorded evidence. Live hosted execution remains a separate deployment milestone.
+For laptop testing with no cloud provider, follow [the local Docker guide](ops/LAPTOP_TESTING.md). `npm run labs:docker` executes all eighteen native learning labs with actual Redis, the data/AI scenarios and local MQTT simulator in a disposable container. `/labs/scenarios`, `/labs/iot` and `/components/frameworks` provide free source and clearly labelled execution modes. Live hosted execution remains a separate deployment milestone.
 
 The current local setup uses [Docker PostgreSQL](ops/DOCKER_LOCAL.md), database `getLancer`, with the API, local email and private storage. For cloud flow testing without services, open `/preview/workspace`; the [interactive UAT guide](docs/UAT_DEMO.md) lists supported journeys and simulation boundaries.
 

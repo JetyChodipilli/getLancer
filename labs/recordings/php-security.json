@@ -1,0 +1,261 @@
+{
+  "mode": "REPLAY",
+  "labId": "php-security",
+  "language": "php",
+  "pattern": "security",
+  "runId": "4c3f4894-323b-459e-b9ba-85f4b4da8385",
+  "sourceHash": "175670dc09dddfb82129040d20f5a6a13c17573d772d88ebf5e883809e84acbf",
+  "recordedAt": "2026-10-13T05:02:45.621Z",
+  "responses": [
+    {
+      "runId": "4c3f4894-323b-459e-b9ba-85f4b4da8385",
+      "sourceHash": "175670dc09dddfb82129040d20f5a6a13c17573d772d88ebf5e883809e84acbf",
+      "requestId": "8fe1ce51-d8e9-4558-9ec1-43349c539e87",
+      "pattern": "security",
+      "status": 200,
+      "durationMs": 0,
+      "state": {
+        "decision": "RESET",
+        "reason": "RESET",
+        "currentRole": "editor"
+      },
+      "events": [
+        {
+          "runId": "4c3f4894-323b-459e-b9ba-85f4b4da8385",
+          "sourceHash": "175670dc09dddfb82129040d20f5a6a13c17573d772d88ebf5e883809e84acbf",
+          "requestId": "8fe1ce51-d8e9-4558-9ec1-43349c539e87",
+          "sequence": 13,
+          "type": "AUTH_RESET",
+          "edge": "policy-store",
+          "recordedAt": "2026-10-13T05:02:45.621Z",
+          "summary": "The current run editor policy was restored."
+        }
+      ]
+    },
+    {
+      "runId": "4c3f4894-323b-459e-b9ba-85f4b4da8385",
+      "sourceHash": "175670dc09dddfb82129040d20f5a6a13c17573d772d88ebf5e883809e84acbf",
+      "requestId": "7ea99675-df5f-4539-9d25-0c8a0e9483bb",
+      "pattern": "security",
+      "status": 200,
+      "durationMs": 0,
+      "state": {
+        "decision": "ALLOW",
+        "reason": "ALLOW",
+        "currentRole": "editor"
+      },
+      "events": [
+        {
+          "runId": "4c3f4894-323b-459e-b9ba-85f4b4da8385",
+          "sourceHash": "175670dc09dddfb82129040d20f5a6a13c17573d772d88ebf5e883809e84acbf",
+          "requestId": "7ea99675-df5f-4539-9d25-0c8a0e9483bb",
+          "sequence": 14,
+          "type": "AUTH_ALLOWED",
+          "edge": "policy-store",
+          "recordedAt": "2026-10-13T05:02:45.628Z",
+          "summary": "The verified synthetic editor has current authority."
+        }
+      ]
+    },
+    {
+      "runId": "4c3f4894-323b-459e-b9ba-85f4b4da8385",
+      "sourceHash": "175670dc09dddfb82129040d20f5a6a13c17573d772d88ebf5e883809e84acbf",
+      "requestId": "d106ed17-9336-4040-8376-ed690035778c",
+      "pattern": "security",
+      "status": 403,
+      "durationMs": 0,
+      "state": {
+        "decision": "DENY",
+        "reason": "ROLE",
+        "currentRole": "editor"
+      },
+      "events": [
+        {
+          "runId": "4c3f4894-323b-459e-b9ba-85f4b4da8385",
+          "sourceHash": "175670dc09dddfb82129040d20f5a6a13c17573d772d88ebf5e883809e84acbf",
+          "requestId": "d106ed17-9336-4040-8376-ed690035778c",
+          "sequence": 15,
+          "type": "AUTH_DENIED",
+          "edge": "policy-store",
+          "recordedAt": "2026-10-13T05:02:45.631Z",
+          "summary": "The synthetic identity lacks the editor role."
+        }
+      ]
+    },
+    {
+      "runId": "4c3f4894-323b-459e-b9ba-85f4b4da8385",
+      "sourceHash": "175670dc09dddfb82129040d20f5a6a13c17573d772d88ebf5e883809e84acbf",
+      "requestId": "0072365d-ea09-48ba-a2fc-e4f0bd4fd4a7",
+      "pattern": "security",
+      "status": 403,
+      "durationMs": 0,
+      "state": {
+        "decision": "DENY",
+        "reason": "TENANT",
+        "currentRole": "editor"
+      },
+      "events": [
+        {
+          "runId": "4c3f4894-323b-459e-b9ba-85f4b4da8385",
+          "sourceHash": "175670dc09dddfb82129040d20f5a6a13c17573d772d88ebf5e883809e84acbf",
+          "requestId": "0072365d-ea09-48ba-a2fc-e4f0bd4fd4a7",
+          "sequence": 16,
+          "type": "AUTH_DENIED",
+          "edge": "service-policy",
+          "recordedAt": "2026-10-13T05:02:45.633Z",
+          "summary": "The synthetic identity belongs to another tenant."
+        }
+      ]
+    },
+    {
+      "runId": "4c3f4894-323b-459e-b9ba-85f4b4da8385",
+      "sourceHash": "175670dc09dddfb82129040d20f5a6a13c17573d772d88ebf5e883809e84acbf",
+      "requestId": "ee9e70ab-0f1c-41d7-9402-c5913ca58764",
+      "pattern": "security",
+      "status": 401,
+      "durationMs": 0,
+      "state": {
+        "decision": "DENY",
+        "reason": "EXPIRED",
+        "currentRole": "editor"
+      },
+      "events": [
+        {
+          "runId": "4c3f4894-323b-459e-b9ba-85f4b4da8385",
+          "sourceHash": "175670dc09dddfb82129040d20f5a6a13c17573d772d88ebf5e883809e84acbf",
+          "requestId": "ee9e70ab-0f1c-41d7-9402-c5913ca58764",
+          "sequence": 17,
+          "type": "AUTH_DENIED",
+          "edge": "service-policy",
+          "recordedAt": "2026-10-13T05:02:45.636Z",
+          "summary": "The synthetic identity expired."
+        }
+      ]
+    },
+    {
+      "runId": "4c3f4894-323b-459e-b9ba-85f4b4da8385",
+      "sourceHash": "175670dc09dddfb82129040d20f5a6a13c17573d772d88ebf5e883809e84acbf",
+      "requestId": "31406e35-3899-4c09-aafb-860391a1954f",
+      "pattern": "security",
+      "status": 401,
+      "durationMs": 0,
+      "state": {
+        "decision": "DENY",
+        "reason": "SIGNATURE",
+        "currentRole": "editor"
+      },
+      "events": [
+        {
+          "runId": "4c3f4894-323b-459e-b9ba-85f4b4da8385",
+          "sourceHash": "175670dc09dddfb82129040d20f5a6a13c17573d772d88ebf5e883809e84acbf",
+          "requestId": "31406e35-3899-4c09-aafb-860391a1954f",
+          "sequence": 18,
+          "type": "AUTH_DENIED",
+          "edge": "service-policy",
+          "recordedAt": "2026-10-13T05:02:45.639Z",
+          "summary": "The synthetic identity signature did not verify."
+        }
+      ]
+    },
+    {
+      "runId": "4c3f4894-323b-459e-b9ba-85f4b4da8385",
+      "sourceHash": "175670dc09dddfb82129040d20f5a6a13c17573d772d88ebf5e883809e84acbf",
+      "requestId": "fa4b2997-5cd2-4456-a57f-d9420778cef6",
+      "pattern": "security",
+      "status": 200,
+      "durationMs": 0,
+      "state": {
+        "decision": "DENY",
+        "reason": "REVOKED",
+        "currentRole": "viewer"
+      },
+      "events": [
+        {
+          "runId": "4c3f4894-323b-459e-b9ba-85f4b4da8385",
+          "sourceHash": "175670dc09dddfb82129040d20f5a6a13c17573d772d88ebf5e883809e84acbf",
+          "requestId": "fa4b2997-5cd2-4456-a57f-d9420778cef6",
+          "sequence": 19,
+          "type": "AUTH_REVOKED",
+          "edge": "policy-store",
+          "recordedAt": "2026-10-13T05:02:45.641Z",
+          "summary": "The current role policy revoked editor authority."
+        }
+      ]
+    },
+    {
+      "runId": "4c3f4894-323b-459e-b9ba-85f4b4da8385",
+      "sourceHash": "175670dc09dddfb82129040d20f5a6a13c17573d772d88ebf5e883809e84acbf",
+      "requestId": "3c189186-eba5-4a06-aa09-b27e62b5400e",
+      "pattern": "security",
+      "status": 403,
+      "durationMs": 0,
+      "state": {
+        "decision": "DENY",
+        "reason": "REVOKED",
+        "currentRole": "viewer"
+      },
+      "events": [
+        {
+          "runId": "4c3f4894-323b-459e-b9ba-85f4b4da8385",
+          "sourceHash": "175670dc09dddfb82129040d20f5a6a13c17573d772d88ebf5e883809e84acbf",
+          "requestId": "3c189186-eba5-4a06-aa09-b27e62b5400e",
+          "sequence": 20,
+          "type": "AUTH_DENIED",
+          "edge": "policy-store",
+          "recordedAt": "2026-10-13T05:02:45.643Z",
+          "summary": "The current role policy revoked editor authority."
+        }
+      ]
+    },
+    {
+      "runId": "4c3f4894-323b-459e-b9ba-85f4b4da8385",
+      "sourceHash": "175670dc09dddfb82129040d20f5a6a13c17573d772d88ebf5e883809e84acbf",
+      "requestId": "539b9fc6-1429-47ef-a640-77c9ebddd8e4",
+      "pattern": "security",
+      "status": 200,
+      "durationMs": 0,
+      "state": {
+        "decision": "RESET",
+        "reason": "RESET",
+        "currentRole": "editor"
+      },
+      "events": [
+        {
+          "runId": "4c3f4894-323b-459e-b9ba-85f4b4da8385",
+          "sourceHash": "175670dc09dddfb82129040d20f5a6a13c17573d772d88ebf5e883809e84acbf",
+          "requestId": "539b9fc6-1429-47ef-a640-77c9ebddd8e4",
+          "sequence": 21,
+          "type": "AUTH_RESET",
+          "edge": "policy-store",
+          "recordedAt": "2026-10-13T05:02:45.645Z",
+          "summary": "The current run editor policy was restored."
+        }
+      ]
+    },
+    {
+      "runId": "4c3f4894-323b-459e-b9ba-85f4b4da8385",
+      "sourceHash": "175670dc09dddfb82129040d20f5a6a13c17573d772d88ebf5e883809e84acbf",
+      "requestId": "8b8e232c-1341-4450-8107-d79207d6453c",
+      "pattern": "security",
+      "status": 200,
+      "durationMs": 0,
+      "state": {
+        "decision": "ALLOW",
+        "reason": "ALLOW",
+        "currentRole": "editor"
+      },
+      "events": [
+        {
+          "runId": "4c3f4894-323b-459e-b9ba-85f4b4da8385",
+          "sourceHash": "175670dc09dddfb82129040d20f5a6a13c17573d772d88ebf5e883809e84acbf",
+          "requestId": "8b8e232c-1341-4450-8107-d79207d6453c",
+          "sequence": 22,
+          "type": "AUTH_ALLOWED",
+          "edge": "policy-store",
+          "recordedAt": "2026-10-13T05:02:45.648Z",
+          "summary": "The verified synthetic editor has current authority."
+        }
+      ]
+    }
+  ]
+}

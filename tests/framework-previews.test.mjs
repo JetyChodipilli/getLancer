@@ -1,0 +1,20 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile,mkdtemp,writeFile,symlink,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {createHash} from 'node:crypto';
+import {archiveFor} from '../scripts/build-data-ai-material.mjs';
+import {verifyFrameworkPreviews,inspectFrameworkArchive} from '../scripts/verify-framework-previews.mjs';
+import {safeRead,nativeDocument,catalogue} from '../scripts/build-framework-material.mjs';
+test('all original native previews bind current source, locked frameworks, compiled bytes and free archives',async()=>{assert.equal((await verifyFrameworkPreviews()).frameworks,3);});
+test('native preview policy admits exact bundle hashes and denies application privileges',()=>{
+ const document=nativeDocument(catalogue[0],'document.body.dataset.example="native";','body{color:black}');
+ const hash="'sha256-"+createHash('sha256').update('document.body.dataset.example="native";').digest('base64')+"'";
+ assert(document.policy.includes('script-src '+hash));for(const directive of ["default-src 'none'","connect-src 'none'","frame-src 'none'","worker-src 'none'","form-action 'none'","base-uri 'none'",'sandbox allow-scripts'])assert(document.policy.includes(directive));assert(!document.policy.includes('unsafe-')&&!document.policy.includes('allow-same-origin')&&!document.policy.includes('allow-forms'));
+ assert.throws(()=>nativeDocument(catalogue[0],'</script><script>alert(1)</script>',''),/delimiter/);assert.throws(()=>nativeDocument(catalogue[0],'eval("uploaded")',''),/runtime code/);assert.throws(()=>nativeDocument(catalogue[0],'import("https://remote.test/code.js")',''),/runtime code/);
+});
+test('native material source reading rejects symlinks and oversized source before publication',async()=>{const directory=await mkdtemp(join(tmpdir(),'getlancer-native-preview-'));try{await writeFile(join(directory,'source'),'a'.repeat(65));await symlink(join(directory,'source'),join(directory,'link'));await assert.rejects(safeRead(join(directory,'link')));await assert.rejects(safeRead(join(directory,'source'),64),/oversized|budget/);}finally{await rm(directory,{recursive:true,force:true});}});
+test('framework archive rejects altered current-source bytes and missing members',()=>{const files=[['README.md',Buffer.from('Original source')],['LICENSE',Buffer.from('MIT')]],archive=archiveFor(files);assert.equal(inspectFrameworkArchive(archive,files).size,2);assert.throws(()=>inspectFrameworkArchive(archive,[['README.md',Buffer.from('Changed')],files[1]]),/differs/);assert.throws(()=>inspectFrameworkArchive(archive,[...files,['missing',Buffer.from('missing')]]),/omitted/);});
+test('isolated native dependencies never become application dependencies',async()=>{const app=JSON.parse(await readFile('package.json','utf8'));for(const name of ['vue','svelte','@angular/core','@angular/compiler-cli'])assert(!app.dependencies[name]&&!app.devDependencies[name]);const page=await readFile('app/components/framework-previews.tsx','utf8');assert(page.includes('sandbox="allow-scripts"'));assert(!page.includes('allow-same-origin')&&!page.includes('srcDoc'));});
+test('redistributed native archives carry full bundled runtime licenses and the correct tslib grant',async()=>{for(const name of ['vue','svelte','angular']){const text=await readFile('examples/frameworks/'+name+'/THIRD_PARTY_LICENSES.md','utf8');assert(text.includes('Permission is hereby granted')||text.includes('Permission to use, copy, modify'));if(name==='angular'){assert(text.includes('Apache License')&&text.includes('Version 2.0'));assert(text.includes('tslib 2.8.1 — 0BSD'));assert(text.includes('Microsoft'));const material=JSON.parse(await readFile('app/components/frameworks/material.json','utf8'));assert(material.items.find(item=>item.id===name).html.includes(text));}if(name==='svelte'){assert(text.includes('esm-env')&&text.includes('clsx'));}if(name==='vue'){assert(text.includes('Yuxi (Evan) You')&&text.includes('@vue/runtime-dom'));}}});

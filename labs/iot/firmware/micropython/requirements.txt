@@ -1,0 +1,4 @@
+# Board runtime pin: official ESP32_GENERIC MicroPython v1.25.0 (2025-04-15).
+# Built-in modules only: machine, dht, network, socket, json, time.
+# No third-party Python package is required or bundled.
+# Install/flash board firmware and upload main.py separately; physical proof absent.

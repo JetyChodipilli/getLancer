@@ -1,6 +1,6 @@
 /** Execute the downloaded source archives from fresh directories, without repository dependencies. */
 import {spawn} from 'node:child_process';
-import {mkdtemp, rm} from 'node:fs/promises';
+import {mkdtemp, rm, readFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {dirname, join, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -15,7 +15,8 @@ async function run(command, args, cwd) {
 }
 // This verifies every archive byte and its exact bounded regular-file inventory before extraction.
 await run(process.execPath, ['--experimental-strip-types', join(root, 'scripts/build-lab-material.mjs'), '--verify'], root);
-for (const language of ['java', 'typescript', 'python']) {
+const languages=Object.keys(JSON.parse(await readFile(join(root,'labs/catalogue.json'),'utf8')).languages);
+for (const language of languages) {
   const extracted = await mkdtemp(join(tmpdir(), 'getlancer-source-'));
   try {
     await run('tar', ['--extract', '--gzip', '--file', join(root, 'public/labs/sources', language + '.tar.gz'), '--directory', extracted, '--no-same-owner', '--no-same-permissions'], root);
@@ -25,4 +26,4 @@ for (const language of ['java', 'typescript', 'python']) {
     await rm(extracted, {recursive: true, force: true});
   }
 }
-console.log('SOURCE_PACKAGES_OK languages=3');
+console.log('SOURCE_PACKAGES_OK languages='+languages.length);

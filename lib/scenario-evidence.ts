@@ -1,5 +1,5 @@
 /** Static source material and recorded local evidence. This module never executes a lab. */
-export type ScenarioLanguage = 'java' | 'typescript' | 'python';
+export type ScenarioLanguage = 'java' | 'typescript' | 'python' | 'go' | 'dotnet' | 'php';
 export type ScenarioPattern = 'cache' | 'security' | 'payment';
 export type ScenarioEdgeId = 'client-service' | 'service-redis' | 'service-store' | 'service-policy' | 'policy-store' | 'service-emulator' | 'emulator-ledger';
 export type ScenarioEdge = {id: ScenarioEdgeId; from: string; to: string; label: string};
@@ -24,7 +24,7 @@ export type ScenarioRecording = {
   mode: 'REPLAY'; labId: string; language: ScenarioLanguage; pattern: ScenarioPattern;
   runId: string; sourceHash: string; recordedAt: string; responses: ScenarioResponse[];
 };
-export const scenarioLanguages: Record<ScenarioLanguage, string> = {java: 'Java', typescript: 'TypeScript', python: 'Python'};
+export const scenarioLanguages: Record<ScenarioLanguage, string> = {java: 'Java', typescript: 'TypeScript', python: 'Python', go: 'Go', dotnet: 'C# / .NET', php: 'PHP'};
 export const scenarioPatterns: Record<ScenarioPattern, string> = {cache: 'Redis cache', security: 'Authorization', payment: 'Payment emulator'};
 export const MATERIAL_BYTE_LIMIT = 65536;
 export const RECORDING_BYTE_LIMIT = 524288;
@@ -131,11 +131,11 @@ function boundedValue(value: unknown, limit: number): unknown {
 
 export function parseMaterialIndex(value: unknown): {items: ScenarioMaterial[]} {
   const root = exact(boundedValue(value, MATERIAL_BYTE_LIMIT), ['items']);
-  if (!Array.isArray(root.items) || root.items.length > 9) invalid();
+  if (!Array.isArray(root.items) || root.items.length > 18) invalid();
   const ids = new Set<string>();
   const items = root.items.map(raw => {
     const item = exact(raw, ['id', 'language', 'pattern', 'title', 'summary', 'sourceHash', 'archiveHash', 'sourceUrl', 'recordingUrl', 'setup', 'scenarios', 'edges']);
-    const language = oneOf(item.language, ['java', 'typescript', 'python'] as const);
+    const language = oneOf(item.language, ['java', 'typescript', 'python', 'go', 'dotnet', 'php'] as const);
     const pattern = oneOf(item.pattern, ['cache', 'security', 'payment'] as const);
     const id = text(item.id, 32);
     if (id !== `${language}-${pattern}` || ids.has(id)) invalid();

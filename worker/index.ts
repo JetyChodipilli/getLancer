@@ -3,6 +3,7 @@ import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } fr
 import handler from "vinext/server/app-router-entry";
 import { createFrontendNonce, frontendCsp, publisherFrameSource, secureFrontendResponse } from '../lib/security-headers';
 import { resolveBackendOrigin } from '../lib/deployment-mode';
+import { frameworkPreviewPolicy } from '../app/components/frameworks/security';
 
 interface Env {
   BACKEND_URL?: string;
@@ -70,6 +71,19 @@ const worker = {
     headers.delete('Content-Security-Policy-Report-Only');
     const response = await handler.fetch(new Request(request, { headers }), env, ctx);
     const secured = secureFrontendResponse(response, request.url, connected, nonce, publisher);
+    // Only these original native builds may retain their narrower hash-only,
+    // opaque-origin policy. API/uploaded HTML cannot choose its own CSP.
+    const frameworkRoute=/^\/components\/frameworks\/preview\/(vue|svelte|angular)$/.exec(url.pathname);
+    if(frameworkRoute && response.status===200 && /^text\/html(?:\s*;|$)/i.test(response.headers.get('Content-Type')||'')){
+      const expected=frameworkPreviewPolicy(frameworkRoute[1]);
+      if(!expected || response.headers.get('Content-Security-Policy')!==expected){
+        return secureFrontendResponse(Response.json({error:{code:'PREVIEW_UNAVAILABLE',message:'The reviewed preview could not be verified.'}},{status:503,headers:{'Cache-Control':'no-store'}}),request.url,connected,nonce,publisher);
+      }
+      secured.headers.set('Content-Security-Policy',expected);
+      secured.headers.set('Cache-Control','no-store');
+      return secured;
+    }
+
     let applicationHtml = false;
     try { applicationHtml = !decodeURIComponent(url.pathname).startsWith('/api/'); } catch { /* Malformed paths cannot acquire a render nonce. */ }
     if (applicationHtml && /^text\/html(?:\s*;|$)/i.test(secured.headers.get('Content-Type') || '') && secured.body) {

@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync, mkdirSync, cpSync, copyFileSync, readFileSync, writeFileSync, rmSync} from 'node:fs';
+import {mkdtempSync, mkdirSync, cpSync, copyFileSync, readFileSync, writeFileSync, rmSync,symlinkSync,renameSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join, dirname} from 'node:path';
 import {spawnSync} from 'node:child_process';
@@ -27,4 +27,14 @@ test('stale source archive fails with a bounded diagnostic instead of expanding 
   assert.equal(result.signal, null);
   assert.match(result.stderr, /Material drift:/);
   assert(Buffer.byteLength(result.stderr) < 4096);
+  // Real source inventory enforcement: neither a linked primary nor a linked
+  // source parent may smuggle undeclared bytes into a free download.
+  const primary=join(dir,'labs/java/LabServer.java'),original=primary+'.original';
+  renameSync(primary,original);symlinkSync(original,primary);
+  const linked=run();assert.equal(linked.status,1);assert(!linked.stderr.includes('SECRET_OUTSIDE_PACKAGE'));
+  rmSync(primary);renameSync(original,primary);
+  const parent=join(dir,'labs/go'),moved=parent+'.original';renameSync(parent,moved);symlinkSync(moved,parent,'dir');
+  const linkedParent=run();assert.equal(linkedParent.status,1);assert.match(linkedParent.stderr,/real directories/);
+  rmSync(parent);renameSync(moved,parent);
+  writeFileSync(primary,'x'.repeat(131073));const oversized=run();assert.equal(oversized.status,1);assert.match(oversized.stderr,/bounded/);
 });

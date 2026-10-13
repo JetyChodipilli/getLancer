@@ -58,3 +58,14 @@ playwright-report/
 /.tooling/
 
 /education/seeds/ai-ml/__pycache__/
+
+# V5.1 generated material and native build output
+/public/iot/
+/public/frameworks/
+/labs/dotnet/bin/
+/labs/dotnet/obj/
+/examples/frameworks/*/node_modules/
+/examples/frameworks/*/dist/
+
+/labs/dotnet/artifacts/
+/examples/frameworks/*/.compiled/

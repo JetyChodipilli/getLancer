@@ -3,17 +3,17 @@
   "labId": "typescript-payment",
   "language": "typescript",
   "pattern": "payment",
-  "runId": "548ec1d6-9247-41ce-b666-f7a4ab404725",
+  "runId": "15ded44b-4211-4f3b-9fc2-7f9bee6fc643",
   "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
-  "recordedAt": "2026-10-09T10:08:48.661Z",
+  "recordedAt": "2026-10-13T05:02:09.151Z",
   "responses": [
     {
-      "runId": "548ec1d6-9247-41ce-b666-f7a4ab404725",
+      "runId": "15ded44b-4211-4f3b-9fc2-7f9bee6fc643",
       "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
-      "requestId": "6be9734d-5be6-45ed-916a-d9fb0330cf6a",
+      "requestId": "a1b7d21e-c77a-4206-806c-2f5945eaeaa5",
       "pattern": "payment",
       "status": 200,
-      "durationMs": 0,
+      "durationMs": 3,
       "state": {
         "payment": "PENDING",
         "entitlements": 0,
@@ -21,24 +21,24 @@
       },
       "events": [
         {
-          "runId": "548ec1d6-9247-41ce-b666-f7a4ab404725",
+          "runId": "15ded44b-4211-4f3b-9fc2-7f9bee6fc643",
           "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
-          "requestId": "6be9734d-5be6-45ed-916a-d9fb0330cf6a",
+          "requestId": "a1b7d21e-c77a-4206-806c-2f5945eaeaa5",
           "sequence": 23,
           "type": "PAYMENT_RESET",
           "edge": "emulator-ledger",
-          "recordedAt": "2026-10-09T10:08:48.661Z",
+          "recordedAt": "2026-10-13T05:02:09.151Z",
           "summary": "The current run payment ledger was cleared."
         }
       ]
     },
     {
-      "runId": "548ec1d6-9247-41ce-b666-f7a4ab404725",
+      "runId": "15ded44b-4211-4f3b-9fc2-7f9bee6fc643",
       "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
-      "requestId": "7bdba2de-2887-4d14-915f-c4f2bcfc2d85",
+      "requestId": "34cbe05b-fb3c-4781-9003-9160f3aab51f",
       "pattern": "payment",
       "status": 200,
-      "durationMs": 0,
+      "durationMs": 1,
       "state": {
         "payment": "PAID",
         "entitlements": 1,
@@ -46,24 +46,24 @@
       },
       "events": [
         {
-          "runId": "548ec1d6-9247-41ce-b666-f7a4ab404725",
+          "runId": "15ded44b-4211-4f3b-9fc2-7f9bee6fc643",
           "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
-          "requestId": "7bdba2de-2887-4d14-915f-c4f2bcfc2d85",
+          "requestId": "34cbe05b-fb3c-4781-9003-9160f3aab51f",
           "sequence": 24,
           "type": "PAYMENT_APPLIED",
           "edge": "emulator-ledger",
-          "recordedAt": "2026-10-09T10:08:48.666Z",
+          "recordedAt": "2026-10-13T05:02:09.167Z",
           "summary": "The ledger recorded payment; the order has one entitlement."
         }
       ]
     },
     {
-      "runId": "548ec1d6-9247-41ce-b666-f7a4ab404725",
+      "runId": "15ded44b-4211-4f3b-9fc2-7f9bee6fc643",
       "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
-      "requestId": "a2d4317e-1d12-4dca-ac29-e43c774914c9",
+      "requestId": "23944d70-6fa4-49a0-9fe8-483124eb597a",
       "pattern": "payment",
       "status": 200,
-      "durationMs": 0,
+      "durationMs": 1,
       "state": {
         "payment": "PAID",
         "entitlements": 1,
@@ -71,21 +71,21 @@
       },
       "events": [
         {
-          "runId": "548ec1d6-9247-41ce-b666-f7a4ab404725",
+          "runId": "15ded44b-4211-4f3b-9fc2-7f9bee6fc643",
           "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
-          "requestId": "a2d4317e-1d12-4dca-ac29-e43c774914c9",
+          "requestId": "23944d70-6fa4-49a0-9fe8-483124eb597a",
           "sequence": 25,
           "type": "PAYMENT_DUPLICATE",
           "edge": "emulator-ledger",
-          "recordedAt": "2026-10-09T10:08:48.667Z",
+          "recordedAt": "2026-10-13T05:02:09.181Z",
           "summary": "The ledger observed an identical event retry without another effect."
         }
       ]
     },
     {
-      "runId": "548ec1d6-9247-41ce-b666-f7a4ab404725",
+      "runId": "15ded44b-4211-4f3b-9fc2-7f9bee6fc643",
       "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
-      "requestId": "3ebfe4ab-43f8-4135-8184-ee5babb4c54e",
+      "requestId": "21044104-014e-461a-802c-c6795cb4a836",
       "pattern": "payment",
       "status": 200,
       "durationMs": 0,
@@ -96,21 +96,21 @@
       },
       "events": [
         {
-          "runId": "548ec1d6-9247-41ce-b666-f7a4ab404725",
+          "runId": "15ded44b-4211-4f3b-9fc2-7f9bee6fc643",
           "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
-          "requestId": "3ebfe4ab-43f8-4135-8184-ee5babb4c54e",
+          "requestId": "21044104-014e-461a-802c-c6795cb4a836",
           "sequence": 26,
           "type": "PAYMENT_PENDING",
           "edge": "service-emulator",
-          "recordedAt": "2026-10-09T10:08:48.668Z",
+          "recordedAt": "2026-10-13T05:02:09.189Z",
           "summary": "The emulator returned an ambiguous timeout; the confirmed ledger state was preserved."
         }
       ]
     },
     {
-      "runId": "548ec1d6-9247-41ce-b666-f7a4ab404725",
+      "runId": "15ded44b-4211-4f3b-9fc2-7f9bee6fc643",
       "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
-      "requestId": "8ca4582a-3051-4755-be61-96df64de5862",
+      "requestId": "08202e68-6b6b-40bd-b4fc-0f2e20b2f694",
       "pattern": "payment",
       "status": 401,
       "durationMs": 0,
@@ -121,21 +121,21 @@
       },
       "events": [
         {
-          "runId": "548ec1d6-9247-41ce-b666-f7a4ab404725",
+          "runId": "15ded44b-4211-4f3b-9fc2-7f9bee6fc643",
           "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
-          "requestId": "8ca4582a-3051-4755-be61-96df64de5862",
+          "requestId": "08202e68-6b6b-40bd-b4fc-0f2e20b2f694",
           "sequence": 27,
           "type": "PAYMENT_SIGNATURE_DENIED",
           "edge": "service-emulator",
-          "recordedAt": "2026-10-09T10:08:48.669Z",
+          "recordedAt": "2026-10-13T05:02:09.200Z",
           "summary": "The exact event body signature did not verify; the ledger was unchanged."
         }
       ]
     },
     {
-      "runId": "548ec1d6-9247-41ce-b666-f7a4ab404725",
+      "runId": "15ded44b-4211-4f3b-9fc2-7f9bee6fc643",
       "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
-      "requestId": "c0a90801-ed38-4514-b47e-4ea70036f51e",
+      "requestId": "097b0a93-26d0-4fd2-a6c7-119c45b0f716",
       "pattern": "payment",
       "status": 409,
       "durationMs": 0,
@@ -146,21 +146,21 @@
       },
       "events": [
         {
-          "runId": "548ec1d6-9247-41ce-b666-f7a4ab404725",
+          "runId": "15ded44b-4211-4f3b-9fc2-7f9bee6fc643",
           "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
-          "requestId": "c0a90801-ed38-4514-b47e-4ea70036f51e",
+          "requestId": "097b0a93-26d0-4fd2-a6c7-119c45b0f716",
           "sequence": 28,
           "type": "PAYMENT_CONFLICT",
           "edge": "emulator-ledger",
-          "recordedAt": "2026-10-09T10:08:48.671Z",
+          "recordedAt": "2026-10-13T05:02:09.223Z",
           "summary": "The ledger rejected a reused event identifier with different content."
         }
       ]
     },
     {
-      "runId": "548ec1d6-9247-41ce-b666-f7a4ab404725",
+      "runId": "15ded44b-4211-4f3b-9fc2-7f9bee6fc643",
       "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
-      "requestId": "cdb337d9-1613-4f8f-abe6-73c9395cf6b9",
+      "requestId": "3c4855e0-1914-4a8c-a45f-36bd051a3c5f",
       "pattern": "payment",
       "status": 200,
       "durationMs": 0,
@@ -171,21 +171,21 @@
       },
       "events": [
         {
-          "runId": "548ec1d6-9247-41ce-b666-f7a4ab404725",
+          "runId": "15ded44b-4211-4f3b-9fc2-7f9bee6fc643",
           "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
-          "requestId": "cdb337d9-1613-4f8f-abe6-73c9395cf6b9",
+          "requestId": "3c4855e0-1914-4a8c-a45f-36bd051a3c5f",
           "sequence": 29,
           "type": "REFUND_APPLIED",
           "edge": "emulator-ledger",
-          "recordedAt": "2026-10-09T10:08:48.672Z",
+          "recordedAt": "2026-10-13T05:02:09.235Z",
           "summary": "The ledger recorded a refund; the order has no entitlement."
         }
       ]
     },
     {
-      "runId": "548ec1d6-9247-41ce-b666-f7a4ab404725",
+      "runId": "15ded44b-4211-4f3b-9fc2-7f9bee6fc643",
       "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
-      "requestId": "2ca13251-3509-4b7c-90ba-9857263f66c5",
+      "requestId": "9b907dde-d223-47bd-b757-9062d377776b",
       "pattern": "payment",
       "status": 200,
       "durationMs": 0,
@@ -196,21 +196,21 @@
       },
       "events": [
         {
-          "runId": "548ec1d6-9247-41ce-b666-f7a4ab404725",
+          "runId": "15ded44b-4211-4f3b-9fc2-7f9bee6fc643",
           "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
-          "requestId": "2ca13251-3509-4b7c-90ba-9857263f66c5",
+          "requestId": "9b907dde-d223-47bd-b757-9062d377776b",
           "sequence": 30,
           "type": "PAYMENT_PENDING",
           "edge": "service-emulator",
-          "recordedAt": "2026-10-09T10:08:48.673Z",
+          "recordedAt": "2026-10-13T05:02:09.241Z",
           "summary": "The emulator returned an ambiguous timeout; the confirmed ledger state was preserved."
         }
       ]
     },
     {
-      "runId": "548ec1d6-9247-41ce-b666-f7a4ab404725",
+      "runId": "15ded44b-4211-4f3b-9fc2-7f9bee6fc643",
       "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
-      "requestId": "de0374ed-7487-4e6c-9e25-5d9d2ac2c02a",
+      "requestId": "9e501b67-440b-4a58-84b6-9890c492039b",
       "pattern": "payment",
       "status": 200,
       "durationMs": 0,
@@ -221,21 +221,21 @@
       },
       "events": [
         {
-          "runId": "548ec1d6-9247-41ce-b666-f7a4ab404725",
+          "runId": "15ded44b-4211-4f3b-9fc2-7f9bee6fc643",
           "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
-          "requestId": "de0374ed-7487-4e6c-9e25-5d9d2ac2c02a",
+          "requestId": "9e501b67-440b-4a58-84b6-9890c492039b",
           "sequence": 31,
           "type": "PAYMENT_RESET",
           "edge": "emulator-ledger",
-          "recordedAt": "2026-10-09T10:08:48.674Z",
+          "recordedAt": "2026-10-13T05:02:09.244Z",
           "summary": "The current run payment ledger was cleared."
         }
       ]
     },
     {
-      "runId": "548ec1d6-9247-41ce-b666-f7a4ab404725",
+      "runId": "15ded44b-4211-4f3b-9fc2-7f9bee6fc643",
       "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
-      "requestId": "a9d24399-c29c-4e5e-a1ef-4739d5073c29",
+      "requestId": "eac9aac5-0b6a-40dd-a1fc-8607578b5121",
       "pattern": "payment",
       "status": 202,
       "durationMs": 0,
@@ -246,24 +246,24 @@
       },
       "events": [
         {
-          "runId": "548ec1d6-9247-41ce-b666-f7a4ab404725",
+          "runId": "15ded44b-4211-4f3b-9fc2-7f9bee6fc643",
           "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
-          "requestId": "a9d24399-c29c-4e5e-a1ef-4739d5073c29",
+          "requestId": "eac9aac5-0b6a-40dd-a1fc-8607578b5121",
           "sequence": 32,
           "type": "PAYMENT_PENDING",
           "edge": "service-emulator",
-          "recordedAt": "2026-10-09T10:08:48.679Z",
+          "recordedAt": "2026-10-13T05:02:09.254Z",
           "summary": "The emulator returned an ambiguous timeout; the ledger grants no new entitlement."
         }
       ]
     },
     {
-      "runId": "548ec1d6-9247-41ce-b666-f7a4ab404725",
+      "runId": "15ded44b-4211-4f3b-9fc2-7f9bee6fc643",
       "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
-      "requestId": "4638d270-9393-4aa2-8db4-3e1fa09c1072",
+      "requestId": "cbd86767-d6bb-4620-9fa4-a36748f51e23",
       "pattern": "payment",
       "status": 202,
-      "durationMs": 0,
+      "durationMs": 58,
       "state": {
         "payment": "PENDING",
         "entitlements": 0,
@@ -271,24 +271,24 @@
       },
       "events": [
         {
-          "runId": "548ec1d6-9247-41ce-b666-f7a4ab404725",
+          "runId": "15ded44b-4211-4f3b-9fc2-7f9bee6fc643",
           "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
-          "requestId": "4638d270-9393-4aa2-8db4-3e1fa09c1072",
+          "requestId": "cbd86767-d6bb-4620-9fa4-a36748f51e23",
           "sequence": 33,
           "type": "REFUND_PENDING",
           "edge": "emulator-ledger",
-          "recordedAt": "2026-10-09T10:08:48.680Z",
+          "recordedAt": "2026-10-13T05:02:09.327Z",
           "summary": "The ledger recorded a refund awaiting payment, without granting an entitlement."
         }
       ]
     },
     {
-      "runId": "548ec1d6-9247-41ce-b666-f7a4ab404725",
+      "runId": "15ded44b-4211-4f3b-9fc2-7f9bee6fc643",
       "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
-      "requestId": "38d986c7-9988-4fab-a957-c0c11db64efe",
+      "requestId": "ccf935af-17a8-46ae-b773-b5f11fcb2332",
       "pattern": "payment",
       "status": 200,
-      "durationMs": 0,
+      "durationMs": 1,
       "state": {
         "payment": "REFUNDED",
         "entitlements": 0,
@@ -296,34 +296,34 @@
       },
       "events": [
         {
-          "runId": "548ec1d6-9247-41ce-b666-f7a4ab404725",
+          "runId": "15ded44b-4211-4f3b-9fc2-7f9bee6fc643",
           "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
-          "requestId": "38d986c7-9988-4fab-a957-c0c11db64efe",
+          "requestId": "ccf935af-17a8-46ae-b773-b5f11fcb2332",
           "sequence": 34,
           "type": "PAYMENT_APPLIED",
           "edge": "emulator-ledger",
-          "recordedAt": "2026-10-09T10:08:48.681Z",
+          "recordedAt": "2026-10-13T05:02:09.338Z",
           "summary": "The ledger reconciled payment with the pending refund without granting an entitlement."
         },
         {
-          "runId": "548ec1d6-9247-41ce-b666-f7a4ab404725",
+          "runId": "15ded44b-4211-4f3b-9fc2-7f9bee6fc643",
           "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
-          "requestId": "38d986c7-9988-4fab-a957-c0c11db64efe",
+          "requestId": "ccf935af-17a8-46ae-b773-b5f11fcb2332",
           "sequence": 35,
           "type": "REFUND_APPLIED",
           "edge": "emulator-ledger",
-          "recordedAt": "2026-10-09T10:08:48.681Z",
+          "recordedAt": "2026-10-13T05:02:09.338Z",
           "summary": "The ledger reconciled the pending refund; the order has no entitlement."
         }
       ]
     },
     {
-      "runId": "548ec1d6-9247-41ce-b666-f7a4ab404725",
+      "runId": "15ded44b-4211-4f3b-9fc2-7f9bee6fc643",
       "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
-      "requestId": "81da012b-e867-4af7-8eff-d40c36778a80",
+      "requestId": "32b698ff-669b-4abb-94c4-1150aeefb612",
       "pattern": "payment",
       "status": 200,
-      "durationMs": 0,
+      "durationMs": 1,
       "state": {
         "payment": "PENDING",
         "entitlements": 0,
@@ -331,13 +331,13 @@
       },
       "events": [
         {
-          "runId": "548ec1d6-9247-41ce-b666-f7a4ab404725",
+          "runId": "15ded44b-4211-4f3b-9fc2-7f9bee6fc643",
           "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
-          "requestId": "81da012b-e867-4af7-8eff-d40c36778a80",
+          "requestId": "32b698ff-669b-4abb-94c4-1150aeefb612",
           "sequence": 36,
           "type": "PAYMENT_RESET",
           "edge": "emulator-ledger",
-          "recordedAt": "2026-10-09T10:08:48.685Z",
+          "recordedAt": "2026-10-13T05:02:09.348Z",
           "summary": "The current run payment ledger was cleared."
         }
       ]

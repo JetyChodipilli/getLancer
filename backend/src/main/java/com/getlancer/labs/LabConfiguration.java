@@ -47,9 +47,15 @@ public final class LabConfiguration {
   public Runtime projection(){boolean ready=requested&&evidence!=null&&evidence.approvedUntil().isAfter(Instant.now());return new Runtime(ready,ready?"Operator admission evidence is current.":requested?invalidReason:"Lab execution is disabled. Reviewed source and setup remain free.");}
   void ready(){if(!projection().enabled())throw new ApiError(503,"LAB_DISABLED",projection().reason());}
   LabManifest manifest(String payload,String sha,String detached,ObjectMapper json){
+    var manifest=sourceManifest(payload,sha,detached,json);
+    if(!manifest.approvedUntil().isAfter(Instant.now())||evidence==null||!manifest.evidenceSha256().equals(evidence.evidenceSha256()))
+      throw new ApiError(503,"LAB_MANIFEST_UNAVAILABLE","This immutable lab manifest has no current operator certification.");
+    return manifest;
+  }
+  /** Expiry closes execution, while signed source metadata may remain visible after source eligibility checks. */
+  LabManifest sourceManifest(String payload,String sha,String detached,ObjectMapper json){
     try{byte[] bytes=payload.getBytes(java.nio.charset.StandardCharsets.UTF_8);if(bytes.length>65536||!hex(bytes).equals(sha)||key==null||!signature(key,bytes,detached))throw new IllegalArgumentException();
-      LabManifest manifest=json.readValue(bytes,LabManifest.class);
-      if(!manifest.approvedUntil().isAfter(Instant.now())||evidence==null||!manifest.evidenceSha256().equals(evidence.evidenceSha256()))throw new IllegalArgumentException();return manifest;
+      return json.readValue(bytes,LabManifest.class);
     }catch(Exception error){throw new ApiError(503,"LAB_MANIFEST_UNAVAILABLE","This immutable lab manifest has no current operator certification.");}
   }
   static boolean validOrigin(URI uri){String host=uri.getHost(),path=uri.getRawPath();return host!=null&&uri.getRawUserInfo()==null&&uri.getRawQuery()==null&&uri.getRawFragment()==null&&(path==null||path.isEmpty()||path.equals("/"))

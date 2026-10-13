@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.getlancer.labs.LabProtocolFixture;
 import com.getlancer.labs.LabService;
 import com.getlancer.labs.LabDataAiPolicy;
+import com.getlancer.labs.LabIotPolicy;
 import com.getlancer.shared.Support;
 import com.getlancer.testing.TestDatabaseGuard;
 import jakarta.servlet.http.Cookie;
@@ -37,11 +38,12 @@ class LabsIntegrationTest {
   static final LabProtocolFixture fixture=new LabProtocolFixture();
   @DynamicPropertySource static void labs(DynamicPropertyRegistry registry){registry.add("app.labs.enabled",()->true);registry.add("app.labs.gateway-origin",fixture::origin);registry.add("app.labs.gateway-secret",()->LabProtocolFixture.SECRET);registry.add("app.labs.operator-public-key",fixture::publicKey);registry.add("app.labs.admission-evidence",()->fixture.evidence.toString());registry.add("app.labs.operator-epoch",()->fixture.epoch.toString());registry.add("app.labs.timeout-ms",()->1000);}
   @AfterAll static void close(){fixture.close();}
-  @Autowired JdbcTemplate db;@Autowired MockMvc mvc;@Autowired ObjectMapper json;@Autowired LabService labs;@Autowired LabDataAiPolicy dataAi;
+  @Autowired JdbcTemplate db;@Autowired MockMvc mvc;@Autowired ObjectMapper json;@Autowired LabService labs;@Autowired LabDataAiPolicy dataAi;@Autowired LabIotPolicy iot;
   UUID sourceOwner,owner,other,admin,component;
   UUID user(String token,boolean builder){UUID id=UUID.randomUUID();db.update("INSERT INTO users(id,email,password_hash,email_verified_at) VALUES(?,?,'unused',now())",id,token+"@example.test");db.update("INSERT INTO user_roles(user_id,role) VALUES(?,'CLIENT')",id);if(builder){db.update("INSERT INTO user_roles(user_id,role) VALUES(?,'DEVELOPER')",id);db.update("INSERT INTO developer_profiles(user_id,slug,display_name,approval_status) VALUES(?,?,?,'APPROVED')",id,token,token);}db.update("INSERT INTO sessions(token_hash,user_id,expires_at) VALUES(?,?,now()+interval '1 hour')",Support.hash(token),id);return id;}
   @BeforeEach void seed()throws Exception{
     org.springframework.test.util.ReflectionTestUtils.setField(dataAi,"enabled",false);
+    org.springframework.test.util.ReflectionTestUtils.setField(iot,"enabled",false);
     fixture.reset();db.execute("TRUNCATE lab_manifests CASCADE");db.execute("TRUNCATE users CASCADE");db.execute("TRUNCATE rate_buckets");db.update("UPDATE lab_runtime_settings SET observed_epoch=NULL,paused=false,pause_reason='' WHERE id=1");
     sourceOwner=user("lab-source",true);owner=user("lab-owner",false);other=user("lab-other",false);admin=user("lab-admin",false);
     db.update("INSERT INTO user_roles(user_id,role) VALUES(?,'ADMIN')",admin);db.update("UPDATE sessions SET mfa_verified=true,issued_at=now() WHERE user_id=?",admin);
@@ -60,6 +62,79 @@ class LabsIntegrationTest {
   }
   MockHttpServletRequestBuilder startDataAi(String token,String key,String id,String scenario)throws Exception{return body(post("/api/v1/lab-runs"),token,Map.of("manifestId",id,"scenarioId",scenario,"inputs",Map.of("message","Controlled HTTP fixture only"))).header("Idempotency-Key",key);}
   UUID reserveDataAi(String token,String key,String id,String scenario)throws Exception{return UUID.fromString(json.readTree(mvc.perform(startDataAi(token,key,id,scenario)).andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString()).path("id").asText());}
+  void certifyIot()throws Exception{String payload=json.writeValueAsString(fixture.iotManifest(component));db.update("INSERT INTO lab_manifests(id,payload_text,payload_sha256,signature) VALUES('iot-greenhouse',?,?,?)",payload,Support.hash(payload),fixture.sign(payload));}
+  MockHttpServletRequestBuilder startIot(String token,String key)throws Exception{return body(post("/api/v1/lab-runs"),token,Map.of("manifestId","iot-greenhouse","scenarioId","greenhouse-monitor","inputs",Map.of("temperatureC","24","humidityPercent","50","thresholdC","30"))).header("Idempotency-Key",key);}
+  UUID reserveIot(String token,String key)throws Exception{return UUID.fromString(json.readTree(mvc.perform(startIot(token,key)).andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString()).path("id").asText());}
+  @Test void iotDefaultDenialRetainsSignedSourceWithoutRuntimeOrReservation()throws Exception{
+    certifyIot();mvc.perform(startIot("lab-owner","iot-disabled-default")).andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.error.code").value("IOT_DISABLED"));
+    assertEquals(0,db.queryForObject("SELECT count(*) FROM lab_runs",Integer.class));assertEquals(0,db.queryForObject("SELECT count(*) FROM lab_outbox",Integer.class));
+    var catalogue=json.readTree(mvc.perform(get("/api/v1/lab-manifests")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+    var source=java.util.stream.StreamSupport.stream(catalogue.path("items").spliterator(),false).filter(item->item.path("id").asText().equals("iot-greenhouse")).findFirst().orElseThrow();
+    assertEquals("Source only",source.path("executionMode").asText());assertFalse(source.path("availability").path("enabled").asBoolean());assertTrue(source.path("availability").path("reason").asText().contains("disabled"));assertEquals("node",source.path("adapter").path("runtime").asText());
+    db.update("UPDATE developer_profiles SET approval_status='SUSPENDED' WHERE user_id=?",sourceOwner);
+    mvc.perform(get("/api/v1/lab-manifests")).andExpect(status().isOk()).andExpect(jsonPath("$.items").isEmpty());
+  }
+  @Test void iotRevocationClosesRequestAndReplayBeforeConfirmedCleanup()throws Exception{
+    certifyIot();org.springframework.test.util.ReflectionTestUtils.setField(iot,"enabled",true);UUID id=reserveIot("lab-owner","iot-healthy-run");labs.tick();assertTrue(getRun(id,"lab-owner").path("verified").asBoolean());
+    org.springframework.test.util.ReflectionTestUtils.setField(iot,"enabled",false);
+    mvc.perform(body(post("/api/v1/lab-runs/"+id+"/requests"),"lab-owner",Map.of("operationId","publish","inputs",Map.of("temperatureC","50","humidityPercent","50","thresholdC","30"))).header("Idempotency-Key","iot-revoked-request")).andExpect(status().isForbidden()).andExpect(jsonPath("$.error.code").value("IOT_DISABLED"));
+    mvc.perform(as(get("/api/v1/lab-runs/"+id+"/events"),"lab-owner")).andExpect(status().isForbidden());assertFalse(getRun(id,"lab-owner").path("verified").asBoolean());assertEquals(0,db.queryForObject("SELECT count(*) FROM lab_requests",Integer.class));
+    fixture.failStop=true;labs.tick();assertEquals("CANCELLING",getRun(id,"lab-owner").path("status").asText());assertNull(db.queryForObject("SELECT cleanup_confirmed_at FROM lab_runs WHERE id=?",java.sql.Timestamp.class,id));
+    fixture.failStop=false;db.update("UPDATE lab_outbox SET next_attempt_at=now() WHERE run_id=?",id);labs.tick();assertEquals("FAILED",getRun(id,"lab-owner").path("status").asText());assertTrue(db.queryForObject("SELECT quota_counted FROM lab_runs WHERE id=?",Boolean.class,id));
+  }
+  @Test void iotQueuedRevocationNeverStartsAndNeverRefundsUnconfirmedCleanup()throws Exception{
+    certifyIot();org.springframework.test.util.ReflectionTestUtils.setField(iot,"enabled",true);UUID id=reserveIot("lab-owner","iot-queued-run");org.springframework.test.util.ReflectionTestUtils.setField(iot,"enabled",false);fixture.failStop=true;
+    labs.tick();assertEquals("CANCELLING",getRun(id,"lab-owner").path("status").asText());assertTrue(fixture.commands.values().stream().noneMatch(command->command.runId().equals(id)&&command.action().equals("START")));assertTrue(db.queryForObject("SELECT quota_counted FROM lab_runs WHERE id=?",Boolean.class,id));
+    fixture.failStop=false;db.update("UPDATE lab_outbox SET next_attempt_at=now() WHERE run_id=?",id);labs.tick();assertEquals("FAILED",getRun(id,"lab-owner").path("status").asText());assertFalse(db.queryForObject("SELECT quota_counted FROM lab_runs WHERE id=?",Boolean.class,id));
+  }
+  @Test void iotRequestsEnforceCurrentRunTopicAndBoundsBeforeCommandPersistence()throws Exception{
+    certifyIot();org.springframework.test.util.ReflectionTestUtils.setField(iot,"enabled",true);UUID id=reserveIot("lab-owner","iot-topic-bound-run");labs.tick();
+    assertEquals("getlancer/"+id+"/telemetry",db.queryForObject("SELECT inputs->>'topic' FROM lab_runs WHERE id=?",String.class,id));
+    for(var values:java.util.List.of(Map.of("temperatureC","81","humidityPercent","50","thresholdC","30"),Map.of("temperatureC","20.5","humidityPercent","50","thresholdC","30"),
+        Map.of("temperatureC","20","humidityPercent","101","thresholdC","30"),Map.of("temperatureC","20","humidityPercent","50","thresholdC","61"),
+        Map.of("temperatureC","20","humidityPercent","50","thresholdC","30","topic","getlancer/"+UUID.randomUUID()+"/telemetry"),Map.of("temperatureC","20","humidityPercent","50","thresholdC","30","broker","https://foreign.example"))){
+      mvc.perform(body(post("/api/v1/lab-runs/"+id+"/requests"),"lab-owner",Map.of("operationId","publish","inputs",values)).header("Idempotency-Key","iot-invalid-operation")).andExpect(status().isBadRequest());
+    }
+    assertEquals(0,db.queryForObject("SELECT count(*) FROM lab_requests",Integer.class));assertTrue(fixture.commands.values().stream().noneMatch(command->command.action().equals("REQUEST")));
+    var operation=body(post("/api/v1/lab-runs/"+id+"/requests"),"lab-owner",Map.of("operationId","publish","inputs",Map.of("temperatureC","-20","humidityPercent","100","thresholdC","60","topic","getlancer/"+id+"/telemetry"))).header("Idempotency-Key","iot-valid-operation");
+    mvc.perform(operation).andExpect(status().isOk());assertEquals("getlancer/"+id+"/telemetry",fixture.commands.values().stream().filter(command->command.action().equals("REQUEST")).findFirst().orElseThrow().inputs().get("topic"));
+  }
+  @Test void iotClassCapacityIsIndependentAndUncertainCleanupRetainsItsReservations()throws Exception{
+    certifyIot();org.springframework.test.util.ReflectionTestUtils.setField(iot,"enabled",true);UUID first=null;
+    for(int i=0;i<4;i++){String token="iot-class-"+i;user(token,false);UUID id=reserveIot(token,"iot-class-run-"+i);if(i==0)first=id;}
+    user("iot-overflow",false);mvc.perform(startIot("iot-overflow","iot-class-overflow")).andExpect(status().isTooManyRequests()).andExpect(jsonPath("$.error.code").value("IOT_CAPACITY"));
+    certifyDataAi("signed-data","revenue-summary","DATA_ANALYTICS");org.springframework.test.util.ReflectionTestUtils.setField(dataAi,"enabled",true);reserveDataAi("lab-owner","independent-data-capacity","signed-data","revenue-summary");
+    fixture.failStop=true;mvc.perform(body(post("/api/v1/lab-runs/"+first+"/stop"),"iot-class-0",Map.of())).andExpect(status().isOk());labs.tick();
+    mvc.perform(startIot("iot-overflow","iot-before-confirmed-cleanup")).andExpect(status().isTooManyRequests()).andExpect(jsonPath("$.error.code").value("IOT_CAPACITY"));
+    fixture.failStop=false;db.update("UPDATE lab_outbox SET next_attempt_at=now() WHERE run_id=?",first);labs.tick();reserveIot("iot-overflow","iot-after-confirmed-cleanup");
+  }
+  @Test void unsupportedDisabledRetiredAndExpiredAdaptersRetainSourceAndDenyAdmission()throws Exception{
+    for(String condition:java.util.List.of("disabled","retired","mismatch","scenario","expired","unsigned")){
+      String id="adapter-"+condition;var manifest=(com.fasterxml.jackson.databind.node.ObjectNode)json.valueToTree(fixture.manifest(component));manifest.put("id",id).put("language","Go").put("framework","Standard library");
+      ((com.fasterxml.jackson.databind.node.ObjectNode)manifest.path("scenarios").get(0)).put("id",condition.equals("scenario")?"shell":"cache");
+      manifest.set("adapter",json.valueToTree(Map.of("runtime",condition.equals("mismatch")?"php":"go","version",condition.equals("mismatch")?"8.3.6":"1.24.13","state",condition.equals("disabled")?"DISABLED":condition.equals("retired")?"RETIRED":"ACTIVE")));
+      if(condition.equals("expired"))manifest.put("approvedUntil",java.time.Instant.now().minusSeconds(1).toString());
+      String payload=manifest.toString();db.update("INSERT INTO lab_manifests(id,payload_text,payload_sha256,signature) VALUES(?,?,?,?)",id,payload,Support.hash(payload),condition.equals("unsigned")?fixture.sign(payload+" "):fixture.sign(payload));
+      mvc.perform(startDataAi("lab-owner","deny-"+id,id,condition.equals("scenario")?"shell":"cache")).andExpect(status().isServiceUnavailable());
+    }
+    assertEquals(0,db.queryForObject("SELECT count(*) FROM lab_runs",Integer.class));
+    var catalogue=json.readTree(mvc.perform(get("/api/v1/lab-manifests")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+    assertEquals(6,catalogue.path("items").size());
+    for(var item:catalogue.path("items"))if(item.path("id").asText().startsWith("adapter-")){assertEquals("Source only",item.path("executionMode").asText());assertFalse(item.path("availability").path("enabled").asBoolean());}
+    mvc.perform(startDataAi("lab-owner","unknown-manifest-denial","unknown-manifest","cache")).andExpect(status().isNotFound());
+  }
+  @Test void supportedNativeAdapterUsesFullSignedPayloadInProviderCommandBinding()throws Exception{
+    var manifest=(com.fasterxml.jackson.databind.node.ObjectNode)json.valueToTree(fixture.manifest(component));manifest.put("id","signed-go-cache").put("language","Go").put("framework","Standard library");
+    ((com.fasterxml.jackson.databind.node.ObjectNode)manifest.path("scenarios").get(0)).put("id","cache");manifest.set("adapter",json.valueToTree(Map.of("runtime","go","version","1.24.13","state","ACTIVE")));
+    String payload=manifest.toString(),hash=Support.hash(payload);db.update("INSERT INTO lab_manifests(id,payload_text,payload_sha256,signature) VALUES('signed-go-cache',?,?,?)",payload,hash,fixture.sign(payload));
+    UUID id=reserveDataAi("lab-owner","signed-go-cache-run","signed-go-cache","cache");labs.tick();
+    var command=fixture.commands.values().stream().filter(item->item.runId().equals(id)&&item.action().equals("START")).findFirst().orElseThrow();
+    assertEquals(hash,command.manifestSha256());assertTrue(getRun(id,"lab-owner").path("verified").asBoolean());
+    assertThrows(org.springframework.dao.DataAccessException.class,()->db.update("UPDATE lab_manifests SET payload_text=? WHERE id='signed-go-cache'",payload.replace("ACTIVE","RETIRED")));
+    db.update("UPDATE lab_manifests SET revoked_at=now() WHERE id='signed-go-cache'");assertFalse(getRun(id,"lab-owner").path("verified").asBoolean());
+    mvc.perform(body(post("/api/v1/lab-runs/"+id+"/requests"),"lab-owner",Map.of("operationId","echo","inputs",Map.of("message","Not forwarded"))).header("Idempotency-Key","revoked-go-operation")).andExpect(status().isNotFound());
+    labs.tick();assertEquals("FAILED",getRun(id,"lab-owner").path("status").asText());
+  }
   @Test void dataAiDefaultDenialPrecedesReservationAndPreservesGeneralLabs()throws Exception{
     certifyDataAi("renamed-data","revenue-summary",null);certifyDataAi("renamed-inference","renamed-scenario","AI_ML");certifyDataAi("data-ai-namespace","request",null);
     for(var pair:java.util.List.of(new String[]{"renamed-data","revenue-summary"},new String[]{"renamed-inference","renamed-scenario"},new String[]{"data-ai-namespace","request"})){

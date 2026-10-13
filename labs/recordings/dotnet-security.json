@@ -1,0 +1,261 @@
+{
+  "mode": "REPLAY",
+  "labId": "dotnet-security",
+  "language": "dotnet",
+  "pattern": "security",
+  "runId": "6e04c68e-a448-4e32-a7b4-e392205981f0",
+  "sourceHash": "f97b492274eb332ab496f67c19dd196f75419d4844f18a57076828d0ab15c75a",
+  "recordedAt": "2026-10-13T05:11:48.8127495Z",
+  "responses": [
+    {
+      "runId": "6e04c68e-a448-4e32-a7b4-e392205981f0",
+      "sourceHash": "f97b492274eb332ab496f67c19dd196f75419d4844f18a57076828d0ab15c75a",
+      "requestId": "086c385c-6c59-4370-872b-6103ffdf6553",
+      "pattern": "security",
+      "status": 200,
+      "durationMs": 2,
+      "state": {
+        "decision": "RESET",
+        "reason": "RESET",
+        "currentRole": "editor"
+      },
+      "events": [
+        {
+          "runId": "6e04c68e-a448-4e32-a7b4-e392205981f0",
+          "sourceHash": "f97b492274eb332ab496f67c19dd196f75419d4844f18a57076828d0ab15c75a",
+          "requestId": "086c385c-6c59-4370-872b-6103ffdf6553",
+          "sequence": 13,
+          "type": "AUTH_RESET",
+          "edge": "policy-store",
+          "recordedAt": "2026-10-13T05:11:48.8127495Z",
+          "summary": "The synthetic current-role policy was reset."
+        }
+      ]
+    },
+    {
+      "runId": "6e04c68e-a448-4e32-a7b4-e392205981f0",
+      "sourceHash": "f97b492274eb332ab496f67c19dd196f75419d4844f18a57076828d0ab15c75a",
+      "requestId": "d4e24e1e-ab27-47c1-a43e-ae85e05d21fc",
+      "pattern": "security",
+      "status": 200,
+      "durationMs": 2,
+      "state": {
+        "decision": "ALLOW",
+        "reason": "ALLOW",
+        "currentRole": "editor"
+      },
+      "events": [
+        {
+          "runId": "6e04c68e-a448-4e32-a7b4-e392205981f0",
+          "sourceHash": "f97b492274eb332ab496f67c19dd196f75419d4844f18a57076828d0ab15c75a",
+          "requestId": "d4e24e1e-ab27-47c1-a43e-ae85e05d21fc",
+          "sequence": 14,
+          "type": "AUTH_ALLOWED",
+          "edge": "service-policy",
+          "recordedAt": "2026-10-13T05:11:48.8239209Z",
+          "summary": "Synthetic identity and current-role policy allowed the action."
+        }
+      ]
+    },
+    {
+      "runId": "6e04c68e-a448-4e32-a7b4-e392205981f0",
+      "sourceHash": "f97b492274eb332ab496f67c19dd196f75419d4844f18a57076828d0ab15c75a",
+      "requestId": "b937eced-3d91-4a04-879f-1ed532302f52",
+      "pattern": "security",
+      "status": 403,
+      "durationMs": 0,
+      "state": {
+        "decision": "DENY",
+        "reason": "ROLE",
+        "currentRole": "editor"
+      },
+      "events": [
+        {
+          "runId": "6e04c68e-a448-4e32-a7b4-e392205981f0",
+          "sourceHash": "f97b492274eb332ab496f67c19dd196f75419d4844f18a57076828d0ab15c75a",
+          "requestId": "b937eced-3d91-4a04-879f-1ed532302f52",
+          "sequence": 15,
+          "type": "AUTH_DENIED",
+          "edge": "service-policy",
+          "recordedAt": "2026-10-13T05:11:48.8293880Z",
+          "summary": "Synthetic identity or current-role policy denied the action."
+        }
+      ]
+    },
+    {
+      "runId": "6e04c68e-a448-4e32-a7b4-e392205981f0",
+      "sourceHash": "f97b492274eb332ab496f67c19dd196f75419d4844f18a57076828d0ab15c75a",
+      "requestId": "b34667d3-9c17-4a72-8307-840c0092212e",
+      "pattern": "security",
+      "status": 403,
+      "durationMs": 0,
+      "state": {
+        "decision": "DENY",
+        "reason": "TENANT",
+        "currentRole": "editor"
+      },
+      "events": [
+        {
+          "runId": "6e04c68e-a448-4e32-a7b4-e392205981f0",
+          "sourceHash": "f97b492274eb332ab496f67c19dd196f75419d4844f18a57076828d0ab15c75a",
+          "requestId": "b34667d3-9c17-4a72-8307-840c0092212e",
+          "sequence": 16,
+          "type": "AUTH_DENIED",
+          "edge": "service-policy",
+          "recordedAt": "2026-10-13T05:11:48.8337441Z",
+          "summary": "Synthetic identity or current-role policy denied the action."
+        }
+      ]
+    },
+    {
+      "runId": "6e04c68e-a448-4e32-a7b4-e392205981f0",
+      "sourceHash": "f97b492274eb332ab496f67c19dd196f75419d4844f18a57076828d0ab15c75a",
+      "requestId": "1b4974df-93cb-45bd-8bd8-669f279982cb",
+      "pattern": "security",
+      "status": 401,
+      "durationMs": 0,
+      "state": {
+        "decision": "DENY",
+        "reason": "EXPIRED",
+        "currentRole": "editor"
+      },
+      "events": [
+        {
+          "runId": "6e04c68e-a448-4e32-a7b4-e392205981f0",
+          "sourceHash": "f97b492274eb332ab496f67c19dd196f75419d4844f18a57076828d0ab15c75a",
+          "requestId": "1b4974df-93cb-45bd-8bd8-669f279982cb",
+          "sequence": 17,
+          "type": "AUTH_DENIED",
+          "edge": "service-policy",
+          "recordedAt": "2026-10-13T05:11:48.8366794Z",
+          "summary": "Synthetic identity or current-role policy denied the action."
+        }
+      ]
+    },
+    {
+      "runId": "6e04c68e-a448-4e32-a7b4-e392205981f0",
+      "sourceHash": "f97b492274eb332ab496f67c19dd196f75419d4844f18a57076828d0ab15c75a",
+      "requestId": "ddabcb82-7eca-4dc5-9b25-1b95ade07988",
+      "pattern": "security",
+      "status": 401,
+      "durationMs": 0,
+      "state": {
+        "decision": "DENY",
+        "reason": "SIGNATURE",
+        "currentRole": "editor"
+      },
+      "events": [
+        {
+          "runId": "6e04c68e-a448-4e32-a7b4-e392205981f0",
+          "sourceHash": "f97b492274eb332ab496f67c19dd196f75419d4844f18a57076828d0ab15c75a",
+          "requestId": "ddabcb82-7eca-4dc5-9b25-1b95ade07988",
+          "sequence": 18,
+          "type": "AUTH_DENIED",
+          "edge": "service-policy",
+          "recordedAt": "2026-10-13T05:11:48.8397632Z",
+          "summary": "Synthetic identity or current-role policy denied the action."
+        }
+      ]
+    },
+    {
+      "runId": "6e04c68e-a448-4e32-a7b4-e392205981f0",
+      "sourceHash": "f97b492274eb332ab496f67c19dd196f75419d4844f18a57076828d0ab15c75a",
+      "requestId": "80744a8f-f5c4-41e3-bdc1-014e71aaf43b",
+      "pattern": "security",
+      "status": 200,
+      "durationMs": 0,
+      "state": {
+        "decision": "DENY",
+        "reason": "REVOKED",
+        "currentRole": "viewer"
+      },
+      "events": [
+        {
+          "runId": "6e04c68e-a448-4e32-a7b4-e392205981f0",
+          "sourceHash": "f97b492274eb332ab496f67c19dd196f75419d4844f18a57076828d0ab15c75a",
+          "requestId": "80744a8f-f5c4-41e3-bdc1-014e71aaf43b",
+          "sequence": 19,
+          "type": "AUTH_REVOKED",
+          "edge": "policy-store",
+          "recordedAt": "2026-10-13T05:11:48.8422610Z",
+          "summary": "The synthetic current-role policy now denies editor authority."
+        }
+      ]
+    },
+    {
+      "runId": "6e04c68e-a448-4e32-a7b4-e392205981f0",
+      "sourceHash": "f97b492274eb332ab496f67c19dd196f75419d4844f18a57076828d0ab15c75a",
+      "requestId": "f6d736ab-0035-4a7a-9038-6bb533fe18ad",
+      "pattern": "security",
+      "status": 403,
+      "durationMs": 0,
+      "state": {
+        "decision": "DENY",
+        "reason": "REVOKED",
+        "currentRole": "viewer"
+      },
+      "events": [
+        {
+          "runId": "6e04c68e-a448-4e32-a7b4-e392205981f0",
+          "sourceHash": "f97b492274eb332ab496f67c19dd196f75419d4844f18a57076828d0ab15c75a",
+          "requestId": "f6d736ab-0035-4a7a-9038-6bb533fe18ad",
+          "sequence": 20,
+          "type": "AUTH_DENIED",
+          "edge": "service-policy",
+          "recordedAt": "2026-10-13T05:11:48.8452806Z",
+          "summary": "Synthetic identity or current-role policy denied the action."
+        }
+      ]
+    },
+    {
+      "runId": "6e04c68e-a448-4e32-a7b4-e392205981f0",
+      "sourceHash": "f97b492274eb332ab496f67c19dd196f75419d4844f18a57076828d0ab15c75a",
+      "requestId": "ac0edf74-a264-462c-a68c-40e13c931ece",
+      "pattern": "security",
+      "status": 200,
+      "durationMs": 1,
+      "state": {
+        "decision": "RESET",
+        "reason": "RESET",
+        "currentRole": "editor"
+      },
+      "events": [
+        {
+          "runId": "6e04c68e-a448-4e32-a7b4-e392205981f0",
+          "sourceHash": "f97b492274eb332ab496f67c19dd196f75419d4844f18a57076828d0ab15c75a",
+          "requestId": "ac0edf74-a264-462c-a68c-40e13c931ece",
+          "sequence": 21,
+          "type": "AUTH_RESET",
+          "edge": "policy-store",
+          "recordedAt": "2026-10-13T05:11:48.8522078Z",
+          "summary": "The synthetic current-role policy was reset."
+        }
+      ]
+    },
+    {
+      "runId": "6e04c68e-a448-4e32-a7b4-e392205981f0",
+      "sourceHash": "f97b492274eb332ab496f67c19dd196f75419d4844f18a57076828d0ab15c75a",
+      "requestId": "a4f4af30-aab7-4301-aedd-dae866711c7b",
+      "pattern": "security",
+      "status": 200,
+      "durationMs": 0,
+      "state": {
+        "decision": "ALLOW",
+        "reason": "ALLOW",
+        "currentRole": "editor"
+      },
+      "events": [
+        {
+          "runId": "6e04c68e-a448-4e32-a7b4-e392205981f0",
+          "sourceHash": "f97b492274eb332ab496f67c19dd196f75419d4844f18a57076828d0ab15c75a",
+          "requestId": "a4f4af30-aab7-4301-aedd-dae866711c7b",
+          "sequence": 22,
+          "type": "AUTH_ALLOWED",
+          "edge": "service-policy",
+          "recordedAt": "2026-10-13T05:11:48.8558793Z",
+          "summary": "Synthetic identity and current-role policy allowed the action."
+        }
+      ]
+    }
+  ]
+}

@@ -28,7 +28,11 @@
     "education:verify": "node --test tests/college-seed-packages.test.mjs",
     "data-ai:build": "node scripts/build-data-ai-material.mjs",
     "data-ai:verify": "node scripts/verify-data-ai.mjs",
-    "data-ai:material": "node scripts/build-data-ai-material.mjs --verify"
+    "data-ai:material": "node scripts/build-data-ai-material.mjs --verify",
+    "iot:build": "node scripts/build-iot-material.mjs",
+    "iot:verify": "node scripts/verify-iot.mjs",
+    "frameworks:build": "node scripts/build-framework-material.mjs --native",
+    "frameworks:verify": "node scripts/verify-framework-previews.mjs"
   },
   "dependencies": {
     "class-variance-authority": "0.7.1",

@@ -7,7 +7,7 @@ import java.util.UUID;
 public final class LabResponses {
   private LabResponses() {}
   public record Manifest(String id,String title,String summary,String language,String framework,String sourceUrl,String setup,
-      String executionMode,List<LabManifest.Scenario> scenarios) {}
+      String executionMode,List<LabManifest.Scenario> scenarios,LabManifest.Adapter adapter,LabConfiguration.Runtime availability) {}
   public record Catalogue(List<Manifest> items,LabConfiguration.Runtime runtime) {}
   public record Quota(int dailyLimit,int remaining,Instant resetAt,UUID activeRunId,LabConfiguration.Runtime runtime) {}
   public record Run(UUID id,String manifestId,String scenarioId,String status,String executionMode,boolean verified,

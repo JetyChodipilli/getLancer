@@ -7,7 +7,11 @@ services:
     user: '1000:1000'
     network_mode: none
     read_only: true
-    tmpfs: ['/tmp:rw,noexec,nosuid,size=128m,mode=1777']
+    # Only trusted checked-in native source is compiled/executed here. Generic
+    # temporary files retain noexec; this is account-free local QA, not a hosted certificate.
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=128m,mode=1777', '/native:rw,exec,nosuid,size=384m,mode=1777']
+    environment:
+      LAB_NATIVE_WORKDIR: /native
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     pids_limit: 128

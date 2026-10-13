@@ -21,6 +21,8 @@ fi
 node --experimental-strip-types "${SITES_PROJECT_ROOT}/scripts/build-lab-material.mjs"
 
 node "${SITES_PROJECT_ROOT}/scripts/build-data-ai-material.mjs"
+node "${SITES_PROJECT_ROOT}/scripts/build-iot-material.mjs"
+node "${SITES_PROJECT_ROOT}/scripts/build-framework-material.mjs" --verify
 
 echo "Running bounded vinext build..."
 timeout \

@@ -23,9 +23,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 public class LabService {
   private final JdbcTemplate db;private final Security security;private final LabConfiguration config;
-  private final LabProviderClient provider;private final ObjectMapper json;private final TransactionTemplate transaction;private final LabDataAiPolicy dataAi;
-  public LabService(JdbcTemplate db,Security security,LabConfiguration config,LabProviderClient provider,ObjectMapper json,PlatformTransactionManager manager,LabDataAiPolicy dataAi){
-    this.db=db;this.security=security;this.config=config;this.provider=provider;this.json=json;this.transaction=new TransactionTemplate(manager);this.dataAi=dataAi;
+  private final LabProviderClient provider;private final ObjectMapper json;private final TransactionTemplate transaction;private final LabDataAiPolicy dataAi;private final LabIotPolicy iot;private final LabAdapterPolicy adapters;
+  public LabService(JdbcTemplate db,Security security,LabConfiguration config,LabProviderClient provider,ObjectMapper json,PlatformTransactionManager manager,LabDataAiPolicy dataAi,LabIotPolicy iot,LabAdapterPolicy adapters){
+    this.db=db;this.security=security;this.config=config;this.provider=provider;this.json=json;this.transaction=new TransactionTemplate(manager);this.dataAi=dataAi;this.iot=iot;this.adapters=adapters;
   }
   private <T>T tx(java.util.function.Supplier<T> work){return transaction.execute(status->work.get());}
   // ponytail: one admission lock for ten runs; partition only if measured throughput requires it.
@@ -44,8 +44,9 @@ public class LabService {
     UUID fresh=admin?security.admin(request):security.user(request);if(!actor.equals(fresh))throw new ApiError(401,"UNAUTHENTICATED","Please log in again.");
     if(admin&&!security.loadPrincipal(request).recentMfa())throw new ApiError(403,"FORBIDDEN","Recent administrator MFA is required.");return actor;
   }
-  private LabManifest manifest(String id){var rows=db.queryForList("SELECT id,payload_text,payload_sha256,signature,revoked_at,created_at FROM lab_manifests WHERE id=? AND revoked_at IS NULL FOR SHARE",id);if(rows.isEmpty())throw absent();
-    var row=rows.get(0);var manifest=config.manifest((String)row.get("payload_text"),(String)row.get("payload_sha256"),(String)row.get("signature"),json);if(!manifest.id().equals(id))throw absent();return manifest;
+  private LabManifest manifest(String id){return manifest(id,true);}
+  private LabManifest manifest(String id,boolean current){var rows=db.queryForList("SELECT id,payload_text,payload_sha256,signature,revoked_at,created_at FROM lab_manifests WHERE id=? AND revoked_at IS NULL FOR SHARE",id);if(rows.isEmpty())throw absent();
+    var row=rows.get(0);var manifest=current?config.manifest((String)row.get("payload_text"),(String)row.get("payload_sha256"),(String)row.get("signature"),json):config.sourceManifest((String)row.get("payload_text"),(String)row.get("payload_sha256"),(String)row.get("signature"),json);if(!manifest.id().equals(id))throw absent();return manifest;
   }
   private String source(LabManifest manifest,boolean lock){
     if(lock){var ownerRows=db.queryForList("SELECT owner_id FROM component_entries WHERE id=?",UUID.class,manifest.componentId());if(ownerRows.isEmpty())throw absent();UUID owner=ownerRows.get(0);
@@ -64,9 +65,18 @@ public class LabService {
   private LabConfiguration.Runtime runtime(){var available=config.projection();if(!available.enabled())return available;UUID observed=db.queryForObject("SELECT observed_epoch FROM lab_runtime_settings WHERE id=1",UUID.class);if(!Objects.equals(config.epoch,observed))return new LabConfiguration.Runtime(false,"The operator epoch changed; admission and old routes are closed pending quarantine.");Boolean paused=db.queryForObject("SELECT paused FROM lab_runtime_settings WHERE id=1",Boolean.class);return Boolean.TRUE.equals(paused)?new LabConfiguration.Runtime(false,"Lab admissions are paused. Reviewed source and setup remain free."):available;}
   public LabResponses.Catalogue catalogue(){var items=new java.util.ArrayList<LabResponses.Manifest>();
     for(String id:db.queryForList("SELECT id FROM lab_manifests WHERE revoked_at IS NULL ORDER BY id LIMIT 100",String.class))try{
-      var manifest=manifest(id);if(!dataAi.visible(manifest))continue;String sourceUrl=source(manifest,false);items.add(new LabResponses.Manifest(manifest.id(),manifest.title(),manifest.summary(),manifest.language(),manifest.framework(),sourceUrl,manifest.setup(),"Isolated provider",manifest.scenarios()));
-    }catch(ApiError unavailable){/* Revoked, expired or uncertified manifests are not public. */}
+      var manifest=manifest(id,false);if(!dataAi.visible(manifest))continue;String sourceUrl=source(manifest,false);var available=availability(manifest);
+      items.add(new LabResponses.Manifest(manifest.id(),manifest.title(),manifest.summary(),manifest.language(),manifest.framework(),sourceUrl,manifest.setup(),available.enabled()?"Isolated provider":"Source only",manifest.scenarios(),manifest.adapter(),available));
+    }catch(ApiError unavailable){/* Unsigned/revoked manifests or currently ineligible sources are not public. */}
     return new LabResponses.Catalogue(List.copyOf(items),runtime());
+  }
+  private LabConfiguration.Runtime availability(LabManifest manifest){
+    try{manifest(manifest.id());for(var scenario:manifest.scenarios())requirePolicies(manifest,scenario.id(),true);return runtime();}
+    catch(ApiError unavailable){return new LabConfiguration.Runtime(false,unavailable.getMessage());}
+  }
+  private String requirePolicies(LabManifest manifest,String scenario,boolean admission){
+    String kind=dataAi.require(manifest,scenario,admission),iotKind=iot.require(manifest,scenario,admission);adapters.require(manifest,scenario,admission);
+    return iotKind.equals("GENERAL")?kind:iotKind;
   }
   public LabResponses.Quota quota(HttpServletRequest request){return tx(()->{readLock();UUID owner=actor(request,false);return quota(owner);});}
   private LabResponses.Quota quota(UUID owner){int used=db.queryForObject("SELECT count(*) FROM lab_runs WHERE owner_id=? AND quota_counted AND requested_at>=date_trunc('day',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'",Integer.class,owner);
@@ -77,17 +87,17 @@ public class LabService {
     var settings=settings();UUID owner=actor(request,false);String hash=hash(input);var old=db.queryForList("SELECT id,owner_id,manifest_id,scenario_id,request_hash,idempotency_key,inputs,manifest_sha256,image_digest,operator_epoch,lease_generation,status,requested_at,expires_at,last_activity_at,healthy_at,cleanup_confirmed_at,reason,attention,memory_mib,cost_micros,quota_counted FROM lab_runs WHERE owner_id=? AND idempotency_key=? FOR UPDATE",owner,key);
     if(!old.isEmpty()){if(!hash.equals(old.get(0).get("request_hash")))throw idempotency();reconcileAuthority(old.get(0));return projection(row((UUID)old.get(0).get("id")));}
     config.ready();if(Boolean.TRUE.equals(settings.get("paused")))throw new ApiError(503,"LAB_PAUSED","New lab admissions are paused. Source and setup remain free.");
-    LabManifest manifest=manifest(input.manifestId());source(manifest,true);var scenario=manifest.scenario(input.scenarioId());String resourceClass=dataAi.require(manifest,scenario.id(),true);Map<String,String> inputs=manifest.inputs(scenario,input.inputs().values());
+    LabManifest manifest=manifest(input.manifestId());source(manifest,true);var scenario=manifest.scenario(input.scenarioId());String resourceClass=requirePolicies(manifest,scenario.id(),true);UUID id=UUID.randomUUID();Map<String,String> inputs=iot.inputs(manifest,manifest.inputs(scenario,input.inputs().values()),id);
     var quota=quota(owner);if(quota.remaining()<1)throw new ApiError(429,"LAB_QUOTA_EXHAUSTED","Your five daily runtime reservations are used. Source and setup remain free.");
     if(quota.activeRunId()!=null)throw new ApiError(429,"LAB_ACTIVE_RUN","Finish cleanup of your current run before starting another.");
     var resources=resources();if(number(resources,"active")>=10||number(resources,"memory")+manifest.memoryMiB()>5120||number(resources,"daily")+manifest.maxCostMicros()>50_000_000||number(resources,"monthly")+manifest.maxCostMicros()>1_000_000_000)
       throw new ApiError(429,"LAB_CAPACITY","The isolated runtime has reached its reserved capacity or budget. Source and setup remain free.");
     if(!resourceClass.equals("GENERAL")){
-      var reserved=dataAiResources(resourceClass);
-      if(number(reserved,"active")>=LabDataAiPolicy.CLASS_RUNS||number(reserved,"memory")+manifest.memoryMiB()>LabDataAiPolicy.CLASS_MEMORY_MIB)
-        throw new ApiError(429,"DATA_AI_CAPACITY","This data or CPU inference class has reached its independent reserved capacity. Source and setup remain free.");
+      var reserved=classResources(resourceClass);boolean iotClass=resourceClass.equals(LabIotPolicy.RESOURCE_CLASS);
+      if(number(reserved,"active")>=(iotClass?LabIotPolicy.CLASS_RUNS:LabDataAiPolicy.CLASS_RUNS)||number(reserved,"memory")+manifest.memoryMiB()>(iotClass?LabIotPolicy.CLASS_MEMORY_MIB:LabDataAiPolicy.CLASS_MEMORY_MIB))
+        throw new ApiError(429,iotClass?"IOT_CAPACITY":"DATA_AI_CAPACITY","This execution class has reached its independent reserved capacity. Source and setup remain free.");
     }
-    UUID id=UUID.randomUUID();Instant expiry=Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MILLIS).plusSeconds(300);
+    Instant expiry=Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MILLIS).plusSeconds(300);
     String manifestHash=db.queryForObject("SELECT payload_sha256 FROM lab_manifests WHERE id=?",String.class,manifest.id());
     db.update("INSERT INTO lab_runs(id,owner_id,manifest_id,scenario_id,request_hash,idempotency_key,inputs,manifest_sha256,image_digest,operator_epoch,status,expires_at,memory_mib,cost_micros) VALUES(?,?,?,?,?,?,?::jsonb,?,?,?,'QUEUED',?,?,?)",id,owner,manifest.id(),scenario.id(),hash,key,encode(inputs),manifestHash,manifest.imageDigest(),config.epoch,Timestamp.from(expiry),manifest.memoryMiB(),manifest.maxCostMicros());
     event(id,"QUEUED","QUEUED","Waiting for the isolated provider.");outbox(id,1,"START");return projection(row(id));
@@ -99,7 +109,7 @@ public class LabService {
 
     if(!config.projection().enabled()||!Objects.equals(config.epoch,run.get("operator_epoch"))||!Objects.equals(config.epoch,db.queryForObject("SELECT observed_epoch FROM lab_runtime_settings WHERE id=1",UUID.class)))throw new ApiError(403,"LAB_LEASE_STALE","Runtime admission or the operator epoch has changed. This lease is closed.");
     if(!instant(run,"expires_at").isAfter(Instant.now()))throw new ApiError(410,"LAB_EXPIRED","This run has expired.");
-    var manifest=manifest((String)run.get("manifest_id"));dataAi.require(manifest,(String)run.get("scenario_id"),false);source(manifest,true);
+    var manifest=manifest((String)run.get("manifest_id"));requirePolicies(manifest,(String)run.get("scenario_id"),false);source(manifest,true);
   }
   public LabResponses.Run detail(UUID id,HttpServletRequest request){return tx(()->{readLock();UUID owner=actor(request,false);boolean admin=security.role(owner,"ADMIN")&&security.loadPrincipal(request).recentMfa();var run=owned(id,owner,admin);return observedProjection(run);});}
   private void reconcileAuthority(Map<String,Object> run){if(run.get("cleanup_confirmed_at")!=null)return;try{current(run);}catch(ApiError revoked){cancel(run,revoked.code.equals("LAB_EXPIRED")?"EXPIRED":"FAILED",revoked.getMessage());}}
@@ -114,7 +124,7 @@ public class LabService {
     RequestIntent intent=tx(()->{
       settings();UUID owner=actor(request,false);var run=owned(id,owner,false);current(run);if(!run.get("status").equals("RUNNING")||run.get("healthy_at")==null)throw new ApiError(409,"LAB_NOT_RUNNING","Only a currently healthy running lab accepts requests.");
       var manifest=manifest((String)run.get("manifest_id"));var scenario=manifest.scenario((String)run.get("scenario_id"));if(scenario.operations().stream().noneMatch(op->op.id().equals(input.operationId())))throw new ApiError(400,"INVALID_LAB_OPERATION","Choose an operation certified for this scenario.");
-      var inputs=manifest.inputs(scenario,input.inputs().values());String hash=hash(input);var previous=db.queryForList("SELECT command_id,run_id,idempotency_key,request_hash,lease_generation,operation_id,inputs,response,created_at FROM lab_requests WHERE run_id=? AND idempotency_key=? FOR UPDATE",id,key);UUID command;
+      var inputs=iot.inputs(manifest,manifest.inputs(scenario,input.inputs().values()),id);String hash=hash(input);var previous=db.queryForList("SELECT command_id,run_id,idempotency_key,request_hash,lease_generation,operation_id,inputs,response,created_at FROM lab_requests WHERE run_id=? AND idempotency_key=? FOR UPDATE",id,key);UUID command;
       if(!previous.isEmpty()){if(!hash.equals(previous.get(0).get("request_hash")))throw idempotency();command=(UUID)previous.get(0).get("command_id");}
       else{command=UUID.randomUUID();db.update("INSERT INTO lab_requests(command_id,run_id,idempotency_key,request_hash,lease_generation,operation_id,inputs) VALUES(?,?,?,?,?,?,?::jsonb)",command,id,key,hash,number(run,"lease_generation"),input.operationId(),encode(inputs));}
       return new RequestIntent(owner,command,input.operationId(),inputs);
@@ -189,7 +199,8 @@ public class LabService {
   }}
   private long count(String status){return db.queryForObject("SELECT count(*) FROM lab_runs WHERE status=? AND cleanup_confirmed_at IS NULL",Long.class,status);}
   /** Includes failed/cancelling reservations until confirmed cleanup, under the same admission lock. */
-  private Map<String,Object> dataAiResources(String resourceClass){
+  private Map<String,Object> classResources(String resourceClass){
+    if(resourceClass.equals(LabIotPolicy.RESOURCE_CLASS))return db.queryForMap("SELECT count(*) AS active,coalesce(sum(r.memory_mib),0) AS memory FROM lab_runs r JOIN lab_manifests m ON m.id=r.manifest_id WHERE r.cleanup_confirmed_at IS NULL AND (m.payload_text::jsonb->>'resourceClass'=? OR r.scenario_id=?)",resourceClass,LabIotPolicy.SCENARIO);
     String first=resourceClass.equals("DATA_ANALYTICS")?"revenue-summary":"sentiment-inference",second=resourceClass.equals("DATA_ANALYTICS")?"sensor-quality":"equipment-inference";
     return db.queryForMap("SELECT count(*) AS active,coalesce(sum(r.memory_mib),0) AS memory FROM lab_runs r JOIN lab_manifests m ON m.id=r.manifest_id WHERE r.cleanup_confirmed_at IS NULL AND (m.payload_text::jsonb->>'resourceClass'=? OR r.scenario_id IN (?,?))",resourceClass,first,second);
   }

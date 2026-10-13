@@ -1,0 +1,4 @@
+import {readFile} from 'node:fs/promises';
+import {build} from 'esbuild';
+import {parse,compileScript} from '@vue/compiler-sfc';
+await build({entryPoints:['src/main.js'],bundle:true,format:'iife',minify:true,legalComments:'inline',outfile:'dist/native.js',target:['es2020'],alias:{vue:'vue/dist/vue.runtime.esm-bundler.js'},define:{'process.env.NODE_ENV':'"production"',__VUE_OPTIONS_API__:'false',__VUE_PROD_DEVTOOLS__:'false',__VUE_PROD_HYDRATION_MISMATCH_DETAILS__:'false'},plugins:[{name:'original-vue-compiler',setup(builder){builder.onLoad({filter:/\.vue$/},async({path})=>{const {descriptor,errors}=parse(await readFile(path,'utf8'),{filename:'App.vue'});if(errors.length)throw errors[0];return {contents:compileScript(descriptor,{id:'getlancer-vue-brief',inlineTemplate:true}).content,loader:'js',resolveDir:new URL('./src',import.meta.url).pathname};});}}]});
