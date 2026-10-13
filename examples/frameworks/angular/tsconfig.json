@@ -1,0 +1,5 @@
+{
+ "compilerOptions":{"target":"ES2022","module":"ES2022","moduleResolution":"bundler","strict":true,"experimentalDecorators":true,"skipLibCheck":true,"outDir":".compiled","rootDir":"src","declaration":false},
+ "angularCompilerOptions":{"compilationMode":"full","strictTemplates":true},
+ "files":["src/app.ts"]
+}

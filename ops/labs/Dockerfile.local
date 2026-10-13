@@ -8,19 +8,35 @@ RUN git init /tmp/redis \
     && cd /tmp/redis \
     && find . -type f \( -iname 'COPYING*' -o -iname 'LICENSE*' -o -iname 'COPYRIGHT*' \) -exec cp --parents '{}' /out/redis-notices/ \;
 
+FROM golang:1.24.13-bookworm AS go-runtime
+FROM mcr.microsoft.com/dotnet/sdk:8.0-bookworm-slim AS dotnet-runtime
+FROM php:8.3-cli-bookworm AS php-runtime
+RUN docker-php-source extract \
+    && mkdir -p /out/php-notices \
+    && cd /usr/src/php \
+    && find . -type f \( -iname 'COPYING*' -o -iname 'LICENSE*' -o -iname 'COPYRIGHT*' \) -exec cp --parents '{}' /out/php-notices/ \;
 FROM node:22-bookworm-slim AS node-runtime
 
 FROM python:3.12-slim-bookworm
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends openjdk-17-jdk-headless libstdc++6 libatomic1 \
+    && apt-get install -y --no-install-recommends openjdk-17-jdk-headless libstdc++6 libatomic1 libicu72 libargon2-1 libxml2 libsodium23 libcurl4 libonig5 libreadline8 libsqlite3-0 libssl3 zlib1g \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
 COPY --from=node-runtime /usr/local/LICENSE /usr/share/doc/getlancer-node/LICENSE
 COPY --from=redis-build /tmp/redis/src/redis-server /usr/local/bin/redis-server
 COPY --from=redis-build /out/redis-notices/ /usr/share/doc/getlancer-redis/
+COPY --from=go-runtime /usr/local/go /usr/local/go
+COPY --from=dotnet-runtime /usr/share/dotnet /usr/share/dotnet
+COPY --from=php-runtime /usr/local/bin/php /usr/local/bin/php
+COPY --from=php-runtime /usr/local/lib/php /usr/local/lib/php
+COPY --from=php-runtime /out/php-notices/ /usr/share/doc/getlancer-php/
+ENV PATH="/usr/local/go/bin:/usr/share/dotnet:${PATH}" DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1 GOTOOLCHAIN=local
 WORKDIR /source
 COPY labs ./labs
-COPY scripts/verify-lab-scenarios.mjs scripts/lab-fixture-ports.mjs scripts/verify-data-ai.mjs scripts/build-data-ai-material.mjs scripts/verify-local-labs.mjs ./scripts/
+COPY global.json ./global.json
+COPY lib/iot.ts ./lib/iot.ts
+RUN mkdir -p /source/labs/dotnet/obj /source/labs/dotnet/bin /source/.native-cache && chmod -R a+rwX /source/labs/dotnet /source/.native-cache
+COPY scripts/verify-lab-scenarios.mjs scripts/lab-fixture-ports.mjs scripts/verify-data-ai.mjs scripts/build-data-ai-material.mjs scripts/verify-local-labs.mjs scripts/verify-iot.mjs scripts/build-iot-material.mjs ./scripts/
 USER 1000:1000
-ENV REDIS_SERVER=/usr/local/bin/redis-server
+ENV REDIS_SERVER=/usr/local/bin/redis-server DOTNET_CLI_HOME=/source/.native-cache GOCACHE=/source/.native-cache/go
 CMD ["node", "scripts/verify-local-labs.mjs"]

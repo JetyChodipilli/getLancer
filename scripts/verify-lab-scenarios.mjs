@@ -1,7 +1,7 @@
 /** Real local HTTP/Redis verification. No fixture server substitutes for a lab or Redis. */
 import assert from 'node:assert/strict';
 import {createHash,createHmac,randomUUID} from 'node:crypto';
-import {spawn} from 'node:child_process';
+import {spawn,spawnSync} from 'node:child_process';
 import {createServer,connect} from 'node:net';
 import {mkdtemp,readFile,mkdir,writeFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
@@ -33,7 +33,7 @@ async function redisCommand(redisPort,...parts){
  return new Promise((yes,no)=>{const socket=connect({host:'127.0.0.1',port:redisPort});let bytes=Buffer.alloc(0);socket.setTimeout(1000,()=>socket.destroy(Error('Redis verifier deadline')));socket.once('error',no);socket.once('connect',()=>socket.write('*'+parts.length+'\r\n'+parts.map(part=>{const value=Buffer.from(String(part));return '$'+value.length+'\r\n'+value+'\r\n';}).join('')));socket.on('data',chunk=>{bytes=Buffer.concat([bytes,chunk]);if(bytes.length>8192){socket.destroy(Error('Redis verifier bound'));return;}if(bytes.includes('\r\n')){socket.end();yes(bytes.toString());}});});
 }
 async function verifyLanguage(language){
- const workspace=await mkdtemp(join(tmpdir(),'getlancer-lab-'));const redisPort=await port(),failurePort=await port();const clients=new Set();
+ const workspace=await mkdtemp(join(process.env.LAB_NATIVE_WORKDIR||tmpdir(),'getlancer-lab-'));const redisPort=await port(),failurePort=await port();const clients=new Set();
  const blackhole=createServer(socket=>{clients.add(socket);socket.on('error',()=>{});socket.on('close',()=>clients.delete(socket));});
  const timeoutPort=await port();await new Promise((yes,no)=>blackhole.once('error',no).listen(timeoutPort,'127.0.0.1',yes));
  const redis=processStart(process.env.REDIS_SERVER||'redis-server',['--bind','127.0.0.1','--port',String(redisPort),'--save','','--appendonly','no','--protected-mode','yes','--maxmemory','16mb','--maxclients','32'],{},workspace);
@@ -43,14 +43,27 @@ async function verifyLanguage(language){
   assert.match(version,/Redis server v=7\.2\.16\b/,'Use the pinned actual Redis 7.2.16, never a Redis-compatible substitute');
   let redisReady=false;for(let i=0;i<100;i++){try{assert.match(await redisCommand(redisPort,'PING'),/^\+PONG/);redisReady=true;break;}catch{await delay(50);}}assert(redisReady,'Real Redis startup failed: '+redis.diagnostic());
   const primary=catalogue.languages[language].primary,sourceHash=sha(await readFile(join(root,primary)));
+  const nativeCache=join(workspace,language+'-cache');await mkdir(nativeCache,{recursive:true});
+  const runtimeEnv=language==='go'?{GOCACHE:nativeCache,GOENV:'off',GOTOOLCHAIN:'local'}:language==='dotnet'?{DOTNET_CLI_HOME:nativeCache,DOTNET_SKIP_FIRST_TIME_EXPERIENCE:'1',DOTNET_CLI_TELEMETRY_OPTOUT:'1',DOTNET_NOLOGO:'1'}:{};
+  const nativeOutput=join(workspace,'native');await mkdir(nativeOutput,{recursive:true});
+  if(language==='go'||language==='dotnet'){
+    const compiler=language==='go'?(process.env.LAB_GO||'go'):(process.env.LAB_DOTNET||'dotnet');
+    const compileArgs=language==='go'?['build','-o',join(nativeOutput,'server'),primary]:['build','labs/dotnet/LabServer.csproj','--output',nativeOutput,'--nologo','--disable-build-servers','-p:BaseIntermediateOutputPath='+join(nativeCache,'obj')+'/','-p:BaseOutputPath='+join(nativeCache,'bin')+'/'];
+    const built=spawnSync(compiler,compileArgs,{cwd:root,env:{PATH:process.env.PATH,...runtimeEnv},encoding:'utf8',timeout:120000,maxBuffer:65536});
+    if(built.error)throw built.error;assert.equal(built.status,0,'Native build failed: '+(built.stderr||built.stdout));
+  }
+
   for(let i=0;i<2;i++){
    const runId=randomUUID(),httpPort=await port();let command,argv;
    if(language==='java'){command=process.env.LAB_JAVA||'java';argv=[primary];}
    else if(language==='typescript'){command=process.execPath;argv=['--experimental-strip-types',primary];}
+   else if(language==='go'){command=join(nativeOutput,'server');argv=[];}
+   else if(language==='dotnet'){command=process.env.LAB_DOTNET||'dotnet';argv=[join(nativeOutput,'GetLancer.NativeFixtures.dll')];}
+   else if(language==='php'){command=process.env.LAB_PHP||'php';argv=[primary];}
    else{command=process.env.LAB_PYTHON||'python3';argv=[primary];}
-   const handle=processStart(command,argv,{LAB_RUN_ID:runId,LAB_PORT:String(httpPort),LAB_REDIS_PORT:String(redisPort),LAB_REDIS_FAILURE_PORT:String(failurePort),LAB_REDIS_TIMEOUT_PORT:String(timeoutPort)});
+   const handle=processStart(command,argv,{...runtimeEnv,LAB_RUN_ID:runId,LAB_PORT:String(httpPort),LAB_REDIS_PORT:String(redisPort),LAB_REDIS_FAILURE_PORT:String(failurePort),LAB_REDIS_TIMEOUT_PORT:String(timeoutPort)});
    const app={...handle,runId,sourceHash,origin:'http://127.0.0.1:'+httpPort,sequence:0};apps.push(app);
-   const health=await ready(handle,app.origin+'/health');assert.deepEqual(health,{mode:'Local execution',language,runId,sourceHash});
+   const health=await ready(handle,app.origin+'/health',language==='go'||language==='dotnet'?90000:20000);assert.deepEqual(health,{mode:'Local execution',language,runId,sourceHash});
   }
   const [app,other]=apps;
   async function request(target,pattern,operationId,inputs={},expected=200,capture=true){
@@ -59,7 +72,7 @@ async function verifyLanguage(language){
    const body=JSON.parse(text);assert.deepEqual(Object.keys(body).sort(),['durationMs','events','pattern','requestId','runId','sourceHash','state','status']);assert.equal(body.runId,target.runId);assert.equal(body.sourceHash,sourceHash);assert.equal(body.pattern,pattern);assert.equal(body.status,expected);assert.match(body.requestId,uuid);assert(Number.isFinite(body.durationMs)&&body.durationMs>=0&&body.durationMs<3000);
    assert(Array.isArray(body.events)&&body.events.length>0&&body.events.length<=4,'Observed bounded events required');
    const edges=new Set(catalogue.patterns[pattern].edges.map(edge=>edge.id));
-   for(const event of body.events){assert.deepEqual(Object.keys(event).sort(),['edge','recordedAt','requestId','runId','sequence','sourceHash','summary','type']);assert.equal(event.runId,target.runId);assert.equal(event.sourceHash,sourceHash);assert.equal(event.requestId,body.requestId);assert(Number.isSafeInteger(event.sequence)&&event.sequence>target.sequence,'Events are not monotonic');target.sequence=event.sequence;assert(eventTypes.has(event.type));assert(edges.has(event.edge),'Foreign architecture edge');assert(Number.isFinite(Date.parse(event.recordedAt)));assert(typeof event.summary==='string'&&event.summary.length>0&&event.summary.length<=200);}
+   for(const event of body.events){assert.deepEqual(Object.keys(event).sort(),['edge','recordedAt','requestId','runId','sequence','sourceHash','summary','type']);assert.equal(event.runId,target.runId);assert.equal(event.sourceHash,sourceHash);assert.equal(event.requestId,body.requestId);assert(Number.isSafeInteger(event.sequence)&&event.sequence>target.sequence,'Events are not monotonic');target.sequence=event.sequence;assert(eventTypes.has(event.type));assert(edges.has(event.edge),'Foreign architecture edge');assert(typeof event.recordedAt==='string'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/.test(event.recordedAt)&&Number.isFinite(Date.parse(event.recordedAt)), 'Evidence timestamps must be canonical UTC');assert(typeof event.summary==='string'&&event.summary.length>0&&event.summary.length<=200);}
    assert(!text.includes(signature('evt-1|order-1|payment.succeeded'))&&!text.includes('getlancer-payment-fixture-only')&&!text.includes('http://')&&!text.includes('Bearer '),'Sensitive or endpoint material in projection');
    if(target===app&&capture)captures.push(body);
    return {body,elapsed:performance.now()-start};
@@ -106,4 +119,4 @@ async function verifyLanguage(language){
  }finally{for(const app of apps)await stop(app);await stop(redis);for(const socket of clients)socket.destroy();await new Promise(done=>blackhole.close(done));await rm(workspace,{recursive:true,force:true});}
 }
 for(const language of languages)await verifyLanguage(language);
-if(!selected)console.log('NINE_LAB_MATRIX_OK');
+if(!selected)console.log('CORE_LAB_MATRIX_OK languages='+languages.length+' labs='+languages.length*Object.keys(catalogue.patterns).length);

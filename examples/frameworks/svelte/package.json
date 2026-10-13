@@ -1,0 +1,19 @@
+{
+  "name": "getlancer-svelte-original-component",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "svelte": "5.57.2"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12"
+  }
+}

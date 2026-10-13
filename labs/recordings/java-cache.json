@@ -3,17 +3,17 @@
   "labId": "java-cache",
   "language": "java",
   "pattern": "cache",
-  "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+  "runId": "2d13ae43-892a-430e-9b43-aededfb6ab22",
   "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
-  "recordedAt": "2026-10-09T11:04:06.688135028Z",
+  "recordedAt": "2026-10-13T05:02:01.670287392Z",
   "responses": [
     {
-      "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+      "runId": "2d13ae43-892a-430e-9b43-aededfb6ab22",
       "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
-      "requestId": "daef842f-21ca-40a0-b5ad-d824feb04ec8",
+      "requestId": "c48e93af-a6bc-41e3-9cdd-4c3ea228c928",
       "pattern": "cache",
       "status": 200,
-      "durationMs": 5,
+      "durationMs": 16,
       "state": {
         "cache": "RESET",
         "storeReads": 0,
@@ -21,84 +21,84 @@
       },
       "events": [
         {
-          "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+          "runId": "2d13ae43-892a-430e-9b43-aededfb6ab22",
           "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
-          "requestId": "daef842f-21ca-40a0-b5ad-d824feb04ec8",
+          "requestId": "c48e93af-a6bc-41e3-9cdd-4c3ea228c928",
           "sequence": 1,
           "type": "CACHE_RESET",
           "edge": "service-redis",
-          "recordedAt": "2026-10-09T11:04:06.688135028Z",
+          "recordedAt": "2026-10-13T05:02:01.670287392Z",
           "summary": "Redis deleted only this run's fixture key."
         }
       ]
     },
     {
-      "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+      "runId": "2d13ae43-892a-430e-9b43-aededfb6ab22",
       "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
-      "requestId": "bde4a900-161f-4b07-9167-a169a04465c9",
+      "requestId": "dc726d68-5fca-41a1-afec-d4b70674fe05",
       "pattern": "cache",
       "status": 200,
-      "durationMs": 1,
+      "durationMs": 4,
       "state": {
         "cache": "MISS",
         "storeReads": 1,
-        "ttlMs": 5000
+        "ttlMs": 4999
       },
       "events": [
         {
-          "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+          "runId": "2d13ae43-892a-430e-9b43-aededfb6ab22",
           "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
-          "requestId": "bde4a900-161f-4b07-9167-a169a04465c9",
+          "requestId": "dc726d68-5fca-41a1-afec-d4b70674fe05",
           "sequence": 2,
           "type": "CACHE_MISS",
           "edge": "service-redis",
-          "recordedAt": "2026-10-09T11:04:06.693209634Z",
+          "recordedAt": "2026-10-13T05:02:01.682985883Z",
           "summary": "Redis missed the current run's fixture key."
         },
         {
-          "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+          "runId": "2d13ae43-892a-430e-9b43-aededfb6ab22",
           "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
-          "requestId": "bde4a900-161f-4b07-9167-a169a04465c9",
+          "requestId": "dc726d68-5fca-41a1-afec-d4b70674fe05",
           "sequence": 3,
           "type": "STORE_READ",
           "edge": "service-store",
-          "recordedAt": "2026-10-09T11:04:06.693251798Z",
+          "recordedAt": "2026-10-13T05:02:01.683036754Z",
           "summary": "The synthetic store returned its fixed fixture item."
         }
       ]
     },
     {
-      "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+      "runId": "2d13ae43-892a-430e-9b43-aededfb6ab22",
       "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
-      "requestId": "7f3ce8c7-fc06-4f96-a8c5-61aff2acd158",
+      "requestId": "25048d61-edc4-4d7b-8975-1ed0be679259",
       "pattern": "cache",
       "status": 200,
-      "durationMs": 2,
+      "durationMs": 3,
       "state": {
         "cache": "HIT",
         "storeReads": 1,
-        "ttlMs": 4995
+        "ttlMs": 4985
       },
       "events": [
         {
-          "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+          "runId": "2d13ae43-892a-430e-9b43-aededfb6ab22",
           "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
-          "requestId": "7f3ce8c7-fc06-4f96-a8c5-61aff2acd158",
+          "requestId": "25048d61-edc4-4d7b-8975-1ed0be679259",
           "sequence": 4,
           "type": "CACHE_HIT",
           "edge": "service-redis",
-          "recordedAt": "2026-10-09T11:04:06.698910582Z",
+          "recordedAt": "2026-10-13T05:02:01.698920860Z",
           "summary": "Redis returned the current run's cached fixture value."
         }
       ]
     },
     {
-      "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+      "runId": "2d13ae43-892a-430e-9b43-aededfb6ab22",
       "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
-      "requestId": "d406e619-370c-4ba7-b4b9-a680b1872636",
+      "requestId": "4efe9742-ab64-4133-a380-83143acdc8af",
       "pattern": "cache",
       "status": 200,
-      "durationMs": 1,
+      "durationMs": 2,
       "state": {
         "cache": "EXPIRED",
         "storeReads": 1,
@@ -106,24 +106,24 @@
       },
       "events": [
         {
-          "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+          "runId": "2d13ae43-892a-430e-9b43-aededfb6ab22",
           "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
-          "requestId": "d406e619-370c-4ba7-b4b9-a680b1872636",
+          "requestId": "4efe9742-ab64-4133-a380-83143acdc8af",
           "sequence": 5,
           "type": "CACHE_EXPIRED",
           "edge": "service-redis",
-          "recordedAt": "2026-10-09T11:04:06.722567179Z",
+          "recordedAt": "2026-10-13T05:02:01.752920363Z",
           "summary": "Redis completed immediate expiry of this run's fixture key."
         }
       ]
     },
     {
-      "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+      "runId": "2d13ae43-892a-430e-9b43-aededfb6ab22",
       "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
-      "requestId": "1973c57c-bb79-4fc3-8ed9-ed2d8ec2f828",
+      "requestId": "94b32173-e5c6-4677-8e45-e144f83c97be",
       "pattern": "cache",
       "status": 200,
-      "durationMs": 1,
+      "durationMs": 5,
       "state": {
         "cache": "MISS",
         "storeReads": 2,
@@ -131,34 +131,34 @@
       },
       "events": [
         {
-          "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+          "runId": "2d13ae43-892a-430e-9b43-aededfb6ab22",
           "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
-          "requestId": "1973c57c-bb79-4fc3-8ed9-ed2d8ec2f828",
+          "requestId": "94b32173-e5c6-4677-8e45-e144f83c97be",
           "sequence": 6,
           "type": "CACHE_MISS",
           "edge": "service-redis",
-          "recordedAt": "2026-10-09T11:04:06.726691174Z",
+          "recordedAt": "2026-10-13T05:02:01.770869728Z",
           "summary": "Redis missed the current run's fixture key."
         },
         {
-          "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+          "runId": "2d13ae43-892a-430e-9b43-aededfb6ab22",
           "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
-          "requestId": "1973c57c-bb79-4fc3-8ed9-ed2d8ec2f828",
+          "requestId": "94b32173-e5c6-4677-8e45-e144f83c97be",
           "sequence": 7,
           "type": "STORE_READ",
           "edge": "service-store",
-          "recordedAt": "2026-10-09T11:04:06.726742812Z",
+          "recordedAt": "2026-10-13T05:02:01.770908482Z",
           "summary": "The synthetic store returned its fixed fixture item."
         }
       ]
     },
     {
-      "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+      "runId": "2d13ae43-892a-430e-9b43-aededfb6ab22",
       "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
-      "requestId": "e0803cc9-f64f-4e9a-a0f6-639a623eed50",
+      "requestId": "35e80b51-2fca-4bde-aa82-4be8604a64ad",
       "pattern": "cache",
       "status": 200,
-      "durationMs": 0,
+      "durationMs": 2,
       "state": {
         "cache": "FALLBACK",
         "storeReads": 3,
@@ -166,34 +166,34 @@
       },
       "events": [
         {
-          "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+          "runId": "2d13ae43-892a-430e-9b43-aededfb6ab22",
           "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
-          "requestId": "e0803cc9-f64f-4e9a-a0f6-639a623eed50",
+          "requestId": "35e80b51-2fca-4bde-aa82-4be8604a64ad",
           "sequence": 8,
           "type": "CACHE_FALLBACK",
           "edge": "service-redis",
-          "recordedAt": "2026-10-09T11:04:06.730167325Z",
+          "recordedAt": "2026-10-13T05:02:01.782251735Z",
           "summary": "The bounded Redis attempt failed; the fixture store supplied the result."
         },
         {
-          "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+          "runId": "2d13ae43-892a-430e-9b43-aededfb6ab22",
           "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
-          "requestId": "e0803cc9-f64f-4e9a-a0f6-639a623eed50",
+          "requestId": "35e80b51-2fca-4bde-aa82-4be8604a64ad",
           "sequence": 9,
           "type": "STORE_READ",
           "edge": "service-store",
-          "recordedAt": "2026-10-09T11:04:06.730190320Z",
+          "recordedAt": "2026-10-13T05:02:01.782286708Z",
           "summary": "The synthetic store returned its fixed fixture item."
         }
       ]
     },
     {
-      "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+      "runId": "2d13ae43-892a-430e-9b43-aededfb6ab22",
       "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
-      "requestId": "6faad514-9e99-4574-addd-ff47273b8e92",
+      "requestId": "1be54f8b-6e77-4ecc-8cb5-eefad785f167",
       "pattern": "cache",
       "status": 200,
-      "durationMs": 250,
+      "durationMs": 258,
       "state": {
         "cache": "FALLBACK",
         "storeReads": 4,
@@ -201,34 +201,34 @@
       },
       "events": [
         {
-          "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+          "runId": "2d13ae43-892a-430e-9b43-aededfb6ab22",
           "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
-          "requestId": "6faad514-9e99-4574-addd-ff47273b8e92",
+          "requestId": "1be54f8b-6e77-4ecc-8cb5-eefad785f167",
           "sequence": 10,
           "type": "CACHE_FALLBACK",
           "edge": "service-redis",
-          "recordedAt": "2026-10-09T11:04:06.982296842Z",
+          "recordedAt": "2026-10-13T05:02:02.042625731Z",
           "summary": "The bounded Redis attempt failed; the fixture store supplied the result."
         },
         {
-          "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+          "runId": "2d13ae43-892a-430e-9b43-aededfb6ab22",
           "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
-          "requestId": "6faad514-9e99-4574-addd-ff47273b8e92",
+          "requestId": "1be54f8b-6e77-4ecc-8cb5-eefad785f167",
           "sequence": 11,
           "type": "STORE_READ",
           "edge": "service-store",
-          "recordedAt": "2026-10-09T11:04:06.982388840Z",
+          "recordedAt": "2026-10-13T05:02:02.044616569Z",
           "summary": "The synthetic store returned its fixed fixture item."
         }
       ]
     },
     {
-      "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+      "runId": "2d13ae43-892a-430e-9b43-aededfb6ab22",
       "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
-      "requestId": "5f108832-8acb-4883-8c97-72628f24b084",
+      "requestId": "884c3445-53a5-454e-8e1d-612d3c981425",
       "pattern": "cache",
       "status": 200,
-      "durationMs": 0,
+      "durationMs": 14,
       "state": {
         "cache": "RESET",
         "storeReads": 0,
@@ -236,13 +236,13 @@
       },
       "events": [
         {
-          "runId": "36c4230c-16a9-48ce-ac6a-a06f7fb03f9b",
+          "runId": "2d13ae43-892a-430e-9b43-aededfb6ab22",
           "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
-          "requestId": "5f108832-8acb-4883-8c97-72628f24b084",
+          "requestId": "884c3445-53a5-454e-8e1d-612d3c981425",
           "sequence": 12,
           "type": "CACHE_RESET",
           "edge": "service-redis",
-          "recordedAt": "2026-10-09T11:04:06.986176130Z",
+          "recordedAt": "2026-10-13T05:02:02.262938972Z",
           "summary": "Redis deleted only this run's fixture key."
         }
       ]

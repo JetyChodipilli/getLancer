@@ -1,0 +1,223 @@
+{
+  "schemaVersion": "getlancer-native-framework-index-v1",
+  "items": [
+    {
+      "id": "vue",
+      "label": "Vue",
+      "version": "3.5.43",
+      "title": "Project brief",
+      "summary": "A reactive form with validation and local save feedback.",
+      "primaryFile": "src/App.vue",
+      "compiler": "@vue/compiler-sfc 3.5.43",
+      "previewSha256": "5619abbb4e786d99c4c4a1f303219a9c1b5157353abc15f4970744eace8045ef",
+      "sourceSha256": "46b38efc0ee935f91e06a2b02f0d7937e5f695a5aaae6446e138e5c155a1467d",
+      "archiveSha256": "c4010e0a1e358cc22c4bb7dc9071900d987a1a8a3d578c5246d6c29ab793b2bd",
+      "sourceUrl": "/components/frameworks/source/vue",
+      "previewUrl": "/components/frameworks/preview/vue",
+      "files": [
+        {
+          "name": ".gitignore",
+          "sha256": "ff231fba81cfc9f5d0897a34574f7267b5c79054412dcb23e6447acdd43bed7b",
+          "bytes": 31
+        },
+        {
+          "name": "build.mjs",
+          "sha256": "9708dd7092ab134c1dddc763eb13837aeab18fd877aeb85323578a4c6b09fa4e",
+          "bytes": 869
+        },
+        {
+          "name": "LICENSE",
+          "sha256": "3b05676da982b0287bdc252411a00bc03e8e3baeb25c022d5b6029ab0c5a345d",
+          "bytes": 1079
+        },
+        {
+          "name": "package-lock.json",
+          "sha256": "0dd420d1c33739e87873b1b69c2feb88b1539fcbeee26fc67c058f4beebcbda5",
+          "bytes": 24926
+        },
+        {
+          "name": "package.json",
+          "sha256": "7b936f487dfe08b792e73dc19c398b01a3969a07894b9b5505e6c5e229a94709",
+          "bytes": 357
+        },
+        {
+          "name": "README.md",
+          "sha256": "76099c33ab9234cf40017c0076ca117f4a585a9368a507ce58d997a4e1943eac",
+          "bytes": 1828
+        },
+        {
+          "name": "src/App.vue",
+          "sha256": "23249633c730c647ece0b57ace111ba357b1aef3ad901e814462f2eeba1b515c",
+          "bytes": 1389
+        },
+        {
+          "name": "src/main.js",
+          "sha256": "9980374dbc34a8764286a2b92c49de0814623c5c611e0b1a0573eb0270dadfa0",
+          "bytes": 112
+        },
+        {
+          "name": "src/style.css",
+          "sha256": "3f15b64c681bdc3ae01c1915b927126865624d9c96f282580d2d3bdd0a93fb6e",
+          "bytes": 1809
+        },
+        {
+          "name": "THIRD_PARTY_LICENSES.md",
+          "sha256": "fa414f1fbfd2123cebb34632252667e4af55e616582679149d0c612f9105e20b",
+          "bytes": 5957
+        },
+        {
+          "name": "THIRD_PARTY_NOTICES.md",
+          "sha256": "84c250c3dbebd8af38fceadb744267dc4347f4142cca613b47b945984fbb98ca",
+          "bytes": 664
+        }
+      ]
+    },
+    {
+      "id": "svelte",
+      "label": "Svelte",
+      "version": "5.57.2",
+      "title": "Build queue",
+      "summary": "A filtered list with reactive completion state.",
+      "primaryFile": "src/App.svelte",
+      "compiler": "svelte/compiler 5.57.2",
+      "previewSha256": "2daaa62ce7755b02aa1efa3ec1669f3f05404ab549c37f78e33a42b2e4b61454",
+      "sourceSha256": "11ad3be5f8afc732a682af12107376c23b27b755dfb1353a03822ee89f3d73e8",
+      "archiveSha256": "7e7fc3f363a0ea0bad1ea872e5557998b3efd11f125079ccb0a33889edcbbb1e",
+      "sourceUrl": "/components/frameworks/source/svelte",
+      "previewUrl": "/components/frameworks/preview/svelte",
+      "files": [
+        {
+          "name": ".gitignore",
+          "sha256": "ff231fba81cfc9f5d0897a34574f7267b5c79054412dcb23e6447acdd43bed7b",
+          "bytes": 31
+        },
+        {
+          "name": "build.mjs",
+          "sha256": "89b67725e006101acd37682b1aaadbef6490b7d25b8b9af7cc0368a306799dee",
+          "bytes": 662
+        },
+        {
+          "name": "LICENSE",
+          "sha256": "3b05676da982b0287bdc252411a00bc03e8e3baeb25c022d5b6029ab0c5a345d",
+          "bytes": 1079
+        },
+        {
+          "name": "package-lock.json",
+          "sha256": "ed4af6456adbbea20063e9e0e5a95a9e36b8259f92c1bbaf85168c7feb31759f",
+          "bytes": 22204
+        },
+        {
+          "name": "package.json",
+          "sha256": "ee23469ad35db61fcddb195cf8b1151e4a1f00fcaa4521cedf39a1b54aabc72d",
+          "bytes": 328
+        },
+        {
+          "name": "README.md",
+          "sha256": "49dc0616fe669028e81fb6096ba4322c1b1515be3ef31ca18263d97a88152db5",
+          "bytes": 1831
+        },
+        {
+          "name": "src/App.svelte",
+          "sha256": "b4f6e5e7b046a3a2b2689ba70995264208d211efee239617700648974a13978f",
+          "bytes": 1483
+        },
+        {
+          "name": "src/main.js",
+          "sha256": "24b0e57ac9a6ed1d2f63ff4c63bb4d0c9c9438bdf74e8631f4b23f679fbe5213",
+          "bytes": 136
+        },
+        {
+          "name": "src/style.css",
+          "sha256": "3f15b64c681bdc3ae01c1915b927126865624d9c96f282580d2d3bdd0a93fb6e",
+          "bytes": 1809
+        },
+        {
+          "name": "THIRD_PARTY_LICENSES.md",
+          "sha256": "37cc2663f123509c97bbb20131ad74e800e40a6cc2e3531a68b48ed3069c0c9b",
+          "bytes": 3677
+        },
+        {
+          "name": "THIRD_PARTY_NOTICES.md",
+          "sha256": "98e5d7b590975548d4883bfa29c61b8c1957f47edfe45c3b3f0987837e7cbd74",
+          "bytes": 585
+        }
+      ]
+    },
+    {
+      "id": "angular",
+      "label": "Angular",
+      "version": "20.3.33",
+      "title": "Release checklist",
+      "summary": "A standalone component with signals and checked-state feedback.",
+      "primaryFile": "src/app.ts",
+      "compiler": "@angular/compiler-cli 20.3.33 · AOT",
+      "previewSha256": "d23310ac201ecf3f0f40f9837752a5166d592264f2ec72893a49f1fa73097461",
+      "sourceSha256": "99d3acbff7d144b724fcf4841d6fb6b04f1613c877541acd3aff6a3ddfe78e55",
+      "archiveSha256": "8229b26e0928d8a90106fddcf4f46e61577c3ddd27144d5e03a5368f1ccf5e81",
+      "sourceUrl": "/components/frameworks/source/angular",
+      "previewUrl": "/components/frameworks/preview/angular",
+      "files": [
+        {
+          "name": ".gitignore",
+          "sha256": "ff231fba81cfc9f5d0897a34574f7267b5c79054412dcb23e6447acdd43bed7b",
+          "bytes": 31
+        },
+        {
+          "name": "build.mjs",
+          "sha256": "b141288fb269513daa998f27fa3c9d579e92c87749e373e009a109b2c8561405",
+          "bytes": 1565
+        },
+        {
+          "name": "LICENSE",
+          "sha256": "3b05676da982b0287bdc252411a00bc03e8e3baeb25c022d5b6029ab0c5a345d",
+          "bytes": 1079
+        },
+        {
+          "name": "package-lock.json",
+          "sha256": "370fb2b63f6389710aa37d03c488a3c25480c8bed9a86ffbf82eb40d0397218c",
+          "bytes": 47901
+        },
+        {
+          "name": "package.json",
+          "sha256": "d9a38a8fa66c9b6245b8b91b2641a94081e5495f7223e61bc1d6d295876ef7a9",
+          "bytes": 590
+        },
+        {
+          "name": "README.md",
+          "sha256": "4b7c7e47c5dbc60ecebef8a4030aac1f0d193f5d9b3451d00fd2522ed33eb53f",
+          "bytes": 2180
+        },
+        {
+          "name": "src/app.ts",
+          "sha256": "7d9e79d7746b86aa091849348518090d8f32045309078ebe438af97463fa352d",
+          "bytes": 1598
+        },
+        {
+          "name": "src/main.js",
+          "sha256": "4c7dea891f79e79a300df04b16d7906e11becb3d1336f31a22fd5772879bd978",
+          "bytes": 52
+        },
+        {
+          "name": "src/style.css",
+          "sha256": "3f15b64c681bdc3ae01c1915b927126865624d9c96f282580d2d3bdd0a93fb6e",
+          "bytes": 1809
+        },
+        {
+          "name": "THIRD_PARTY_LICENSES.md",
+          "sha256": "b49e1042dc2737da91343216d9664d732cb4c92fb5245014259cf344fdd2b6d7",
+          "bytes": 16377
+        },
+        {
+          "name": "THIRD_PARTY_NOTICES.md",
+          "sha256": "4c4467c5e1169f0cef9993ddd6fc3014af5e245821cbb217e05a8997426d45ce",
+          "bytes": 673
+        },
+        {
+          "name": "tsconfig.json",
+          "sha256": "506a2c4c08a7968f510073a2b8d2bfec2f2d0c5afd6ebc30e03d3b8676501647",
+          "bytes": 313
+        }
+      ]
+    }
+  ]
+}

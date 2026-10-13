@@ -2,7 +2,7 @@
 export type LabStatus = 'QUEUED' | 'STARTING' | 'RUNNING' | 'CANCELLING' | 'CANCELLED' | 'SUCCEEDED' | 'FAILED' | 'EXPIRED';
 export type LabInput = {name:string;label:string;type:'TEXT'|'INTEGER'|'BOOLEAN'|'ENUM';required:boolean;maxLength:number;min:number;max:number;choices:string[]};
 export type LabScenario = {id:string;title:string;description:string;inputs:LabInput[];operations:{id:string;label:string}[]};
-export type LabManifest = {id:string;title:string;summary:string;language:string;framework:string;sourceUrl:string;setup:string;executionMode:string;scenarios:LabScenario[]};
+export type LabManifest = {id:string;title:string;summary:string;language:string;framework:string;sourceUrl:string;setup:string;executionMode:string;scenarios:LabScenario[];adapter?:{runtime:string;version:string;state:'ACTIVE'|'DISABLED'|'RETIRED'};availability?:{enabled:boolean;reason:string}};
 export type LabRuntime = {enabled:boolean;reason:string};
 export type LabCatalogue = {items:LabManifest[];runtime:LabRuntime};
 export type LabQuota = {dailyLimit:number;remaining:number;resetAt:string;activeRunId:string|null;runtime:LabRuntime};

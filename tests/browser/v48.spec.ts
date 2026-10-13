@@ -6,7 +6,7 @@ import type {ScenarioEdge, ScenarioLanguage, ScenarioPattern} from '../../lib/sc
 // Explicit browser protocol fixtures. These do not establish local or hosted execution evidence.
 const runId = '11111111-1111-4111-8111-111111111111', sourceHash = 'a'.repeat(64), recordedAt = '2026-10-09T10:00:00.123Z';
 const catalogue = JSON.parse(readFileSync(new URL('../../labs/catalogue.json', import.meta.url), 'utf8')) as {languages: Record<ScenarioLanguage, {label: string; requires: string}>; patterns: Record<ScenarioPattern, {scenarios: string[]; edges: ScenarioEdge[]}>};
-const languages = ['java', 'typescript', 'python'] as const, patterns = ['cache', 'security', 'payment'] as const;
+const languages = ['java', 'typescript', 'python', 'go', 'dotnet', 'php'] as const, patterns = ['cache', 'security', 'payment'] as const;
 const material = (language: ScenarioLanguage, pattern: ScenarioPattern, recorded = false) => ({id: `${language}-${pattern}`, language, pattern, title: `Browser fixture ${catalogue.languages[language].label} ${pattern}`, summary: 'Browser protocol fixture only; not execution certification.', sourceHash, archiveHash: 'b'.repeat(64), sourceUrl: `/labs/sources/${language}.tar.gz`, recordingUrl: recorded ? `/labs/recordings/${language}-${pattern}.json` : null, setup: `Browser setup fixture: requires ${catalogue.languages[language].requires}.\nRead the source README.`, scenarios: catalogue.patterns[pattern].scenarios, edges: catalogue.patterns[pattern].edges});
 function recording(pattern: ScenarioPattern = 'cache', language: ScenarioLanguage = 'java') {
   const states = pattern === 'cache' ? [{cache: 'MISS', storeReads: 1, ttlMs: 5000}, {cache: 'HIT', storeReads: 1, ttlMs: 4980}] : pattern === 'security' ? [{decision: 'ALLOW', reason: 'ALLOW', currentRole: 'editor'}, {decision: 'DENY', reason: 'ROLE', currentRole: 'viewer'}] : [{payment: 'PENDING', entitlements: 0, processedEvents: 0}, {payment: 'PAID', entitlements: 1, processedEvents: 1}];
@@ -51,7 +51,7 @@ test('built source download and genuine recorded evidence retain their hashes an
   expect(current.sourceHash).toBe(createHash('sha256').update(readFileSync(new URL('../../labs/java/LabServer.java', import.meta.url))).digest('hex'));
   const effects = await noExecution(page);
   await page.goto('/labs/scenarios');
-  await expect(page.locator('.scenario-lab-card')).toHaveCount(9);
+  await expect(page.locator('.scenario-lab-card')).toHaveCount(18);
   await expect(page.locator('.scenario-metadata')).toContainText(current.archiveHash);
   await noHighlight(page); await reflow(page); await inspectorHeading(page);
   await page.screenshot({path: testInfo.outputPath('v48-source.png'), animations: 'disabled'});
@@ -76,9 +76,9 @@ test('built source download and genuine recorded evidence retain their hashes an
   await page.screenshot({path: testInfo.outputPath('v48-replay.png'), animations: 'disabled'});
 });
 
-test('source-only nine-lab catalogue filters with native keyboard controls and keeps free source when APIs fail', async ({page}) => {
+test('source-only eighteen-lab catalogue filters with native keyboard controls and keeps free source when APIs fail', async ({page}) => {
   const effects = await noExecution(page); await index(page); await page.goto('/labs/scenarios');
-  await expect(page.locator('.scenario-lab-card')).toHaveCount(9); await expect(page.locator('.scenario-lab-card').getByText('Source only', {exact: true})).toHaveCount(9);
+  await expect(page.locator('.scenario-lab-card')).toHaveCount(18); await expect(page.locator('.scenario-lab-card').getByText('Source only', {exact: true})).toHaveCount(18);
   await expect(page.getByText('Hosted runtime unavailable', {exact: true})).toHaveCount(2);
   const language = page.getByLabel('Language', {exact: true}); await language.focus(); await expect(language).toBeFocused();
   expect(await language.evaluate(node => getComputedStyle(node).fontSize)).toBe('16px'); expect((await language.boundingBox())!.height).toBeGreaterThanOrEqual(44);
@@ -89,7 +89,7 @@ test('source-only nine-lab catalogue filters with native keyboard controls and k
   await expect(page.getByText('Browser setup fixture: requires Python 3.12.', {exact: false})).toBeVisible(); await noHighlight(page);
   await page.getByRole('button', {name: 'Recorded evidence', exact: true}).click(); await expect(page.getByRole('heading', {name: 'Source only', exact: true})).toBeVisible();
   await expect(page.getByRole('button', {name: 'Next response', exact: true})).toHaveCount(0); await expect(page.getByRole('button', {name: 'Run isolated lab', exact: true})).toHaveCount(0);
-  await page.getByRole('button', {name: 'Clear filters', exact: true}).click(); await expect(page.locator('.scenario-lab-card')).toHaveCount(9); expect(effects).toEqual([]); await reflow(page);
+  await page.getByRole('button', {name: 'Clear filters', exact: true}).click(); await expect(page.locator('.scenario-lab-card')).toHaveCount(18); expect(effects).toEqual([]); await reflow(page);
 });
 
 for (const pattern of patterns) test(`${pattern} recorded browser fixture preserves original evidence and highlights only the selected observed transition`, async ({page}) => {
@@ -119,7 +119,7 @@ test('loading, failed index retry and empty index retain honest source/setup ava
   const pending = new Promise<void>(resolve => {release = resolve;});
   await page.route('**/labs/material-index.json', async route => {attempts++; if (attempts === 1) {await pending; return json(route, {error: 'Browser fixture unavailable'}, 503);} return json(route, {items: []});});
   await page.goto('/labs/scenarios'); await expect(page.getByText('Loading build-generated source versions and recording availability…', {exact: true})).toBeVisible(); release!();
-  await expect(page.getByRole('alert')).toContainText('Material index unavailable'); await expect(page.locator('.scenario-lab-card')).toHaveCount(9);
+  await expect(page.getByRole('alert')).toContainText('Material index unavailable'); await expect(page.locator('.scenario-lab-card')).toHaveCount(18);
   await expect(page.getByRole('link', {name: 'Download free source & setup', exact: true})).toHaveAttribute('href', '/labs/sources/java.tar.gz');
   await page.getByRole('button', {name: 'Retry material index', exact: true}).click(); await expect(page.getByText('No built materials are listed.', {exact: false})).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0); await noHighlight(page); await reflow(page);
@@ -144,7 +144,7 @@ for (const defect of ['stale source', 'foreign event', 'non-monotonic events', '
     }
     return json(route, value);
   });
-  await page.goto('/labs/scenarios'); await expect(page.locator('.scenario-lab-card')).toHaveCount(9); await page.getByRole('button', {name: 'Recorded evidence', exact: true}).click();
+  await page.goto('/labs/scenarios'); await expect(page.locator('.scenario-lab-card')).toHaveCount(18); await page.getByRole('button', {name: 'Recorded evidence', exact: true}).click();
   await expect(page.getByRole('alert')).toContainText('Recording rejected or unavailable'); await expect(page.getByRole('alert')).toBeFocused(); await noHighlight(page);
   await expect(page.getByRole('button', {name: 'Next response', exact: true})).toHaveCount(0); await expect(page.locator('.scenario-lab-card').first()).toContainText('Source only');
   await page.getByRole('button', {name: 'Retry recording', exact: true}).click(); await expect(page.getByText('Replay · Recorded local execution', {exact: true})).toBeVisible();
@@ -154,7 +154,7 @@ for (const defect of ['stale source', 'foreign event', 'non-monotonic events', '
 test('switching labs while a recording loads cannot apply evidence to another lab', async ({page}) => {
   await index(page, true); let release: (() => void) | undefined; const pending = new Promise<void>(resolve => {release = resolve;});
   await page.route('**/labs/recordings/java-cache.json', async route => {await pending; await json(route, recording());});
-  await page.goto('/labs/scenarios'); await expect(page.locator('.scenario-lab-card')).toHaveCount(9); await page.getByRole('button', {name: 'Recorded evidence', exact: true}).click();
+  await page.goto('/labs/scenarios'); await expect(page.locator('.scenario-lab-card')).toHaveCount(18); await page.getByRole('button', {name: 'Recorded evidence', exact: true}).click();
   await expect(page.getByText('Loading original recorded evidence…', {exact: true})).toBeVisible(); await page.getByLabel('Pattern', {exact: true}).selectOption('payment'); release!();
   await expect(page.getByRole('heading', {name: 'Browser fixture Java payment', exact: true})).toHaveCount(2); await noHighlight(page);
   await expect(page.getByText('Replay · Recorded local execution', {exact: true})).toHaveCount(0); await reflow(page);

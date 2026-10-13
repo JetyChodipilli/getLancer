@@ -20,15 +20,16 @@ function fixture(pattern = 'cache', language = 'java') {
 const clone = value => structuredClone(value);
 function rejected(change, pattern = 'cache') {const value = fixture(pattern); change(value); assert.throws(() => parseScenarioRecording(value, material('java', pattern)));}
 
-test('strict material index preserves all nine source identities and nullable recording URLs', () => {
+test('strict material index preserves all eighteen source identities and nullable recording URLs', () => {
   const items = Object.keys(catalogue.languages).flatMap(language => Object.keys(catalogue.patterns).map(pattern => material(language, pattern)));
   items[0].recordingUrl = null;
   items[0].setup = 'Set LAB_RUN_ID to a UUID.\n\tRun the local command.';
   assert.deepEqual(parseScenarioMaterials(JSON.stringify({items})), items);
+  assert.equal(items.length,18);
   assert.deepEqual(parseMaterialIndex({items: []}), {items: []});
 });
 test('material index rejects foreign identities, duplicate labs, hashes and unsafe download destinations', () => {
-  for (const patch of [{id: 'python-cache'}, {language: 'go'}, {pattern: 'unknown'}, {sourceHash: 'A'.repeat(64)}, {archiveHash: 'bad'}, {sourceUrl: '//foreign.example/archive.tar.gz'}, {sourceUrl: '/api/v1/private'}, {recordingUrl: '/labs/recordings/python-cache.json'}, {recordingUrl: 'https://foreign.example/recording'}]) assert.throws(() => parseMaterialIndex({items: [{...material(), ...patch}]}));
+  for (const patch of [{id: 'python-cache'}, {language: 'rust'}, {pattern: 'unknown'}, {sourceHash: 'A'.repeat(64)}, {archiveHash: 'bad'}, {sourceUrl: '//foreign.example/archive.tar.gz'}, {sourceUrl: '/api/v1/private'}, {recordingUrl: '/labs/recordings/python-cache.json'}, {recordingUrl: 'https://foreign.example/recording'}]) assert.throws(() => parseMaterialIndex({items: [{...material(), ...patch}]}));
   assert.throws(() => parseMaterialIndex({items: [material(), material()]}));
 });
 test('material index rejects unsupported fields, architectures, controls and oversized metadata', () => {

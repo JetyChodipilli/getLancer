@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup>
+    <FixtureBuildIdentity>standalone</FixtureBuildIdentity>
+    <FixtureBuildIdentity Condition="'$(LAB_RUN_ID)' != '' and $([System.Text.RegularExpressions.Regex]::IsMatch('$(LAB_RUN_ID)', '\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z'))">$(LAB_RUN_ID)</FixtureBuildIdentity>
+    <!-- Concurrent disposable runs must not overwrite another process's restore/build files. -->
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)artifacts/$(FixtureBuildIdentity)/obj/</BaseIntermediateOutputPath>
+    <BaseOutputPath>$(MSBuildThisFileDirectory)artifacts/$(FixtureBuildIdentity)/bin/</BaseOutputPath>
+    <DefaultItemExcludes>$(DefaultItemExcludes);artifacts/**</DefaultItemExcludes>
+  </PropertyGroup>
+</Project>

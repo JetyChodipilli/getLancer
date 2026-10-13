@@ -20,7 +20,7 @@
     "labs:docker": "docker compose -f compose.labs-local.yaml run --rm --build lab-checks",
     "doctor:local": "node scripts/doctor-local.mjs",
     "services:local": "docker compose -f compose.local-services.yaml up -d",
-    "predev:local": "node --experimental-strip-types scripts/build-lab-material.mjs && node scripts/build-data-ai-material.mjs",
+    "predev:local": "node --experimental-strip-types scripts/build-lab-material.mjs && node scripts/build-data-ai-material.mjs && node scripts/build-iot-material.mjs && node scripts/build-framework-material.mjs --verify",
     "dev:local": "node scripts/dev-local.mjs",
     "backend:local": "node scripts/dev-local.mjs backend",
     "test:local-tools": "node --test tests/local-tools.test.mjs",
@@ -28,7 +28,11 @@
     "education:verify": "node --test tests/college-seed-packages.test.mjs",
     "data-ai:build": "node scripts/build-data-ai-material.mjs",
     "data-ai:verify": "node scripts/verify-data-ai.mjs",
-    "data-ai:material": "node scripts/build-data-ai-material.mjs --verify"
+    "data-ai:material": "node scripts/build-data-ai-material.mjs --verify",
+    "iot:build": "node scripts/build-iot-material.mjs",
+    "iot:verify": "node scripts/verify-iot.mjs",
+    "frameworks:build": "node scripts/build-framework-material.mjs --native",
+    "frameworks:verify": "node scripts/verify-framework-previews.mjs"
   },
   "dependencies": {
     "class-variance-authority": "0.7.1",

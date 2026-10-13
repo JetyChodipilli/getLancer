@@ -1,0 +1,20 @@
+{
+  "name": "getlancer-vue-original-component",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "vue": "3.5.43"
+  },
+  "devDependencies": {
+    "@vue/compiler-sfc": "3.5.43",
+    "esbuild": "0.25.12"
+  }
+}

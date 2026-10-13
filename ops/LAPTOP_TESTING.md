@@ -15,7 +15,7 @@ npm run dev:local
 
 Open http://localhost:3000. Docker runs Java/Spring Boot, PostgreSQL on localhost:5433, a local email inbox at http://localhost:8025 and private object storage. The frontend runs on your laptop. `dev:local` first generates the source packages and replay assets, including on a fresh clone; Git preserves lab-file line endings so recorded source hashes work on Windows too. The first build needs internet access to download dependencies and images; the application services run locally afterward. Follow [DOCKER_LOCAL.md](DOCKER_LOCAL.md) for existing passwords, administrator setup, optional OAuth and preserving database volumes. `npm run stop:docker` stops these services without deleting their data.
 
-## Execute all nine learning labs
+## Execute all eighteen core learning labs
 
 Run this separate command from the repository root:
 
@@ -23,7 +23,7 @@ Run this separate command from the repository root:
 npm run labs:docker
 ```
 
-It builds a local image containing JDK 17, Node 22, Python 3.12 and actual Redis 7.2.16 from the pinned reviewed source commit. It then executes the existing real HTTP matrix: Java, TypeScript and Python each test Redis caching, synthetic authorization and the payment emulator. Successful execution prints three `SCENARIO_MATRIX_OK` lines followed by `NINE_LAB_MATRIX_OK`; a failure returns a nonzero exit code. A fresh run gets new UUIDs and disposable Redis state. No merchant or account credentials are used and no payments occur.
+It builds a local image containing JDK 17, Node 22, Python 3.12, Go 1.24, .NET 8, PHP 8.3 and actual Redis 7.2.16 from the pinned reviewed source commit. Java, TypeScript, Python, Go, C#/.NET and PHP each test Redis caching, synthetic authorization and the payment emulator. Successful core execution prints six `SCENARIO_MATRIX_OK` lines followed by `CORE_LAB_MATRIX_OK languages=6 labs=18`; the container then checks data/AI and MQTT scenarios. A failure returns a nonzero exit code. A fresh run gets new UUIDs and disposable Redis state. No merchant or account credentials are used and no payments occur.
 
 The test container has no external network, published ports, host directory mounts or Docker socket. It runs as an unprivileged user with a read-only filesystem, bounded temporary storage and resource limits, and is removed when the command finishes. It neither connects to nor resets the application's database. Initial image construction needs internet access; subsequent cached runs need no cloud connection. To inspect or modify individual examples, follow [the native lab setup](../labs/README.md).
 
