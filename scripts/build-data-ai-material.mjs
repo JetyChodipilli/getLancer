@@ -57,7 +57,9 @@ export async function sourceFiles(){
  const catalogue=validateCatalogue(parseStrictJson(files.find(([name])=>name==='catalogue.json')[1].toString('utf8')));assert.deepEqual(catalogue.inventory,inventory,'Fixed inventory changed');return {catalogue,files};
 }
 export function archiveFor(files){
- const chunks=[];for(const [name,bytes] of files){assert(/^[A-Za-z0-9_./-]{1,99}$/.test(name)&&!name.startsWith('/')&&!name.split('/').includes('..'),'Unsafe archive name');const h=Buffer.alloc(512);h.write(name,0,100);h.write('0000644\0',100);h.write('0000000\0',108);h.write('0000000\0',116);h.write(bytes.length.toString(8).padStart(11,'0')+'\0',124);h.write('00000000000\0',136);h.fill(32,148,156);h[156]=48;h.write('ustar\0',257);h.write('00',263);let sum=0;for(const byte of h)sum+=byte;h.write(sum.toString(8).padStart(6,'0')+'\0 ',148);chunks.push(h,bytes,Buffer.alloc((512-bytes.length%512)%512));}return gzipSync(Buffer.concat([...chunks,Buffer.alloc(1024)]),{level:9});
+ const chunks=[];for(const [name,bytes] of files){assert(/^[A-Za-z0-9_./-]{1,99}$/.test(name)&&!name.startsWith('/')&&!name.split('/').includes('..'),'Unsafe archive name');const h=Buffer.alloc(512);h.write(name,0,100);h.write('0000644\0',100);h.write('0000000\0',108);h.write('0000000\0',116);h.write(bytes.length.toString(8).padStart(11,'0')+'\0',124);h.write('00000000000\0',136);h.fill(32,148,156);h[156]=48;h.write('ustar\0',257);h.write('00',263);let sum=0;for(const byte of h)sum+=byte;h.write(sum.toString(8).padStart(6,'0')+'\0 ',148);chunks.push(h,bytes,Buffer.alloc((512-bytes.length%512)%512));}
+ // The native zlib OS byte differs on Windows; retain existing Linux archive identities.
+ const archive=gzipSync(Buffer.concat([...chunks,Buffer.alloc(1024)]),{level:9});archive[9]=3;return archive;
 }
 export function unpackArchive(archive,files){
  const bytes=gunzipSync(archive,{maxOutputLength:1048576}),expected=new Map(files),found=new Map();let at=0;

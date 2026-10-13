@@ -28,6 +28,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 @org.springframework.test.context.ContextConfiguration(initializers=TestDatabaseGuard.class)
 @SpringBootTest(properties={"app.environment=local","app.jobs-enabled=false","app.admin-email=admin@example.test","app.admin-password=","app.admin-totp=","spring.config.import=",
  "spring.datasource.url=${TEST_DB_URL:jdbc:postgresql://localhost:5432/getlancer_test}","spring.datasource.username=${TEST_DB_USERNAME:postgres}","spring.datasource.password=${TEST_DB_PASSWORD:}",
@@ -35,6 +36,65 @@ import org.springframework.transaction.PlatformTransactionManager;
 @AutoConfigureMockMvc
 @Import(MaintenanceFixture.Configuration.class)
 class MaintenanceIntegrationTest {
+ @Test void inboxWriterWaitsForAtomicFinancialFinalizationAndRemainsPending()throws Exception{
+  paid();UUID id=db.queryForObject("SELECT id FROM maintenance_subscriptions",UUID.class);
+  var writerPid=new java.util.concurrent.atomic.AtomicInteger();var entered=new CountDownLatch(1);
+  var pool=Executors.newSingleThreadExecutor();var writer=new java.util.concurrent.atomic.AtomicReference<Future<?>>();
+  var cutoff=new java.util.concurrent.atomic.AtomicReference<java.time.Instant>();
+  try{
+   new TransactionTemplate(transactions).executeWithoutResult(tx->{
+    cutoff.set(repository.reconciliationCutoff());
+    writer.set(pool.submit(()->new TransactionTemplate(transactions).executeWithoutResult(eventTx->{
+     writerPid.set(db.queryForObject("SELECT pg_backend_pid()",Integer.class));entered.countDown();
+     repository.event("finalization-inbox",Support.hash("finalization-inbox"),"refund.created",null,MaintenanceFixture.PAYMENT,null,"rfnd_finalization123");
+    })));
+    try{assertTrue(entered.await(5,TimeUnit.SECONDS));}catch(InterruptedException e){Thread.currentThread().interrupt();throw new RuntimeException(e);}
+    long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(5);boolean blocked=false;
+    while(System.nanoTime()<deadline){
+     blocked=Boolean.TRUE.equals(db.queryForObject("SELECT wait_event='advisory' FROM pg_stat_activity WHERE pid=?",Boolean.class,writerPid.get()));
+     if(blocked)break;
+     try{Thread.sleep(10);}catch(InterruptedException e){Thread.currentThread().interrupt();throw new RuntimeException(e);}
+    }
+    assertTrue(blocked,"Inbox writer must wait on the database fence");
+    repository.processed(id,cutoff.get());
+    assertEquals(0,db.queryForObject("SELECT count(*) FROM maintenance_webhook_events WHERE event_id='finalization-inbox'",Integer.class));
+   });
+   writer.get().get(5,TimeUnit.SECONDS);
+   assertTrue(repository.routingEventsUnverified(id,cutoff.get()));
+   assertNull(db.queryForObject("SELECT processed_at FROM maintenance_webhook_events WHERE event_id='finalization-inbox'",java.sql.Timestamp.class));
+  }finally{pool.shutdownNow();}
+ }
+ @Test void delayedWebhookTransactionCannotBackdateEvidenceIntoTheReconciledWindow()throws Exception{
+  paid();UUID id=db.queryForObject("SELECT id FROM maintenance_subscriptions",UUID.class);
+  var begun=new CountDownLatch(1);var release=new CountDownLatch(1);var pool=Executors.newSingleThreadExecutor();
+  try{
+   var writer=pool.submit(()->new TransactionTemplate(transactions).executeWithoutResult(tx->{
+    db.queryForObject("SELECT now()",java.sql.Timestamp.class);begun.countDown();
+    try{assertTrue(release.await(5,TimeUnit.SECONDS));}catch(InterruptedException e){Thread.currentThread().interrupt();throw new RuntimeException(e);}
+    repository.event("delayed-clock-inbox",Support.hash("delayed-clock-inbox"),"refund.created",MaintenanceFixture.SUB,MaintenanceFixture.PAYMENT,null,"rfnd_delayed123456");
+   }));
+   assertTrue(begun.await(5,TimeUnit.SECONDS));
+   var cutoff=new TransactionTemplate(transactions).execute(tx->repository.reconciliationCutoff());
+   release.countDown();writer.get(5,TimeUnit.SECONDS);
+   assertTrue(db.queryForObject("SELECT received_at>? FROM maintenance_webhook_events WHERE event_id='delayed-clock-inbox'",Boolean.class,java.sql.Timestamp.from(cutoff)));
+   assertTrue(repository.routingEventsUnverified(id,cutoff));
+   repository.processed(id,cutoff);
+   assertNull(db.queryForObject("SELECT processed_at FROM maintenance_webhook_events WHERE event_id='delayed-clock-inbox'",java.sql.Timestamp.class));
+  }finally{release.countDown();pool.shutdownNow();}
+ }
+ @Test void financialFreshnessRejectsExpiredAndFutureDatabaseObservations()throws Exception{
+  paid();UUID id=db.queryForObject("SELECT id FROM maintenance_subscriptions",UUID.class);
+  var period=repository.currentPeriod(id);assertTrue(repository.financiallyClear(period));
+  assertTrue(repository.freshAndClear(repository.billing(id,false),period));
+  for(String age:List.of("now()-interval '6 minutes'","now()+interval '1 hour'")){
+   db.update("UPDATE maintenance_subscriptions SET reconciled_at="+age+" WHERE id=?",id);
+   assertFalse(repository.freshAndClear(repository.billing(id,false),period));
+  }
+  db.update("UPDATE maintenance_subscriptions SET reconciled_at=now() WHERE id=?",id);
+  assertTrue(repository.freshAndClear(repository.billing(id,false),period));
+  db.update("INSERT INTO maintenance_webhook_events(event_id,payload_hash,event_kind,subscription_id) VALUES('freshness-inbox',?,'payment.captured',?)",Support.hash("freshness-test"),MaintenanceFixture.SUB);
+  assertFalse(repository.freshAndClear(repository.billing(id,false),period));
+ }
  @Autowired JdbcTemplate db;@Autowired MockMvc mvc;@Autowired ObjectMapper json;@Autowired MaintenanceFixture fixture;
  @Autowired MaintenanceRepository repository;@Autowired MaintenanceAccess access;@Autowired PaymentRepository payments;@Autowired RazorpayClient provider;@Autowired Security security;@Autowired PlatformTransactionManager transactions;
  UUID buyer,seller,admin,engagement,milestone,originalPayment;

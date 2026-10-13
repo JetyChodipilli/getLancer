@@ -82,6 +82,10 @@ export async function verifyRuntime(options={}){
  try{
   for(const item of catalogue.items){const contract=catalogue.contracts[item.id],assets=catalogue.assets[item.id],runs=[];
    for(const input of [item.defaultInputs,item.changedInputs]){const fields={runId:runtime.runId,scenarioId:item.id,operationId:'execute',...input},reply=await send(runtime,fields);assert.equal(reply.status,200);validateEnvelope(reply.value,item,sourceSha256,contract);assert.deepEqual(reply.value.result,await expectedResult(item,contract,assets,input));const repeated=await send(runtime,fields);assert.equal(repeated.status,200);assert.equal(repeated.value.resultSha256,reply.value.resultSha256,'Identical inputs drifted');maxResponseBytes=Math.max(maxResponseBytes,reply.bytes);runs.push(reply.value);}
+   // Python's high-resolution wall clock can briefly lead JavaScript's clock on Windows.
+   // Observe the completed runs before dating the recording; retain strict validation.
+   const completedAt=Math.max(...runs.map(run=>Date.parse(run.startedAt)+run.elapsedMs)),observationDeadline=performance.now()+2000;
+   while(Date.now()<completedAt){assert(performance.now()<observationDeadline,'Execution clock exceeds observation deadline');await new Promise(resolve=>setTimeout(resolve,10));}
    const recording={schemaVersion:'getlancer-data-ai-recording-v1',mode:'REPLAY',scenarioId:item.id,sourceSha256,dataSha256:item.dataSha256,modelSha256:item.modelSha256,evaluationSha256:item.evaluationSha256,recordedAt:new Date().toISOString(),runs};validateRecording(recording,item,sourceSha256,contract);recordings.push({item,recording});
    const path=join(base,'recordings',item.id+'.json');if(options.requireRecordings||(options.validateStored!==false&&await exists(path))){const published=validateRecording(parseStrictJson(await readFile(path,'utf8')),item,sourceSha256,contract);await validateRecordedResults(published,item,contract,assets);published.runs.forEach((run,i)=>assert.equal(run.resultSha256,runs[i].resultSha256,'Published replay differs from measured source'));}
   }

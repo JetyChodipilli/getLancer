@@ -1,0 +1,88 @@
+{
+  "baselineRevision": "0bca656c091a878d907add5839275eb17e9672f6",
+  "synthetic": true,
+  "environment": "Windows; Node 24.20; Java 21.0.11; PostgreSQL 18; single host",
+  "query": "Public catalogue count for selective search 99999; original joined OR versus independent UNION ID branches",
+  "schemaCaveat": "Both variants used the same synthetic schema, including an experimental partial created-date index not shipped in this patch.",
+  "measurements": [
+    {
+      "rows": 100000,
+      "warmupPerQuery": 1,
+      "alternatingSamplesPerQuery": 5,
+      "samplesMs": {
+        "original": [
+          975.84,
+          902.99,
+          1287.201,
+          878.674,
+          1355.334
+        ],
+        "revised": [
+          51.071,
+          43.891,
+          42.719,
+          56.912,
+          56.261
+        ]
+      },
+      "medianMs": {
+        "original": 975.84,
+        "revised": 51.071
+      }
+    },
+    {
+      "rows": 1000000,
+      "warmupPerQuery": 1,
+      "alternatingSamplesPerQuery": 5,
+      "samplesMs": {
+        "original": [
+          9957.857,
+          7286.269,
+          6788.777,
+          7032.032,
+          6056.992
+        ],
+        "revised": [
+          455.467,
+          210.916,
+          344.217,
+          198.208,
+          364.298
+        ]
+      },
+      "medianMs": {
+        "original": 7032.032,
+        "revised": 344.217
+      }
+    }
+  ],
+  "boundedHttp": [
+    {
+      "kind": "reads",
+      "total": 100,
+      "concurrency": 10,
+      "elapsedMs": 508,
+      "requestsPerSecond": 196.9,
+      "p50Ms": 11,
+      "p95Ms": 173,
+      "statuses": {
+        "200": 100
+      },
+      "failures": []
+    },
+    {
+      "kind": "login",
+      "total": 20,
+      "concurrency": 10,
+      "elapsedMs": 3835,
+      "requestsPerSecond": 5.2,
+      "p50Ms": 2069,
+      "p95Ms": 3231,
+      "statuses": {
+        "401": 20
+      },
+      "failures": []
+    }
+  ],
+  "concurrentClientCertification": false
+}

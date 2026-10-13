@@ -162,6 +162,37 @@ class MarketplaceIntegrationTest {
   }
 
   @Test
+  void searchBranchesPreserveMatchesDeduplicationFiltersAndPublicScope() {
+    db.update("UPDATE products SET description='A working volcano inventory project' WHERE id=?", product);
+    db.update("UPDATE developer_profiles SET display_name='Ocean builder' WHERE user_id IN (?,?)", owner, other);
+    UUID hidden = product(other, "ACTIVE", "PRIVATE_CASE_STUDY");
+    db.update("UPDATE products SET description='A working volcano inventory project' WHERE id=?", hidden);
+    for (String query : List.of("volcano", "ventor", "Ocean", "Inventory")) {
+      var result = products.search(query, "", "", "", "", "", false, "relevance", 0, 12);
+      assertEquals(1L, ((Number) result.get("totalItems")).longValue(), query);
+      var items = (List<?>) result.get("items");
+      assertEquals(product.toString(), ((Map<?, ?>) items.get(0)).get("id").toString(), query);
+    }
+    assertEquals(0L, ((Number) products.search("Ocean", "Education", "", "", "", "", false, "updated", 0, 12).get("totalItems")).longValue());
+    assertEquals(0L, ((Number) products.search("Ocean", "", "Python", "", "", "", false, "updated", 0, 12).get("totalItems")).longValue());
+    for (String change : List.of(
+        "UPDATE products SET visibility='PRIVATE_CASE_STUDY' WHERE id=?",
+        "UPDATE products SET visibility='NDA_SAFE' WHERE id=?",
+        "UPDATE products SET visibility='PUBLIC',lifecycle_status='ARCHIVED' WHERE id=?",
+        "UPDATE products SET lifecycle_status='DRAFT',approval_status='PENDING_REVIEW' WHERE id=?")) {
+      db.update(change, product);
+      for (String query : List.of("volcano", "ventor", "Ocean"))
+        assertEquals(0L, ((Number) products.search(query, "", "", "", "", "", false, "created", 0, 12).get("totalItems")).longValue(), change + " " + query);
+    }
+    db.update("UPDATE products SET lifecycle_status='ACTIVE',approval_status='APPROVED' WHERE id=?", product);
+    db.update("UPDATE users SET account_status='SUSPENDED' WHERE id=?", owner);
+    assertEquals(0L, ((Number) products.search("Ocean", "", "", "", "", "", false, "created", 0, 12).get("totalItems")).longValue());
+    db.update("UPDATE users SET account_status='ACTIVE' WHERE id=?", owner);
+    db.update("UPDATE developer_profiles SET approval_status='SUSPENDED' WHERE user_id=?", owner);
+    assertEquals(0L, ((Number) products.search("Ocean", "", "", "", "", "", false, "created", 0, 12).get("totalItems")).longValue());
+  }
+
+  @Test
   void v15AvailabilityAndSimilarBuildersRespectPublicScope() throws Exception {
     mvc.perform(
             put("/api/v1/developer/availability")

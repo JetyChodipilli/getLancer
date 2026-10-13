@@ -70,7 +70,7 @@ public class Security {
     request.setAttribute(SessionCookies.SECURE_ATTRIBUTE, secureCookies);
     String token = SessionCookies.read(request, "gl_session");
     if (token.isEmpty()) return null;
-    var rows = db.queryForList("SELECT u.id,u.email,u.email_verified_at,s.mfa_verified,s.issued_at"
+    var rows = db.queryForList("SELECT u.id,u.email,u.email_verified_at,s.mfa_verified,s.issued_at,now() AS observed_at"
         + " FROM users u JOIN sessions s ON s.user_id=u.id WHERE s.token_hash=?"
         + " AND s.expires_at>now() AND u.account_status='ACTIVE'", Support.hash(token));
     if (rows.isEmpty()) return null;
@@ -84,7 +84,10 @@ public class Security {
         Set.copyOf(db.queryForList("SELECT role FROM user_roles WHERE user_id=?", String.class, id)),
         row.get("issued_at") instanceof java.sql.Timestamp issued ? issued.toInstant()
             : row.get("issued_at") instanceof java.time.OffsetDateTime offset ? offset.toInstant()
-            : (Instant) row.get("issued_at"));
+            : (Instant) row.get("issued_at"),
+        row.get("observed_at") instanceof java.sql.Timestamp observed ? observed.toInstant()
+            : row.get("observed_at") instanceof java.time.OffsetDateTime offset ? offset.toInstant()
+            : (Instant) row.get("observed_at"));
   }
 
   /** Compatibility for legacy domain rules, restricted to safe identity fields. Rechecks revocation. */

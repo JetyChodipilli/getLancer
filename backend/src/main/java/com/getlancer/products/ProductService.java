@@ -182,10 +182,14 @@ public class ProductService {
       a.add(builder);
     }
     if (!q.isBlank()) {
+        // Keep each search branch independently indexable; public scope stays on the outer query.
       sql +=
-          " AND (to_tsvector('english',p.title||' '||p.summary||' '||p.description||'"
-              + " '||p.category||' '||p.technology) @@ websearch_to_tsquery('english',?) OR p.title"
-              + " ILIKE ? OR d.display_name ILIKE ?)";
+            " AND p.id IN (SELECT id FROM products WHERE"
+                + " to_tsvector('english',title||' '||summary||' '||description||'"
+                + " '||category||' '||technology) @@ websearch_to_tsquery('english',?)"
+                + " UNION SELECT id FROM products WHERE title ILIKE ?"
+                + " UNION SELECT matched.id FROM products matched JOIN developer_profiles profile"
+                + " ON profile.user_id=matched.owner_user_id WHERE profile.display_name ILIKE ?)";
       a.add(q);
       a.add("%" + q.replace("%", "\\%").replace("_", "\\_") + "%");
       a.add("%" + q.replace("%", "\\%").replace("_", "\\_") + "%");

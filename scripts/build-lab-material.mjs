@@ -25,7 +25,9 @@ function tar(files){
  const parts=[];
  for(const [path,bytes] of files){assert(Buffer.byteLength(path)<100);const header=Buffer.alloc(512);header.write(path,0,100,'utf8');header.write('0000644\0',100);header.write('0000000\0',108);header.write('0000000\0',116);header.write(bytes.length.toString(8).padStart(11,'0')+'\0',124);header.write('00000000000\0',136);header.fill(32,148,156);header[156]=48;header.write('ustar\0',257);header.write('00',263);let checksum=0;for(const byte of header)checksum+=byte;header.write(checksum.toString(8).padStart(6,'0')+'\0 ',148);parts.push(header,bytes,Buffer.alloc((512-bytes.length%512)%512));
  }
- return gzipSync(Buffer.concat([...parts,Buffer.alloc(1024)]),{level:9});
+ const archive=gzipSync(Buffer.concat([...parts,Buffer.alloc(1024)]),{level:9});
+ // Retain existing Linux release identities on every operating system.
+ archive[9]=3;return archive;
 }
 function verifyTar(archive,files){
  const bytes=gunzipSync(archive,{maxOutputLength:1048576});let offset=0;const expected=new Map(files),found=new Set();
