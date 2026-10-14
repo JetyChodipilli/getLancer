@@ -1,5 +1,7 @@
 # Service connection and release steps
 
+For V5.2 monitoring, incident drills and the independently gated production launch, follow [V5.2 operations](v52/README.md). Software verification does not activate runtime or payment providers.
+
 For V1–V4.5 security deployment, follow [SECURITY_RELEASE.md](SECURITY_RELEASE.md) and [database runtime roles](../docs/DATABASE_RUNTIME_ROLES.md). These supersede the historical owner-credential and environment-loading assumptions below.
 
 This runbook applies to the combined V1–V2.5 application. Use [V2.5 acceptance](../docs/V2_5_ACCEPTANCE.md) for current automated evidence and [hosted staging preparation](STAGING.md) for provider-dependent acceptance. The stable `/api/v1` namespace serves all implemented phases.
@@ -20,7 +22,7 @@ Copy `.env.example` to `.env` if absent for local development. The existing loca
 | Google OAuth app | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
 | GitHub OAuth app | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` |
 | First administrator | Explicit `ADMIN_EMAIL`, `ADMIN_BOOTSTRAP_PASSWORD`, Base32 `ADMIN_TOTP_SECRET` installed in your authenticator, external `MFA_ACTIVE_KEY_ID` and `MFA_KEYRING` |
-| Optional analytics | `ANALYTICS_ENABLED=true`, random `ANALYTICS_HASH_SALT`; default 90-day retention for optional usage events only |
+| Optional analytics | `ANALYTICS_ENABLED=true`, random `ANALYTICS_HASH_SALT`; raw optional usage events retained at most 24 hours; unlinked daily aggregates expire after 90 days; dashboards show 30 UTC calendar dates |
 | Production policies | Approved policy text and version, `LEGAL_DOCUMENT_VERSION`, `POLICIES_APPROVED`, `SUPPORT_EMAIL`, `PRIVACY_EMAIL`, `COPYRIGHT_EMAIL` |
 
 The frontend only needs `BACKEND_URL`, `BACKEND_PROXY_SECRET`, `APP_BASE_URL`, and `INDEX_PUBLIC_PAGES=false` during staging. Never copy database, S3, SMTP, administrator, or OAuth secrets into frontend public variables. Supabase Auth keys/anon keys are **not** needed for the existing Spring session system.

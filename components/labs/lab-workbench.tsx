@@ -6,6 +6,7 @@ import {ArrowUpRight,BookOpen,Clock3,FlaskConical,RefreshCw,ShieldCheck,Square} 
 import {Card,CardContent,CardHeader} from '@/components/ui/card';
 import {Badge} from '@/components/ui/badge';
 import {api,ApiError} from '@/lib/api';
+import {observeArtifact} from '@/lib/analytics';
 import {labApplyEvents,labAttempt,labCanRequest,labCanStop,labEventsPath,labExpired,labExpiryText,labFieldErrors,labSourceUrl,labRunResponse,labStatusLabel,labTerminal,parseLabEvents,type LabAttempt,type LabCatalogue,type LabEvent,type LabInput,type LabManifest,type LabQuota,type LabRun,type LabRunBody} from '@/lib/labs';
 import './labs.css';
 
@@ -25,6 +26,7 @@ export default function LabWorkbench(){
  const [attempt,setAttempt]=useState<LabAttempt<LabRunBody>|null>(null),[requestAttempt,setRequestAttempt]=useState<LabAttempt<{operationId:string;inputs:Record<string,string>}>|null>(null);
  const initializedRun=useRef(''),alive=useRef(true),epoch=useRef(0),eventAbort=useRef<AbortController|null>(null),eventCursor=useRef(0),summary=useRef<HTMLParagraphElement>(null);
  const manifest=catalogue?.items.find(item=>item.id===selected),scenario=manifest?.scenarios.find(item=>item.id===scenarioId),runManifest=catalogue?.items.find(item=>item.id===run?.manifestId),runScenario=runManifest?.scenarios.find(item=>item.id===run?.scenarioId);
+ useEffect(()=>{if(manifest)observeArtifact('lab_view',manifest.id);},[manifest?.id]);
  const privateReset=()=>{setAuthenticated(false);setQuota(null);setRun(null);setEvents([]);setResponse(null);eventCursor.current=0;eventAbort.current?.abort();};
  useEffect(()=>{if(error)summary.current?.focus();},[error]);
  useEffect(()=>{alive.current=true;void load();const clock=window.setInterval(()=>setNow(Date.now()),10000);return()=>{alive.current=false;epoch.current++;eventAbort.current?.abort();window.clearInterval(clock);};},[]);

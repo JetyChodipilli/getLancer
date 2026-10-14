@@ -217,5 +217,533 @@
     "componentLinks": [],
     "priceMinor": null,
     "currency": null
+  },
+  {
+    "folder": "study-planner",
+    "slug": "study-planner",
+    "title": "Persistent local study planner",
+    "summary": "Loopback web UI and JSON API plan study minutes, mark tasks done and persist a bounded local task file. No account system or hosted deployment.",
+    "category": "FULL_STACK",
+    "mode": "FREE",
+    "language": "JavaScript",
+    "difficulty": "BEGINNER",
+    "demoMode": "SOURCE_ONLY",
+    "demoUrl": "",
+    "categoryEvidence": {
+      "modules": "Accessible HTML form, client.mjs task UI, HTTP API and atomic local JSON storage.",
+      "schemaApi": "GET /api/tasks, POST title/minutes and PATCH boolean done; 100 tasks, title100 chars and minutes1-600.",
+      "demoAccounts": "No accounts; local Host/Origin checks require 127.0.0.1. This is not authentication.",
+      "setupMigrations": "No migration dependency: missing private data file initializes empty; corrupt data prevents startup. Write/rename commits are serialized.",
+      "versions": "Node.js22 or newer; node:http/fs only. No database, packages or remote assets.",
+      "tests": "Clean regression checks concurrent writes, restart persistence, remaining minutes, invalid inputs, origin denial and payload limits.",
+      "deployment": "Run node server.mjs on loopback port3101 only; one process per private data file. No production hosting."
+    },
+    "contribution": "Original implementation, synthetic fixtures and deterministic regression checks. Source rights do not transfer authorship or academic credit.",
+    "package": {
+      "includedAssets": [
+        "Original source, regression checks, README, MIT LICENSE and provenance NOTICE.",
+        "Original HTML/CSS/client, JSON API and private-file persistence implementation."
+      ],
+      "excludedAssets": [
+        "No authentication, concurrent multi-process writes, database, backups, multi-user isolation or hosted production deployment."
+      ],
+      "setupSteps": [
+        "Install Node.js 22 or newer.",
+        "Run node test.mjs, then node server.mjs."
+      ],
+      "prerequisites": [
+        "Node.js 22 or newer; standard library only, no downloads, credentials or package installation."
+      ],
+      "limitations": [
+        "No authentication, concurrent multi-process writes, database, backups, multi-user isolation or hosted production deployment.",
+        "No authorship, academic marks or university certification is transferred by a license."
+      ],
+      "supportTerms": "Self-guided original learning package. No hosted service, warranty, maintenance contract or paid support.",
+      "licenseTerms": "MIT License. Preserve LICENSE, permission notices and original provenance NOTICE; preserve separate dataset/model licences where included."
+    },
+    "componentLinks": [],
+    "priceMinor": null,
+    "currency": null,
+    "sourceFiles": [
+      "LICENSE",
+      "NOTICE",
+      "README.md",
+      "client.mjs",
+      "index.html",
+      "package.json",
+      "server.mjs",
+      "style.css",
+      "test.mjs"
+    ]
+  },
+  {
+    "folder": "campus-poll",
+    "slug": "campus-poll",
+    "title": "Persistent synthetic campus poll",
+    "summary": "Loopback web UI and JSON API store synthetic ballots with retry identity and three choices. No voter identity checks or real election integrity.",
+    "category": "FULL_STACK",
+    "mode": "FREE",
+    "language": "JavaScript",
+    "difficulty": "BEGINNER",
+    "demoMode": "SOURCE_ONLY",
+    "demoUrl": "",
+    "categoryEvidence": {
+      "modules": "Accessible radio ballot, client-side totals, bounded HTTP API and atomic local JSON ballot storage.",
+      "schemaApi": "GET /api/poll and POST /api/ballots with random ballotId and choice0-2. Same ballot retries once; changed choice conflicts.",
+      "demoAccounts": "No accounts or real voters. Ballot identity is a per-page random retry key, not identity verification.",
+      "setupMigrations": "Empty missing file initializes poll; exact ballot schema and duplicates validated on startup. Writes serialized and atomically renamed.",
+      "versions": "Node.js22 or newer; HTTP/fs standard library and browser DOM only.",
+      "tests": "Clean regression proves duplicate concurrency, restart persistence, conflict/invalid/body/origin denial and100-ballot boundary.",
+      "deployment": "Loopback3102 local exercise, one process per private poll file. No campus endorsement or production election."
+    },
+    "contribution": "Original implementation, synthetic fixtures and deterministic regression checks. Source rights do not transfer authorship or academic credit.",
+    "package": {
+      "includedAssets": [
+        "Original source, regression checks, README, MIT LICENSE and provenance NOTICE.",
+        "Original HTML/CSS/client, idempotent ballot API and persistence implementation."
+      ],
+      "excludedAssets": [
+        "No authentication, ballot secrecy, one-person-one-vote, tamper resistance, cryptographic election verification or campus endorsement."
+      ],
+      "setupSteps": [
+        "Install Node.js 22 or newer.",
+        "Run node test.mjs, then node server.mjs."
+      ],
+      "prerequisites": [
+        "Node.js 22 or newer; standard library only, no downloads, credentials or package installation."
+      ],
+      "limitations": [
+        "No authentication, ballot secrecy, one-person-one-vote, tamper resistance, cryptographic election verification or campus endorsement.",
+        "No authorship, academic marks or university certification is transferred by a license."
+      ],
+      "supportTerms": "Self-guided original learning package. No hosted service, warranty, maintenance contract or paid support.",
+      "licenseTerms": "MIT License. Preserve LICENSE, permission notices and original provenance NOTICE; preserve separate dataset/model licences where included."
+    },
+    "componentLinks": [],
+    "priceMinor": null,
+    "currency": null,
+    "sourceFiles": [
+      "LICENSE",
+      "NOTICE",
+      "README.md",
+      "client.mjs",
+      "index.html",
+      "package.json",
+      "server.mjs",
+      "style.css",
+      "test.mjs"
+    ]
+  },
+  {
+    "folder": "support-latency",
+    "slug": "support-latency",
+    "title": "Synthetic support latency percentiles",
+    "summary": "Six original synthetic tickets demonstrate bounded timestamp cleaning, nearest-rank percentiles and explicit per-priority threshold denominators.",
+    "category": "DATA_ANALYTICS",
+    "mode": "FREE",
+    "language": "Python",
+    "difficulty": "BEGINNER",
+    "demoMode": "SOURCE_ONLY",
+    "demoUrl": "",
+    "categoryEvidence": {
+      "dataSourceLicense": "Six original synthetic CSV ticket records, separately MIT licensed in DATA_LICENSE.",
+      "sampleSchema": "Unique ticket, priority high/normal, opened and closed UTC second timestamps.",
+      "transformations": "Validate exact columns and timestamps, reject duplicates/negative elapsed values, group and sort elapsed seconds.",
+      "notebook": "analysis.py is a portable stdlib entry point; no notebook or plotting dependencies.",
+      "charts": "JSON per-priority rows, nearest-rank p50/p95 minute strings, target minutes and aboveTarget count.",
+      "interpretation": "Synthetic high p50=30min and p95=90min; 1 of3 high rows exceeds30min. This certifies no service SLA.",
+      "reproducibility": "Run python3 test.py then python3 analysis.py on Python3.11+; empty cohort returns null percentiles."
+    },
+    "contribution": "Original implementation, synthetic fixtures and deterministic regression checks. Source rights do not transfer authorship or academic credit.",
+    "package": {
+      "includedAssets": [
+        "Original source, regression checks, README, MIT LICENSE and provenance NOTICE.",
+        "Six original synthetic CSV rows and separately licensed DATA_LICENSE."
+      ],
+      "excludedAssets": [
+        "No real support logs, customer data, production SLA, interactive dashboard, business prediction or sampling inference."
+      ],
+      "setupSteps": [
+        "Install Python 3.11 or newer.",
+        "Run python3 test.py, then python3 analysis.py."
+      ],
+      "prerequisites": [
+        "Python 3.11 or newer; standard library only, no downloads, credentials or package installation."
+      ],
+      "limitations": [
+        "No real support logs, customer data, production SLA, interactive dashboard, business prediction or sampling inference.",
+        "No authorship, academic marks or university certification is transferred by a license."
+      ],
+      "supportTerms": "Self-guided original learning package. No hosted service, warranty, maintenance contract or paid support.",
+      "licenseTerms": "MIT License. Preserve LICENSE, permission notices and original provenance NOTICE; preserve separate dataset/model licences where included."
+    },
+    "componentLinks": [],
+    "priceMinor": null,
+    "currency": null,
+    "dataAiEvidence": {
+      "codeLicense": "MIT: original code; preserve LICENSE and NOTICE.",
+      "dataLicense": "MIT: original synthetic fixture; preserve DATA_LICENSE and NOTICE.",
+      "dataProvenance": "Six original hand-written synthetic support ticket timestamps; no real people or external service records.",
+      "dataSha256": "4c8d315e5d6b89ef535ad9784a5ec2f59ab584e3bb97b0e9072e8bbde380c2e9",
+      "modelLicense": "",
+      "modelProvenance": "",
+      "modelSha256": "",
+      "modelFormat": "",
+      "evaluationSplit": "",
+      "evaluationProtocol": "",
+      "outputSchema": "synthetic:bool; rows:int; method:nearest-rank; groups(priority,{rows,p50Minutes?,p95Minutes?,targetMinutes,aboveTarget})",
+      "limitations": "Six synthetic records; no service SLA or statistically representative response-time claim.",
+      "redistributionAllowed": true,
+      "syntheticData": true,
+      "noRemoteCode": true
+    },
+    "sourceFiles": [
+      "DATA_LICENSE",
+      "LICENSE",
+      "NOTICE",
+      "README.md",
+      "analysis.py",
+      "pyproject.toml",
+      "synthetic.csv",
+      "test.py"
+    ]
+  },
+  {
+    "folder": "inventory-reorder",
+    "slug": "inventory-reorder",
+    "title": "Synthetic inventory reorder worksheet",
+    "summary": "Four original synthetic stock rows demonstrate reserved stock, deterministic reorder points and exact Decimal purchasing totals.",
+    "category": "DATA_ANALYTICS",
+    "mode": "FREE",
+    "language": "Python",
+    "difficulty": "BEGINNER",
+    "demoMode": "SOURCE_ONLY",
+    "demoUrl": "",
+    "categoryEvidence": {
+      "dataSourceLicense": "Four original synthetic inventory CSV rows; separate MIT DATA_LICENSE.",
+      "sampleSchema": "Unique synthetic SKU; stock,reserved,daily_demand,lead_days,buffer whole numbers; unit_cost decimal string.",
+      "transformations": "Compute available=stock-reserved, reorderPoint=demand*lead+buffer, suggestedOrder=max(0,point-available); sort by quantity.",
+      "notebook": "Portable analysis.py using csv and Decimal only. No notebook install.",
+      "charts": "JSON quantity/cost table and exact totalSuggestedCost37.55 synthetic currency units.",
+      "interpretation": "Demonstrates a fixed threshold formula; no live inventory, demand estimation or buying advice.",
+      "reproducibility": "Python3.11+, run test.py then analysis.py; invalid currency and reserved-over-stock reject."
+    },
+    "contribution": "Original implementation, synthetic fixtures and deterministic regression checks. Source rights do not transfer authorship or academic credit.",
+    "package": {
+      "includedAssets": [
+        "Original source, regression checks, README, MIT LICENSE and provenance NOTICE.",
+        "Four original synthetic inventory rows and separate DATA_LICENSE."
+      ],
+      "excludedAssets": [
+        "No supplier service, real SKU or financial data, demand forecasting, replenishment guarantee or purchasing advice."
+      ],
+      "setupSteps": [
+        "Install Python 3.11 or newer.",
+        "Run python3 test.py, then python3 analysis.py."
+      ],
+      "prerequisites": [
+        "Python 3.11 or newer; standard library only, no downloads, credentials or package installation."
+      ],
+      "limitations": [
+        "No supplier service, real SKU or financial data, demand forecasting, replenishment guarantee or purchasing advice.",
+        "No authorship, academic marks or university certification is transferred by a license."
+      ],
+      "supportTerms": "Self-guided original learning package. No hosted service, warranty, maintenance contract or paid support.",
+      "licenseTerms": "MIT License. Preserve LICENSE, permission notices and original provenance NOTICE; preserve separate dataset/model licences where included."
+    },
+    "componentLinks": [],
+    "priceMinor": null,
+    "currency": null,
+    "dataAiEvidence": {
+      "codeLicense": "MIT: original code; preserve LICENSE and NOTICE.",
+      "dataLicense": "MIT: original synthetic fixture; preserve DATA_LICENSE and NOTICE.",
+      "dataProvenance": "Four original synthetic SKU, stock, demand and cost records; no real supplier or financial data.",
+      "dataSha256": "1bce125859ae92cc276df25874e375b44ea5267c81953cfdb46281ac82a7abdd",
+      "modelLicense": "",
+      "modelProvenance": "",
+      "modelSha256": "",
+      "modelFormat": "",
+      "evaluationSplit": "",
+      "evaluationProtocol": "",
+      "outputSchema": "synthetic:bool; rows:int; items[{sku,available,reorderPoint,suggestedOrder,suggestedCost}]; totalSuggestedCost:decimal-string",
+      "limitations": "Fixed illustrative reorder formula; no real purchasing advice or demand forecast.",
+      "redistributionAllowed": true,
+      "syntheticData": true,
+      "noRemoteCode": true
+    },
+    "sourceFiles": [
+      "DATA_LICENSE",
+      "LICENSE",
+      "NOTICE",
+      "README.md",
+      "analysis.py",
+      "pyproject.toml",
+      "synthetic.csv",
+      "test.py"
+    ]
+  },
+  {
+    "folder": "nearest-intent",
+    "slug": "nearest-intent",
+    "title": "Frozen nearest-centroid intent exercise",
+    "summary": "Original six-word JSON centroids classify three held-out synthetic phrases, with explicit unknown/tie abstention. No real support routing accuracy.",
+    "category": "AI_ML",
+    "mode": "FREE",
+    "language": "Python",
+    "difficulty": "BEGINNER",
+    "demoMode": "SOURCE_ONLY",
+    "demoUrl": "",
+    "categoryEvidence": {
+      "task": "Nearest-centroid classification of synthetic account,billing,planning phrases in a six-word vocabulary.",
+      "datasetModelLicense": "Code MIT; synthetic/evaluation rows separate DATA_LICENSE; original fixed JSON centroids separate MODEL_LICENSE.",
+      "splits": "Three synthetic reference phrases and three distinct held-out evaluation phrases; no execution-time training.",
+      "evaluation": "Exact fixed held-out label comparison. Unknown vocabulary and equal distances return unknown.",
+      "metrics": "3/3 correct on three hand-written synthetic held-out rows only. No population accuracy or fairness assertion.",
+      "inference": "classifier.py reads bounded local plainJSON model and computes binary-word squared distance; no remote loader.",
+      "limitations": "Tiny English vocabulary, unknown/tie abstention; not real support routing, multilingual or safety decision software."
+    },
+    "contribution": "Original implementation, synthetic fixtures and deterministic regression checks. Source rights do not transfer authorship or academic credit.",
+    "package": {
+      "includedAssets": [
+        "Original source, regression checks, README, MIT LICENSE and provenance NOTICE.",
+        "Original frozen model.json, three synthetic references, three separate evaluation rows, DATA_LICENSE and MODEL_LICENSE."
+      ],
+      "excludedAssets": [
+        "No model training, remote loader, pretrained model, real support data, population accuracy, fairness or safety claim."
+      ],
+      "setupSteps": [
+        "Install Python 3.11 or newer.",
+        "Run python3 test.py, then python3 classifier.py."
+      ],
+      "prerequisites": [
+        "Python 3.11 or newer; standard library only, no downloads, credentials or package installation."
+      ],
+      "limitations": [
+        "No model training, remote loader, pretrained model, real support data, population accuracy, fairness or safety claim.",
+        "No authorship, academic marks or university certification is transferred by a license."
+      ],
+      "supportTerms": "Self-guided original learning package. No hosted service, warranty, maintenance contract or paid support.",
+      "licenseTerms": "MIT License. Preserve LICENSE, permission notices and original provenance NOTICE; preserve separate dataset/model licences where included."
+    },
+    "componentLinks": [],
+    "priceMinor": null,
+    "currency": null,
+    "dataAiEvidence": {
+      "codeLicense": "MIT: original code; preserve LICENSE and NOTICE.",
+      "dataLicense": "MIT: original synthetic fixtures; preserve DATA_LICENSE and NOTICE.",
+      "dataProvenance": "Three original synthetic reference phrases; evaluation.json contains three separate hand-written held-out phrases.",
+      "dataSha256": "56b6fafb3ad587425162515ca6ce3306b507a2eab7a8991a674fb045da01190a",
+      "modelLicense": "MIT: original frozen JSON model; preserve MODEL_LICENSE.",
+      "modelProvenance": "Original fixed binary six-word centroid coefficients in local model.json; no pretrained weights or training.",
+      "modelSha256": "ec9a0355bb55c0366b717c89fa44debec783ac58d89e56347e7eef5d3afc387c",
+      "modelFormat": "JSON",
+      "evaluationSplit": "Three reference phrases and three distinct held-out phrases; training is not performed.",
+      "evaluationProtocol": "Compare fixed predicted labels with three held-out labels; unknown/ties explicitly abstain.",
+      "outputSchema": "synthetic:bool; frozenModel:bool; testRows:int; correct:int; accuracy:number|null; predictions:string[]; context:string",
+      "limitations": "Three deliberately tiny synthetic phrases only; no real support routing, fairness or population accuracy.",
+      "redistributionAllowed": true,
+      "syntheticData": true,
+      "noRemoteCode": true
+    },
+    "sourceFiles": [
+      "DATA_LICENSE",
+      "LICENSE",
+      "MODEL_LICENSE",
+      "NOTICE",
+      "README.md",
+      "classifier.py",
+      "evaluation.json",
+      "model.json",
+      "pyproject.toml",
+      "synthetic.json",
+      "test.py"
+    ]
+  },
+  {
+    "folder": "energy-forecast",
+    "slug": "energy-forecast",
+    "title": "Frozen synthetic energy forecast",
+    "summary": "Original fixed Decimal coefficients produce exact predictions for three held-out synthetic rows. Zero toy error is a formula check, not building accuracy.",
+    "category": "AI_ML",
+    "mode": "FREE",
+    "language": "Python",
+    "difficulty": "BEGINNER",
+    "demoMode": "SOURCE_ONLY",
+    "demoUrl": "",
+    "categoryEvidence": {
+      "task": "Frozen linear energy estimate: baseline+occupied-hours coefficient+positive cooling-degree coefficient.",
+      "datasetModelLicense": "Original MIT code, separate DATA_LICENSE for synthetic reference/evaluation rows and MODEL_LICENSE for JSON coefficients.",
+      "splits": "Three synthetic reference rows, three separate evaluation rows generated by the same illustrative formula. No fitted training.",
+      "evaluation": "Fixed Decimal predictions compared with synthetic_kwh; report mean absolute error in toy kWh.",
+      "metrics": "MAE0.00 across3 artificial rows; the generating formula matches the frozen model, so no actual building accuracy follows.",
+      "inference": "forecast.py validates bounded temperature/hours, reads only local JSON coefficients and computes Decimal output.",
+      "limitations": "No training, weather feed, real metering data, physical calibration, uncertainty estimate or energy savings claim."
+    },
+    "contribution": "Original implementation, synthetic fixtures and deterministic regression checks. Source rights do not transfer authorship or academic credit.",
+    "package": {
+      "includedAssets": [
+        "Original source, regression checks, README, MIT LICENSE and provenance NOTICE.",
+        "Original frozen coefficients, three synthetic reference rows, three separate evaluation rows, DATA_LICENSE and MODEL_LICENSE."
+      ],
+      "excludedAssets": [
+        "No fitted model, real energy-meter data, weather feed, building calibration, uncertainty, savings or forecast accuracy claim."
+      ],
+      "setupSteps": [
+        "Install Python 3.11 or newer.",
+        "Run python3 test.py, then python3 forecast.py."
+      ],
+      "prerequisites": [
+        "Python 3.11 or newer; standard library only, no downloads, credentials or package installation."
+      ],
+      "limitations": [
+        "No fitted model, real energy-meter data, weather feed, building calibration, uncertainty, savings or forecast accuracy claim.",
+        "No authorship, academic marks or university certification is transferred by a license."
+      ],
+      "supportTerms": "Self-guided original learning package. No hosted service, warranty, maintenance contract or paid support.",
+      "licenseTerms": "MIT License. Preserve LICENSE, permission notices and original provenance NOTICE; preserve separate dataset/model licences where included."
+    },
+    "componentLinks": [],
+    "priceMinor": null,
+    "currency": null,
+    "dataAiEvidence": {
+      "codeLicense": "MIT: original code; preserve LICENSE and NOTICE.",
+      "dataLicense": "MIT: original synthetic fixtures; preserve DATA_LICENSE and NOTICE.",
+      "dataProvenance": "Three original fabricated reference records; three separate synthetic formula-generated evaluation records, not real meter data.",
+      "dataSha256": "e1ddd57c976837be251f04a54f41d13269caf25d9b9b016d5bb5e5f2ae18ec98",
+      "modelLicense": "MIT: original frozen JSON model; preserve MODEL_LICENSE.",
+      "modelProvenance": "Original fixed hand-written Decimal coefficients, plain local JSON; no training or pretrained model.",
+      "modelSha256": "9c6a4c703f16f6470a795f49c2c8022143c0f164c469707297e9be6a4a56ed6c",
+      "modelFormat": "JSON",
+      "evaluationSplit": "Three reference and three held-out synthetic rows; evaluation rows follow the same illustrative formula.",
+      "evaluationProtocol": "Exact Decimal mean absolute error on three fixed synthetic held-out rows; no fitting or data retrieval.",
+      "outputSchema": "synthetic:bool; frozenModel:bool; testRows:int; predictionsKwh:decimal-string[]; meanAbsoluteErrorKwh:decimal-string|null; context:string",
+      "limitations": "Toy formula-generated rows intentionally match the model; zero error establishes no building accuracy or energy savings.",
+      "redistributionAllowed": true,
+      "syntheticData": true,
+      "noRemoteCode": true
+    },
+    "sourceFiles": [
+      "DATA_LICENSE",
+      "LICENSE",
+      "MODEL_LICENSE",
+      "NOTICE",
+      "README.md",
+      "evaluation.json",
+      "forecast.py",
+      "model.json",
+      "pyproject.toml",
+      "synthetic.json",
+      "test.py"
+    ]
+  },
+  {
+    "folder": "water-tank",
+    "slug": "water-tank",
+    "title": "Simulated water-tank hysteresis",
+    "summary": "Six deterministic simulated levels demonstrate pump hysteresis and fail-closed sensor faults. No pump, firmware, board or physical water control.",
+    "category": "IOT",
+    "mode": "FREE",
+    "language": "JavaScript",
+    "difficulty": "BEGINNER",
+    "demoMode": "SOURCE_ONLY",
+    "demoUrl": "",
+    "categoryEvidence": {
+      "boardFirmware": "Pure Node.js simulated state machine; no board, firmware or actuator.",
+      "billOfMaterials": "Computer and Node.js22 only. Pumps, relays, tanks and sensors excluded.",
+      "wiring": "No wiring or electrical activity; motor protection and physical safety are not verified.",
+      "powerConnectivity": "Offline in-memory ticks; no battery, network, broker or physical power.",
+      "topics": "simulated/water-tank: tick,levelPercent|null,pump,alarm,simulated:true. Null reading turns pump off.",
+      "evidence": "Regression proves20/80percent hysteresis, six repeatable rows, fault shutoff and invalid threshold/readings rejection. No hardware tested."
+    },
+    "contribution": "Original implementation, synthetic fixtures and deterministic regression checks. Source rights do not transfer authorship or academic credit.",
+    "package": {
+      "includedAssets": [
+        "Original source, regression checks, README, MIT LICENSE and provenance NOTICE.",
+        "Original simulated hysteresis state machine and positive/negative regressions."
+      ],
+      "excludedAssets": [
+        "No physical tank, pump, sensor, actuator, firmware, electrical safety, calibration or hardware verification."
+      ],
+      "setupSteps": [
+        "Install Node.js 22 or newer.",
+        "Run node test.mjs, then node simulate.mjs."
+      ],
+      "prerequisites": [
+        "Node.js 22 or newer; standard library only, no downloads, credentials or package installation."
+      ],
+      "limitations": [
+        "No physical tank, pump, sensor, actuator, firmware, electrical safety, calibration or hardware verification.",
+        "No authorship, academic marks or university certification is transferred by a license."
+      ],
+      "supportTerms": "Self-guided original learning package. No hosted service, warranty, maintenance contract or paid support.",
+      "licenseTerms": "MIT License. Preserve LICENSE, permission notices and original provenance NOTICE; preserve separate dataset/model licences where included."
+    },
+    "componentLinks": [],
+    "priceMinor": null,
+    "currency": null,
+    "sourceFiles": [
+      "LICENSE",
+      "NOTICE",
+      "README.md",
+      "package.json",
+      "simulate.mjs",
+      "test.mjs"
+    ]
+  },
+  {
+    "folder": "packet-gateway",
+    "slug": "packet-gateway",
+    "title": "Simulated binary packet gateway",
+    "summary": "Original simulated six-byte frames demonstrate checksum, fixed payload decoding and per-sensor replay/stale rejection. No physical transport or cryptographic integrity.",
+    "category": "IOT",
+    "mode": "FREE",
+    "language": "JavaScript",
+    "difficulty": "BEGINNER",
+    "demoMode": "SOURCE_ONLY",
+    "demoUrl": "",
+    "categoryEvidence": {
+      "boardFirmware": "Local byte-array encoder/decoder and gateway only; no MCU, flashed firmware or physical sensor.",
+      "billOfMaterials": "Computer and Node.js22; no radio, serial adapter, board or broker.",
+      "wiring": "No electrical or radio operation; no physical wiring/safety validation.",
+      "powerConnectivity": "Offline fixed local frames, no MQTT, serial, radio or external network.",
+      "topics": "simulated packet: version1,sequence1-255,sensor0/1,signed temperature tenths, XOR checksum. Sequence wrap is unsupported.",
+      "evidence": "Four original fixture frames produce2 accepted,1 duplicate,1 invalid. Tests also reject stale frames and checksum corruption; hardwareVerified:false."
+    },
+    "contribution": "Original implementation, synthetic fixtures and deterministic regression checks. Source rights do not transfer authorship or academic credit.",
+    "package": {
+      "includedAssets": [
+        "Original source, regression checks, README, MIT LICENSE and provenance NOTICE.",
+        "Original binary codec/gateway, four synthetic fixture frames and DATA_LICENSE."
+      ],
+      "excludedAssets": [
+        "No physical transport, cryptographic authenticity, replay window across restarts, sequence wrapping, firmware or hardware verification."
+      ],
+      "setupSteps": [
+        "Install Node.js 22 or newer.",
+        "Run node test.mjs, then node gateway.mjs."
+      ],
+      "prerequisites": [
+        "Node.js 22 or newer; standard library only, no downloads, credentials or package installation."
+      ],
+      "limitations": [
+        "No physical transport, cryptographic authenticity, replay window across restarts, sequence wrapping, firmware or hardware verification.",
+        "No authorship, academic marks or university certification is transferred by a license."
+      ],
+      "supportTerms": "Self-guided original learning package. No hosted service, warranty, maintenance contract or paid support.",
+      "licenseTerms": "MIT License. Preserve LICENSE, permission notices and original provenance NOTICE; preserve separate dataset/model licences where included."
+    },
+    "componentLinks": [],
+    "priceMinor": null,
+    "currency": null,
+    "sourceFiles": [
+      "DATA_LICENSE",
+      "LICENSE",
+      "NOTICE",
+      "README.md",
+      "gateway.mjs",
+      "package.json",
+      "synthetic.json",
+      "test.mjs"
+    ]
   }
 ]

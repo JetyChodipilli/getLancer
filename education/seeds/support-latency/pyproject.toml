@@ -1,0 +1,5 @@
+[project]
+name = "getlancer-example-support-latency"
+version = "1.0.0"
+requires-python = ">=3.11"
+dependencies = []

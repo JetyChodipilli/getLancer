@@ -26,6 +26,7 @@ GET /api/v1/admin/hosting/{id}/package
 GET /api/v1/admin/labs
 GET /api/v1/admin/maintenance/attention
 GET /api/v1/admin/metrics
+GET /api/v1/admin/operations
 GET /api/v1/admin/payments/accounts
 GET /api/v1/admin/payments/attention
 GET /api/v1/admin/products/pending

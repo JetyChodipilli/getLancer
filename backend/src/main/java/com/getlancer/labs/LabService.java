@@ -22,6 +22,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 /** Private durable reservations, commands and replay. Database locks serialize all resource admission. */
 @Service
 public class LabService {
+  public static final long DAILY_BUDGET_MICROS=50_000_000L, MONTHLY_BUDGET_MICROS=1_000_000_000L;
   private final JdbcTemplate db;private final Security security;private final LabConfiguration config;
   private final LabProviderClient provider;private final ObjectMapper json;private final TransactionTemplate transaction;private final LabDataAiPolicy dataAi;private final LabIotPolicy iot;private final LabAdapterPolicy adapters;
   public LabService(JdbcTemplate db,Security security,LabConfiguration config,LabProviderClient provider,ObjectMapper json,PlatformTransactionManager manager,LabDataAiPolicy dataAi,LabIotPolicy iot,LabAdapterPolicy adapters){
@@ -63,6 +64,7 @@ public class LabService {
     if(lock){db.queryForList("SELECT user_id FROM user_roles WHERE user_id=? FOR UPDATE",rows.get(0).get("owner_id"));if(!security.role((UUID)rows.get(0).get("owner_id"),"DEVELOPER"))throw new ApiError(403,"LAB_SOURCE_REVOKED","The source owner no longer has publication authority.");}return "/components/"+rows.get(0).get("slug");
   }
   private LabConfiguration.Runtime runtime(){var available=config.projection();if(!available.enabled())return available;UUID observed=db.queryForObject("SELECT observed_epoch FROM lab_runtime_settings WHERE id=1",UUID.class);if(!Objects.equals(config.epoch,observed))return new LabConfiguration.Runtime(false,"The operator epoch changed; admission and old routes are closed pending quarantine.");Boolean paused=db.queryForObject("SELECT paused FROM lab_runtime_settings WHERE id=1",Boolean.class);return Boolean.TRUE.equals(paused)?new LabConfiguration.Runtime(false,"Lab admissions are paused. Reviewed source and setup remain free."):available;}
+  public LabConfiguration.Runtime runtimeAvailability(){return runtime();}
   public LabResponses.Catalogue catalogue(){var items=new java.util.ArrayList<LabResponses.Manifest>();
     for(String id:db.queryForList("SELECT id FROM lab_manifests WHERE revoked_at IS NULL ORDER BY id LIMIT 100",String.class))try{
       var manifest=manifest(id,false);if(!dataAi.visible(manifest))continue;String sourceUrl=source(manifest,false);var available=availability(manifest);
@@ -90,7 +92,7 @@ public class LabService {
     LabManifest manifest=manifest(input.manifestId());source(manifest,true);var scenario=manifest.scenario(input.scenarioId());String resourceClass=requirePolicies(manifest,scenario.id(),true);UUID id=UUID.randomUUID();Map<String,String> inputs=iot.inputs(manifest,manifest.inputs(scenario,input.inputs().values()),id);
     var quota=quota(owner);if(quota.remaining()<1)throw new ApiError(429,"LAB_QUOTA_EXHAUSTED","Your five daily runtime reservations are used. Source and setup remain free.");
     if(quota.activeRunId()!=null)throw new ApiError(429,"LAB_ACTIVE_RUN","Finish cleanup of your current run before starting another.");
-    var resources=resources();if(number(resources,"active")>=10||number(resources,"memory")+manifest.memoryMiB()>5120||number(resources,"daily")+manifest.maxCostMicros()>50_000_000||number(resources,"monthly")+manifest.maxCostMicros()>1_000_000_000)
+    var resources=resources();if(number(resources,"active")>=10||number(resources,"memory")+manifest.memoryMiB()>5120||number(resources,"daily")+manifest.maxCostMicros()>DAILY_BUDGET_MICROS||number(resources,"monthly")+manifest.maxCostMicros()>MONTHLY_BUDGET_MICROS)
       throw new ApiError(429,"LAB_CAPACITY","The isolated runtime has reached its reserved capacity or budget. Source and setup remain free.");
     if(!resourceClass.equals("GENERAL")){
       var reserved=classResources(resourceClass);boolean iotClass=resourceClass.equals(LabIotPolicy.RESOURCE_CLASS);
@@ -135,10 +137,12 @@ public class LabService {
       var existing=db.queryForMap("SELECT command_id,run_id,idempotency_key,request_hash,lease_generation,operation_id,inputs,response,created_at FROM lab_requests WHERE command_id=? FOR UPDATE",intent.command());
       if(number(existing,"lease_generation")!=number(run,"lease_generation"))throw new ApiError(403,"LAB_LEASE_STALE","This request belongs to an earlier closed lease.");
       if(existing.get("response")!=null)return decode(existing.get("response").toString(),LabResponses.RequestResult.class);
-      var result=provider.send(command(run,intent.command(),"REQUEST",intent.operation(),intent.inputs()));if(!result.state().equals("RESULT"))throw new ApiError(502,"LAB_REQUEST_UNCONFIRMED","The isolated provider has not confirmed this request.");
+      var result=provider.send(command(run,intent.command(),"REQUEST",intent.operation(),intent.inputs()));if(result.state().equals("FAILED"))throw new ApiError(502,"LAB_SCENARIO_FAILED","The isolated provider confirmed failure of this scenario operation.");if(!result.state().equals("RESULT"))throw new ApiError(502,"LAB_REQUEST_UNCONFIRMED","The isolated provider has not confirmed this request.");
       current(run);actor(request,false);var safe=new LabResponses.RequestResult(id,intent.command(),Objects.toString(result.output(),""),Objects.toString(result.summary(),""));
       db.update("UPDATE lab_requests SET response=?::jsonb WHERE command_id=?",encode(safe),intent.command());db.update("UPDATE lab_runs SET last_activity_at=now() WHERE id=?",id);event(id,"REQUEST_COMPLETED","RUNNING","A certified scenario operation completed.");return safe;
-    });}catch(ApiError unsafe){if(unsafe.code.equals("LAB_ISOLATION_LOST"))tx(()->{settings();var run=owned(id,intent.owner(),false);cancel(run,"FAILED",unsafe.getMessage());return true;});throw unsafe;}
+    });}catch(ApiError unsafe){if(unsafe.code.equals("LAB_SCENARIO_FAILED"))tx(()->{settings();var run=owned(id,intent.owner(),false);
+      if(number(run,"lease_generation")==db.queryForObject("SELECT lease_generation FROM lab_requests WHERE command_id=?",Long.class,intent.command()))
+        db.update("UPDATE lab_requests SET confirmed_failure=true WHERE command_id=?",intent.command());return true;});if(unsafe.code.equals("LAB_ISOLATION_LOST"))tx(()->{settings();var run=owned(id,intent.owner(),false);cancel(run,"FAILED",unsafe.getMessage());return true;});throw unsafe;}
   }
   public String events(UUID id,String cursor,HttpServletRequest request){long after=0;try{if(cursor!=null){if(!cursor.matches("[0-9]{1,18}"))throw new NumberFormatException();after=Long.parseLong(cursor);}}catch(NumberFormatException invalid){throw new ApiError(400,"INVALID_LAB_CURSOR","Use the sequence of the last received event.");}
     final long sequence=after;return tx(()->{readLock();UUID owner=actor(request,false);var run=owned(id,owner,false);current(run);
@@ -188,6 +192,7 @@ public class LabService {
         return true;
       });
     }
+    db.update("UPDATE lab_runtime_settings SET worker_observed_at=now() WHERE id=1");
   }
   private Map<String,String> storedInputs(Object value){try{return json.readValue(value.toString(),new com.fasterxml.jackson.core.type.TypeReference<Map<String,String>>(){});}catch(Exception invalid){throw new ApiError(409,"LAB_RECORD_INVALID","The stored inputs require operator attention.");}}
   /** Internal privacy hook; joins the caller transaction and closes routes before asynchronous cleanup. */
@@ -204,11 +209,14 @@ public class LabService {
     String first=resourceClass.equals("DATA_ANALYTICS")?"revenue-summary":"sentiment-inference",second=resourceClass.equals("DATA_ANALYTICS")?"sensor-quality":"equipment-inference";
     return db.queryForMap("SELECT count(*) AS active,coalesce(sum(r.memory_mib),0) AS memory FROM lab_runs r JOIN lab_manifests m ON m.id=r.manifest_id WHERE r.cleanup_confirmed_at IS NULL AND (m.payload_text::jsonb->>'resourceClass'=? OR r.scenario_id IN (?,?))",resourceClass,first,second);
   }
+  public Map<String,Object> reservedResources(){return resources();}
   private Map<String,Object> resources(){return db.queryForMap("SELECT count(*) FILTER(WHERE cleanup_confirmed_at IS NULL) AS active,coalesce(sum(memory_mib) FILTER(WHERE cleanup_confirmed_at IS NULL),0) AS memory,coalesce(sum(cost_micros) FILTER(WHERE (greatest(requested_at,coalesce(healthy_at,requested_at),coalesce(cleanup_confirmed_at,requested_at))>=date_trunc('day',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AND quota_counted) OR cleanup_confirmed_at IS NULL),0) AS daily,coalesce(sum(cost_micros) FILTER(WHERE (greatest(requested_at,coalesce(healthy_at,requested_at),coalesce(cleanup_confirmed_at,requested_at))>=date_trunc('month',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AND quota_counted) OR cleanup_confirmed_at IS NULL),0) AS monthly FROM lab_runs");}
   /** GET is observation only; watchdog/writes commit route closure and cleanup intent. */
   private LabResponses.Run observedProjection(Map<String,Object> run){if(run.get("cleanup_confirmed_at")!=null)return projection(run);try{current(run);return projection(run);}catch(ApiError unavailable){var safe=new java.util.HashMap<>(run);safe.put("status",unavailable.code.equals("LAB_EXPIRED")?"EXPIRED":"CANCELLING");safe.put("reason",unavailable.getMessage());return projection(safe);}}
   private LabResponses.Run projection(Map<String,Object> run){String status=(String)run.get("status");return new LabResponses.Run((UUID)run.get("id"),(String)run.get("manifest_id"),(String)run.get("scenario_id"),status,"Isolated provider",status.equals("RUNNING")&&run.get("healthy_at")!=null,instant(run,"requested_at"),instant(run,"expires_at"),(String)run.get("reason"),"/api/v1/lab-runs/"+run.get("id")+"/events");}
-  private void event(UUID id,String type,String status,String reason){db.update("INSERT INTO lab_events(run_id,sequence,event_type,status,reason) SELECT ?,coalesce(max(sequence),0)+1,?,?,? FROM lab_events WHERE run_id=?",id,type,status,reason,id);}
+  private void event(UUID id,String type,String status,String reason){db.update("INSERT INTO lab_events(run_id,sequence,event_type,status,reason) SELECT ?,coalesce(max(sequence),0)+1,?,?,? FROM lab_events WHERE run_id=?",id,type,status,reason,id);
+    if(java.util.Set.of("QUEUED","RUNNING","FAILED","EXPIRED","CANCELLED").contains(type))org.slf4j.LoggerFactory.getLogger(LabService.class).info("operation=lab_transition result={}",type);
+  }
   private void outbox(UUID id,long generation,String action){db.update("INSERT INTO lab_outbox(command_id,run_id,lease_generation,action) VALUES(?,?,?,?) ON CONFLICT(run_id,lease_generation,action) DO NOTHING",UUID.randomUUID(),id,generation,action);}
   private LabProviderClient.Command command(Map<String,Object> run,UUID command,String action,String operation,Map<String,String> inputs){return new LabProviderClient.Command((UUID)run.get("id"),number(run,"lease_generation"),(UUID)run.get("operator_epoch"),command,(String)run.get("manifest_sha256"),(String)run.get("image_digest"),instant(run,"expires_at"),action,(String)run.get("scenario_id"),operation,inputs,(int)number(run,"memory_mib"));}
   private void key(String key){if(key==null||!key.matches("[A-Za-z0-9._:-]{8,100}"))throw new ApiError(400,"INVALID_IDEMPOTENCY_KEY","Supply a stable request identity between 8 and 100 ASCII characters.");}

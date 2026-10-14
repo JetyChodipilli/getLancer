@@ -6,6 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -24,11 +25,22 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 @RestControllerAdvice
 public class Errors {
+  private final com.getlancer.analytics.UsageCounters usage;
+  public Errors(){this.usage=null;}
+  @Autowired
+  public Errors(com.getlancer.analytics.UsageCounters usage){this.usage=usage;}
   public static final String CODE_ATTRIBUTE = Errors.class.getName() + ".code";
   @ExceptionHandler(ApiError.class)
   public ResponseEntity<?> api(ApiError error) {
-    if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes)
-      attributes.getRequest().setAttribute(CODE_ATTRIBUTE, error.code);
+    if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes) {
+      var request=attributes.getRequest();
+      request.setAttribute(CODE_ATTRIBUTE, error.code);
+      if(usage!=null && request.getMethod().equals("POST") && request.getRequestURI().equals("/api/v1/lab-runs")) {
+        // Domain rejection transactions have ended. A count failure never changes the rejection response.
+        try { usage.admissionDenial(error.code); }
+        catch(RuntimeException unavailable) { LoggerFactory.getLogger(Errors.class).warn("operation=admission_measurement result=UNAVAILABLE"); }
+      }
+    }
     return ResponseEntity.status(error.status).body(Map.of("error", Map.of(
         "code", error.code, "message", error.getMessage(), "requestId", RequestIds.current(),
         "fieldErrors", error.fieldErrors)));

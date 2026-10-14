@@ -90,6 +90,21 @@ class EducationIntegrationTest {
     mvc.perform(body(patch("/api/v1/me/education-releases/"+id),"owner",Map.of("revision",2.5,"mode","SHOWCASE"))).andExpect(status().isBadRequest());mvc.perform(body(patch("/api/v1/me/education-releases/"+id),"owner",Map.of("revision",2,"mode","SHOWCASE","categoryEvidence",Map.of("secretKey","never accepted")))).andExpect(status().isBadRequest());mvc.perform(body(patch("/api/v1/me/education-releases/"+id),"owner",Map.of("revision",2,"mode","SHOWCASE","categoryEvidence",Map.of("modules","x".repeat(4001))))).andExpect(status().isBadRequest());
     mvc.perform(body(post("/api/v1/me/education-releases/"+id+"/submit"),"owner",Map.of("revision",2,"rightsConsent",true))).andExpect(status().isBadRequest());assertEquals("DRAFT",db.queryForObject("SELECT status FROM education_releases WHERE id=?",String.class,UUID.fromString(id)));
   }
+  @Test void allExpandedOriginalSeedsPassOrdinaryFreeRightsUploadAndOperatorReview()throws Exception {
+    assertEquals(12,examples.size());
+    for(int index=4;index<examples.size();index++) {
+      String name="expanded-seed-"+index;UUID actor=user(name),parent=product(actor);
+      var draft=ok(body(post("/api/v1/me/college-projects/"+parent+"/releases"),name,draftBody("FREE",index)));
+      var uploaded=ok(as(multipart("/api/v1/me/education-releases/"+draft.path("id").asText()+"/source")
+          .file(new MockMultipartFile("file","source.zip","application/zip",archive(index)))
+          .param("revision",draft.path("revision").asText()).param("rightsConsent","true"),name)
+          .header("Origin","http://localhost:3000").header("X-Requested-With","getlancer"));
+      var pending=ok(body(post("/api/v1/me/education-releases/"+uploaded.path("id").asText()+"/submit"),name,
+          Map.of("revision",uploaded.path("revision").asLong(),"rightsConsent",true)));
+      mvc.perform(body(post("/api/v1/admin/education-releases/"+pending.path("id").asText()+"/package"),"admin",Map.of())).andExpect(status().isOk());
+      var approved=approve(pending);assertEquals("APPROVED",approved.path("status").asText());assertEquals("FREE",approved.path("snapshot").path("mode").asText());
+    }
+  }
   @Test void allFourOriginalCategorySchemasPublishAndExactModeDifficultyFiltersWork()throws Exception{
     for(int index=0;index<4;index++){String name="category"+index;UUID actor=user(name),p=product(actor);var draft=ok(body(post("/api/v1/me/college-projects/"+p+"/releases"),name,draftBody("SHOWCASE",index)));var pending=ok(body(post("/api/v1/me/education-releases/"+draft.path("id").asText()+"/submit"),name,Map.of("revision",1,"rightsConsent",true)));approve(pending);var catalog=ok(get("/api/v1/college-projects").param("category",draftBody("SHOWCASE",index).get("category").toString()).param("mode","SHOWCASE").param("difficulty",draftBody("SHOWCASE",index).get("difficulty").toString()));assertEquals(1,catalog.path("totalItems").asInt());assertEquals("APPROVED",ok(get("/api/v1/college-projects/"+p)).path("education").path("release").path("status").asText());}
     assertEquals(4,ok(get("/api/v1/college-projects")).path("totalItems").asInt());assertEquals(0,ok(get("/api/v1/college-projects").param("mode","PAID")).path("totalItems").asInt());

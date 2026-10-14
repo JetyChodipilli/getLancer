@@ -2,6 +2,7 @@ package com.getlancer.admin;
 
 import com.getlancer.dto.AdminRequests;
 import com.getlancer.responses.PageResponse;
+import com.getlancer.responses.OperationsResponse;
 import com.getlancer.responses.ProjectResponses;
 import com.getlancer.shared.TypedInputs;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,9 +23,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/admin")
 public class AdminController {
   private final AdminService service;
+  private final OperationsMetrics operations;
 
-  public AdminController(AdminService service) {
-    this.service = service;
+  public AdminController(AdminService service, OperationsMetrics operations) {
+    this.service = service; this.operations=operations;
   }
 
   @GetMapping("/products/pending")
@@ -125,6 +127,9 @@ public class AdminController {
   public Object allTaxonomy(@PathVariable String kind, HttpServletRequest r) {
     return service.allTaxonomy(kind, r);
   }
+
+  @GetMapping("/operations")
+  public OperationsResponse operations(HttpServletRequest request) { return operations.snapshot(request); }
 
   @GetMapping("/metrics")
   public Map<String, Object> metrics(HttpServletRequest r) {

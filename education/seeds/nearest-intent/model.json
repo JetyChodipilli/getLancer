@@ -1,0 +1,1 @@
+{"vocabulary":["reset","password","invoice","bill","calendar","schedule"],"centroids":[{"label":"account","vector":[1,1,0,0,0,0]},{"label":"billing","vector":[0,0,1,1,0,0]},{"label":"planning","vector":[0,0,0,0,1,1]}]}

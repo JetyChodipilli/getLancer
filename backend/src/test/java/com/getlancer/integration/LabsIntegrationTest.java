@@ -40,11 +40,12 @@ class LabsIntegrationTest {
   @AfterAll static void close(){fixture.close();}
   @Autowired JdbcTemplate db;@Autowired MockMvc mvc;@Autowired ObjectMapper json;@Autowired LabService labs;@Autowired LabDataAiPolicy dataAi;@Autowired LabIotPolicy iot;
   UUID sourceOwner,owner,other,admin,component;
+  long quotaBefore,validationBefore;
   UUID user(String token,boolean builder){UUID id=UUID.randomUUID();db.update("INSERT INTO users(id,email,password_hash,email_verified_at) VALUES(?,?,'unused',now())",id,token+"@example.test");db.update("INSERT INTO user_roles(user_id,role) VALUES(?,'CLIENT')",id);if(builder){db.update("INSERT INTO user_roles(user_id,role) VALUES(?,'DEVELOPER')",id);db.update("INSERT INTO developer_profiles(user_id,slug,display_name,approval_status) VALUES(?,?,?,'APPROVED')",id,token,token);}db.update("INSERT INTO sessions(token_hash,user_id,expires_at) VALUES(?,?,now()+interval '1 hour')",Support.hash(token),id);return id;}
   @BeforeEach void seed()throws Exception{
     org.springframework.test.util.ReflectionTestUtils.setField(dataAi,"enabled",false);
     org.springframework.test.util.ReflectionTestUtils.setField(iot,"enabled",false);
-    fixture.reset();db.execute("TRUNCATE lab_manifests CASCADE");db.execute("TRUNCATE users CASCADE");db.execute("TRUNCATE rate_buckets");db.update("UPDATE lab_runtime_settings SET observed_epoch=NULL,paused=false,pause_reason='' WHERE id=1");
+    fixture.reset();db.execute("TRUNCATE lab_manifests CASCADE");db.execute("TRUNCATE users CASCADE");db.execute("TRUNCATE rate_buckets,analytics_daily_counts,analytics_events");quotaBefore=db.queryForObject("SELECT quota_denials FROM analytics_instrumentation WHERE name='v52_operations'",Long.class);validationBefore=db.queryForObject("SELECT validation_denials FROM analytics_instrumentation WHERE name='v52_operations'",Long.class);db.update("UPDATE lab_runtime_settings SET observed_epoch=NULL,paused=false,pause_reason='' WHERE id=1");
     sourceOwner=user("lab-source",true);owner=user("lab-owner",false);other=user("lab-other",false);admin=user("lab-admin",false);
     db.update("INSERT INTO user_roles(user_id,role) VALUES(?,'ADMIN')",admin);db.update("UPDATE sessions SET mfa_verified=true,issued_at=now() WHERE user_id=?",admin);
     component=UUID.randomUUID();var source=Map.of("kind","BACKEND","sha256","a".repeat(64),"archiveSha256","c".repeat(64),"manifestSha256","d".repeat(64),"version","1.0.0","files",Map.of("README.md","Protocol fixture source; not executable runtime evidence."));
@@ -277,6 +278,50 @@ class LabsIntegrationTest {
     mvc.perform(body(post("/api/v1/lab-runs/"+id+"/requests"),"lab-owner",Map.of("operationId","echo","inputs",Map.of("message","Hello"))).header("Idempotency-Key","unsafe-operation")).andExpect(status().isBadGateway()).andExpect(jsonPath("$.error.code").value("LAB_ISOLATION_LOST"));
     assertEquals("CANCELLING",db.queryForObject("SELECT status FROM lab_runs WHERE id=?",String.class,id));assertEquals(2,db.queryForObject("SELECT lease_generation FROM lab_runs WHERE id=?",Integer.class,id));assertEquals(1,db.queryForObject("SELECT count(*) FROM lab_outbox WHERE run_id=? AND action='STOP' AND delivered_at IS NULL",Integer.class,id));assertNull(db.queryForObject("SELECT response::text FROM lab_requests WHERE run_id=?",String.class,id));
     mvc.perform(start("lab-owner","unsafe-next-run")).andExpect(status().isTooManyRequests());
+  }
+
+  JsonNode operations()throws Exception {
+    String body=mvc.perform(as(get("/api/v1/admin/operations"),"lab-admin")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+    assertFalse(body.contains(LabProtocolFixture.SECRET));assertFalse(body.contains("lab-owner@example.test"));assertFalse(body.contains("Hello"));
+    return json.readTree(body);
+  }
+  @Test void operationsMeasureAdmittedProvisioningAndPendingCoverageWithoutReplayOrDenialInflation()throws Exception {
+    UUID healthy=reserve("lab-owner","operations-healthy");labs.tick();
+    fixture.failStart=true;UUID pending=reserve("lab-other","operations-pending");labs.tick();
+    mvc.perform(start("lab-other","operations-denied-active")).andExpect(status().isTooManyRequests());
+    mvc.perform(body(post("/api/v1/lab-runs"),"lab-other",Map.of("manifestId","protocol-fixture","scenarioId","request","inputs",Map.of("message","Hello","secretField","private")))
+        .header("Idempotency-Key","operations-invalid-input")).andExpect(status().isBadRequest());
+    for(int i=0;i<3;i++)mvc.perform(as(get("/api/v1/lab-runs/"+healthy+"/events"),"lab-owner")).andExpect(status().isOk());
+    var first=operations();assertEquals(2,first.at("/runtime/admitted").asInt());assertEquals(1,first.at("/runtime/healthy").asInt());assertEquals(1,first.at("/runtime/pending").asInt());
+    assertEquals(100,first.at("/runtime/infraSuccessPercent").asDouble());assertEquals(50,first.at("/runtime/coveragePercent").asDouble());
+    assertEquals(quotaBefore+1,first.at("/runtime/quotaDenials").asLong());assertEquals(validationBefore+1,first.at("/runtime/validationDenials").asLong());
+    mvc.perform(body(post("/api/v1/lab-runs/"+pending+"/stop"),"lab-other",Map.of())).andExpect(status().isOk());labs.tick();
+    var settled=operations();assertEquals(0,settled.at("/runtime/pending").asInt());assertEquals(1,settled.at("/runtime/infraFailures").asInt());assertEquals(50,settled.at("/runtime/infraSuccessPercent").asDouble());
+    assertEquals(100,settled.at("/runtime/coveragePercent").asDouble());assertFalse(settled.at("/readiness/productionCertified").asBoolean());
+  }
+  @Test void confirmedScenarioFailureIsSeparateIdempotentAndNeverChangesInfrastructureSuccess()throws Exception {
+    UUID run=reserve("lab-owner","scenario-failure-run");labs.tick();fixture.confirmedRequestFailure=true;
+    var request=body(post("/api/v1/lab-runs/"+run+"/requests"),"lab-owner",Map.of("operationId","echo","inputs",Map.of("message","Hello"))).header("Idempotency-Key","confirmed-scenario-failure");
+    for(int i=0;i<2;i++)mvc.perform(request).andExpect(status().isBadGateway()).andExpect(jsonPath("$.error.code").value("LAB_SCENARIO_FAILED"));
+    var first=operations();assertEquals(1,first.at("/runtime/scenarioFailures").asInt());assertEquals(1,first.at("/runtime/healthy").asInt());assertEquals(0,first.at("/runtime/infraFailures").asInt());
+    fixture.confirmedRequestFailure=false;mvc.perform(request).andExpect(status().isOk());
+    assertEquals(1,operations().at("/runtime/scenarioFailures").asInt());
+    assertThrows(org.springframework.dao.DataAccessException.class,()->db.update("UPDATE lab_requests SET confirmed_failure=false WHERE run_id=?",run));
+  }
+  @Test void reservationAtMonetaryCapBlocksAdmissionAndReportsBudgetPressureWithoutCreatingAuthority()throws Exception {
+    for(int i=0;i<50;i++)db.update("INSERT INTO lab_runs(id,owner_id,manifest_id,scenario_id,request_hash,idempotency_key,inputs,manifest_sha256,image_digest,operator_epoch,status,expires_at,healthy_at,cleanup_confirmed_at,memory_mib,cost_micros) VALUES(?,?,'protocol-fixture','request',?,?, '{}'::jsonb,?,?,?,'SUCCEEDED',now()+interval '5 minutes',now(),now(),64,1000000)",UUID.randomUUID(),sourceOwner,"a".repeat(64),"budget-history-"+i,"b".repeat(64),"sha256:"+"c".repeat(64),fixture.epoch);
+    mvc.perform(start("lab-owner","budget-at-ceiling")).andExpect(status().isTooManyRequests()).andExpect(jsonPath("$.error.code").value("LAB_CAPACITY"));
+    assertEquals(50,db.queryForObject("SELECT count(*) FROM lab_runs",Integer.class));assertEquals(0,db.queryForObject("SELECT count(*) FROM lab_outbox",Integer.class));
+    var state=operations();assertEquals(50_000_000,state.at("/resources/dailyReservedMicros").asLong());
+    assertTrue(java.util.stream.StreamSupport.stream(state.get("alerts").spliterator(),false).anyMatch(alert->alert.get("code").asText().equals("BUDGET_PRESSURE")));
+  }
+  @Test void operatorRestoreEpochChangesProjectionAndOldAuthorityStaysClosed()throws Exception {
+    reserve("lab-owner","epoch-measurement-run");labs.tick();
+    var before=operations();assertEquals(fixture.epoch.toString(),before.at("/runtime/operatorEpoch").asText());
+    UUID restoredEpoch=UUID.randomUUID();db.update("UPDATE lab_runtime_settings SET observed_epoch=? WHERE id=1",restoredEpoch);
+    var after=operations();assertEquals(restoredEpoch.toString(),after.at("/runtime/operatorEpoch").asText());assertFalse(after.at("/readiness/runtime/enabled").asBoolean());
+    assertEquals(before.at("/runtime/counterEpoch").asText(),after.at("/runtime/counterEpoch").asText());
+    assertEquals(before.at("/runtime/admitted").asInt(),after.at("/runtime/admitted").asInt());
   }
 
 }

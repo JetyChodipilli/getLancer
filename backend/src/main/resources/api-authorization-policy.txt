@@ -274,6 +274,7 @@ POST SESSION /api/v1/lab-runs/{id}/stop
 POST SESSION /api/v1/lab-runs/{id}/requests
 GET SESSION /api/v1/lab-runs/{id}/events
 GET ADMIN_MFA /api/v1/admin/labs
+GET ADMIN_MFA /api/v1/admin/operations
 POST ADMIN_MFA /api/v1/admin/labs/pause-admissions
 
 # V4.9 reviewed education releases

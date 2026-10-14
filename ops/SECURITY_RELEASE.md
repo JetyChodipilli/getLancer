@@ -45,7 +45,7 @@ Install external alerts and assign a responding operator for readiness loss, 5xx
 | Rate buckets | Delete one day after expiry | Monitor growth and denial volume. |
 | Account tokens and terminal failed-email bodies | Cleanup seven days after token expiry or terminal-email creation | Confirm delivery and expiry evidence is retained without usable token bodies. |
 | Pending image uploads | Queue deletion five minutes after expiry | Set private-bucket lifecycle and confirm deletion queue processing. |
-| Optional web analytics | Default 90-day retention, configurable | Approve the configured period and consent policy. |
+| Optional web analytics | Raw consented events retained at most 24 hours; unlinked daily counts expire after 90 days | Verify actual cleanup and approve consent, aggregate retention and salt custody. |
 | Security audit events | Append-only; runtime can insert/read, cannot update/delete | Approve archive/retention and legal holds; use a separately reviewed owner maintenance process. No automatic audit retention is configured. |
 | Financial, contract, delivery, moderation and account-closure evidence | Preserved subject to domain state and approved holds/anonymization | Approve actual retention periods and deletion/hold processing; no blanket erasure claim. |
 | CI and release evidence | CI expires after seven days | Export required evidence under the approved release retention/access policy. |

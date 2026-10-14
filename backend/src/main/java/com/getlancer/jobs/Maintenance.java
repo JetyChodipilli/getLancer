@@ -16,12 +16,12 @@ public class Maintenance {
 
   final boolean enabled;
 
-  public Maintenance(JdbcTemplate db) { this(db,90,true); }
+  public Maintenance(JdbcTemplate db) { this(db,1,true); }
 
   @Autowired
-  public Maintenance(JdbcTemplate db, @Value("${app.analytics-retention-days:90}") int analyticsRetentionDays,
+  public Maintenance(JdbcTemplate db, @Value("${app.analytics-retention-days:1}") int analyticsRetentionDays,
       @Value("${app.jobs-enabled:true}") boolean enabled) {
-    this.db = db; this.analyticsRetentionDays=analyticsRetentionDays; this.enabled=enabled;
+    this.db = db; this.analyticsRetentionDays=Math.max(0,Math.min(analyticsRetentionDays,1)); this.enabled=enabled;
   }
 
   @Scheduled(fixedDelay = 60000)
@@ -58,6 +58,7 @@ public class Maintenance {
         "DELETE FROM analytics_events WHERE source='web' AND"
             + " created_at<now()-make_interval(days=>?)",
         analyticsRetentionDays);
+    db.update("DELETE FROM analytics_daily_counts WHERE day<(now() AT TIME ZONE 'UTC')::date-90");
     db.update("DELETE FROM product_access_grants WHERE expires_at<now()");
     db.update("DELETE FROM sessions WHERE expires_at<now()");
     db.update("DELETE FROM login_challenges WHERE expires_at<now()");

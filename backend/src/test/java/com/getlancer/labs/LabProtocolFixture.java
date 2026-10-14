@@ -21,7 +21,7 @@ public final class LabProtocolFixture implements AutoCloseable {
   public final ObjectMapper json=new ObjectMapper().findAndRegisterModules();public final KeyPair key;public final UUID epoch=UUID.randomUUID();public final String evidenceHash="e".repeat(64);
   public final Path evidence;private final HttpServer server;public final Map<UUID,LabProviderClient.Command> commands=new ConcurrentHashMap<>();
   private final Map<UUID,Long> leases=new ConcurrentHashMap<>();private final java.util.Set<UUID> healthyRuns=ConcurrentHashMap.newKeySet();
-  public volatile boolean failStart,failStop,failRequest,wrongBinding,redirect,oversized,notIsolated,slowBody;
+  public volatile boolean failStart,failStop,failRequest,wrongBinding,redirect,oversized,notIsolated,slowBody,confirmedRequestFailure;
   public LabProtocolFixture(){try{
     key=KeyPairGenerator.getInstance("Ed25519").generateKeyPair();evidence=Files.createTempFile("lab-protocol-evidence-",".json");
     writeEvidence(new LabConfiguration.Evidence("Controlled HTTP protocol fixture; not deployment evidence","KVM",true,true,true,true,true,Instant.now().plusSeconds(3600),evidenceHash,epoch));
@@ -33,7 +33,7 @@ public final class LabProtocolFixture implements AutoCloseable {
         if(command.leaseGeneration()<leases.get(command.runId())){exchange.sendResponseHeaders(409,-1);return;}
         if(redirect){exchange.getResponseHeaders().set("Location","http://127.0.0.1:1/secret");exchange.sendResponseHeaders(302,-1);return;}
         if(command.action().equals("START")&&failStart||command.action().equals("STOP")&&failStop||command.action().equals("REQUEST")&&failRequest){exchange.sendResponseHeaders(503,-1);return;}
-        if(command.action().equals("START"))healthyRuns.add(command.runId());String state=command.action().equals("STOP")?"CLEANED":command.action().equals("REQUEST")?"RESULT":"RUNNING";
+        if(command.action().equals("START"))healthyRuns.add(command.runId());String state=command.action().equals("STOP")?"CLEANED":command.action().equals("REQUEST")?(confirmedRequestFailure?"FAILED":"RESULT"):"RUNNING";
         var result=new LabProviderClient.Result(wrongBinding?UUID.randomUUID():command.runId(),command.leaseGeneration(),command.operatorEpoch(),command.commandId(),command.manifestSha256(),command.imageDigest(),command.expiresAt(),state,state.equals("RUNNING")||state.equals("RESULT"),!notIsolated,healthyRuns.contains(command.runId()),command.action().equals("REQUEST")?"Fixture operation completed":"","Controlled protocol fixture");
         byte[] output=oversized?"x".repeat(20000).getBytes(java.nio.charset.StandardCharsets.UTF_8):json.writeValueAsBytes(result);exchange.getResponseHeaders().set("Content-Type","application/json");exchange.sendResponseHeaders(200,output.length);if(slowBody)try{Thread.sleep(3000);}catch(InterruptedException interrupted){Thread.currentThread().interrupt();}exchange.getResponseBody().write(output);
       }catch(Exception error){exchange.sendResponseHeaders(500,-1);}finally{exchange.close();}
@@ -50,6 +50,6 @@ public final class LabProtocolFixture implements AutoCloseable {
       List.of(new LabManifest.Scenario("greenhouse-monitor","Greenhouse telemetry","Bounded synthetic protocol simulation; no physical device control.",
       List.of(new LabManifest.Input("temperatureC","Temperature C","INTEGER",true,4,-20,80,List.of()),new LabManifest.Input("humidityPercent","Humidity percent","INTEGER",true,3,0,100,List.of()),new LabManifest.Input("thresholdC","Threshold C","INTEGER",true,2,0,60,List.of()),new LabManifest.Input("topic","Run topic","TEXT",false,80,0,0,List.of())),
       List.of(new LabManifest.Operation("publish","Publish telemetry"),new LabManifest.Operation("connect","Connect"),new LabManifest.Operation("disconnect","Disconnect"),new LabManifest.Operation("reset","Reset")))),"IOT_SIMULATION",new LabManifest.Adapter("node","22.18.0","ACTIVE"));}
-  public void reset(){failStart=failStop=failRequest=wrongBinding=redirect=oversized=notIsolated=slowBody=false;commands.clear();leases.clear();healthyRuns.clear();}
+  public void reset(){failStart=failStop=failRequest=wrongBinding=redirect=oversized=notIsolated=slowBody=confirmedRequestFailure=false;commands.clear();leases.clear();healthyRuns.clear();}
   @Override public void close(){server.stop(0);try{Files.deleteIfExists(evidence);}catch(Exception ignored){}}
 }
