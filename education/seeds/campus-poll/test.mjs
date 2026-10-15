@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile, symlink } from 'node:fs/promises';
 import { join } from 'node:path'; import { tmpdir } from 'node:os';
 import { createPollServer } from './server.mjs';
 const directory = await mkdtemp(join(tmpdir(), 'campus-poll-')), file = join(directory, 'ballots.json'); let server;
@@ -24,5 +24,11 @@ try {
   await writeFile(file, ' '.repeat(65537)); await assert.rejects(createPollServer(file), /64 KiB/);
   server = await createPollServer(join(directory, 'missing', 'ballots.json')); server.listen(0, '127.0.0.1'); await once(server, 'listening'); base = `http://127.0.0.1:${server.address().port}`;
   assert.equal((await send(vote)).status, 500); assert.equal((await (await fetch(base + '/api/poll')).json()).total, 0); await stop();
+  const linked = join(directory, 'linked.json');
+  if (process.platform !== 'win32') {
+  await writeFile(join(directory, 'safe.json'), '[]'); await symlink(join(directory, 'safe.json'), linked);
+  await assert.rejects(createPollServer(linked), /ELOOP/);
+  }
+  await assert.rejects(createPollServer(directory), /regular file|EISDIR/);
   console.log('Persistent synthetic poll regression passed.');
 } finally { if (server?.listening) await stop(); await rm(directory, { recursive: true, force: true }); }

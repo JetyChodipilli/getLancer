@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createPlannerServer } from './server.mjs';
@@ -33,5 +33,11 @@ try {
   server = await createPlannerServer(join(directory, 'missing', 'tasks.json')); server.listen(0, '127.0.0.1'); await once(server, 'listening'); base = `http://127.0.0.1:${server.address().port}`;
   assert.equal((await send('/api/tasks', { title: 'Must not commit', minutes: 1 })).status, 500);
   assert.equal((await (await fetch(base + '/api/tasks')).json()).tasks.length, 0); await stop();
+  const linked = join(directory, 'linked.json');
+  if (process.platform !== 'win32') {
+  await writeFile(join(directory, 'safe.json'), '[]'); await symlink(join(directory, 'safe.json'), linked);
+  await assert.rejects(createPlannerServer(linked), /ELOOP/);
+  }
+  await assert.rejects(createPlannerServer(directory), /regular file|EISDIR/);
   console.log('Persistent local study planner regression passed.');
 } finally { if (server?.listening) await stop(); await rm(directory, { recursive: true, force: true }); }

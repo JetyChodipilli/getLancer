@@ -1,12 +1,27 @@
 import { createServer } from 'node:http';
-import { readFile, writeFile, rename, stat } from 'node:fs/promises';
+import { readFile, writeFile, rename, open } from 'node:fs/promises';
+import { constants } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 export const choices = ['Library workshop', 'Garden cleanup', 'Coding circle'];
 const valid = vote => vote && typeof vote.ballotId === 'string' && /^[a-zA-Z0-9_-]{8,64}$/.test(vote.ballotId) && Number.isInteger(vote.choice) && vote.choice >= 0 && vote.choice < choices.length && Object.keys(vote).length === 2;
 /** Persistent synthetic ballots, bounded to 100. This is not a trustworthy election. */
 export async function createPollServer(dataFile) {
   let votes = [];
-  try { if ((await stat(dataFile)).size > 65536) throw Error('Stored ballots exceed 64 KiB'); votes = JSON.parse(await readFile(dataFile, 'utf8')); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  try {
+    // Inspect and read the same descriptor; path replacement cannot redirect a checked read.
+    const file = await open(dataFile, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    try {
+      const info = await file.stat();
+      if (!info.isFile()) throw Error('Stored ballots must be a regular file');
+      const bytes = Buffer.alloc(65537); let length = 0;
+      while (length < bytes.length) {
+        const { bytesRead } = await file.read(bytes, length, bytes.length - length, length);
+        if (bytesRead === 0) break; length += bytesRead;
+      }
+      if (length > 65536) throw Error('Stored ballots exceed 64 KiB');
+      votes = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes.subarray(0, length)));
+    } finally { await file.close(); }
+  } catch (error) { if (error.code !== 'ENOENT') throw error; }
   if (!Array.isArray(votes) || votes.length > 100 || votes.some(vote => !valid(vote)) || new Set(votes.map(vote => vote.ballotId)).size !== votes.length) throw Error('Invalid stored ballots');
   let queue = Promise.resolve();
   const totals = () => ({ choices, counts: choices.map((_, index) => votes.filter(vote => vote.choice === index).length), total: votes.length, synthetic: true });

@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
-import { readFile, writeFile, rename, stat } from 'node:fs/promises';
+import { readFile, writeFile, rename, open } from 'node:fs/promises';
+import { constants } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 function validTask(task) {
@@ -10,8 +11,21 @@ function validTask(task) {
 /** A single-process local exercise. The caller supplies a private data-file path. */
 export async function createPlannerServer(dataFile) {
   let tasks = [];
-  try { if ((await stat(dataFile)).size > 262144) throw Error('Stored tasks exceed 256 KiB'); tasks = JSON.parse(await readFile(dataFile, 'utf8')); }
-  catch (error) { if (error.code !== 'ENOENT') throw error; }
+  try {
+    // Inspect and read the same descriptor; path replacement cannot redirect a checked read.
+    const file = await open(dataFile, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    try {
+      const info = await file.stat();
+      if (!info.isFile()) throw Error('Stored tasks must be a regular file');
+      const bytes = Buffer.alloc(262145); let length = 0;
+      while (length < bytes.length) {
+        const { bytesRead } = await file.read(bytes, length, bytes.length - length, length);
+        if (bytesRead === 0) break; length += bytesRead;
+      }
+      if (length > 262144) throw Error('Stored tasks exceed 256 KiB');
+      tasks = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes.subarray(0, length)));
+    } finally { await file.close(); }
+  } catch (error) { if (error.code !== 'ENOENT') throw error; }
   if (!Array.isArray(tasks) || tasks.length > 100 || tasks.some(task => !validTask(task)) ||
       new Set(tasks.map(task => task.id)).size !== tasks.length) throw Error('Invalid stored tasks');
   let queue = Promise.resolve();

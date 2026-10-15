@@ -444,7 +444,7 @@
       "productId": "study-planner",
       "revision": 1,
       "status": "APPROVED",
-      "sourceHash": "60f79199a3bafd888899da9c8b40eda62138828f26d9059ac3e97cb67488a96d",
+      "sourceHash": "7240fc8d0e6539f17cd460a412d3f1773aee7251303b681681215469e3fd4400",
       "snapshot": {
         "slug": "study-planner",
         "title": "Persistent local study planner",
@@ -491,8 +491,8 @@
         "productId": "study-planner",
         "sourceBinding": {
           "packageId": "20000000-0000-4000-8000-000000000005",
-          "sha256": "225cc204edfae87e1a0bdaf4a25c0b227676fe760c200c62ec5b95fe952ed2e1",
-          "sizeBytes": 16339,
+          "sha256": "33dad6c48f2f88e1fb6f77f13b26df0e26d2d14629a5379424e9582d93dba3c3",
+          "sizeBytes": 17376,
           "entryCount": 9,
           "files": [
             "LICENSE",
@@ -521,8 +521,8 @@
     },
     "packageAudit": {
       "packageId": "20000000-0000-4000-8000-000000000005",
-      "sha256": "225cc204edfae87e1a0bdaf4a25c0b227676fe760c200c62ec5b95fe952ed2e1",
-      "sizeBytes": 16339,
+      "sha256": "33dad6c48f2f88e1fb6f77f13b26df0e26d2d14629a5379424e9582d93dba3c3",
+      "sizeBytes": 17376,
       "entryCount": 9,
       "files": [
         "LICENSE",
@@ -552,7 +552,7 @@
       "productId": "campus-poll",
       "revision": 1,
       "status": "APPROVED",
-      "sourceHash": "6ab2ff714d8ddc84565dc650ec22f0dd43f7455e9427f6c11f2cc947ca10f46b",
+      "sourceHash": "0a37e28bc76de05ca46504523ef99de099ea10eda9e9e8ea87035abeb82e8db1",
       "snapshot": {
         "slug": "campus-poll",
         "title": "Persistent synthetic campus poll",
@@ -599,8 +599,8 @@
         "productId": "campus-poll",
         "sourceBinding": {
           "packageId": "20000000-0000-4000-8000-000000000006",
-          "sha256": "6c0bfdf45558981f3514eb39729d61a1325bcba1421370301e0d9ee4a3176c92",
-          "sizeBytes": 14498,
+          "sha256": "122b31f59adafdeebb1a6faffae9ecb5b26ab8a9b127cfbf9a28abd01d1313c9",
+          "sizeBytes": 15532,
           "entryCount": 9,
           "files": [
             "LICENSE",
@@ -629,8 +629,8 @@
     },
     "packageAudit": {
       "packageId": "20000000-0000-4000-8000-000000000006",
-      "sha256": "6c0bfdf45558981f3514eb39729d61a1325bcba1421370301e0d9ee4a3176c92",
-      "sizeBytes": 14498,
+      "sha256": "122b31f59adafdeebb1a6faffae9ecb5b26ab8a9b127cfbf9a28abd01d1313c9",
+      "sizeBytes": 15532,
       "entryCount": 9,
       "files": [
         "LICENSE",

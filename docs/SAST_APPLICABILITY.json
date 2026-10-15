@@ -771,7 +771,7 @@
     },
     {
       "path": "backend/src/main/resources/catalog/education.json",
-      "sha256": "470f51e0c74f5005424fa95430e82bc4dbc6ce5ce2eb92a3337d1be7475fffae"
+      "sha256": "14f5d8176e4c217e9bafed480293e79c88ae6af7834d7918ef7630bb0a84d41c"
     },
     {
       "path": "backend/src/main/resources/db/migration/V10__profile_details_and_review_identity.sql",
