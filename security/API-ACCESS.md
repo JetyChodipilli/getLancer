@@ -2,6 +2,8 @@
 
 The baseline declares **289 method/path policies**: **286 application routes** and **3 loopback-only health routes** in `backend/src/main/resources/api-authorization-policy.txt`.
 
+V5.2 adds `GET /api/v1/admin/operations` with fresh administrator MFA. The combined inventory has **290 policies**: **287 application routes**, **3 loopback-only health routes**, and **72 ADMIN_MFA policies**. The table below records the original baseline.
+
 | Policy | Count | Required authority |
 | --- | ---: | --- |
 | PUBLIC | 45 | Public handler validation and abuse controls |

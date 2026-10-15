@@ -83,6 +83,24 @@ public class DatabaseRoleGuard implements ApplicationRunner {
             AND p.polcmd IN ('*','w') AND p.polname<>'getlancer_service_update'
             AND (0::oid=ANY(p.polroles) OR (SELECT oid FROM pg_roles WHERE rolname=current_user)=ANY(p.polroles)))
         """, Integer.class, schema);
+    Integer unsafeCounters=db.queryForObject("""
+        SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+        WHERE n.nspname=? AND c.relname='analytics_instrumentation'
+          AND (has_table_privilege(current_user,c.oid,'UPDATE') OR has_table_privilege(current_user,c.oid,'INSERT')
+            OR has_table_privilege(current_user,c.oid,'DELETE')
+            OR NOT has_column_privilege(current_user,c.oid,'quota_denials','UPDATE')
+            OR NOT has_column_privilege(current_user,c.oid,'validation_denials','UPDATE')
+            OR EXISTS(SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+              AND a.attname NOT IN ('quota_denials','validation_denials') AND has_column_privilege(current_user,c.oid,a.attnum,'UPDATE'))
+            OR NOT EXISTS(SELECT 1 FROM pg_policy p WHERE p.polrelid=c.oid
+              AND p.polname='getlancer_service_update' AND p.polcmd='w' AND p.polpermissive
+              AND p.polroles=ARRAY[(SELECT oid FROM pg_roles WHERE rolname=current_user)]
+              AND regexp_replace(pg_get_expr(p.polqual,p.polrelid),'[ ()]','','g')='name::text=''v52_operations''::text'
+              AND regexp_replace(pg_get_expr(p.polwithcheck,p.polrelid),'[ ()]','','g')='name::text=''v52_operations''::text')
+            OR EXISTS(SELECT 1 FROM pg_policy p WHERE p.polrelid=c.oid AND p.polpermissive AND p.polcmd IN ('*','w')
+              AND p.polname<>'getlancer_service_update'
+              AND (0::oid=ANY(p.polroles) OR (SELECT oid FROM pg_roles WHERE rolname=current_user)=ANY(p.polroles))))
+        """,Integer.class,schema);
     Boolean exists = db.queryForObject("SELECT to_regclass(?) IS NOT NULL", Boolean.class, schema+".users");
     Integer dangerousFunctions = db.queryForObject("""
         SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
@@ -93,6 +111,7 @@ public class DatabaseRoleGuard implements ApplicationRunner {
     if (!Boolean.TRUE.equals(exists)) reject("users_table");
     if (dangerousFunctions == null || dangerousFunctions != 0) reject("security_definer_execute");
     if (unsafeLocks == null || unsafeLocks != 0) reject("locking_permissions");
+    if (unsafeCounters == null || unsafeCounters != 0) reject("measurement_counter_permissions");
     Integer unsafeReceipts = db.queryForObject("""
         SELECT count(*) FROM (VALUES ('payment_webhook_events'),('commerce_webhook_events')) required(name)
         LEFT JOIN pg_namespace n ON n.nspname=?

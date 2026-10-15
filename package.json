@@ -32,7 +32,12 @@
     "iot:build": "node scripts/build-iot-material.mjs",
     "iot:verify": "node scripts/verify-iot.mjs",
     "frameworks:build": "node scripts/build-framework-material.mjs --native",
-    "frameworks:verify": "node scripts/verify-framework-previews.mjs"
+    "frameworks:verify": "node scripts/verify-framework-previews.mjs",
+    "v52:content": "node scripts/v52-content.mjs",
+    "v52:evidence": "node scripts/v52-evidence.mjs",
+    "v52:monitor": "node scripts/v52-monitor.mjs",
+    "v52:load": "node scripts/v52-load.mjs",
+    "v52:traceability": "node scripts/v52-release-contract.mjs"
   },
   "dependencies": {
     "class-variance-authority": "0.7.1",

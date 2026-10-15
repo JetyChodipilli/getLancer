@@ -1,0 +1,5 @@
+sku,stock,reserved,daily_demand,lead_days,buffer,unit_cost
+SYN-PENCIL,30,10,5,5,10,1.25
+SYN-NOTEBOOK,100,20,6,7,8,3.50
+SYN-ERASER,4,1,2,3,2,0.40
+SYN-FOLDER,12,4,3,4,4,2.10

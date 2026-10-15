@@ -2,6 +2,7 @@ package com.getlancer.admin;
 
 import com.getlancer.dto.AdminRequests;
 import com.getlancer.responses.PageResponse;
+import com.getlancer.responses.OperationsResponse;
 import com.getlancer.responses.ProjectResponses;
 import com.getlancer.shared.TypedInputs;
 import jakarta.servlet.http.HttpServletRequest;
@@ -125,6 +126,9 @@ public class AdminController {
   public Object allTaxonomy(@PathVariable String kind, HttpServletRequest r) {
     return service.allTaxonomy(kind, r);
   }
+
+  @GetMapping("/operations")
+  public OperationsResponse operations(HttpServletRequest request) { return service.operations(request); }
 
   @GetMapping("/metrics")
   public Map<String, Object> metrics(HttpServletRequest r) {

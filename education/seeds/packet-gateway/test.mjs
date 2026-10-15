@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict'; import { encode, decode, gateway, fixtureFrames } from './gateway.mjs';
+const result = gateway(fixtureFrames(new URL('synthetic.json', import.meta.url)));
+assert.deepEqual([result.accepted, result.duplicates, result.invalid, result.stale], [2, 1, 1, 0]); assert.equal(result.hardwareVerified, false); assert.ok(result.readings.every(row => row.simulated));
+for (const temperatureTenths of [-400, 0, 215, 1250]) assert.equal(decode(encode({ sequence: 1, sensor: 0, temperatureTenths })).temperatureC, temperatureTenths / 10);
+const stale = gateway([encode({ sequence: 2, sensor: 0, temperatureTenths: 215 }), encode({ sequence: 1, sensor: 0, temperatureTenths: 215 })]); assert.equal(stale.stale, 1);
+assert.equal(gateway([encode({ sequence: 255, sensor: 0, temperatureTenths: 215 }), encode({ sequence: 1, sensor: 0, temperatureTenths: 215 })]).stale, 1);
+const framed = encode({ sequence: 1, sensor: 0, temperatureTenths: 215 }), offset = new Uint8Array(10); offset.set(framed, 2); assert.equal(decode(offset.subarray(2, 8)).temperatureC, 21.5);
+for (const bad of [{ sequence: 0, sensor: 0, temperatureTenths: 0 }, { sequence: 1, sensor: 2, temperatureTenths: 0 }, { sequence: 1, sensor: 0, temperatureTenths: NaN }, { sequence: 1, sensor: 0, temperatureTenths: 1251 }]) assert.throws(() => encode(bad));
+assert.throws(() => decode([1, 1, 0, 0, 215, 215])); assert.throws(() => decode(new Uint8Array(5)));
+const corrupt = framed.slice(); corrupt[3] ^= 1; assert.throws(() => decode(corrupt)); assert.throws(() => gateway(Array(1001).fill(framed)));
+console.log('Simulated framing, replay and corruption regression passed; no physical transport or cryptographic integrity.');

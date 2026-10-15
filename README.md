@@ -1,8 +1,10 @@
-# getLancer V5.1 — Spectral Studio
+# getLancer V5.2 — Spectral Studio
 
 A proof-of-work marketplace connecting clients with the builders behind working software, with team workspaces and private business hiring.
 
 ## Current implementation status
+
+**V5.2 adds measurement and operational release control:** privacy-safe mode/version observations, authoritative funnel denominators, MFA operations alerts, twelve original learning projects, repeatable load/soak evidence and incident handover. The software and independently unmet production/research gates are recorded in [V5.2 implementation and launch status](docs/v52/README.md). A green software merge does not replace seven real days of admitted runtime evidence or hosting/merchant activation.
 
 **V5.1 implements protocol simulation and six-language coverage:** eighteen native core labs, free IoT telemetry/recovery with firmware/BOM/wiring source, and original Vue/Svelte/Angular components compiled into isolated static previews. Signed adapter runtime/version/retirement metadata makes unavailable execution explicit while preserving eligible free source. All eight S07 slices and verification boundaries are recorded in [V5.1 implementation and acceptance](docs/v51/README.md). Hosted execution remains independently disabled by default.
 
@@ -32,6 +34,7 @@ The active visual system is [Spectral Studio](docs/SPECTRAL_STUDIO_ACCEPTANCE.md
 | V4.9 | Reviewed college packages, four-category evidence, free distribution, exact source commerce, support and reports | [S05 implementation](docs/v49/README.md); [validation](docs/v49/VALIDATION.md) |
 | V5.0 | Reproducible analytics, frozen CPU inference, typed source/replay evidence and immutable education provenance | [Architecture and scope](docs/v50/README.md); [validation](docs/v50/VALIDATION.md) |
 | V5.1 | Real local MQTT simulation, eighteen native core labs, three native frontend frameworks and signed adapter retirement policy | [S07 implementation](docs/v51/README.md); [validation](docs/v51/VALIDATION.md) |
+| V5.2 | Mode-aware measurement, MFA operational alerts, original content inventory, load/soak evidence and incident handover | [S08 implementation](docs/v52/README.md); [independent launch gates](docs/v52/LAUNCH_GATES.md) |
 
 Merged V4 baseline: [main CI run 37122827837](https://github.com/JetyChodipilli/getLancer/actions/runs/37122827837) passed on `e61316043a057befa2ba4ac8849bec0787ac92df` with 278 Java tests, 105 Node tests, 89 responsive browser checks and 15 connected browser checks, plus encrypted database restore. This is the pre-audit-fix checkpoint; use the current pull request checks for subsequent changes.
 

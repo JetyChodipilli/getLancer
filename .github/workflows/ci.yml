@@ -1,4 +1,4 @@
-name: getLancer validation (V1-V5.1)
+name: getLancer validation (V1-V5.2)
 on: [push, pull_request]
 permissions:
   contents: read
@@ -165,6 +165,10 @@ jobs:
       - run: npm run build
       - name: Check published frontend assets for private keys and source maps
         run: node scripts/check-frontend-security.mjs
+      - name: Verify V5.2 content and requirement evidence coverage
+        run: |
+          node scripts/v52-content.mjs
+          node scripts/v52-release-contract.mjs
       - name: Verify typed authorization and database privilege source contracts
         run: |
           node scripts/check-security-contract.mjs

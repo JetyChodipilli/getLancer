@@ -146,6 +146,29 @@ class DatabaseRoleGuardIntegrationTest {
     }
   }
 
+  @Test void measurementCountersCannotRewriteEpochOrOtherInstrumentation() throws Exception {
+    long previous=runtime.queryForObject("SELECT quota_denials FROM analytics_instrumentation WHERE name='v52_operations'",Long.class);
+    assertEquals(1,runtime.update("UPDATE analytics_instrumentation SET quota_denials=quota_denials+1,validation_denials=validation_denials+1 WHERE name='v52_operations'"));
+    assertEquals(previous+1,runtime.queryForObject("SELECT quota_denials FROM analytics_instrumentation WHERE name='v52_operations'",Long.class));
+    assertEquals(0,runtime.update("UPDATE analytics_instrumentation SET quota_denials=quota_denials+1 WHERE name='showcase_capacity'"));
+    assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE analytics_instrumentation SET quota_denials=quota_denials-1 WHERE name='v52_operations'"));
+    assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE analytics_instrumentation SET started_at=now() WHERE name='v52_operations'"));
+    assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE analytics_instrumentation SET name='changed' WHERE name='v52_operations'"));
+    assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("INSERT INTO analytics_instrumentation(name) VALUES('forbidden')"));
+    assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("DELETE FROM analytics_instrumentation WHERE name='v52_operations'"));
+    runtime.update("INSERT INTO analytics_daily_counts(day,stage,mode,version,observations) VALUES(current_date,'home_view','ALL','catalogue',1) ON CONFLICT(day,stage,mode,version) DO UPDATE SET observations=analytics_daily_counts.observations+1");
+    assertTrue(runtime.queryForObject("SELECT observations FROM analytics_daily_counts WHERE day=current_date AND stage='home_view' AND mode='ALL' AND version='catalogue'",Long.class)>=1);
+    assertEquals(1,runtime.update("DELETE FROM analytics_daily_counts WHERE day=current_date AND stage='home_view' AND mode='ALL' AND version='catalogue'"));
+    try {
+      adminSql("GRANT UPDATE (started_at) ON "+SCHEMA+".analytics_instrumentation TO getlancer_runtime");
+      assertRejected(runtime,"measurement_counter_permissions");
+    } finally { provision("10_permissions.sql"); }
+    try {
+      adminSql("ALTER POLICY getlancer_service_update ON "+SCHEMA+".analytics_instrumentation USING (true) WITH CHECK (true)");
+      assertRejected(runtime,"measurement_counter_permissions");
+    } finally { provision("10_permissions.sql"); }
+  }
+
   @Test void componentReleaseAndBookmarkPrivilegesRemainNarrow() throws Exception {
     UUID user = UUID.randomUUID(), component = UUID.randomUUID();
     runtime.update("INSERT INTO users(id,email,password_hash) VALUES(?,?,?)", user, user+"@example.test", "synthetic-hash");

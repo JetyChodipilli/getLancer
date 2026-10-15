@@ -4,11 +4,11 @@ import { ArrowUpRight, BriefcaseBusiness, ChevronDown, Code2, Compass, FlaskConi
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
-type Section = 'personal' | 'trust' | 'teams' | 'business' | 'delivery' | 'templates' | 'maintenance' | 'hosting' | 'components' | 'college' | 'slots' | 'labs';
+type Section = 'personal' | 'trust' | 'teams' | 'business' | 'delivery' | 'templates' | 'maintenance' | 'hosting' | 'components' | 'college' | 'slots' | 'labs' | 'operations';
 
-export function WorkspaceFrame({ children, title, description, section, preview = false, actions, className }: {
+export function WorkspaceFrame({ children, title, description, section, preview = false, operator = false, actions, className }: {
   children: ReactNode; title: string; description: string; section: Section;
-  preview?: boolean; actions?: ReactNode; className?: string;
+  preview?: boolean; operator?: boolean; actions?: ReactNode; className?: string;
 }) {
   const root = preview ? '/preview' : '/workspace';
   const links = [
@@ -17,6 +17,7 @@ export function WorkspaceFrame({ children, title, description, section, preview 
     { section: 'slots', title: 'Publishing slots', href: root + '/slots', Icon: Layers },
     { section: 'college', title: 'College projects', href: root + '/college-projects', Icon: Layers },
     ...(!preview ? [{ section: 'labs', title: 'Lab operations', href: root + '/labs', Icon: FlaskConical }] : []),
+    ...(operator || section === 'operations' || preview ? [{ section: 'operations', title: 'Operations & release readiness', href: root + '/operations', Icon: ShieldCheck }] : []),
     { section: 'trust', title: 'Trust & reliability', href: root + '/trust', Icon: ShieldCheck },
     { section: 'teams', title: 'Teams & studios', href: root + '/teams', Icon: Users },
     { section: 'delivery', title: 'Delivery & payments', href: root + '/delivery', Icon: Layers },

@@ -7,6 +7,7 @@ import com.getlancer.notifications.Mail;
 import com.getlancer.products.ProductRepository;
 import com.getlancer.products.ProductService;
 import com.getlancer.responses.AdminResponses;
+import com.getlancer.responses.OperationsResponse;
 import com.getlancer.responses.PageResponse;
 import com.getlancer.responses.ProjectResponses;
 import com.getlancer.security.Security;
@@ -32,18 +33,25 @@ public class AdminService {
   final ProductService products;
   final Mail mail;
   final MarketplaceMetrics marketplaceMetrics;
+  final OperationsMetrics operationsMetrics;
 
   public AdminService(
       JdbcTemplate db,
       Security security,
       ProductService products,
       Mail mail,
-      MarketplaceMetrics marketplaceMetrics) {
+      MarketplaceMetrics marketplaceMetrics,
+      OperationsMetrics operationsMetrics) {
     this.db = db;
     this.security = security;
     this.products = products;
     this.mail = mail;
     this.marketplaceMetrics = marketplaceMetrics;
+    this.operationsMetrics = operationsMetrics;
+  }
+
+  public OperationsResponse operations(HttpServletRequest request) {
+    return operationsMetrics.snapshot(request);
   }
 
   public PageResponse<ProjectResponses.ManagementProject> pending(HttpServletRequest r) {
