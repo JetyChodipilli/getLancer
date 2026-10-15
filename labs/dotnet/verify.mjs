@@ -21,7 +21,7 @@ let checks = 0;
 
 async function sdkCommand(arguments_, operation) {
   const child = spawn(process.env.LAB_DOTNET || 'dotnet', arguments_, {cwd: root, env: {
-    PATH: process.env.PATH, XDG_RUNTIME_DIR: workspace, XDG_DATA_HOME: join(workspace, 'sdk-data'), NUGET_PACKAGES: join(workspace, 'packages'), DOTNET_CLI_HOME: join(workspace, 'sdk-home'),
+    PATH: process.env.PATH, XDG_RUNTIME_DIR: workspace, DOTNET_CLI_HOME: join(workspace, 'sdk-home'),
     DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1', DOTNET_CLI_TELEMETRY_OPTOUT: '1', DOTNET_NOLOGO: '1', DOTNET_CLI_USE_MSBUILD_SERVER: '0'
   }, stdio: ['ignore', 'pipe', 'pipe']});
   let diagnostic = '';
@@ -60,8 +60,7 @@ async function start(lifetime = 600, launch = [assembly]) {
     env: {
       PATH: process.env.PATH,
       ...(process.env.DOTNET_ROOT ? {DOTNET_ROOT: process.env.DOTNET_ROOT} : {}),
-      XDG_RUNTIME_DIR: workspace, XDG_DATA_HOME: join(workspace, 'sdk-data'), NUGET_PACKAGES: join(workspace, 'packages'),
-      DOTNET_CLI_HOME: join(workspace, runId),
+      XDG_RUNTIME_DIR: workspace, DOTNET_CLI_HOME: join(workspace, runId),
       DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1', DOTNET_CLI_TELEMETRY_OPTOUT: '1', DOTNET_NOLOGO: '1', DOTNET_CLI_USE_MSBUILD_SERVER: '0',
       LAB_RUN_ID: runId, LAB_PORT: String(httpPort), LAB_LIFETIME_SECONDS: String(lifetime)
     },

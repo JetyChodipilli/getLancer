@@ -43,9 +43,8 @@ async function verifyLanguage(language){
   assert.match(version,/Redis server v=7\.2\.16\b/,'Use the pinned actual Redis 7.2.16, never a Redis-compatible substitute');
   let redisReady=false;for(let i=0;i<100;i++){try{assert.match(await redisCommand(redisPort,'PING'),/^\+PONG/);redisReady=true;break;}catch{await delay(50);}}assert(redisReady,'Real Redis startup failed: '+redis.diagnostic());
   const primary=catalogue.languages[language].primary,sourceHash=sha(await readFile(join(root,primary)));
-  const nativeCache=join(workspace,language+'-cache');await mkdir(nativeCache,{recursive:true,mode:0o700});
-  // Current .NET uses user-scoped mutexes and NuGet data; isolate both in the private disposable cache.
-  const runtimeEnv=language==='go'?{GOCACHE:nativeCache,GOENV:'off',GOTOOLCHAIN:'local'}:language==='dotnet'?{DOTNET_CLI_HOME:nativeCache,XDG_RUNTIME_DIR:nativeCache,XDG_DATA_HOME:join(nativeCache,'data'),NUGET_PACKAGES:join(nativeCache,'packages'),DOTNET_SKIP_FIRST_TIME_EXPERIENCE:'1',DOTNET_CLI_TELEMETRY_OPTOUT:'1',DOTNET_NOLOGO:'1'}:{};
+  const nativeCache=join(workspace,language+'-cache');await mkdir(nativeCache,{recursive:true});
+  const runtimeEnv=language==='go'?{GOCACHE:nativeCache,GOENV:'off',GOTOOLCHAIN:'local'}:language==='dotnet'?{XDG_RUNTIME_DIR:workspace,DOTNET_CLI_HOME:nativeCache,DOTNET_SKIP_FIRST_TIME_EXPERIENCE:'1',DOTNET_CLI_TELEMETRY_OPTOUT:'1',DOTNET_NOLOGO:'1'}:{};
   const nativeOutput=join(workspace,'native');await mkdir(nativeOutput,{recursive:true});
   if(language==='go'||language==='dotnet'){
     const compiler=language==='go'?(process.env.LAB_GO||'go'):(process.env.LAB_DOTNET||'dotnet');

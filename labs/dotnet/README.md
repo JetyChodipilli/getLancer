@@ -42,6 +42,8 @@ REDIS_SERVER=/absolute/path/to/redis-7.2.16/redis-server \
 node scripts/verify-lab-scenarios.mjs --language dotnet
 ```
 
+On restricted Unix containers, named mutexes require a writable user-owned runtime directory. The verifiers set `XDG_RUNTIME_DIR` to their private temporary workspace, including for compilation. For manual SDK use, create a private directory with `mktemp -d`, export it as `XDG_RUNTIME_DIR` and remove it after the process exits. This supports the patched runtime without enabling unsafe global mutex scope. See [Microsoft's compatibility notice](https://github.com/dotnet/docs/issues/56396).
+
 Set `LAB_DOTNET` to an absolute .NET 8 executable if it is not on PATH. Run the
 extra native resource/concurrency regressions with
 `node labs/dotnet/verify.mjs`. They use .NET and actual HTTP/TCP; they require no
