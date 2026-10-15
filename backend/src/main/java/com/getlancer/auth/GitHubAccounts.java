@@ -7,6 +7,7 @@ import static com.getlancer.shared.Support.randomToken;
 import com.getlancer.security.Security;
 import com.getlancer.shared.ApiError;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,7 +41,7 @@ public class GitHubAccounts {
 
   @Transactional
   UUID resolve(Identity identity, String intent) {
-    String email = identity.email().toLowerCase(Locale.ROOT), subject = identity.subject();
+    String email = email(Map.of("email", identity.email()), "email"), subject = identity.subject();
     if (email.equals(adminEmail))
       throw new ApiError(403, "admin_password", "Use administrator password sign-in.");
     db.queryForList("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", "github:" + subject);

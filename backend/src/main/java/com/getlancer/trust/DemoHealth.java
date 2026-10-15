@@ -2,6 +2,7 @@ package com.getlancer.trust;
 
 import com.getlancer.products.ProductRepository;
 import com.getlancer.shared.Rules;
+import com.getlancer.shared.BoundedDns;
 import jakarta.annotation.PreDestroy;
 import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
@@ -16,13 +17,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import javax.net.ssl.SNIHostName;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
@@ -57,22 +54,7 @@ public class DemoHealth {
   static InetAddress[] resolve(
       ThreadPoolExecutor executor, Callable<InetAddress[]> lookup, long timeoutMillis)
       throws IOException {
-    Future<InetAddress[]> task;
-    try {
-      task = executor.submit(lookup);
-    } catch (RejectedExecutionException e) {
-      throw new IOException("DNS resolver busy", e);
-    }
-    try {
-      return task.get(timeoutMillis, TimeUnit.MILLISECONDS);
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw new IOException("DNS interrupted", e);
-    } catch (ExecutionException | TimeoutException e) {
-      throw new IOException("DNS failed or timed out", e);
-    } finally {
-      task.cancel(true);
-    }
+    return BoundedDns.resolve(executor, lookup, timeoutMillis);
   }
 
   final boolean enabled;

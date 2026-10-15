@@ -8,6 +8,7 @@ import com.getlancer.notifications.Mail;
 import com.getlancer.security.Security;
 import com.getlancer.shared.ApiError;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,7 +45,7 @@ public class GoogleAccounts {
   @Transactional
   UUID resolve(Jwt jwt, String intent) {
     String subject = jwt.getSubject(),
-        email = jwt.getClaimAsString("email").toLowerCase(Locale.ROOT);
+        email = email(Map.of("email", jwt.getClaimAsString("email")), "email");
     if (email.equals(adminEmail))
       throw new ApiError(403, "admin_password", "Use administrator password sign-in.");
     // Serialize concurrent callbacks for the same Google identity.
