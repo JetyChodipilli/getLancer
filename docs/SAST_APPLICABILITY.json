@@ -1009,7 +1009,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/AnalyticsCoverageIntegrationTest.java",
-      "sha256": "d84997bf21a4f572adce4a53aa09e95b2cea99b28981f35f8a56a9f8df6827d5"
+      "sha256": "3a1038aa42d10154764e6ba417810e65672853d00e3a5492df96c051af5eaa81"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/BusinessIntegrationTest.java",

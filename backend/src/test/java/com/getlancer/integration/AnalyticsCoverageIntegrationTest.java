@@ -35,6 +35,7 @@ class AnalyticsCoverageIntegrationTest {
   @Autowired JdbcTemplate db;
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper json;
+  @Autowired org.springframework.transaction.PlatformTransactionManager transactions;
   UUID admin;
 
   UUID user(String name, boolean approved) {
@@ -181,24 +182,39 @@ class AnalyticsCoverageIntegrationTest {
     assertEquals("CRITICAL",m.at("/safety/bySeverity/0/severity").asText());assertEquals(50,m.at("/safety/reportActionRatePercent").asDouble());
     assertFalse(m.toString().contains("Confidential evidence"));
   }
+  /** Fixture replacement commits before HTTP filters open independent rate-limit transactions. */
+  void replaceCapacityInstrumentation(Timestamp startedAt, long quotaDenials, long validationDenials) {
+    var transaction = new org.springframework.transaction.support.TransactionTemplate(transactions);
+    transaction.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+    transaction.executeWithoutResult(status -> {
+      db.update("DELETE FROM analytics_instrumentation WHERE name='showcase_capacity'");
+      db.update("INSERT INTO analytics_instrumentation(name,started_at,quota_denials,validation_denials) VALUES('showcase_capacity',?,?,?)",
+          startedAt, quotaDenials, validationDenials);
+    });
+  }
+
   @Test
-  @org.springframework.transaction.annotation.Transactional
   void concurrentSlotCohortsExcludeLegacyAccountsAndWebSpoofing() throws Exception {
     UUID fresh=user("fresh-capacity",true),legacy=user("legacy-capacity",true);
     Instant start=Instant.now().minus(3,ChronoUnit.DAYS);
-    // Privileged test fixture: construct historical instrumentation instead of mutating an
-    // immutable production epoch. The test transaction restores the original row afterward.
-    db.update("DELETE FROM analytics_instrumentation WHERE name='showcase_capacity'");
-    db.update("INSERT INTO analytics_instrumentation(name,started_at) VALUES('showcase_capacity',?)",Timestamp.from(start));
-    db.update("UPDATE users SET created_at=? WHERE id=?",Timestamp.from(start.plus(1,ChronoUnit.DAYS)),fresh);
-    db.update("UPDATE users SET created_at=? WHERE id=?",Timestamp.from(start.minus(1,ChronoUnit.DAYS)),legacy);
-    for(UUID id:new UUID[]{fresh,legacy}) observation("product_activated","server",UUID.randomUUID(),"{\"builderId\":\""+id+"\",\"activeCount\":3}",start.plus(2,ChronoUnit.DAYS));
-    observation("showcase_capacity_blocked","server",UUID.randomUUID(),"{\"builderId\":\""+fresh+"\"}",Instant.now());
-    observation("showcase_capacity_blocked","web",UUID.randomUUID(),"{\"builderId\":\""+legacy+"\"}",Instant.now());
-    JsonNode m=metrics();
-    assertEquals(1,m.at("/slots/timeToThreeBuilders").asInt());
-    assertEquals(1,m.at("/slots/timeToThreeActiveShowcasesDays").asDouble(),0.01);
-    assertEquals(1,m.at("/slots/blockedActivationBuilders").asInt());
+    var original=db.queryForMap("SELECT started_at,quota_denials,validation_denials FROM analytics_instrumentation WHERE name='showcase_capacity'");
+    // The privileged fixture constructs a historical row without weakening immutable UPDATE
+    // fences. No database transaction spans MockMvc requests; finally restores the exact row.
+    try {
+      replaceCapacityInstrumentation(Timestamp.from(start),0,0);
+      db.update("UPDATE users SET created_at=? WHERE id=?",Timestamp.from(start.plus(1,ChronoUnit.DAYS)),fresh);
+      db.update("UPDATE users SET created_at=? WHERE id=?",Timestamp.from(start.minus(1,ChronoUnit.DAYS)),legacy);
+      for(UUID id:new UUID[]{fresh,legacy}) observation("product_activated","server",UUID.randomUUID(),"{\"builderId\":\""+id+"\",\"activeCount\":3}",start.plus(2,ChronoUnit.DAYS));
+      observation("showcase_capacity_blocked","server",UUID.randomUUID(),"{\"builderId\":\""+fresh+"\"}",Instant.now());
+      observation("showcase_capacity_blocked","web",UUID.randomUUID(),"{\"builderId\":\""+legacy+"\"}",Instant.now());
+      JsonNode m=metrics();
+      assertEquals(1,m.at("/slots/timeToThreeBuilders").asInt());
+      assertEquals(1,m.at("/slots/timeToThreeActiveShowcasesDays").asDouble(),0.01);
+      assertEquals(1,m.at("/slots/blockedActivationBuilders").asInt());
+    } finally {
+      replaceCapacityInstrumentation((Timestamp)original.get("started_at"),
+          ((Number)original.get("quota_denials")).longValue(),((Number)original.get("validation_denials")).longValue());
+    }
   }
 
 }
