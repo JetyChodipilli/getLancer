@@ -126,7 +126,7 @@ class AnalyticsCoverageIntegrationTest {
     event(restricted,"HIRED",first.plus(1,ChronoUnit.DAYS));event(restricted,"COMPLETED",first.plus(2,ChronoUnit.DAYS));
     inquiry(p,a,"private-client@old.test",now.minus(90,ChronoUnit.DAYS),"CLEAR","INQUIRY_RECEIVED");
     inquiry(p,a,"private-client@unconfirmed.test",null,"CLEAR","CREATED_UNVERIFIED");
-    db.update("INSERT INTO reviews(id,inquiry_id,developer_user_id,rating,review_text,moderation_status) VALUES(?,?,?,5,'Private review content','PUBLISHED')",UUID.randomUUID(),q1,a);
+    db.update("INSERT INTO reviews(id,inquiry_id,developer_user_id,rating,review_text,moderation_status,created_at) VALUES(?,?,?,5,'Private review content','PUBLISHED',?)",UUID.randomUUID(),q1,a,Timestamp.from(first.plus(3,ChronoUnit.DAYS)));
     db.update("INSERT INTO reviews(id,inquiry_id,developer_user_id,rating,review_text,moderation_status) VALUES(?,?,?,5,'Restricted review','PUBLISHED')",UUID.randomUUID(),restricted,a);
     observation("product_activated","server",p,"{}",first);
     observation("product_activated","server",p,"{}",now.minus(2,ChronoUnit.DAYS));

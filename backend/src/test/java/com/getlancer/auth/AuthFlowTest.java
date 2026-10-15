@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -36,6 +37,10 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 class AuthFlowTest {
+  @BeforeEach void databaseClock() {
+    when(db.queryForObject("SELECT clock_timestamp()", Timestamp.class))
+        .thenAnswer(invocation -> Timestamp.from(Instant.now()));
+  }
   final JdbcTemplate db = mock(JdbcTemplate.class);
   final Security security = mock(Security.class);
   final Mail mail = mock(Mail.class);

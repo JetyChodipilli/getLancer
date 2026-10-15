@@ -47,6 +47,13 @@ public final class Rules {
   }
 
   public static void safeUrl(String raw) {
+    safeUrl(raw, BoundedDns::resolve);
+  }
+
+  @FunctionalInterface
+  interface AddressLookup { InetAddress[] resolve(String host) throws java.io.IOException; }
+
+  static void safeUrl(String raw, AddressLookup lookup) {
     if (raw == null || raw.isBlank()) return;
     try {
       URI uri = new URI(raw);
@@ -63,7 +70,9 @@ public final class Rules {
           || !host.contains(".")
           || host.contains(":")
           || host.matches("[0-9.]+")) throw new Exception();
-      for (InetAddress ip : InetAddress.getAllByName(host)) {
+      InetAddress[] addresses = lookup.resolve(host);
+      if (addresses.length == 0) throw new Exception();
+      for (InetAddress ip : addresses) {
         if (!publicAddress(ip)) throw new Exception();
       }
     } catch (Exception e) {

@@ -83,12 +83,20 @@ public class PrivacyService {
                 + " d.user_id=? AND u.account_status='DELETED' FOR UPDATE OF d,u",
             id);
     if (rows.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Deletion request not found.");
+    String originalEmail = (String) rows.get(0).get("email");
     if (action.equals("ANONYMIZE_PROFILE")) {
       if (!approved)
         throw new ApiError(
             409,
             "RETENTION_POLICY_REQUIRED",
             "Approve a retention policy before processing personal data.");
+      String closedEmail = rows.get(0).get("status").equals("PROFILE_ANONYMIZED")
+          ? originalEmail : "closed-" + id + "@example.invalid";
+      // Older deployments allowed public registration in this namespace. Keep any
+      // pre-existing account intact and choose an unclaimed identity for this closure.
+      if (db.queryForObject("SELECT count(*) FROM users WHERE email=? AND id<>?",
+          Integer.class, closedEmail, id) > 0)
+        closedEmail = "closed-" + id + "-" + id() + "@example.invalid";
       if (labs != null) {
         labs.revokeOwner(id);
         labs.redactOwner(id);
@@ -104,17 +112,22 @@ public class PrivacyService {
       db.update("DELETE FROM saved_products WHERE user_id=?", id);
       db.update("DELETE FROM notifications WHERE user_id=?", id);
       db.update("DELETE FROM oauth_identities WHERE user_id=?", id);
-      db.update("DELETE FROM account_tokens WHERE user_id=?", id);
+      // Guest capabilities and private grants also belong to the closing email identity.
+      // Retain inquiry history under its stable closed identity before releasing the
+      // unique email address, so a later verified account cannot inherit old authority.
+      db.update("UPDATE inquiries SET client_email=? WHERE client_email=?", closedEmail, originalEmail);
+      db.update("DELETE FROM product_access_grants WHERE client_email=?", originalEmail);
+      db.update("DELETE FROM account_tokens WHERE user_id=? OR email=?", id, originalEmail);
       db.update("DELETE FROM login_challenges WHERE user_id=?", id);
       db.update("DELETE FROM sessions WHERE user_id=?", id);
       db.update(
           "UPDATE users SET email=?,password_hash='disabled',admin_totp=NULL,admin_totp_key_version=NULL,admin_totp_nonce=NULL,admin_totp_ciphertext=NULL WHERE id=?",
-          "closed-" + id + "@example.invalid",
+          closedEmail,
           id);
       db.update(
           "UPDATE email_outbox SET body='[expired]',attempts=8 WHERE recipient=? AND sent_at IS"
               + " NULL",
-          rows.get(0).get("email"));
+          originalEmail);
     }
     String state = action.equals("HOLD") ? "ON_HOLD" : "PROFILE_ANONYMIZED";
     db.update(

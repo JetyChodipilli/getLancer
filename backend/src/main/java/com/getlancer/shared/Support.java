@@ -35,6 +35,8 @@ public final class Support {
     String e = text(b, k, 3, 254).toLowerCase(Locale.ROOT);
     if (!e.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+"))
       throw new ApiError(400, "VALIDATION_ERROR", "Enter a valid email address.");
+    if (e.startsWith("closed-") && e.endsWith("@example.invalid"))
+      throw new ApiError(400, "EMAIL_UNAVAILABLE", "This email cannot be used for public requests.");
     return e;
   }
 

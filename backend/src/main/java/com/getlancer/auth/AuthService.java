@@ -221,7 +221,7 @@ public class AuthService {
     var row = rows.get(0);
     UUID user = (UUID) row.get("user_id");
     boolean attemptsLocked = ((Number) row.get("attempts")).intValue() >= 5;
-    if (((Timestamp) row.get("expires_at")).toInstant().isBefore(Instant.now())
+    if (!((Timestamp) row.get("expires_at")).toInstant().isAfter(databaseTime())
         || attemptsLocked
         || !row.get("account_status").equals("ACTIVE")
         || !security.role(user, "ADMIN")) {
@@ -288,8 +288,9 @@ public class AuthService {
     String token = randomToken();
     long ttl = admin ? 3600 : 86400;
     db.update(
-        "INSERT INTO sessions(token_hash,user_id,expires_at,mfa_verified) VALUES(?,?,?,?)",
-        hash(token), user, Timestamp.from(Instant.now().plusSeconds(ttl)), admin);
+        "INSERT INTO sessions(token_hash,user_id,expires_at,mfa_verified)"
+            + " VALUES(?,?,clock_timestamp()+(?*interval '1 second'),?)",
+        hash(token), user, ttl, admin);
     writeCookie(res, "gl_session", token, admin || remember ? ttl : null);
     authCookie(res, "gl_mfa", "", 0);
     audit(request, user, "LOGIN_SUCCESS", user.toString(), "SUCCESS");
@@ -368,20 +369,29 @@ public class AuthService {
   }
 
   public Map<String, Object> confirmationContext(Map<String, Object> body) {
-    var token = confirmationToken(text(body, "token", 20, 200), false);
-    if (((Timestamp) token.get("expires_at")).toInstant().isBefore(Instant.now()))
+    // Token status and private context share one statement snapshot. A separate detail
+    // lookup could reveal an inquiry after moderation consumed the capability.
+    var rows = db.queryForList("""
+        SELECT t.kind,t.used_at,t.expires_at>clock_timestamp() AS unexpired,
+          (t.used_at IS NULL AND i.moderation_status='CLEAR' AND NOT EXISTS(
+            SELECT 1 FROM users sender WHERE sender.email=i.client_email AND sender.account_status<>'ACTIVE')) AS readable,
+          i.description,i.current_status AS status,p.title AS "projectTitle",d.display_name AS builder
+        FROM account_tokens t LEFT JOIN inquiries i ON i.id=t.inquiry_id
+          LEFT JOIN products p ON p.id=i.reference_product_id
+          LEFT JOIN developer_profiles d ON d.user_id=i.developer_user_id
+        WHERE t.token_hash=?
+        """, hash(text(body, "token", 20, 200)));
+    if (rows.isEmpty()) throw new ApiError(400, "INVALID_TOKEN", "This confirmation link is invalid.");
+    var token = rows.get(0);
+    if (!Boolean.TRUE.equals(token.get("unexpired")))
       throw new ApiError(410, "TOKEN_EXPIRED", "This confirmation link has expired.");
     Map<String, Object> result = new LinkedHashMap<>();
     result.put("kind", token.get("kind"));
     result.put("used", token.get("used_at") != null);
-    if (token.get("inquiry_id") != null) {
-      var inquiry =
-          db.queryForMap(
-              "SELECT i.description,i.current_status AS status,p.title AS"
-                  + " \"projectTitle\",d.display_name AS builder FROM inquiries i JOIN products p"
-                  + " ON p.id=i.reference_product_id JOIN developer_profiles d ON"
-                  + " d.user_id=i.developer_user_id WHERE i.id=?",
-              token.get("inquiry_id"));
+    if (Boolean.TRUE.equals(token.get("readable"))) {
+      var inquiry = new LinkedHashMap<String, Object>();
+      for (String field : java.util.List.of("description", "status", "projectTitle", "builder"))
+        inquiry.put(field, token.get(field));
       result.put("inquiry", inquiry);
     }
     return result;
@@ -396,12 +406,17 @@ public class AuthService {
       throw new ApiError(400, "INVALID_TOKEN", "This confirmation link is invalid.");
     var token = tokens.get(0);
     if (token.get("used_at") == null
-        && ((Timestamp) token.get("expires_at")).toInstant().isBefore(Instant.now()))
+        && !((Timestamp) token.get("expires_at")).toInstant().isAfter(databaseTime()))
       throw new ApiError(
           410,
           "TOKEN_EXPIRED",
           "This confirmation link has expired. Request a fresh link from your workspace.");
     return token;
+  }
+
+  private Instant databaseTime() {
+    // Observe after row-lock waits; transaction-start now() can outlive a credential.
+    return Objects.requireNonNull(db.queryForObject("SELECT clock_timestamp()", Timestamp.class)).toInstant();
   }
 
   @Transactional
