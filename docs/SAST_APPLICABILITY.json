@@ -383,7 +383,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/education/EducationService.java",
-      "sha256": "fa5c0ba2073cc61604862c52de6dcf20e14bee0dd4f6cfaa35b1669bc14f6522"
+      "sha256": "74d4e1772b3ce9d7f366a23e945e8624e8845b99dcdbe4429e1e08bd3e945e84"
     },
     {
       "path": "backend/src/main/java/com/getlancer/education/EducationSnapshot.java",
@@ -910,6 +910,10 @@
       "sha256": "13f0051b41f440af5f69d00da462172a11d88f91d602bed65fb8d64fc6948a65"
     },
     {
+      "path": "backend/src/main/resources/db/migration/V40__education_source_budget.sql",
+      "sha256": "cf79677d309b923b13d94917f414a44905bfc8df18ce071c5748a17a4f3c50c2"
+    },
+    {
       "path": "backend/src/main/resources/db/migration/V4__single_administrator.sql",
       "sha256": "c09a70dc7d3077eaffcc5e315f0d282a11b5565003d621012c6f813a6cc87450"
     },
@@ -941,7 +945,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/EducationIntegrationTest.java",
-      "sha256": "b51886955236070177308f15d7e2c80e3ef05ba9a92483b31c46d9f259dd3ca2"
+      "sha256": "084a704bd0a89eaea4d2b2515fda33dd5eb59912347d779d4f03b2180da8a10b"
     },
     {
       "path": "backend/src/test/java/com/getlancer/accounts/PrivacyIdentityIntegrationTest.java",

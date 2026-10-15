@@ -24,6 +24,8 @@ Three regression tests fail on the unchanged base: an exhausted owner still uplo
 
 All 40 focused Java tests passed after remediation (26 education, 12 education commerce, two storage), as did 17 education/security-header Node tests, the 287-route source contract and offline Maven packaging. A fresh independent source review found no concrete remaining bypass or regression within the six-file patch.
 
+The SAST applicability manifest also binds the changed service, regression class and new migration. Its three existing GET assessments and required tests are unchanged. An additional 34 authentication/data-exposure regressions, seven manifest tests and the current-source evidence validator passed locally; GitHub generates its own evidence with the actual commit/run identity.
+
 Commands: `mvn -o -q -Dtest=EducationIntegrationTest,EducationCommerceIntegrationTest,CommerceStorageTest -Djunit.jupiter.execution.timeout.default=60s test`, run from `backend` against the disposable `getlancer_test` database; `mvn -o -q -DskipTests package`; `node --test tests/education.test.mjs tests/security-headers.test.mjs`; `node scripts/check-security-contract.mjs`. GitHub CI runs the owning package and repository checks on the published commit; use that commit's completed checks as the final integration evidence.
 
 The independent pre-patch investigation uses direct source because the graph service returned `Transport closed`. A new Codex Security scan could not start after its initial snapshot setup failed. This source/test remediation and independent review supplement the completed earlier scan; they are not a new provider scan result. The available Code Review connector supplies PR diagnostics, so direct-main publication has no plugin PR-review result.
