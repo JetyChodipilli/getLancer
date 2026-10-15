@@ -1,0 +1,706 @@
+{
+  "items": [
+    {
+      "id": "java-cache",
+      "language": "java",
+      "pattern": "cache",
+      "title": "Java · Redis cache",
+      "summary": "Follow a real cache miss, hit, expiry and bounded store fallback.",
+      "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
+      "archiveHash": "43534dda5265e5a41ae32a5d00429151b87b7040f238ca854ee116b2401cfde1",
+      "sourceUrl": "/labs/sources/java.tar.gz",
+      "recordingUrl": "/labs/recordings/java-cache.json",
+      "setup": "JDK 17; actual Redis 7.2.16 on 127.0.0.1:6379. From the extracted package root:\nLAB_RUN_ID=00000000-0000-4000-8000-000000000001 LAB_PORT=8100 java labs/java/LabServer.java\n\nVerify: REDIS_SERVER=/path/to/redis-server node scripts/verify-lab-scenarios.mjs --language java",
+      "scenarios": [
+        "Miss → hit",
+        "Key expiry",
+        "Redis unavailable",
+        "Redis timeout"
+      ],
+      "edges": [
+        {
+          "id": "client-service",
+          "from": "Request",
+          "to": "Service",
+          "label": "Bounded request"
+        },
+        {
+          "id": "service-redis",
+          "from": "Service",
+          "to": "Redis",
+          "label": "Read / TTL / expiry"
+        },
+        {
+          "id": "service-store",
+          "from": "Service",
+          "to": "Fixture store",
+          "label": "Fallback read"
+        }
+      ]
+    },
+    {
+      "id": "java-security",
+      "language": "java",
+      "pattern": "security",
+      "title": "Java · Authorization",
+      "summary": "Inspect synthetic identity, tenant boundaries and current-role decisions.",
+      "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
+      "archiveHash": "43534dda5265e5a41ae32a5d00429151b87b7040f238ca854ee116b2401cfde1",
+      "sourceUrl": "/labs/sources/java.tar.gz",
+      "recordingUrl": "/labs/recordings/java-security.json",
+      "setup": "JDK 17; actual Redis 7.2.16 on 127.0.0.1:6379. From the extracted package root:\nLAB_RUN_ID=00000000-0000-4000-8000-000000000001 LAB_PORT=8100 java labs/java/LabServer.java\n\nVerify: REDIS_SERVER=/path/to/redis-server node scripts/verify-lab-scenarios.mjs --language java",
+      "scenarios": [
+        "Editor allowed",
+        "Wrong role",
+        "Another tenant",
+        "Expired identity",
+        "Tampered identity",
+        "Current-role revoke"
+      ],
+      "edges": [
+        {
+          "id": "client-service",
+          "from": "Request",
+          "to": "Service",
+          "label": "Synthetic identity"
+        },
+        {
+          "id": "service-policy",
+          "from": "Service",
+          "to": "Policy",
+          "label": "Verify identity"
+        },
+        {
+          "id": "policy-store",
+          "from": "Policy",
+          "to": "Role store",
+          "label": "Read current authority"
+        }
+      ]
+    },
+    {
+      "id": "java-payment",
+      "language": "java",
+      "pattern": "payment",
+      "title": "Java · Payment emulator",
+      "summary": "Verify raw-body signatures, duplicate delivery and refund ordering without moving money.",
+      "sourceHash": "b259df30d8931406b8a44c62bbe3a069d6847d2660f6fbfc9f370ccb61890ee3",
+      "archiveHash": "43534dda5265e5a41ae32a5d00429151b87b7040f238ca854ee116b2401cfde1",
+      "sourceUrl": "/labs/sources/java.tar.gz",
+      "recordingUrl": "/labs/recordings/java-payment.json",
+      "setup": "JDK 17; actual Redis 7.2.16 on 127.0.0.1:6379. From the extracted package root:\nLAB_RUN_ID=00000000-0000-4000-8000-000000000001 LAB_PORT=8100 java labs/java/LabServer.java\n\nVerify: REDIS_SERVER=/path/to/redis-server node scripts/verify-lab-scenarios.mjs --language java",
+      "scenarios": [
+        "Signed success",
+        "Duplicate delivery",
+        "Bad signature",
+        "Ambiguous timeout",
+        "Refund before payment"
+      ],
+      "edges": [
+        {
+          "id": "client-service",
+          "from": "Request",
+          "to": "Service",
+          "label": "Bounded event input"
+        },
+        {
+          "id": "service-emulator",
+          "from": "Service",
+          "to": "Emulator",
+          "label": "Verify raw-body signature"
+        },
+        {
+          "id": "emulator-ledger",
+          "from": "Emulator",
+          "to": "Fixture ledger",
+          "label": "Apply once / reconcile"
+        }
+      ]
+    },
+    {
+      "id": "typescript-cache",
+      "language": "typescript",
+      "pattern": "cache",
+      "title": "TypeScript · Redis cache",
+      "summary": "Follow a real cache miss, hit, expiry and bounded store fallback.",
+      "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
+      "archiveHash": "457a4109a78e62e7d9e3317d1624a3a39d5dc3c9c81d8d4fb1ae5cc93436c46f",
+      "sourceUrl": "/labs/sources/typescript.tar.gz",
+      "recordingUrl": "/labs/recordings/typescript-cache.json",
+      "setup": "Node 22.18 or newer; actual Redis 7.2.16 on 127.0.0.1:6379. From the extracted package root:\nLAB_RUN_ID=00000000-0000-4000-8000-000000000001 LAB_PORT=8100 node --experimental-strip-types labs/typescript/server.ts\n\nVerify: REDIS_SERVER=/path/to/redis-server node scripts/verify-lab-scenarios.mjs --language typescript",
+      "scenarios": [
+        "Miss → hit",
+        "Key expiry",
+        "Redis unavailable",
+        "Redis timeout"
+      ],
+      "edges": [
+        {
+          "id": "client-service",
+          "from": "Request",
+          "to": "Service",
+          "label": "Bounded request"
+        },
+        {
+          "id": "service-redis",
+          "from": "Service",
+          "to": "Redis",
+          "label": "Read / TTL / expiry"
+        },
+        {
+          "id": "service-store",
+          "from": "Service",
+          "to": "Fixture store",
+          "label": "Fallback read"
+        }
+      ]
+    },
+    {
+      "id": "typescript-security",
+      "language": "typescript",
+      "pattern": "security",
+      "title": "TypeScript · Authorization",
+      "summary": "Inspect synthetic identity, tenant boundaries and current-role decisions.",
+      "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
+      "archiveHash": "457a4109a78e62e7d9e3317d1624a3a39d5dc3c9c81d8d4fb1ae5cc93436c46f",
+      "sourceUrl": "/labs/sources/typescript.tar.gz",
+      "recordingUrl": "/labs/recordings/typescript-security.json",
+      "setup": "Node 22.18 or newer; actual Redis 7.2.16 on 127.0.0.1:6379. From the extracted package root:\nLAB_RUN_ID=00000000-0000-4000-8000-000000000001 LAB_PORT=8100 node --experimental-strip-types labs/typescript/server.ts\n\nVerify: REDIS_SERVER=/path/to/redis-server node scripts/verify-lab-scenarios.mjs --language typescript",
+      "scenarios": [
+        "Editor allowed",
+        "Wrong role",
+        "Another tenant",
+        "Expired identity",
+        "Tampered identity",
+        "Current-role revoke"
+      ],
+      "edges": [
+        {
+          "id": "client-service",
+          "from": "Request",
+          "to": "Service",
+          "label": "Synthetic identity"
+        },
+        {
+          "id": "service-policy",
+          "from": "Service",
+          "to": "Policy",
+          "label": "Verify identity"
+        },
+        {
+          "id": "policy-store",
+          "from": "Policy",
+          "to": "Role store",
+          "label": "Read current authority"
+        }
+      ]
+    },
+    {
+      "id": "typescript-payment",
+      "language": "typescript",
+      "pattern": "payment",
+      "title": "TypeScript · Payment emulator",
+      "summary": "Verify raw-body signatures, duplicate delivery and refund ordering without moving money.",
+      "sourceHash": "ef264dc20d813458780f0a65b6ab3fa6b75d347031515c22e8b1e8604b359b65",
+      "archiveHash": "457a4109a78e62e7d9e3317d1624a3a39d5dc3c9c81d8d4fb1ae5cc93436c46f",
+      "sourceUrl": "/labs/sources/typescript.tar.gz",
+      "recordingUrl": "/labs/recordings/typescript-payment.json",
+      "setup": "Node 22.18 or newer; actual Redis 7.2.16 on 127.0.0.1:6379. From the extracted package root:\nLAB_RUN_ID=00000000-0000-4000-8000-000000000001 LAB_PORT=8100 node --experimental-strip-types labs/typescript/server.ts\n\nVerify: REDIS_SERVER=/path/to/redis-server node scripts/verify-lab-scenarios.mjs --language typescript",
+      "scenarios": [
+        "Signed success",
+        "Duplicate delivery",
+        "Bad signature",
+        "Ambiguous timeout",
+        "Refund before payment"
+      ],
+      "edges": [
+        {
+          "id": "client-service",
+          "from": "Request",
+          "to": "Service",
+          "label": "Bounded event input"
+        },
+        {
+          "id": "service-emulator",
+          "from": "Service",
+          "to": "Emulator",
+          "label": "Verify raw-body signature"
+        },
+        {
+          "id": "emulator-ledger",
+          "from": "Emulator",
+          "to": "Fixture ledger",
+          "label": "Apply once / reconcile"
+        }
+      ]
+    },
+    {
+      "id": "python-cache",
+      "language": "python",
+      "pattern": "cache",
+      "title": "Python · Redis cache",
+      "summary": "Follow a real cache miss, hit, expiry and bounded store fallback.",
+      "sourceHash": "27193feb9d35819e4e07fd2ea4ddc8b148c3aaaf7a7f43ac49e10916fe84934d",
+      "archiveHash": "029c26e49b100e7678abdcd5633cc844e5cc88bb67c03364c4413aff497fdc02",
+      "sourceUrl": "/labs/sources/python.tar.gz",
+      "recordingUrl": "/labs/recordings/python-cache.json",
+      "setup": "Python 3.12; actual Redis 7.2.16 on 127.0.0.1:6379. From the extracted package root:\nLAB_RUN_ID=00000000-0000-4000-8000-000000000001 LAB_PORT=8100 python3 labs/python/server.py\n\nVerify: REDIS_SERVER=/path/to/redis-server node scripts/verify-lab-scenarios.mjs --language python",
+      "scenarios": [
+        "Miss → hit",
+        "Key expiry",
+        "Redis unavailable",
+        "Redis timeout"
+      ],
+      "edges": [
+        {
+          "id": "client-service",
+          "from": "Request",
+          "to": "Service",
+          "label": "Bounded request"
+        },
+        {
+          "id": "service-redis",
+          "from": "Service",
+          "to": "Redis",
+          "label": "Read / TTL / expiry"
+        },
+        {
+          "id": "service-store",
+          "from": "Service",
+          "to": "Fixture store",
+          "label": "Fallback read"
+        }
+      ]
+    },
+    {
+      "id": "python-security",
+      "language": "python",
+      "pattern": "security",
+      "title": "Python · Authorization",
+      "summary": "Inspect synthetic identity, tenant boundaries and current-role decisions.",
+      "sourceHash": "27193feb9d35819e4e07fd2ea4ddc8b148c3aaaf7a7f43ac49e10916fe84934d",
+      "archiveHash": "029c26e49b100e7678abdcd5633cc844e5cc88bb67c03364c4413aff497fdc02",
+      "sourceUrl": "/labs/sources/python.tar.gz",
+      "recordingUrl": "/labs/recordings/python-security.json",
+      "setup": "Python 3.12; actual Redis 7.2.16 on 127.0.0.1:6379. From the extracted package root:\nLAB_RUN_ID=00000000-0000-4000-8000-000000000001 LAB_PORT=8100 python3 labs/python/server.py\n\nVerify: REDIS_SERVER=/path/to/redis-server node scripts/verify-lab-scenarios.mjs --language python",
+      "scenarios": [
+        "Editor allowed",
+        "Wrong role",
+        "Another tenant",
+        "Expired identity",
+        "Tampered identity",
+        "Current-role revoke"
+      ],
+      "edges": [
+        {
+          "id": "client-service",
+          "from": "Request",
+          "to": "Service",
+          "label": "Synthetic identity"
+        },
+        {
+          "id": "service-policy",
+          "from": "Service",
+          "to": "Policy",
+          "label": "Verify identity"
+        },
+        {
+          "id": "policy-store",
+          "from": "Policy",
+          "to": "Role store",
+          "label": "Read current authority"
+        }
+      ]
+    },
+    {
+      "id": "python-payment",
+      "language": "python",
+      "pattern": "payment",
+      "title": "Python · Payment emulator",
+      "summary": "Verify raw-body signatures, duplicate delivery and refund ordering without moving money.",
+      "sourceHash": "27193feb9d35819e4e07fd2ea4ddc8b148c3aaaf7a7f43ac49e10916fe84934d",
+      "archiveHash": "029c26e49b100e7678abdcd5633cc844e5cc88bb67c03364c4413aff497fdc02",
+      "sourceUrl": "/labs/sources/python.tar.gz",
+      "recordingUrl": "/labs/recordings/python-payment.json",
+      "setup": "Python 3.12; actual Redis 7.2.16 on 127.0.0.1:6379. From the extracted package root:\nLAB_RUN_ID=00000000-0000-4000-8000-000000000001 LAB_PORT=8100 python3 labs/python/server.py\n\nVerify: REDIS_SERVER=/path/to/redis-server node scripts/verify-lab-scenarios.mjs --language python",
+      "scenarios": [
+        "Signed success",
+        "Duplicate delivery",
+        "Bad signature",
+        "Ambiguous timeout",
+        "Refund before payment"
+      ],
+      "edges": [
+        {
+          "id": "client-service",
+          "from": "Request",
+          "to": "Service",
+          "label": "Bounded event input"
+        },
+        {
+          "id": "service-emulator",
+          "from": "Service",
+          "to": "Emulator",
+          "label": "Verify raw-body signature"
+        },
+        {
+          "id": "emulator-ledger",
+          "from": "Emulator",
+          "to": "Fixture ledger",
+          "label": "Apply once / reconcile"
+        }
+      ]
+    },
+    {
+      "id": "go-cache",
+      "language": "go",
+      "pattern": "cache",
+      "title": "Go · Redis cache",
+      "summary": "Follow a real cache miss, hit, expiry and bounded store fallback.",
+      "sourceHash": "8ded84a95035e048d6b8c0f2b4a5a987ca78239e9dc4932167909e83349a7ef8",
+      "archiveHash": "473dc41d928c227b5bf5fe7b69dbd681c3d61e3c4c0a4c24b4d00d143ced7a6c",
+      "sourceUrl": "/labs/sources/go.tar.gz",
+      "recordingUrl": "/labs/recordings/go-cache.json",
+      "setup": "Go 1.24 or newer; actual Redis 7.2.16 on 127.0.0.1:6379. From the extracted package root:\nLAB_RUN_ID=00000000-0000-4000-8000-000000000001 LAB_PORT=8100 go run labs/go/server.go\n\nVerify: REDIS_SERVER=/path/to/redis-server node scripts/verify-lab-scenarios.mjs --language go",
+      "scenarios": [
+        "Miss → hit",
+        "Key expiry",
+        "Redis unavailable",
+        "Redis timeout"
+      ],
+      "edges": [
+        {
+          "id": "client-service",
+          "from": "Request",
+          "to": "Service",
+          "label": "Bounded request"
+        },
+        {
+          "id": "service-redis",
+          "from": "Service",
+          "to": "Redis",
+          "label": "Read / TTL / expiry"
+        },
+        {
+          "id": "service-store",
+          "from": "Service",
+          "to": "Fixture store",
+          "label": "Fallback read"
+        }
+      ]
+    },
+    {
+      "id": "go-security",
+      "language": "go",
+      "pattern": "security",
+      "title": "Go · Authorization",
+      "summary": "Inspect synthetic identity, tenant boundaries and current-role decisions.",
+      "sourceHash": "8ded84a95035e048d6b8c0f2b4a5a987ca78239e9dc4932167909e83349a7ef8",
+      "archiveHash": "473dc41d928c227b5bf5fe7b69dbd681c3d61e3c4c0a4c24b4d00d143ced7a6c",
+      "sourceUrl": "/labs/sources/go.tar.gz",
+      "recordingUrl": "/labs/recordings/go-security.json",
+      "setup": "Go 1.24 or newer; actual Redis 7.2.16 on 127.0.0.1:6379. From the extracted package root:\nLAB_RUN_ID=00000000-0000-4000-8000-000000000001 LAB_PORT=8100 go run labs/go/server.go\n\nVerify: REDIS_SERVER=/path/to/redis-server node scripts/verify-lab-scenarios.mjs --language go",
+      "scenarios": [
+        "Editor allowed",
+        "Wrong role",
+        "Another tenant",
+        "Expired identity",
+        "Tampered identity",
+        "Current-role revoke"
+      ],
+      "edges": [
+        {
+          "id": "client-service",
+          "from": "Request",
+          "to": "Service",
+          "label": "Synthetic identity"
+        },
+        {
+          "id": "service-policy",
+          "from": "Service",
+          "to": "Policy",
+          "label": "Verify identity"
+        },
+        {
+          "id": "policy-store",
+          "from": "Policy",
+          "to": "Role store",
+          "label": "Read current authority"
+        }
+      ]
+    },
+    {
+      "id": "go-payment",
+      "language": "go",
+      "pattern": "payment",
+      "title": "Go · Payment emulator",
+      "summary": "Verify raw-body signatures, duplicate delivery and refund ordering without moving money.",
+      "sourceHash": "8ded84a95035e048d6b8c0f2b4a5a987ca78239e9dc4932167909e83349a7ef8",
+      "archiveHash": "473dc41d928c227b5bf5fe7b69dbd681c3d61e3c4c0a4c24b4d00d143ced7a6c",
+      "sourceUrl": "/labs/sources/go.tar.gz",
+      "recordingUrl": "/labs/recordings/go-payment.json",
+      "setup": "Go 1.24 or newer; actual Redis 7.2.16 on 127.0.0.1:6379. From the extracted package root:\nLAB_RUN_ID=00000000-0000-4000-8000-000000000001 LAB_PORT=8100 go run labs/go/server.go\n\nVerify: REDIS_SERVER=/path/to/redis-server node scripts/verify-lab-scenarios.mjs --language go",
+      "scenarios": [
+        "Signed success",
+        "Duplicate delivery",
+        "Bad signature",
+        "Ambiguous timeout",
+        "Refund before payment"
+      ],
+      "edges": [
+        {
+          "id": "client-service",
+          "from": "Request",
+          "to": "Service",
+          "label": "Bounded event input"
+        },
+        {
+          "id": "service-emulator",
+          "from": "Service",
+          "to": "Emulator",
+          "label": "Verify raw-body signature"
+        },
+        {
+          "id": "emulator-ledger",
+          "from": "Emulator",
+          "to": "Fixture ledger",
+          "label": "Apply once / reconcile"
+        }
+      ]
+    },
+    {
+      "id": "dotnet-cache",
+      "language": "dotnet",
+      "pattern": "cache",
+      "title": "C# / .NET · Redis cache",
+      "summary": "Follow a real cache miss, hit, expiry and bounded store fallback.",
+      "sourceHash": "f97b492274eb332ab496f67c19dd196f75419d4844f18a57076828d0ab15c75a",
+      "archiveHash": "8dddf0ff65e23aa060b280c0cf5d0449cb4b4ff914fc96d576d2ab2d326e2924",
+      "sourceUrl": "/labs/sources/dotnet.tar.gz",
+      "recordingUrl": "/labs/recordings/dotnet-cache.json",
+      "setup": ".NET 8 SDK; actual Redis 7.2.16 on 127.0.0.1:6379. From the extracted package root:\nLAB_RUN_ID=00000000-0000-4000-8000-000000000001 LAB_PORT=8100 dotnet run --project labs/dotnet/LabServer.csproj --no-launch-profile\n\nVerify: REDIS_SERVER=/path/to/redis-server node scripts/verify-lab-scenarios.mjs --language dotnet",
+      "scenarios": [
+        "Miss → hit",
+        "Key expiry",
+        "Redis unavailable",
+        "Redis timeout"
+      ],
+      "edges": [
+        {
+          "id": "client-service",
+          "from": "Request",
+          "to": "Service",
+          "label": "Bounded request"
+        },
+        {
+          "id": "service-redis",
+          "from": "Service",
+          "to": "Redis",
+          "label": "Read / TTL / expiry"
+        },
+        {
+          "id": "service-store",
+          "from": "Service",
+          "to": "Fixture store",
+          "label": "Fallback read"
+        }
+      ]
+    },
+    {
+      "id": "dotnet-security",
+      "language": "dotnet",
+      "pattern": "security",
+      "title": "C# / .NET · Authorization",
+      "summary": "Inspect synthetic identity, tenant boundaries and current-role decisions.",
+      "sourceHash": "f97b492274eb332ab496f67c19dd196f75419d4844f18a57076828d0ab15c75a",
+      "archiveHash": "8dddf0ff65e23aa060b280c0cf5d0449cb4b4ff914fc96d576d2ab2d326e2924",
+      "sourceUrl": "/labs/sources/dotnet.tar.gz",
+      "recordingUrl": "/labs/recordings/dotnet-security.json",
+      "setup": ".NET 8 SDK; actual Redis 7.2.16 on 127.0.0.1:6379. From the extracted package root:\nLAB_RUN_ID=00000000-0000-4000-8000-000000000001 LAB_PORT=8100 dotnet run --project labs/dotnet/LabServer.csproj --no-launch-profile\n\nVerify: REDIS_SERVER=/path/to/redis-server node scripts/verify-lab-scenarios.mjs --language dotnet",
+      "scenarios": [
+        "Editor allowed",
+        "Wrong role",
+        "Another tenant",
+        "Expired identity",
+        "Tampered identity",
+        "Current-role revoke"
+      ],
+      "edges": [
+        {
+          "id": "client-service",
+          "from": "Request",
+          "to": "Service",
+          "label": "Synthetic identity"
+        },
+        {
+          "id": "service-policy",
+          "from": "Service",
+          "to": "Policy",
+          "label": "Verify identity"
+        },
+        {
+          "id": "policy-store",
+          "from": "Policy",
+          "to": "Role store",
+          "label": "Read current authority"
+        }
+      ]
+    },
+    {
+      "id": "dotnet-payment",
+      "language": "dotnet",
+      "pattern": "payment",
+      "title": "C# / .NET · Payment emulator",
+      "summary": "Verify raw-body signatures, duplicate delivery and refund ordering without moving money.",
+      "sourceHash": "f97b492274eb332ab496f67c19dd196f75419d4844f18a57076828d0ab15c75a",
+      "archiveHash": "8dddf0ff65e23aa060b280c0cf5d0449cb4b4ff914fc96d576d2ab2d326e2924",
+      "sourceUrl": "/labs/sources/dotnet.tar.gz",
+      "recordingUrl": "/labs/recordings/dotnet-payment.json",
+      "setup": ".NET 8 SDK; actual Redis 7.2.16 on 127.0.0.1:6379. From the extracted package root:\nLAB_RUN_ID=00000000-0000-4000-8000-000000000001 LAB_PORT=8100 dotnet run --project labs/dotnet/LabServer.csproj --no-launch-profile\n\nVerify: REDIS_SERVER=/path/to/redis-server node scripts/verify-lab-scenarios.mjs --language dotnet",
+      "scenarios": [
+        "Signed success",
+        "Duplicate delivery",
+        "Bad signature",
+        "Ambiguous timeout",
+        "Refund before payment"
+      ],
+      "edges": [
+        {
+          "id": "client-service",
+          "from": "Request",
+          "to": "Service",
+          "label": "Bounded event input"
+        },
+        {
+          "id": "service-emulator",
+          "from": "Service",
+          "to": "Emulator",
+          "label": "Verify raw-body signature"
+        },
+        {
+          "id": "emulator-ledger",
+          "from": "Emulator",
+          "to": "Fixture ledger",
+          "label": "Apply once / reconcile"
+        }
+      ]
+    },
+    {
+      "id": "php-cache",
+      "language": "php",
+      "pattern": "cache",
+      "title": "PHP · Redis cache",
+      "summary": "Follow a real cache miss, hit, expiry and bounded store fallback.",
+      "sourceHash": "175670dc09dddfb82129040d20f5a6a13c17573d772d88ebf5e883809e84acbf",
+      "archiveHash": "7457375d671992536d6f12554de5bdc0e6b69bf5fe5c2b15c9990cb440c181c1",
+      "sourceUrl": "/labs/sources/php.tar.gz",
+      "recordingUrl": "/labs/recordings/php-cache.json",
+      "setup": "PHP 8.3 or newer; actual Redis 7.2.16 on 127.0.0.1:6379. From the extracted package root:\nLAB_RUN_ID=00000000-0000-4000-8000-000000000001 LAB_PORT=8100 php labs/php/server.php\n\nVerify: REDIS_SERVER=/path/to/redis-server node scripts/verify-lab-scenarios.mjs --language php",
+      "scenarios": [
+        "Miss → hit",
+        "Key expiry",
+        "Redis unavailable",
+        "Redis timeout"
+      ],
+      "edges": [
+        {
+          "id": "client-service",
+          "from": "Request",
+          "to": "Service",
+          "label": "Bounded request"
+        },
+        {
+          "id": "service-redis",
+          "from": "Service",
+          "to": "Redis",
+          "label": "Read / TTL / expiry"
+        },
+        {
+          "id": "service-store",
+          "from": "Service",
+          "to": "Fixture store",
+          "label": "Fallback read"
+        }
+      ]
+    },
+    {
+      "id": "php-security",
+      "language": "php",
+      "pattern": "security",
+      "title": "PHP · Authorization",
+      "summary": "Inspect synthetic identity, tenant boundaries and current-role decisions.",
+      "sourceHash": "175670dc09dddfb82129040d20f5a6a13c17573d772d88ebf5e883809e84acbf",
+      "archiveHash": "7457375d671992536d6f12554de5bdc0e6b69bf5fe5c2b15c9990cb440c181c1",
+      "sourceUrl": "/labs/sources/php.tar.gz",
+      "recordingUrl": "/labs/recordings/php-security.json",
+      "setup": "PHP 8.3 or newer; actual Redis 7.2.16 on 127.0.0.1:6379. From the extracted package root:\nLAB_RUN_ID=00000000-0000-4000-8000-000000000001 LAB_PORT=8100 php labs/php/server.php\n\nVerify: REDIS_SERVER=/path/to/redis-server node scripts/verify-lab-scenarios.mjs --language php",
+      "scenarios": [
+        "Editor allowed",
+        "Wrong role",
+        "Another tenant",
+        "Expired identity",
+        "Tampered identity",
+        "Current-role revoke"
+      ],
+      "edges": [
+        {
+          "id": "client-service",
+          "from": "Request",
+          "to": "Service",
+          "label": "Synthetic identity"
+        },
+        {
+          "id": "service-policy",
+          "from": "Service",
+          "to": "Policy",
+          "label": "Verify identity"
+        },
+        {
+          "id": "policy-store",
+          "from": "Policy",
+          "to": "Role store",
+          "label": "Read current authority"
+        }
+      ]
+    },
+    {
+      "id": "php-payment",
+      "language": "php",
+      "pattern": "payment",
+      "title": "PHP · Payment emulator",
+      "summary": "Verify raw-body signatures, duplicate delivery and refund ordering without moving money.",
+      "sourceHash": "175670dc09dddfb82129040d20f5a6a13c17573d772d88ebf5e883809e84acbf",
+      "archiveHash": "7457375d671992536d6f12554de5bdc0e6b69bf5fe5c2b15c9990cb440c181c1",
+      "sourceUrl": "/labs/sources/php.tar.gz",
+      "recordingUrl": "/labs/recordings/php-payment.json",
+      "setup": "PHP 8.3 or newer; actual Redis 7.2.16 on 127.0.0.1:6379. From the extracted package root:\nLAB_RUN_ID=00000000-0000-4000-8000-000000000001 LAB_PORT=8100 php labs/php/server.php\n\nVerify: REDIS_SERVER=/path/to/redis-server node scripts/verify-lab-scenarios.mjs --language php",
+      "scenarios": [
+        "Signed success",
+        "Duplicate delivery",
+        "Bad signature",
+        "Ambiguous timeout",
+        "Refund before payment"
+      ],
+      "edges": [
+        {
+          "id": "client-service",
+          "from": "Request",
+          "to": "Service",
+          "label": "Bounded event input"
+        },
+        {
+          "id": "service-emulator",
+          "from": "Service",
+          "to": "Emulator",
+          "label": "Verify raw-body signature"
+        },
+        {
+          "id": "emulator-ledger",
+          "from": "Emulator",
+          "to": "Fixture ledger",
+          "label": "Apply once / reconcile"
+        }
+      ]
+    }
+  ]
+}

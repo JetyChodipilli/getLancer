@@ -44,7 +44,7 @@ async function verifyLanguage(language){
   let redisReady=false;for(let i=0;i<100;i++){try{assert.match(await redisCommand(redisPort,'PING'),/^\+PONG/);redisReady=true;break;}catch{await delay(50);}}assert(redisReady,'Real Redis startup failed: '+redis.diagnostic());
   const primary=catalogue.languages[language].primary,sourceHash=sha(await readFile(join(root,primary)));
   const nativeCache=join(workspace,language+'-cache');await mkdir(nativeCache,{recursive:true});
-  const runtimeEnv=language==='go'?{GOCACHE:nativeCache,GOENV:'off',GOTOOLCHAIN:'local'}:language==='dotnet'?{DOTNET_CLI_HOME:nativeCache,DOTNET_SKIP_FIRST_TIME_EXPERIENCE:'1',DOTNET_CLI_TELEMETRY_OPTOUT:'1',DOTNET_NOLOGO:'1'}:{};
+  const runtimeEnv=language==='go'?{GOCACHE:nativeCache,GOENV:'off',GOTOOLCHAIN:'local'}:language==='dotnet'?{XDG_RUNTIME_DIR:workspace,DOTNET_CLI_HOME:nativeCache,DOTNET_SKIP_FIRST_TIME_EXPERIENCE:'1',DOTNET_CLI_TELEMETRY_OPTOUT:'1',DOTNET_NOLOGO:'1'}:{};
   const nativeOutput=join(workspace,'native');await mkdir(nativeOutput,{recursive:true});
   if(language==='go'||language==='dotnet'){
     const compiler=language==='go'?(process.env.LAB_GO||'go'):(process.env.LAB_DOTNET||'dotnet');
