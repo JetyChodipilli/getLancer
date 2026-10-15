@@ -23,11 +23,12 @@ public class CommerceProviderIntegrationTest {
   public static class Fixture implements AutoCloseable {
     final HttpServer server;final ObjectMapper json;final JdbcTemplate db;final ExecutorService executor;
     public final AtomicInteger creates=new AtomicInteger();public volatile boolean uncertain,rejected,wrongAmount,wrongPayee,captured,reservationCommitted,blocked,unavailable;
+    public volatile boolean blockDispute,failDispute,failPayment; public volatile CountDownLatch disputeEntered=new CountDownLatch(1),releaseDispute=new CountDownLatch(1);
     public volatile long refunded;public volatile String disputeStatus="open";public volatile JsonNode lastBody;
     public volatile CountDownLatch entered=new CountDownLatch(1),release=new CountDownLatch(1);
     final Map<String,ObjectNode> orders=new ConcurrentHashMap<>();
     public Fixture(JdbcTemplate db,ObjectMapper json) throws IOException {this.db=db;this.json=json;server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);executor=Executors.newCachedThreadPool();server.setExecutor(executor);server.createContext("/",this::handle);server.start();}
-    public void reset() {creates.set(0);uncertain=false;rejected=false;wrongAmount=false;wrongPayee=false;captured=false;reservationCommitted=false;blocked=false;unavailable=false;refunded=0;disputeStatus="open";orders.clear();lastBody=null;entered=new CountDownLatch(1);release=new CountDownLatch(1);}
+    public void reset() {creates.set(0);blockDispute=false;failDispute=false;failPayment=false;disputeEntered=new CountDownLatch(1);releaseDispute=new CountDownLatch(1);uncertain=false;rejected=false;wrongAmount=false;wrongPayee=false;captured=false;reservationCommitted=false;blocked=false;unavailable=false;refunded=0;disputeStatus="open";orders.clear();lastBody=null;entered=new CountDownLatch(1);release=new CountDownLatch(1);}
     public URI origin() {return URI.create("http://127.0.0.1:"+server.getAddress().getPort());}
     public String orderId() {return orders.keySet().iterator().next();}
     public String paymentId() {return "pay_source"+orderId().substring(6);}
@@ -39,11 +40,11 @@ public class CommerceProviderIntegrationTest {
       String path=x.getRequestURI().getPath();if(unavailable) {response(x,503,Map.of("error","unavailable fixture"));return;}
       if(path.equals("/v1/orders") && x.getRequestMethod().equals("POST")) {creates.incrementAndGet();lastBody=json.readTree(x.getRequestBody());if(db!=null) reservationCommitted=db.queryForObject("SELECT count(*) FROM template_purchases WHERE id=? AND status='CREATING'",Integer.class,UUID.fromString(lastBody.path("receipt").asText()))==1;String id="order_"+UUID.randomUUID().toString().replace("-","").substring(0,14);var n=json.createObjectNode();n.put("id",id);n.put("receipt",lastBody.path("receipt").asText());n.put("amount",lastBody.path("amount").longValue());n.put("currency","INR");n.put("partial_payment",false);orders.put(id,n);n.set("transfers",json.createArrayNode().add(transfer(id)));entered.countDown();if(blocked) try {release.await(3,TimeUnit.SECONDS);}catch(InterruptedException e) {Thread.currentThread().interrupt();}response(x,rejected?422:uncertain?503:200,rejected||uncertain?Map.of("error","unconfirmed fixture create"):n);return;}
       if(path.startsWith("/v1/orders/")) {String[] parts=path.split("/");String order=parts[3];var n=orders.get(order);if(n==null) {response(x,404,Map.of("error","no fixture order"));return;}if(parts.length>4) {response(x,200,Map.of("items",captured?List.of(payment("pay_source"+order.substring(6))):List.of()));return;}var copy=n.deepCopy();copy.set("transfers",json.createArrayNode().add(transfer(order)));response(x,200,copy);return;}
-      if(path.startsWith("/v1/payments/")) {String[] parts=path.split("/");String id=parts[3];if(parts.length>4) response(x,200,Map.of("items",List.of(transfer("order_"+id.substring("pay_source".length())))));else response(x,200,payment(id));return;}
-      if(path.startsWith("/v1/disputes/")) {response(x,200,Map.of("id",path.substring("/v1/disputes/".length()),"payment_id",paymentId(),"amount",10000,"currency","INR","amount_deducted",disputeStatus.equals("lost")?10000:0,"status",disputeStatus));return;}
+      if(path.startsWith("/v1/payments/")) {if(failPayment){response(x,503,Map.of("error","payment fixture unavailable"));return;}String[] parts=path.split("/");String id=parts[3];if(parts.length>4) response(x,200,Map.of("items",List.of(transfer("order_"+id.substring("pay_source".length())))));else response(x,200,payment(id));return;}
+      if(path.startsWith("/v1/disputes/")) {disputeEntered.countDown();if(blockDispute)try{releaseDispute.await(2,TimeUnit.SECONDS);}catch(InterruptedException e){Thread.currentThread().interrupt();}if(failDispute){response(x,503,Map.of("error","dispute fixture unavailable"));return;}response(x,200,Map.of("id",path.substring("/v1/disputes/".length()),"payment_id",paymentId(),"amount",10000,"currency","INR","amount_deducted",disputeStatus.equals("lost")?10000:0,"status",disputeStatus));return;}
       response(x,404,Map.of("error","unsupported fixture path"));
     }
-    public void close() {release.countDown();server.stop(0);executor.shutdownNow();}
+    public void close() {releaseDispute.countDown();release.countDown();server.stop(0);executor.shutdownNow();}
   }
   @TestConfiguration public static class Configuration {
     @Bean(destroyMethod="close") Fixture sourceRazorpayFixture(JdbcTemplate db,ObjectMapper json) throws IOException {return new Fixture(db,json);}

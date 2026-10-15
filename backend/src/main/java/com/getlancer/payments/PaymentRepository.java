@@ -27,6 +27,10 @@ public class PaymentRepository {
     var rows=db.queryForList("SELECT id,milestone_id,payer_user_id,amount_minor,currency,account_id,mode,status,order_id,payment_id,refunded_minor,transfer_status,settlement_status,attention_reason,dispute_status FROM payment_attempts WHERE order_id=?",order);
     return rows.isEmpty()?null:rows.get(0);
   }
+  Map<String,Object> byPayment(String order) {
+    var rows=db.queryForList("SELECT id,milestone_id,payer_user_id,amount_minor,currency,account_id,mode,status,order_id,payment_id,refunded_minor,transfer_status,settlement_status,attention_reason,dispute_status FROM payment_attempts WHERE payment_id=?",order);
+    return rows.isEmpty()?null:rows.get(0);
+  }
   Map<String,Object> byKey(UUID payer,UUID key) {
     var rows=db.queryForList("SELECT id,milestone_id,payer_user_id,amount_minor,currency,account_id,mode,status,order_id,payment_id,refunded_minor,transfer_status,settlement_status,attention_reason,dispute_status FROM payment_attempts WHERE payer_user_id=? AND idempotency_key=?",payer,key);
     return rows.isEmpty()?null:rows.get(0);
@@ -69,7 +73,12 @@ public class PaymentRepository {
     if ("DISPUTED".equals(prior.get("status"))) status="DISPUTED";
     db.update("UPDATE payment_attempts SET payment_id=?,status=?,refunded_minor=?,transfer_status=?,settlement_status=?,attention_reason=CASE WHEN dispute_status IS NOT NULL AND dispute_status<>'won' THEN attention_reason ELSE null END,updated_at=now() WHERE id=?",payment,status,refunded,transfer,settlement,id);
   }
-  List<String> disputes(UUID id) { return db.queryForList("SELECT id FROM payment_provider_disputes WHERE attempt_id=? ORDER BY updated_at LIMIT 20",String.class,id); }
+  List<String> disputes(UUID id) {
+    return db.queryForList("SELECT id FROM (SELECT id,1 AS priority FROM payment_provider_disputes WHERE attempt_id=? UNION ALL SELECT w.dispute_id AS id,0 AS priority FROM payment_webhook_events w JOIN payment_attempts p ON (p.order_id=w.order_id OR p.payment_id=w.payment_id) WHERE p.id=? AND w.processed_at IS NULL AND w.dispute_id IS NOT NULL AND w.event_kind LIKE 'payment.dispute.%') work GROUP BY id ORDER BY min(priority),id LIMIT 100",String.class,id,id);
+  }
+  List<String> pendingDisputeEvents(String order,String payment,String dispute) {
+    return db.queryForList("SELECT event_id FROM payment_webhook_events WHERE (order_id=? OR payment_id=?) AND dispute_id=? AND processed_at IS NULL AND event_kind LIKE 'payment.dispute.%' ORDER BY received_at,event_id LIMIT 200",String.class,order,payment,dispute);
+  }
   void dispute(UUID id,String dispute,String state,long deducted) {
     db.update("INSERT INTO payment_provider_disputes(id,attempt_id,status,deducted_minor) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET status=excluded.status,deducted_minor=excluded.deducted_minor,updated_at=now()",dispute,id,state,deducted);
     boolean held=db.queryForObject("SELECT count(*) FROM payment_provider_disputes WHERE attempt_id=? AND (status<>'won' OR deducted_minor>0)",Integer.class,id)>0;
@@ -82,12 +91,17 @@ public class PaymentRepository {
   void ledger(UUID id,String entry,String kind,long amount) {
     db.update("INSERT INTO payment_ledger(id,attempt_id,entry_key,kind,amount_minor,currency) VALUES(?,?,?,?,?,'INR') ON CONFLICT(attempt_id,entry_key) DO NOTHING",UUID.randomUUID(),id,entry,kind,amount);
   }
-  void event(String id,String hash,String kind) {
-    db.update("INSERT INTO payment_webhook_events(event_id,payload_hash,event_kind) VALUES(?,?,?)",id,hash,kind);
+  void event(String id,String hash,String kind,String order,String payment,String dispute) {
+    db.update("INSERT INTO payment_webhook_events(event_id,payload_hash,event_kind,order_id,payment_id,dispute_id,processed_at) VALUES(?,?,?,nullif(?,''),nullif(?,''),nullif(?,''),CASE WHEN ?='' AND ?='' THEN clock_timestamp() ELSE NULL END)",id,hash,kind,order,payment,dispute,order,payment);
   }
-  String existingEvent(String id) {
-    var hashes=db.queryForList("SELECT payload_hash FROM payment_webhook_events WHERE event_id=?",String.class,id);
-    return hashes.isEmpty()?null:hashes.get(0);
+  Map<String,Object> existingEvent(String id) {
+    var rows=db.queryForList("SELECT payload_hash,processed_at IS NULL AS pending FROM payment_webhook_events WHERE event_id=?",id);
+    return rows.isEmpty()?null:rows.get(0);
+  }
+  void recoverEvent(String id,String order,String payment,String dispute) {int changed=db.update("UPDATE payment_webhook_events SET order_id=coalesce(order_id,nullif(?,'')),payment_id=coalesce(payment_id,nullif(?,'')),dispute_id=coalesce(dispute_id,nullif(?,'')) WHERE event_id=? AND (?='' OR order_id IS NULL OR order_id=?) AND (?='' OR payment_id IS NULL OR payment_id=?) AND (?='' OR dispute_id IS NULL OR dispute_id=?)",order,payment,dispute,id,order,order,payment,payment,dispute,dispute);if(changed!=1)throw new ApiError(409,"PROVIDER_MISMATCH","Webhook references changed.");}
+  void associateEvent(String id,String order) {int changed=db.update("UPDATE payment_webhook_events SET order_id=? WHERE event_id=? AND (order_id IS NULL OR order_id=?)",order,id,order);if(changed!=1)throw new ApiError(409,"PROVIDER_MISMATCH","Webhook order association changed.");}
+  void processedEvent(String id) {
+    db.update("UPDATE payment_webhook_events SET processed_at=clock_timestamp() WHERE event_id=? AND processed_at IS NULL",id);
   }
   List<PaymentResponses.Account> accounts() {
     return db.queryForList("SELECT id,builder_user_id AS \"builderUserId\",team_id AS \"teamId\",account_id AS \"accountId\",mode,provider_status AS \"providerStatus\",verified_at AS \"verifiedAt\" FROM payment_accounts ORDER BY verified_at DESC").stream().map(PaymentResponses.Account::from).toList();

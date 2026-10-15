@@ -161,7 +161,6 @@ public class PaymentService {
     try {
       if (row.get("payment_id")!=null) {
         var summary=reconcilePayment(row,Objects.toString(row.get("payment_id")),request);
-        for (String dispute:repo.disputes((UUID)row.get("id"))) reconcileDispute(row,dispute);
         return visibleSummary((UUID)row.get("id"),request);
       }
       JsonNode collection=provider.orderPayments(Objects.toString(row.get("order_id")));
@@ -192,7 +191,7 @@ public class PaymentService {
       } catch (RazorpayClient.ProviderFailure | ApiError ex) { transferUnknown=true; }
       final TransferState confirmedTransfer=transfer; final boolean unknown=transferUnknown;
       // Verified provider effects are recorded independently of a caller revoked during the read.
-      var recorded=tx(()-> {
+      tx(()-> {
         var current=system((UUID)snapshot.get("id"));
         if (current.get("payment_id")!=null && !payment.equals(current.get("payment_id"))) throw mismatch();
         long previous=number(current,"refunded_minor"), total=Math.max(previous,refunded);
@@ -206,7 +205,9 @@ public class PaymentService {
         if (total>previous) delivery.event((UUID)milestone.get("engagementId"),null,"PAYMENT_REFUNDED","Razorpay confirmed an increased refund total; milestone completion is held.");
         return PaymentRepository.summary(repo.attempt((UUID)current.get("id"),false));
       });
-      return request==null?recorded:visibleSummary((UUID)snapshot.get("id"),request);
+      var disputedRow=new LinkedHashMap<>(snapshot); disputedRow.put("payment_id",payment);
+      for (String dispute:repo.disputes((UUID)snapshot.get("id"))) reconcileDispute(disputedRow,dispute);
+      return visibleSummary((UUID)snapshot.get("id"),request);
     } catch (RazorpayClient.ProviderFailure ex) { throw new ApiError(502,"PAYMENT_RECONCILIATION_UNAVAILABLE","Provider status is unavailable. The stored payment has not been changed; try reconciliation later."); }
   }
 
@@ -227,6 +228,7 @@ public class PaymentService {
     } catch (RazorpayClient.ProviderFailure ex) { throw new ApiError(502,"ACCOUNT_VERIFICATION_UNAVAILABLE","Razorpay account verification failed. No seller mapping was saved."); }
   }
   private void reconcileDispute(Map<String,Object> row,String id) {
+    var pending=repo.pendingDisputeEvents(Objects.toString(row.get("order_id")),Objects.toString(row.get("payment_id")),id);
     var dispute=provider.dispute(id);
     if (!id.equals(dispute.path("id").asText()) || !Objects.toString(row.get("payment_id")).equals(dispute.path("payment_id").asText())
         || !"INR".equals(dispute.path("currency").asText()) || integer(dispute,"amount")<=0 || integer(dispute,"amount")>number(row,"amount_minor")) throw mismatch();
@@ -234,7 +236,9 @@ public class PaymentService {
     if (!Set.of("open","under_review","action_required","lost","closed","won").contains(state)) throw mismatch();
     tx(()->{ var current=system((UUID)row.get("id")); long deducted=integer(dispute,"amount_deducted");
     if (deducted<0 || deducted>number(row,"amount_minor")) throw mismatch();
-    repo.dispute((UUID)current.get("id"),id,state,deducted); return null; });
+    repo.dispute((UUID)current.get("id"),id,state,deducted);
+    for (String event:pending) repo.processedEvent(event);
+    return null; });
   }
   public PaymentResponses.Summary adminReconcile(UUID id,HttpServletRequest request) {
     security.admin(request); provider.requireCredentials(); var row=tx(()->system(id)); mode(row);
@@ -268,42 +272,63 @@ public class PaymentService {
     if (eventId==null || !eventId.matches("[A-Za-z0-9_.-]{1,100}")) throw new ApiError(400,"INVALID_WEBHOOK_EVENT","Webhook event identifier is required.");
     String digest;
     try { digest=HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(body)); } catch (java.security.NoSuchAlgorithmException ex) { throw new IllegalStateException(ex); }
-    // Serialize only duplicate event processing, never global payment work. Unlock at transaction end.
-    return tx(()-> {
-      repo.advisoryLock(eventId);
-      String previous=repo.existingEvent(eventId);
-      if (previous!=null) {
-        if (!previous.equals(digest)) throw new ApiError(409,"WEBHOOK_EVENT_CONFLICT","A different payload used the same webhook event identifier.");
-        return new PaymentResponses.WebhookReceipt(true,true);
-      }
-      JsonNode event;
-      try { event=json.readTree(body); } catch (IOException ex) { throw new ApiError(400,"INVALID_WEBHOOK_EVENT","Invalid webhook JSON."); }
-      if (event==null || !event.isObject()) throw new ApiError(400,"INVALID_WEBHOOK_EVENT","Invalid webhook event.");
-      String kind=event.path("event").asText();
-      if (kind.isBlank() || kind.length()>100) throw new ApiError(400,"INVALID_WEBHOOK_EVENT","Invalid webhook event kind.");
-      JsonNode payload=event.path("payload"); String order="",payment="";
-      String disputeId="";
+    // Check processed replay before provider I/O; pending receipts must remain retryable.
+    var prior=repo.existingEvent(eventId);
+    if (prior!=null) {
+      if (!digest.equals(prior.get("payload_hash"))) throw new ApiError(409,"WEBHOOK_EVENT_CONFLICT","A different payload used the same webhook event identifier.");
+      if (!Boolean.TRUE.equals(prior.get("pending"))) return new PaymentResponses.WebhookReceipt(true,true);
+    }
+    JsonNode event;
+    try { event=json.readTree(body); } catch (IOException ex) { throw new ApiError(400,"INVALID_WEBHOOK_EVENT","Invalid webhook JSON."); }
+    if (event==null || !event.isObject()) throw new ApiError(400,"INVALID_WEBHOOK_EVENT","Invalid webhook event.");
+    String kind=event.path("event").asText();
+    if (kind.isBlank() || kind.length()>100) throw new ApiError(400,"INVALID_WEBHOOK_EVENT","Invalid webhook event kind.");
+    JsonNode payload=event.path("payload"); String order="",payment="",disputeId="";
+    try {
       if (kind.startsWith("payment.dispute.")) {
-        var d=payload.path("dispute").path("entity"); disputeId=d.path("id").asText(); payment=d.path("payment_id").asText();
-        order=provider.payment(payment).path("order_id").asText();
+        var d=payload.path("dispute").path("entity"); disputeId=RazorpayClient.providerId(d.path("id").asText(),"disp_"); payment=RazorpayClient.providerId(d.path("payment_id").asText(),"pay_");
       } else if (Set.of("payment.captured","payment.authorized","payment.failed").contains(kind)) {
         var p=payload.path("payment").path("entity"); order=p.path("order_id").asText(); payment=p.path("id").asText();
       } else if (Set.of("refund.created","refund.processed","refund.failed").contains(kind)) {
         payment=payload.path("refund").path("entity").path("payment_id").asText();
-        if (!payment.isBlank()) order=provider.payment(payment).path("order_id").asText();
       } else if (kind.equals("order.paid")) order=payload.path("order").path("entity").path("id").asText();
       else if (kind.startsWith("transfer.")) {
         String source=payload.path("transfer").path("entity").path("source").asText();
         if (source.startsWith("order_")) order=source;
-        else if (source.startsWith("pay_")) { payment=source; order=provider.payment(payment).path("order_id").asText(); }
+        else if (source.startsWith("pay_")) { payment=source; }
+      }
+      if (!order.isBlank()) RazorpayClient.providerId(order,"order_");
+      if (!payment.isBlank()) RazorpayClient.providerId(payment,"pay_");
+      final String orderRef=order,paymentRef=payment,disputeRef=disputeId;
+      boolean duplicate=tx(()-> {
+        repo.advisoryLock(eventId);
+        var existing=repo.existingEvent(eventId);
+        if (existing!=null && !digest.equals(existing.get("payload_hash"))) throw new ApiError(409,"WEBHOOK_EVENT_CONFLICT","A different payload used the same webhook event identifier.");
+        var current=orderRef.isBlank()?(paymentRef.isBlank()?null:repo.byPayment(paymentRef)):repo.byOrder(orderRef);
+        if (current!=null) system((UUID)current.get("id"));
+        if(existing!=null) {
+          // Matching authenticated replay can recover references absent in old receipts.
+          repo.recoverEvent(eventId,orderRef,paymentRef,disputeRef);
+          return true;
+        }
+        repo.event(eventId,digest,kind,orderRef,paymentRef,disputeRef);
+        return false;
+      });
+      if (order.isBlank() && !payment.isBlank()) {
+        var entity=provider.payment(payment);
+        if (!payment.equals(entity.path("id").asText())) throw mismatch();
+        order=RazorpayClient.providerId(entity.path("order_id").asText(),"order_");
+        final String associatedOrder=order;
+        tx(()->{var current=repo.byOrder(associatedOrder);if(current!=null)system((UUID)current.get("id"));repo.associateEvent(eventId,associatedOrder);return null;});
       }
       var row=order.isBlank()?null:repo.byOrder(order);
       if (row!=null) {
         if (payment.isBlank()) reconcileOrder(row,null); else reconcilePayment(row,payment,null);
-        if (!disputeId.isBlank()) reconcileDispute(repo.attempt((UUID)row.get("id"),false),disputeId);
+        if (disputeId.isBlank()) tx(()->{repo.processedEvent(eventId);return null;});
       }
-      repo.event(eventId,digest,kind);
-      return new PaymentResponses.WebhookReceipt(true,false);
-    });
+      return new PaymentResponses.WebhookReceipt(true,duplicate);
+    } catch (RazorpayClient.ProviderFailure ex) {
+      throw new ApiError(502,"PAYMENT_RECONCILIATION_UNAVAILABLE","Provider status is unavailable. Pending webhook evidence remains held for retry.");
+    }
   }
 }

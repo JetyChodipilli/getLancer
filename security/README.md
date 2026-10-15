@@ -6,6 +6,7 @@ Security documentation and verified remediation evidence for getLancer.
 - [API access controls](API-ACCESS.md)
 - [Deployment and secret handling](DEPLOYMENT.md)
 - [Legacy requester identity migration](LEGACY-IDENTITY.md)
+- [Payment dispute inbox and recovery](PAYMENT-DISPUTES.md)
 - [Threat model](THREAT-MODEL.md)
 - [Earlier runtime, browser and capacity evidence](../docs/audits/2026-10-13-local-audit.md)
 

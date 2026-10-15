@@ -191,7 +191,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/commerce/CommercePaymentService.java",
-      "sha256": "4c1559c1e9be7c2a1068db2bc44532f9e5c6e2d3327b343471c006012058feaf"
+      "sha256": "2b448c98271c65db4302bcc90b6b281561b5272975d996466179f38f00d843aa"
     },
     {
       "path": "backend/src/main/java/com/getlancer/commerce/CommercePaymentsController.java",
@@ -199,7 +199,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/commerce/CommerceRepository.java",
-      "sha256": "4bb1c3da2ce4e44e928b2684eb49044b7914509cfc9e28b863928fd2898a8f07"
+      "sha256": "bd32c6a3998b3026308d3fb0641b863ea70f03e25272c335d1072d0d6c1bd88b"
     },
     {
       "path": "backend/src/main/java/com/getlancer/commerce/CommerceService.java",
@@ -271,7 +271,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/delivery/DeliveryRepository.java",
-      "sha256": "510479111402f802c50fcfed29e8241ed2abf93a790bd96595dac7165af9390b"
+      "sha256": "2f3367bb35ac63d4ff66f2bee5388050df0d7a4122aa80a8c52790a6b8574c62"
     },
     {
       "path": "backend/src/main/java/com/getlancer/delivery/DeliveryService.java",
@@ -531,11 +531,11 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/payments/PaymentRepository.java",
-      "sha256": "53e02a6c6243c54b9c71edd8fe320bf261500bb5ebcfe09a399b1059917b7dcd"
+      "sha256": "31cca4c52e0b5a2c3fd8e5000a587c99b9a74fa21ca331592ae986ed5d521c81"
     },
     {
       "path": "backend/src/main/java/com/getlancer/payments/PaymentService.java",
-      "sha256": "49376c5148d66df020351761482aad6fea1b0df344bf62786791ec53ebf0ac32"
+      "sha256": "583368ddce6798f88a4b6137dc6c5c00859059f1ad40565e89d38f9b2e7ef2ac"
     },
     {
       "path": "backend/src/main/java/com/getlancer/payments/RazorpayClient.java",
@@ -874,6 +874,18 @@
       "sha256": "feaa7144e654f3bb15f8a374f27de58934befdf7d9956c4efc9f5d407a29c876"
     },
     {
+      "path": "backend/src/main/resources/db/migration/V36__payment_dispute_inbox.sql",
+      "sha256": "18fcdae1be377dae2a359bc1adb2daf0fa0af250197cc46413c69b90f3f410f1"
+    },
+    {
+      "path": "backend/src/main/resources/db/migration/V37__commerce_dispute_inbox.sql",
+      "sha256": "bdb03a65aeff75fb95a007e46212ad54057ebf491502b1331ec28ddec6565630"
+    },
+    {
+      "path": "backend/src/main/resources/db/migration/V38__pending_dispute_payment_indexes.sql",
+      "sha256": "1315c86d2c49be4c4be41b343a564a00c554c4a2173a8fc81f8a285bff47b84d"
+    },
+    {
       "path": "backend/src/main/resources/db/migration/V3__product_taxonomy.sql",
       "sha256": "13f0051b41f440af5f69d00da462172a11d88f91d602bed65fb8d64fc6948a65"
     },
@@ -1021,7 +1033,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/CommerceIntegrationTest.java",
-      "sha256": "cbd063e4e1f1bd1e31a36a66b0c362aa3d274ac21ca934ae55118b5286c14dde"
+      "sha256": "179a2b0abd7642b4231c03ef62ba5e9eff7e5660e09e54ca3b632ac54fa384b7"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java",
@@ -1053,7 +1065,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/PaymentIntegrationTest.java",
-      "sha256": "037dc2b4e0cd57eb3089560e77a98a0d7d0ef72208acab32ac2b34708d527efa"
+      "sha256": "36e7ad286b05795146934cba98cd268269c2d0d11275c1047a6944822e1a0aaf"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/TeamsIntegrationTest.java",
@@ -1093,7 +1105,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/payments/CommerceProviderIntegrationTest.java",
-      "sha256": "09cbf8c9e6bf7a0780a7589f766362e21f581330999281d453e85b96067225a9"
+      "sha256": "d79bd9751b094ae20c1c903f6aa5203f40fe645ec4ddd900e1d4d776af086fca"
     },
     {
       "path": "backend/src/test/java/com/getlancer/payments/MaintenanceFixture.java",
@@ -1105,7 +1117,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/payments/RazorpayFixture.java",
-      "sha256": "884df1802fc4c9724865640721aab2a76ef4cbdcae7b5f2fd9c0f999b995aec2"
+      "sha256": "f5518c0bb9aee3af5f6bd28618f90a3d64cbf9b54c79de715012af933c97a74f"
     },
     {
       "path": "backend/src/test/java/com/getlancer/products/ProductPricingTest.java",
