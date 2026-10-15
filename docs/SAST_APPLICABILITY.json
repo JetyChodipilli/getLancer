@@ -259,7 +259,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/config/DatabaseRoleGuard.java",
-      "sha256": "18fcebfd115e3d2db17a0d39f0d90a8b83fd52b1be2a7cff1bd65c55173a0d21"
+      "sha256": "ba4f55d793280bbd7eaf5772eb042f6d0c7b1e499401d997a943b6ab875d25d7"
     },
     {
       "path": "backend/src/main/java/com/getlancer/config/MfaStorageUpgrade.java",
@@ -1013,7 +1013,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/config/DatabaseRoleGuardIntegrationTest.java",
-      "sha256": "70b2b813827a7e81b0fde0a46be75b8afa5a833be802b1ed61487112e3ee078a"
+      "sha256": "28c21ebe7787d70724f683bb2c5d209598931483116ec70d07dc919cf636c035"
     },
     {
       "path": "backend/src/test/java/com/getlancer/config/ProductionConfigurationTest.java",

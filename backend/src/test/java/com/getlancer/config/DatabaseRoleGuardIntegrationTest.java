@@ -98,6 +98,18 @@ class DatabaseRoleGuardIntegrationTest {
     }
   }
 
+  @Test void webhookReceiptIdentityStaysImmutableWhileReconciliationMetadataCanAdvance() throws Exception {
+    for(String table:List.of("payment_webhook_events","commerce_webhook_events")) {
+      String event="runtime-receipt-"+UUID.randomUUID();
+      runtime.update("INSERT INTO "+table+"(event_id,payload_hash,event_kind,payment_id,dispute_id) VALUES(?,?,'payment.dispute.created','pay_rolefixture123','disp_rolefixture123')",event,"a".repeat(64));
+      assertEquals(1,runtime.update("UPDATE "+table+" SET order_id='order_rolefixture123',processed_at=clock_timestamp() WHERE event_id=?",event));
+      assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE "+table+" SET payload_hash=? WHERE event_id=?","b".repeat(64),event));
+      assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE "+table+" SET event_id='changed' WHERE event_id=?",event));
+      assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("DELETE FROM "+table+" WHERE event_id=?",event));
+      try {adminSql("GRANT UPDATE (payload_hash) ON "+SCHEMA+"."+table+" TO getlancer_runtime");assertRejected(runtime,"webhook_receipt_permissions");}
+      finally {provision("10_permissions.sql");}
+    }
+  }
   @Test void reviewedRuntimeCanExecuteApplicationOperationsAndReadRlsTables() throws Exception {
     assertDoesNotThrow(() -> guard(runtime));
     List<String> tables = runtime.queryForList("SELECT tablename FROM pg_tables WHERE schemaname=? AND tablename<>'flyway_schema_history'", String.class, SCHEMA);
