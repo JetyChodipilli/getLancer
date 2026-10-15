@@ -20,7 +20,7 @@ import jakarta.servlet.http.Cookie;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -54,7 +54,7 @@ class EducationIntegrationTest {
   @MockBean RazorpayClient provider;
   UUID owner,other,admin,product;
   List<Map<String,Object>> examples;
-  Map<String,byte[]> objects=new HashMap<>();
+  Map<String,byte[]> objects=new ConcurrentHashMap<>();
   UUID user(String name){UUID id=UUID.randomUUID();db.update("INSERT INTO users(id,email,password_hash,email_verified_at) VALUES(?,?,'unused',now())",id,name+"@example.test");db.update("INSERT INTO user_roles(user_id,role) VALUES(?,'CLIENT'),(?,'DEVELOPER')",id,id);db.update("INSERT INTO developer_profiles(user_id,slug,display_name,approval_status) VALUES(?,?,?,'APPROVED')",id,name,name);db.update("INSERT INTO sessions(token_hash,user_id,expires_at) VALUES(?,?,now()+interval '1 hour')",Support.hash(name),id);db.update("INSERT INTO showcase_entitlements(user_id) VALUES(?)",id);return id;}
   UUID product(UUID owner){UUID id=UUID.randomUUID();db.update("INSERT INTO products(id,owner_user_id,slug,title,summary,description,project_type,category,technology,contribution_text,rights_confirmed,approval_status,lifecycle_status,visibility) VALUES(?,?,?,'Original college project','Original reproducible project outcome','Original source with independently inspectable category evidence and realistic local setup.','LEARNING','CRM','JavaScript','Built the original source and reproduced the stated category evidence.',true,'APPROVED','ACTIVE','PUBLIC')",id,owner,id.toString());return id;}
   @BeforeEach void setup()throws Exception{
@@ -142,6 +142,59 @@ class EducationIntegrationTest {
   }
   @Test void privateFreeUploadHasExactFilesAndNeverCreatesPurchaseAccounting()throws Exception{
     var draft=create("FREE",0);mvc.perform(upload(draft,archive(0),false)).andExpect(status().isBadRequest());mvc.perform(upload(draft,new byte[32],true)).andExpect(status().isBadRequest());var uploaded=ok(upload(draft,archive(0),true));assertEquals(2,uploaded.path("revision").asInt());assertEquals(SourceArchive.inspect(archive(0)).sha256(),uploaded.path("sourceBinding").path("sha256").asText());assertEquals(SourceArchive.inspect(archive(0)).files().size(),ok(as(get("/api/v1/me/education-releases/"+uploaded.path("id").asText()),"owner")).path("sourceBinding").path("files").size());mvc.perform(upload(draft,archive(0),true)).andExpect(status().isConflict());assertEquals(0,db.queryForObject("SELECT count(*) FROM template_purchases",Integer.class));assertEquals(SourceArchive.inspect(archive(0)).files(),json.readValue(db.queryForObject("SELECT files::text FROM education_free_packages",String.class),List.class));assertFalse(uploaded.toString().contains("storage_key"));assertFalse(uploaded.toString().contains("commerce/"));
+  }
+  // Synthetic historical package rows have no stored objects. They include superseded/unlinked uploads.
+  void retainedPackages(UUID user,int count){
+    db.update("INSERT INTO education_free_packages(id,owner_id,storage_key,sha256,size_bytes,entry_count,files) SELECT gen_random_uuid(),?,'commerce/'||gen_random_uuid()||'/'||gen_random_uuid()||'.zip',repeat('a',64),22,2,'[]'::jsonb FROM generate_series(1,?)",user,count);
+  }
+  @Test void retainedSourceBudgetCountsReplacementsModeChangesAndOtherProjectsPerOwner()throws Exception{
+    byte[] bytes=archive(0);
+    var first=ok(upload(create("FREE",0),bytes,true));
+    var replacement=ok(upload(first,bytes,true));
+    assertNotEquals(first.path("freePackageId"),replacement.path("freePackageId"));
+    retainedPackages(owner,98);
+    mvc.perform(upload(replacement,bytes,true)).andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("EDUCATION_SOURCE_LIMIT"));
+    String id=replacement.path("id").asText();
+    var showcase=ok(body(patch("/api/v1/me/education-releases/"+id),"owner",Map.of("revision",replacement.path("revision").asLong(),"mode","SHOWCASE")));
+    var free=ok(body(patch("/api/v1/me/education-releases/"+id),"owner",Map.of("revision",showcase.path("revision").asLong(),"mode","FREE")));
+    mvc.perform(upload(free,bytes,true)).andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("EDUCATION_SOURCE_LIMIT"));
+    var another=ok(body(post("/api/v1/me/college-projects/"+product(owner)+"/releases"),"owner",draftBody("FREE",0)));
+    mvc.perform(upload(another,bytes,true)).andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("EDUCATION_SOURCE_LIMIT"));
+    verify(storage,times(2)).put(any(UUID.class),any(byte[].class),anyString());
+    var independent=ok(body(post("/api/v1/me/college-projects/"+product(other)+"/releases"),"other",draftBody("FREE",0)));
+    ok(as(multipart("/api/v1/me/education-releases/"+independent.path("id").asText()+"/source").file(new MockMultipartFile("file","source.zip","application/zip",bytes)).param("revision","1").param("rightsConsent","true"),"other").header("Origin","http://localhost:3000").header("X-Requested-With","getlancer"));
+    assertEquals(100,db.queryForObject("SELECT count(*) FROM education_free_packages WHERE owner_id=?",Integer.class,owner));
+    assertEquals(1,db.queryForObject("SELECT count(*) FROM education_free_packages WHERE owner_id=?",Integer.class,other));
+  }
+  @Test void concurrentUploadsAcrossProjectsCommitOnlyOneFinalSourceSlot()throws Exception{
+    var first=create("FREE",0);
+    var second=ok(body(post("/api/v1/me/college-projects/"+product(owner)+"/releases"),"owner",draftBody("FREE",0)));
+    retainedPackages(owner,99);byte[] bytes=archive(0);
+    var uploaded=new java.util.concurrent.CountDownLatch(2);
+    when(storage.put(any(UUID.class),any(byte[].class),anyString())).thenAnswer(invocation->{
+      String key="commerce/"+invocation.getArgument(0)+"/"+UUID.randomUUID()+".zip";
+      objects.put(key,((byte[])invocation.getArgument(1)).clone());uploaded.countDown();
+      assertTrue(uploaded.await(10,java.util.concurrent.TimeUnit.SECONDS),"Storage calls must run outside the owner transaction lock.");return key;
+    });
+    var pool=java.util.concurrent.Executors.newFixedThreadPool(2);
+    try{
+      var one=pool.submit(()->mvc.perform(upload(first,bytes,true)).andReturn().getResponse().getStatus());
+      var two=pool.submit(()->mvc.perform(upload(second,bytes,true)).andReturn().getResponse().getStatus());
+      assertEquals(List.of(200,409),List.of(one.get(20,java.util.concurrent.TimeUnit.SECONDS),two.get(20,java.util.concurrent.TimeUnit.SECONDS)).stream().sorted().toList());
+      assertEquals(100,db.queryForObject("SELECT count(*) FROM education_free_packages WHERE owner_id=?",Integer.class,owner));
+      assertEquals(1,objects.size());verify(storage,times(1)).discardUnlinked(anyString());
+      assertEquals(1,db.queryForObject("SELECT count(*) FROM education_audit WHERE action='SOURCE_UPLOADED'",Integer.class));
+    }finally{pool.shutdownNow();assertTrue(pool.awaitTermination(15,java.util.concurrent.TimeUnit.SECONDS));}
+  }
+  @Test void sourceBudgetDoesNotRevokeHistoricalApprovalOrDownloads()throws Exception{
+    var uploaded=ok(upload(create("FREE",0),archive(0),true));retainedPackages(owner,105);
+    var pending=submit(uploaded);String id=pending.path("id").asText();
+    mvc.perform(body(post("/api/v1/admin/education-releases/"+id+"/package"),"admin",Map.of())).andExpect(status().isOk());approve(pending);
+    assertTrue(ok(get("/api/v1/education-releases/"+id+"/source-offer")).path("available").asBoolean());
+    assertArrayEquals(archive(0),mvc.perform(get("/api/v1/education-releases/"+id+"/source")).andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray());
+    assertEquals(106,db.queryForObject("SELECT count(*) FROM education_free_packages WHERE owner_id=?",Integer.class,owner));
+    mvc.perform(upload(create("FREE",0),archive(0),true)).andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("EDUCATION_SOURCE_LIMIT"));
+    verify(storage,times(1)).put(any(UUID.class),any(byte[].class),anyString());
   }
   @Test void confirmedUploadRollbackDiscardsOnlyItsUnlinkedPrivateObject()throws Exception{
     var draft=create("FREE",0);String id=draft.path("id").asText(),key="commerce/"+UUID.randomUUID()+"/"+UUID.randomUUID()+".zip";when(storage.put(any(UUID.class),any(byte[].class),anyString())).thenAnswer(invocation->{objects.put(key,archive(0));db.update("UPDATE education_releases SET revision=revision+1 WHERE id=?",UUID.fromString(id));return key;});mvc.perform(upload(draft,archive(0),true)).andExpect(status().isConflict());verify(storage).discardUnlinked(key);assertFalse(objects.containsKey(key));assertEquals(0,db.queryForObject("SELECT count(*) FROM education_free_packages",Integer.class));

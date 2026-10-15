@@ -40,6 +40,7 @@ import org.springframework.web.multipart.MultipartFile;
 /** Education publication reuses existing contribution, storage, capacity and purchase authorities. */
 @Service
 public class EducationService {
+  private static final int MAX_FREE_PACKAGES=100;
   private static final String COLUMNS="id,product_id,owner_id,revision,status,draft,snapshot,source_hash,free_package_id,source_version_id,review_reason,submitted_at,reviewed_at,created_at,updated_at";
   private static final String PACKAGE_COLUMNS="id,owner_id,storage_key,sha256,size_bytes,entry_count,files,created_at";
   private static final String ELIGIBLE=ProductRepository.PUBLIC+" AND u.email_verified_at IS NOT NULL AND EXISTS(SELECT 1 FROM user_roles ur WHERE ur.user_id=u.id AND ur.role='DEVELOPER')";
@@ -128,13 +129,18 @@ public class EducationService {
     UUID owner=actor(request,false,true);var row=owned(id,owner);editable(row);revision(body,row);UUID product=(UUID)row.get("product_id");var draft=schema.draft(body);UUID version=version(body,draft.get("mode").toString(),product,owner);
     db.update("UPDATE education_releases SET draft=?::jsonb,source_version_id=?,free_package_id=CASE WHEN ?='FREE' THEN free_package_id ELSE NULL END,revision=revision+1,updated_at=now() WHERE id=?",schema.encode(draft),version,draft.get("mode"),id);return dto(row(id,false),true);
   }
+  /** Called with the publishing owner lock; count superseded and detached packages too. */
+  private void freeCapacity(UUID owner){
+    int retained=db.queryForObject("SELECT count(*) FROM (SELECT 1 FROM education_free_packages WHERE owner_id=? LIMIT ?) retained",Integer.class,owner,MAX_FREE_PACKAGES);
+    if(retained>=MAX_FREE_PACKAGES)throw new ApiError(409,"EDUCATION_SOURCE_LIMIT","At most one hundred immutable free source packages are retained per builder, including replaced drafts.");
+  }
   public Map<String,Object> upload(UUID id,MultipartFile file,long revision,boolean rights,HttpServletRequest request)throws IOException{
     if(!rights)throw new ApiError(400,"RIGHTS_CONSENT_REQUIRED","Confirm your permission to distribute this exact source.");
     if(file.getSize()>SourceArchive.MAX_COMPRESSED)throw new ApiError(413,"PAYLOAD_TOO_LARGE","Free source archives are limited to five MiB.");
-    byte[] bytes=file.getBytes();var inspection=SourceArchive.inspect(bytes);UUID owner=tx.execute(status->{UUID actor=actor(request,false,true);var row=owned(id,actor);editable(row);revision(Map.of("revision",revision),row);if(!"FREE".equals(schema.read(row.get("draft")).get("mode")))throw EducationSnapshot.invalid("Only free drafts accept a free source upload.");return actor;});
+    byte[] bytes=file.getBytes();var inspection=SourceArchive.inspect(bytes);UUID owner=tx.execute(status->{UUID actor=actor(request,false,true);var row=owned(id,actor);editable(row);revision(Map.of("revision",revision),row);if(!"FREE".equals(schema.read(row.get("draft")).get("mode")))throw EducationSnapshot.invalid("Only free drafts accept a free source upload.");freeCapacity(actor);return actor;});
     UUID pack=UUID.randomUUID();String key=storage.put(pack,bytes,inspection.sha256());var entered=new AtomicBoolean();var rolledBack=new AtomicBoolean();
     try{return tx.execute(status->{entered.set(true);TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization(){@Override public void afterCompletion(int completion){if(completion==STATUS_ROLLED_BACK)rolledBack.set(true);}});
-      UUID actor=actor(request,false,true);if(!owner.equals(actor))throw missing();var row=owned(id,owner);editable(row);revision(Map.of("revision",revision),row);if(!"FREE".equals(schema.read(row.get("draft")).get("mode")))throw EducationSnapshot.invalid("Only free drafts accept source uploads.");
+      UUID actor=actor(request,false,true);if(!owner.equals(actor))throw missing();var row=owned(id,owner);editable(row);revision(Map.of("revision",revision),row);if(!"FREE".equals(schema.read(row.get("draft")).get("mode")))throw EducationSnapshot.invalid("Only free drafts accept source uploads.");freeCapacity(owner);
       db.update("INSERT INTO education_free_packages(id,owner_id,storage_key,sha256,size_bytes,entry_count,files) VALUES(?,?,?,?,?,?,?::jsonb)",pack,owner,key,inspection.sha256(),inspection.sizeBytes(),inspection.entryCount(),schema.encode(inspection.files()));
       db.update("UPDATE education_releases SET free_package_id=?,revision=revision+1,updated_at=now() WHERE id=?",pack,id);audit(id,owner,"SOURCE_UPLOADED","Statically inspected source; uploaded code was never executed.",inspection.sha256());return dto(row(id,false),true);});
     }catch(RuntimeException error){if(!entered.get()||rolledBack.get())storage.discardUnlinked(key);throw error;}
