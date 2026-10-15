@@ -212,7 +212,7 @@ public class DeliveryRepository {
 
   public boolean allPaid(UUID engagement) {
     Integer total = db.queryForObject("SELECT count(*) FROM delivery_milestones WHERE engagement_id=?", Integer.class, engagement);
-    Integer paid = db.queryForObject("SELECT count(*) FROM delivery_milestones m WHERE m.engagement_id=? AND m.status='ACCEPTED' AND EXISTS(SELECT 1 FROM payment_attempts p WHERE p.milestone_id=m.id AND p.status='CAPTURED' AND p.mode='live' AND p.amount_minor=m.amount_minor AND p.refunded_minor=0)", Integer.class, engagement);
+    Integer paid = db.queryForObject("SELECT count(*) FROM delivery_milestones m WHERE m.engagement_id=? AND m.status='ACCEPTED' AND EXISTS(SELECT 1 FROM payment_attempts p WHERE p.milestone_id=m.id AND p.status='CAPTURED' AND p.mode='live' AND p.amount_minor=m.amount_minor AND p.refunded_minor=0 AND NOT EXISTS(SELECT 1 FROM payment_webhook_events w WHERE w.processed_at IS NULL AND w.event_kind LIKE 'payment.dispute.%' AND (w.order_id=p.order_id OR w.payment_id=p.payment_id OR (w.order_id IS NULL AND w.payment_id IS NULL))))", Integer.class, engagement);
     return total > 0 && total.equals(paid);
   }
   public void event(UUID engagement, UUID actor, String kind, String detail) {

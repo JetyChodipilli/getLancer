@@ -160,6 +160,72 @@ class PaymentIntegrationTest {
     assertEquals(1,db.queryForObject("SELECT count(*) FROM payment_ledger WHERE kind='CAPTURE'",Integer.class));
   }
 
+  String disputeEvent() {
+    return "{\"event\":\"payment.dispute.created\",\"payload\":{\"dispute\":{\"entity\":{\"id\":\"disp_fixture123456\",\"payment_id\":\""+fixture.paymentId()+"\"}}}}";
+  }
+  boolean liveCompletionEligible() {
+    db.update("UPDATE payment_attempts SET mode='live'");
+    try { return delivery.allPaid(engagement); }
+    finally { db.update("UPDATE payment_attempts SET mode='test'"); }
+  }
+  @Test void disputeBeforeUncertainOrderBindingIsRetainedAndRecovered() throws Exception {
+    fixture.uncertain=true;
+    mvc.perform(create("buyer",key)).andExpect(status().isBadGateway());
+    fixture.captured=true;
+    mvc.perform(webhook("early_dispute",disputeEvent())).andExpect(status().isOk());
+    mvc.perform(json(post("/api/v1/admin/payments/"+attempt()+"/bind-order"),"admin","{\"orderId\":\""+fixture.orderId()+"\"}"))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("DISPUTED"));
+    assertFalse(liveCompletionEligible());
+    assertEquals(1,db.queryForObject("SELECT count(*) FROM payment_ledger WHERE kind='CAPTURE'",Integer.class));
+  }
+  @Test void failedDisputeReadKeepsCompletionHeldAndRetryProcessesPendingReceipt() throws Exception {
+    mvc.perform(create("buyer",key)).andExpect(status().isOk());fixture.captured=true;
+    mvc.perform(json(post("/api/v1/payments/"+attempt()+"/verify"),"buyer",callback())).andExpect(status().isOk());
+    assertTrue(liveCompletionEligible());fixture.failDispute=true;
+    mvc.perform(webhook("failed_dispute",disputeEvent())).andExpect(status().isBadGateway());
+    assertFalse(liveCompletionEligible());fixture.failDispute=false;
+    mvc.perform(webhook("failed_dispute",disputeEvent())).andExpect(status().isOk()).andExpect(jsonPath("$.duplicate").value(true));
+    assertEquals("DISPUTED",state());
+    fixture.disputeStatus="won";
+    mvc.perform(json(post("/api/v1/admin/payments/"+attempt()+"/reconcile"),"admin","{}")).andExpect(status().isOk());
+    assertTrue(liveCompletionEligible());
+  }
+  @Test void providerDisputeHttpDoesNotHoldEngagementRowsAndPendingReceiptHoldsCompletion() throws Exception {
+    mvc.perform(create("buyer",key)).andExpect(status().isOk());fixture.captured=true;fixture.blockDispute=true;
+    var executor=Executors.newSingleThreadExecutor();
+    var future=executor.submit(()->mvc.perform(webhook("slow_dispute",disputeEvent())).andExpect(status().isOk()));
+    try {
+      assertTrue(fixture.disputeEntered.await(5,TimeUnit.SECONDS));
+      var transaction=new org.springframework.transaction.support.TransactionTemplate(new org.springframework.jdbc.datasource.DataSourceTransactionManager(db.getDataSource()));
+      transaction.execute(status->{db.execute("SET LOCAL lock_timeout='300ms'");db.queryForObject("SELECT id FROM delivery_engagements WHERE id=? FOR UPDATE",UUID.class,engagement);return null;});
+      assertFalse(liveCompletionEligible());
+    } finally {fixture.releaseDispute.countDown();future.get(5,TimeUnit.SECONDS);executor.shutdownNow();}
+  }
+  @Test void verifiedWinCannotConsumeANewerPendingReceiptAndLegacyAmbiguityStaysHeld() throws Exception {
+    mvc.perform(create("buyer",key)).andExpect(status().isOk());fixture.captured=true;fixture.blockDispute=true;fixture.disputeStatus="won";
+    var executor=Executors.newSingleThreadExecutor();var future=executor.submit(()->mvc.perform(webhook("observed_dispute",disputeEvent())).andExpect(status().isOk()));
+    try {assertTrue(fixture.disputeEntered.await(5,TimeUnit.SECONDS));
+      db.update("INSERT INTO payment_webhook_events(event_id,payload_hash,event_kind,order_id,payment_id,dispute_id) VALUES('newer_dispute',?,'payment.dispute.created',?,?,'disp_fixture123456')",Support.hash("new synthetic event"),fixture.orderId(),fixture.paymentId());
+    } finally {fixture.releaseDispute.countDown();future.get(5,TimeUnit.SECONDS);executor.shutdownNow();}
+    assertFalse(liveCompletionEligible());
+    assertTrue(db.queryForObject("SELECT processed_at IS NULL FROM payment_webhook_events WHERE event_id='newer_dispute'",Boolean.class));
+    fixture.blockDispute=false;
+    mvc.perform(json(post("/api/v1/admin/payments/"+attempt()+"/reconcile"),"admin","{}")).andExpect(status().isOk());assertTrue(liveCompletionEligible());
+    db.update("INSERT INTO payment_webhook_events(event_id,payload_hash,event_kind) VALUES('legacy_dispute',?,'payment.dispute.created')",Support.hash("legacy synthetic event"));
+    assertFalse(liveCompletionEligible());
+    db.update("UPDATE payment_webhook_events SET processed_at=clock_timestamp() WHERE event_id='legacy_dispute'");assertTrue(liveCompletionEligible());
+  }
+  @Test void firstProviderFailurePersistsHoldAndSignedReplayRecoversLegacyReceipt() throws Exception {
+    mvc.perform(create("buyer",key)).andExpect(status().isOk());fixture.captured=true;
+    mvc.perform(json(post("/api/v1/payments/"+attempt()+"/verify"),"buyer",callback())).andExpect(status().isOk());assertTrue(liveCompletionEligible());
+    fixture.failPayment=true;mvc.perform(webhook("first_lookup_dispute",disputeEvent())).andExpect(status().isBadGateway());assertFalse(liveCompletionEligible());
+    assertEquals(fixture.paymentId(),db.queryForObject("SELECT payment_id FROM payment_webhook_events WHERE event_id='first_lookup_dispute'",String.class));
+    fixture.failPayment=false;fixture.disputeStatus="won";
+    mvc.perform(webhook("first_lookup_dispute",disputeEvent())).andExpect(status().isOk()).andExpect(jsonPath("$.duplicate").value(true));assertTrue(liveCompletionEligible());
+    db.update("INSERT INTO payment_webhook_events(event_id,payload_hash,event_kind) VALUES('old_signed_dispute',?,'payment.dispute.created')",Support.hash(disputeEvent()));assertFalse(liveCompletionEligible());
+    mvc.perform(webhook("old_signed_dispute",disputeEvent()+" ")).andExpect(status().isConflict());assertFalse(liveCompletionEligible());
+    mvc.perform(webhook("old_signed_dispute",disputeEvent())).andExpect(status().isOk()).andExpect(jsonPath("$.duplicate").value(true));assertTrue(liveCompletionEligible());
+  }
   @Test void chunkedWebhookBodyIsBoundedBeforeSignatureOrJsonParsing() throws Exception {
     HttpServletRequest request=mock(HttpServletRequest.class);byte[] huge=new byte[65537];ByteArrayInputStream input=new ByteArrayInputStream(huge);
     when(request.getContentLengthLong()).thenReturn(-1L);

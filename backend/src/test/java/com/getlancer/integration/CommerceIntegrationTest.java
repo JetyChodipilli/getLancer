@@ -52,6 +52,52 @@ class CommerceIntegrationTest {
   String callback() throws Exception {return "{\"razorpay_payment_id\":\""+provider.paymentId()+"\",\"razorpay_signature\":\""+sign(CommerceProviderIntegrationTest.SECRET,(provider.orderId()+"|"+provider.paymentId()).getBytes(StandardCharsets.UTF_8))+"\"}";}
   String event(String kind) {return "{\"event\":\""+kind+"\",\"payload\":{\"payment\":{\"entity\":{\"id\":\""+provider.paymentId()+"\",\"order_id\":\""+provider.orderId()+"\"}}}}";}
   MockHttpServletRequestBuilder webhook(String event,String payload) throws Exception {return post("/api/v1/commerce/razorpay/webhook").contentType("application/json").content(payload).header("x-razorpay-event-id",event).header("X-Razorpay-Signature",sign(CommerceProviderIntegrationTest.WEBHOOK,payload.getBytes(StandardCharsets.UTF_8)));}
+  String disputeEvent() {return "{\"event\":\"payment.dispute.created\",\"payload\":{\"dispute\":{\"entity\":{\"id\":\"disp_sourcefixture123\",\"payment_id\":\""+provider.paymentId()+"\"}}}}";}
+  boolean noProviderHold() {return !repo.providerHeld(purchase());}
+  @Test void earlyDisputeSurvivesUncertainBindingAndDeniesSource() throws Exception {
+    provider.uncertain=true;mvc.perform(order("buyer",key)).andExpect(status().isBadGateway());provider.captured=true;
+    mvc.perform(webhook("early_source_dispute",disputeEvent())).andExpect(status().isOk());
+    mvc.perform(body(post("/api/v1/admin/template-purchases/"+purchase()+"/bind-order"),"admin","{\"orderId\":\""+provider.orderId()+"\"}"))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("DISPUTED"));
+    assertFalse(noProviderHold());
+  }
+  @Test void unavailableDisputeRetainsHoldAndOperatorCannotResumeUntilReconciled() throws Exception {
+    mvc.perform(order("buyer",key)).andExpect(status().isOk());provider.captured=true;
+    mvc.perform(body(post("/api/v1/template-purchases/"+purchase()+"/verify"),"buyer",callback())).andExpect(status().isOk());assertTrue(noProviderHold());
+    provider.failDispute=true;mvc.perform(webhook("failed_source_dispute",disputeEvent())).andExpect(status().isBadGateway());assertFalse(noProviderHold());
+    mvc.perform(body(post("/api/v1/admin/template-purchases/"+purchase()+"/resolve"),"admin","{\"resolution\":\"RESUME\",\"reason\":\"An operator cannot override pending provider evidence.\"}")).andExpect(status().isConflict());
+    provider.failDispute=false;mvc.perform(webhook("failed_source_dispute",disputeEvent())).andExpect(status().isOk()).andExpect(jsonPath("$.duplicate").value(true));
+    provider.disputeStatus="won";mvc.perform(body(post("/api/v1/template-purchases/"+purchase()+"/reconcile"),"buyer","{}")).andExpect(status().isOk());assertTrue(noProviderHold());
+  }
+  @Test void disputeHttpReleasesPurchaseLockWhilePendingEvidenceDeniesSource() throws Exception {
+    mvc.perform(order("buyer",key)).andExpect(status().isOk());provider.captured=true;provider.blockDispute=true;
+    var executor=Executors.newSingleThreadExecutor();var future=executor.submit(()->mvc.perform(webhook("slow_source_dispute",disputeEvent())).andExpect(status().isOk()));
+    try {assertTrue(provider.disputeEntered.await(5,TimeUnit.SECONDS));var transaction=new org.springframework.transaction.support.TransactionTemplate(new org.springframework.jdbc.datasource.DataSourceTransactionManager(db.getDataSource()));
+      transaction.execute(status->{db.execute("SET LOCAL lock_timeout='300ms'");db.queryForObject("SELECT id FROM template_purchases WHERE id=? FOR UPDATE",UUID.class,purchase());return null;});assertFalse(noProviderHold());
+    } finally {provider.releaseDispute.countDown();future.get(5,TimeUnit.SECONDS);executor.shutdownNow();}
+  }
+  @Test void realLiveEntitlementRejectsPendingAndUnmappedHistoricalDisputes() throws Exception {
+    UUID id=UUID.randomUUID();repo.reserve(id,buyer,UUID.randomUUID(),repo.template(template,false),repo.version(template,version,false),CommerceProviderIntegrationTest.ACCOUNT,"live");
+    repo.bind(id,"order_pendingfixture123","CREATED");repo.capture(id,"pay_pendingfixture123",0,"PROCESSED");assertTrue(repo.entitled(id,buyer));
+    db.update("INSERT INTO commerce_webhook_events(event_id,payload_hash,event_kind,order_id,dispute_id) VALUES('pending-live',?,'payment.dispute.created','order_pendingfixture123','disp_pendingfixture123')",Support.hash("synthetic pending"));
+    assertFalse(repo.entitled(id,buyer));
+    mvc.perform(as(get("/api/v1/template-purchases/"+id+"/download"),"buyer")).andExpect(status().isForbidden());
+    mvc.perform(body(post("/api/v1/admin/template-purchases/"+id+"/resolve"),"admin","{\"resolution\":\"RESUME\",\"reason\":\"An operator cannot override unresolved provider evidence.\"}")).andExpect(status().isConflict());
+    db.update("UPDATE commerce_webhook_events SET processed_at=clock_timestamp()");assertTrue(repo.entitled(id,buyer));
+    db.update("INSERT INTO commerce_webhook_events(event_id,payload_hash,event_kind) VALUES('legacy-unmapped',?,'payment.dispute.created')",Support.hash("legacy synthetic"));assertFalse(repo.entitled(id,buyer));
+    db.update("UPDATE commerce_webhook_events SET processed_at=clock_timestamp()");assertTrue(repo.entitled(id,buyer));
+  }
+  @Test void firstLookupFailureRetainsProviderHoldAndMatchingReplayRecoversHistoricalReceipt() throws Exception {
+    mvc.perform(order("buyer",key)).andExpect(status().isOk());provider.captured=true;
+    mvc.perform(body(post("/api/v1/template-purchases/"+purchase()+"/verify"),"buyer",callback())).andExpect(status().isOk());assertTrue(noProviderHold());
+    provider.failPayment=true;mvc.perform(webhook("first_source_lookup",disputeEvent())).andExpect(status().isBadGateway());assertFalse(noProviderHold());
+    assertEquals(provider.paymentId(),db.queryForObject("SELECT payment_id FROM commerce_webhook_events WHERE event_id='first_source_lookup'",String.class));
+    provider.failPayment=false;provider.disputeStatus="won";
+    mvc.perform(webhook("first_source_lookup",disputeEvent())).andExpect(status().isOk()).andExpect(jsonPath("$.duplicate").value(true));assertTrue(noProviderHold());
+    db.update("INSERT INTO commerce_webhook_events(event_id,payload_hash,event_kind) VALUES('old_source_dispute',?,'payment.dispute.created')",Support.hash(disputeEvent()));assertFalse(noProviderHold());
+    mvc.perform(webhook("old_source_dispute",disputeEvent()+" ")).andExpect(status().isConflict());assertFalse(noProviderHold());
+    mvc.perform(webhook("old_source_dispute",disputeEvent())).andExpect(status().isOk()).andExpect(jsonPath("$.duplicate").value(true));assertTrue(noProviderHold());
+  }
   @BeforeEach void prepare() throws Exception {
     provider.reset();reset(storage);db.execute("TRUNCATE users CASCADE");db.execute("TRUNCATE rate_buckets");db.execute("TRUNCATE commerce_webhook_events");
     buyer=user("buyer",false);seller=user("seller",true);outsider=user("outsider",false);admin=user("admin",false);db.update("INSERT INTO user_roles(user_id,role) VALUES(?,'ADMIN')",admin);db.update("UPDATE sessions SET mfa_verified=true WHERE user_id=?",admin);
