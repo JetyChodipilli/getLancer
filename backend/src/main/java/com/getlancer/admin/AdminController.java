@@ -23,10 +23,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/admin")
 public class AdminController {
   private final AdminService service;
-  private final OperationsMetrics operations;
 
-  public AdminController(AdminService service, OperationsMetrics operations) {
-    this.service = service; this.operations=operations;
+  public AdminController(AdminService service) {
+    this.service = service;
   }
 
   @GetMapping("/products/pending")
@@ -129,7 +128,7 @@ public class AdminController {
   }
 
   @GetMapping("/operations")
-  public OperationsResponse operations(HttpServletRequest request) { return operations.snapshot(request); }
+  public OperationsResponse operations(HttpServletRequest request) { return service.operations(request); }
 
   @GetMapping("/metrics")
   public Map<String, Object> metrics(HttpServletRequest r) {

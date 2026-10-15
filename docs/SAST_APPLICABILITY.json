@@ -1,11 +1,11 @@
 {
   "schema": 2,
-  "reviewedAt": "2026-10-14",
+  "reviewedAt": "2026-10-15",
   "expiresAt": "2026-11-05T00:00:00Z",
   "findings": [
     {
       "path": "backend/src/main/java/com/getlancer/admin/AdminController.java",
-      "startLine": 71,
+      "startLine": 70,
       "score": 8.8,
       "ruleSha256": "4ef9cb422f69f73a288e4528fce32b4d117ec3679345a5d8a3c0e92bd289e9f8",
       "reason": "MFA-authorized evidence read only appends access-log metadata; domain report, inquiry and related state stay unchanged. Incidental access logging is safe under RFC 9110 section 9.2.1."
@@ -71,11 +71,11 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/admin/AdminController.java",
-      "sha256": "5ed90f30ad561b1bbe7f941e9e02aca9b470d4e8ce3e35ef490391c4b4b4dffd"
+      "sha256": "3f350e39d4d3882ea693799e1fc7cc0d23322abbed5f3e3a1f54141f04029d33"
     },
     {
       "path": "backend/src/main/java/com/getlancer/admin/AdminService.java",
-      "sha256": "8e790797b12fa5901cefe6b48fb3d9a7b34d62f03af90b71cc9c6d5d9e369d54"
+      "sha256": "438fcf0bf7569a8ab4a5842fb5cf281245e26b412611420f24134a7db9dc3538"
     },
     {
       "path": "backend/src/main/java/com/getlancer/admin/MarketplaceMetrics.java",
@@ -1009,7 +1009,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/AnalyticsCoverageIntegrationTest.java",
-      "sha256": "40989efbced0d972dcda0093f10165833107cccc46be323e9725664e6ca7d084"
+      "sha256": "d84997bf21a4f572adce4a53aa09e95b2cea99b28981f35f8a56a9f8df6827d5"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/BusinessIntegrationTest.java",
@@ -1141,7 +1141,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/security/V1SafeguardsTest.java",
-      "sha256": "51b94a1a1e3de6097deaada7368e1ca128ed59697225c6465eb00417e51f794a"
+      "sha256": "70e1a2cc925b6731a2ee35cfdd82edd1112e46f118075e14782eb5d9d2fed095"
     },
     {
       "path": "backend/src/test/java/com/getlancer/shared/RulesSmoke.java",

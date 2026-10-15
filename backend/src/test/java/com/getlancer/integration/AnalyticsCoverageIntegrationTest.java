@@ -181,10 +181,15 @@ class AnalyticsCoverageIntegrationTest {
     assertEquals("CRITICAL",m.at("/safety/bySeverity/0/severity").asText());assertEquals(50,m.at("/safety/reportActionRatePercent").asDouble());
     assertFalse(m.toString().contains("Confidential evidence"));
   }
-  @Test void concurrentSlotCohortsExcludeLegacyAccountsAndWebSpoofing() throws Exception {
+  @Test
+  @org.springframework.transaction.annotation.Transactional
+  void concurrentSlotCohortsExcludeLegacyAccountsAndWebSpoofing() throws Exception {
     UUID fresh=user("fresh-capacity",true),legacy=user("legacy-capacity",true);
     Instant start=Instant.now().minus(3,ChronoUnit.DAYS);
-    db.update("UPDATE analytics_instrumentation SET started_at=? WHERE name='showcase_capacity'",Timestamp.from(start));
+    // Privileged test fixture: construct historical instrumentation instead of mutating an
+    // immutable production epoch. The test transaction restores the original row afterward.
+    db.update("DELETE FROM analytics_instrumentation WHERE name='showcase_capacity'");
+    db.update("INSERT INTO analytics_instrumentation(name,started_at) VALUES('showcase_capacity',?)",Timestamp.from(start));
     db.update("UPDATE users SET created_at=? WHERE id=?",Timestamp.from(start.plus(1,ChronoUnit.DAYS)),fresh);
     db.update("UPDATE users SET created_at=? WHERE id=?",Timestamp.from(start.minus(1,ChronoUnit.DAYS)),legacy);
     for(UUID id:new UUID[]{fresh,legacy}) observation("product_activated","server",UUID.randomUUID(),"{\"builderId\":\""+id+"\",\"activeCount\":3}",start.plus(2,ChronoUnit.DAYS));

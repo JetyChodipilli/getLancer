@@ -52,7 +52,7 @@ class V1SafeguardsTest {
     UUID id = UUID.randomUUID();
     when(security.admin(request)).thenReturn(id);
     when(security.role(id, "ADMIN")).thenReturn(true);
-    var controller = new AdminService(db, security, mock(ProductService.class), mock(Mail.class), mock(MarketplaceMetrics.class));
+    var controller = new AdminService(db, security, mock(ProductService.class), mock(Mail.class), mock(MarketplaceMetrics.class), mock(com.getlancer.admin.OperationsMetrics.class));
     assertEquals(
         "ADMIN_ACCOUNT_PROTECTED",
         assertThrows(

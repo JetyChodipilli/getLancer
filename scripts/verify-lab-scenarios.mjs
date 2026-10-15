@@ -49,8 +49,11 @@ async function verifyLanguage(language){
   if(language==='go'||language==='dotnet'){
     const compiler=language==='go'?(process.env.LAB_GO||'go'):(process.env.LAB_DOTNET||'dotnet');
     const compileArgs=language==='go'?['build','-o',join(nativeOutput,'server'),primary]:['build','labs/dotnet/LabServer.csproj','--output',nativeOutput,'--nologo','--disable-build-servers','-p:BaseIntermediateOutputPath='+join(nativeCache,'obj')+'/','-p:BaseOutputPath='+join(nativeCache,'bin')+'/'];
-    const built=spawnSync(compiler,compileArgs,{cwd:root,env:{PATH:process.env.PATH,...runtimeEnv},encoding:'utf8',timeout:120000,maxBuffer:65536});
-    if(built.error)throw built.error;assert.equal(built.status,0,'Native build failed: '+(built.stderr||built.stdout));
+    const trace=language==='dotnet'&&process.env.LAB_DOTNET_TRACE==='1',tracePath=join(workspace,'dotnet-build.trace');
+    const built=spawnSync(trace?'strace':compiler,trace?['-f','-e','trace=file,flock,mmap','-o',tracePath,compiler,...compileArgs]:compileArgs,{cwd:root,env:{PATH:process.env.PATH,...runtimeEnv},encoding:'utf8',timeout:120000,maxBuffer:65536});
+    if(built.error)throw built.error;
+    if(trace&&built.status!==0)console.error((await readFile(tracePath,'utf8')).split('\n').filter(line=>/ = -1 |\/tmp\/\.dotnet|NuGet-Migrations/.test(line)).slice(-100).join('\n'));
+    assert.equal(built.status,0,'Native build failed: '+(built.stderr||built.stdout));
   }
 
   for(let i=0;i<2;i++){
