@@ -13,6 +13,7 @@ DECLARE
   delete_tables text[] := ARRAY['education_private_details','account_tokens','analytics_events','business_members','login_challenges','media_uploads','notifications','oauth_identities','oauth_pending','product_access_grants','product_categories','product_media','product_technologies','rate_buckets','repository_verifications','request_shortlist','saved_components','saved_products','sessions','storage_deletions','talent_entries','team_members','team_projects'];
   -- PostgreSQL row locking needs UPDATE on at least one column, even for SELECT FOR SHARE.
   lock_tables text[] := ARRAY['user_roles','sessions','business_members','lab_manifests'];
+  webhook_tables text[] := ARRAY['payment_webhook_events','commerce_webhook_events'];
   lock_columns text[] := ARRAY['user_id','token_hash','business_id','id'];
   object record; table_name text; operation text; role_name text; lock_column text;
 BEGIN
@@ -62,7 +63,10 @@ BEGIN
       EXECUTE format('GRANT INSERT ON %I.%I TO getlancer_runtime',schema_name,table_name);
       EXECUTE format('CREATE POLICY getlancer_service_insert ON %I.%I FOR INSERT TO getlancer_runtime WITH CHECK (true)',schema_name,table_name);
     END IF;
-    IF table_name=ANY(update_tables) THEN
+    IF table_name=ANY(webhook_tables) THEN
+      EXECUTE format('GRANT UPDATE (order_id,payment_id,dispute_id,processed_at) ON %I.%I TO getlancer_runtime',schema_name,table_name);
+      EXECUTE format('CREATE POLICY getlancer_service_update ON %I.%I FOR UPDATE TO getlancer_runtime USING (true) WITH CHECK (true)',schema_name,table_name);
+    ELSIF table_name=ANY(update_tables) THEN
       EXECUTE format('GRANT UPDATE ON %I.%I TO getlancer_runtime',schema_name,table_name);
       EXECUTE format('CREATE POLICY getlancer_service_update ON %I.%I FOR UPDATE TO getlancer_runtime USING (true) WITH CHECK (true)',schema_name,table_name);
     ELSIF table_name=ANY(lock_tables) THEN

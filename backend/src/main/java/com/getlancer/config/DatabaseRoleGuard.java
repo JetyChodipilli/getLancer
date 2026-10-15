@@ -93,6 +93,20 @@ public class DatabaseRoleGuard implements ApplicationRunner {
     if (!Boolean.TRUE.equals(exists)) reject("users_table");
     if (dangerousFunctions == null || dangerousFunctions != 0) reject("security_definer_execute");
     if (unsafeLocks == null || unsafeLocks != 0) reject("locking_permissions");
+    Integer unsafeReceipts = db.queryForObject("""
+        SELECT count(*) FROM (VALUES ('payment_webhook_events'),('commerce_webhook_events')) required(name)
+        LEFT JOIN pg_namespace n ON n.nspname=?
+        LEFT JOIN pg_class c ON c.relnamespace=n.oid AND c.relname=required.name
+        WHERE c.oid IS NULL OR has_table_privilege(current_user,c.oid,'UPDATE')
+          OR has_table_privilege(current_user,c.oid,'DELETE')
+          OR 4<>(SELECT count(*) FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+            AND a.attname IN ('order_id','payment_id','dispute_id','processed_at')
+            AND has_column_privilege(current_user,c.oid,a.attnum,'UPDATE'))
+          OR EXISTS(SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+            AND a.attname NOT IN ('order_id','payment_id','dispute_id','processed_at')
+            AND has_column_privilege(current_user,c.oid,a.attnum,'UPDATE'))
+        """, Integer.class, schema);
+    if (unsafeReceipts == null || unsafeReceipts != 0) reject("webhook_receipt_permissions");
     Boolean unsafeManifests = db.queryForObject("SELECT has_table_privilege(current_user,?,'INSERT') OR has_table_privilege(current_user,?,'DELETE')", Boolean.class,
         schema+".lab_manifests", schema+".lab_manifests");
     if (!Boolean.FALSE.equals(unsafeManifests)) reject("manifest_certification_permissions");

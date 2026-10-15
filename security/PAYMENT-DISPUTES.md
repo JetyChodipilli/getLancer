@@ -8,7 +8,7 @@ Processed duplicates return `duplicate=true`. Pending duplicates retry reconcili
 
 ## Before deploying V36–V38
 
-Back up the database and inspect existing dispute receipts. Older receipts stored a hash and event kind, with no recoverable order/payment/dispute association. These migrations retain those receipts as pending. **Unmapped historical receipts conservatively hold completion or source access across their respective subsystem until recovered.** Budget that operational work before enabling public traffic.
+Back up the database, inspect existing dispute receipts and rerun `ops/database/10_permissions.sql` after migrations. Runtime UPDATE is restricted to the four reconciliation metadata columns; event IDs, payload hashes, event kinds and received timestamps remain immutable to that role. Startup guard and real-role tests reject broader receipt mutation. Older receipts stored a hash and event kind, with no recoverable order/payment/dispute association. These migrations retain those receipts as pending. **Unmapped historical receipts conservatively hold completion or source access across their respective subsystem until recovered.** Budget that operational work before enabling public traffic.
 
 To recover a historical receipt, arrange an authenticated replay of its exact original event ID and raw body through the corresponding existing webhook endpoint, using the correct subsystem signature. The stored hash must match. Matching replay fills missing references, preserves the pending hold through provider failures and reconciles current provider facts. A verified win releases that dispute's hold; another pending, open, lost, refunded or local dispute still blocks access as applicable. Changed-body replay cannot clear a historical receipt.
 
