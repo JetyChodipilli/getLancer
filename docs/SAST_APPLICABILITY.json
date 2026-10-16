@@ -159,7 +159,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/business/BusinessService.java",
-      "sha256": "c701d0faf5ed0b0a4dcb2c2a3729cecb6b048ad0b971e6a520e7e10ff49fbd47"
+      "sha256": "ebfe650024b24a5874e16a23043438614e355f9a7bdcac03235dbc0815c30910"
     },
     {
       "path": "backend/src/main/java/com/getlancer/business/ConciergeController.java",
@@ -727,7 +727,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/teams/TeamService.java",
-      "sha256": "27638ade80f3d594397d0fc30e210b3d4273d905f9f9c433551b99a0d3c65047"
+      "sha256": "9b6aaedbfcc16ac88c97ec540d3a626e6498db07eb54b3c1b76b6aee18b318df"
     },
     {
       "path": "backend/src/main/java/com/getlancer/teams/TeamsController.java",
@@ -1076,6 +1076,10 @@
       "sha256": "23f9c6204f4b2f06ba073b701ef665dbb41b759780446d7c22e3d81429307693"
     },
     {
+      "path": "backend/src/test/java/com/getlancer/integration/InvitationExpiryIntegrationTest.java",
+      "sha256": "2019dcc8368113cd08a256ecea8e9ca51af15772a1743b6279d0f50a583f5007"
+    },
+    {
       "path": "backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java",
       "sha256": "d028fdf0bbfd86837ea0c1ea9dc8ce47e616c88de6a3e01b3a3df3201e37a9fe"
     },
@@ -1197,7 +1201,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/teams/TeamsTest.java",
-      "sha256": "d9c13041b16851ddbc3fb46dcbb929fb4c208831403fa8a4a9e2059797f38db7"
+      "sha256": "68d9f04c5a858609ae3a15aca090b30cfa13262d4b0a224cf0af901064b1546b"
     },
     {
       "path": "backend/src/test/java/com/getlancer/testing/TestDatabaseGuard.java",

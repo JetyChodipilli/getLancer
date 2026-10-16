@@ -27,6 +27,8 @@ class TeamsTest {
 
   TeamsTest() {
     when(security.user(request)).thenReturn(actor);
+    when(db.queryForObject("SELECT clock_timestamp()", Timestamp.class))
+        .thenReturn(Timestamp.from(Instant.now()));
     doNothing().when(c).lock(team);
     doNothing().when(c).active(team);
     doNothing().when(c).audit(any(), any(), anyString(), anyString(), anyString());
@@ -173,8 +175,8 @@ class TeamsTest {
             row(
                 "status",
                 "PENDING",
-                "valid",
-                true,
+                "respond_by",
+                Timestamp.from(Instant.now().plusSeconds(3600)),
                 "role",
                 "MEMBER",
                 "membership_type",
@@ -205,7 +207,7 @@ class TeamsTest {
     doReturn(row("team_id", team))
         .when(c)
         .one("SELECT team_id FROM team_invitations WHERE id=? AND user_id=?", record, actor);
-    doReturn(row("status", "PENDING", "valid", false))
+    doReturn(row("status", "PENDING", "respond_by", Timestamp.from(Instant.now().minusSeconds(1))))
         .when(c)
         .one(contains("FOR UPDATE"), eq(record), eq(actor));
     assertEquals(
@@ -220,7 +222,7 @@ class TeamsTest {
     doReturn(row("team_id", team))
         .when(c)
         .one("SELECT team_id FROM team_invitations WHERE id=? AND user_id=?", record, actor);
-    doReturn(row("status", "PENDING", "valid", true))
+    doReturn(row("status", "PENDING", "respond_by", Timestamp.from(Instant.now().plusSeconds(3600))))
         .when(c)
         .one(contains("FOR UPDATE"), eq(record), eq(actor));
     doReturn(row("status", "DECLINED")).when(c).invitation(record);

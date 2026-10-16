@@ -8,6 +8,7 @@ import static com.getlancer.shared.Support.text;
 
 import com.getlancer.shared.ApiError;
 import jakarta.servlet.http.HttpServletRequest;
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -176,11 +177,14 @@ public class BusinessService {
     repo.one("SELECT id FROM businesses WHERE id=? FOR UPDATE", business);
     var i =
         repo.one(
-            "SELECT id,business_id,user_id,status,expires_at,created_at,expires_at>now() AS valid FROM business_invitations WHERE id=? AND user_id=?"
+            "SELECT id,business_id,user_id,status,expires_at,created_at FROM business_invitations WHERE id=? AND user_id=?"
                 + " FOR UPDATE",
             invitation,
             u);
-    if (!i.get("status").equals("PENDING") || !Boolean.TRUE.equals(i.get("valid")))
+    // Read wall time only after both locking statements have returned.
+    var observedAt = repo.jdbc().queryForObject("SELECT clock_timestamp()", Timestamp.class);
+    if (!i.get("status").equals("PENDING")
+        || !((Timestamp) i.get("expires_at")).after(observedAt))
       throw new ApiError(409, "INVALID_STATE_TRANSITION", "This invitation is no longer pending.");
     String action = choice(b, "action", Set.of("ACCEPT", "DECLINE"));
     if (action.equals("ACCEPT"))

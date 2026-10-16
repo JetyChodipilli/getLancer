@@ -381,11 +381,15 @@ public class TeamService {
     lock(t);
     var i =
         one(
-            "SELECT id,team_id,user_id,role,membership_type,expires_at,respond_by,project_label,status,created_at,respond_by>now() AND (expires_at IS NULL OR expires_at>now()) AS valid FROM"
+            "SELECT id,team_id,user_id,role,membership_type,expires_at,respond_by,project_label,status,created_at FROM"
                 + " team_invitations WHERE id=? AND user_id=? FOR UPDATE",
             id,
             u);
-    if (!"PENDING".equals(i.get("status")) || !Boolean.TRUE.equals(i.get("valid")))
+    // A validity projection in SELECT FOR UPDATE may run before its row-lock wait.
+    var observedAt = db.queryForObject("SELECT clock_timestamp()", Timestamp.class);
+    if (!"PENDING".equals(i.get("status"))
+        || !((Timestamp) i.get("respond_by")).after(observedAt)
+        || (i.get("expires_at") instanceof Timestamp expiry && !expiry.after(observedAt)))
       throw new ApiError(
           409, "INVALID_STATE_TRANSITION", "This invitation is no longer pending or has expired.");
     String action = TeamPolicy.choice(b, "action", Set.of("ACCEPT", "DECLINE"));

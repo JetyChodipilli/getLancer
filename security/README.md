@@ -8,6 +8,7 @@ Security documentation and verified remediation evidence for getLancer.
 - [Legacy requester identity migration](LEGACY-IDENTITY.md)
 - [Payment dispute inbox and recovery](PAYMENT-DISPUTES.md)
 - [Education source retention budget](EDUCATION-STORAGE.md)
+- [Invitation expiry after database lock waits](INVITATION-EXPIRY.md)
 - [Threat model](THREAT-MODEL.md)
 - [Earlier runtime, browser and capacity evidence](../docs/audits/2026-10-13-local-audit.md)
 
