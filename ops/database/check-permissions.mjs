@@ -19,7 +19,7 @@ for(const file of readdirSync(java,{recursive:true}).filter(file=>file.endsWith(
  for(const line of source.split('\n').filter(value=>value.includes('FOR SHARE')))for(const match of line.matchAll(/\b(?:FROM|JOIN)\s+([a-z_]+)/gi)){const table=match[1];if(tables.has(table))assert.ok(updates.has(table)||locks.has(table),'Missing row-lock UPDATE permission for '+table+' used by '+file);}
  for(const match of source.matchAll(/\b(INSERT INTO|UPDATE|DELETE FROM)\s+([a-z_]+)/gi)){
   const [,operation,table]=match;if(!tables.has(table))continue;
-  if(operation.toUpperCase()==='UPDATE')assert.ok(updates.has(table)||webhookUpdates.has(table),'Missing UPDATE permission for '+table+' used by '+file);
+  if(operation.toUpperCase()==='UPDATE')assert.ok(updates.has(table)||webhookUpdates.has(table)||table==='media_write_intents','Missing UPDATE permission for '+table+' used by '+file);
   else if(operation.toUpperCase()==='DELETE FROM')assert.ok(deletes.has(table),'Missing DELETE permission for '+table+' used by '+file);
   else assert.ok(!readOnly.has(table),'Missing INSERT permission for '+table+' used by '+file);
  }
@@ -31,6 +31,8 @@ for(const table of ['security_audit_events','inquiry_events','moderation_actions
 }
 assert.deepEqual([...locks],['user_roles','sessions','business_members','lab_manifests']);
 for(const table of locks)assert.ok(!updates.has(table),'Lock-only table must not receive full UPDATE: '+table);
+assert.ok(known.has('media_write_intents')&&deletes.has('media_write_intents')&&!updates.has('media_write_intents'));
+assert.ok(permissions.includes('GRANT UPDATE (expires_at) ON'));
 const roles=readFileSync(new URL('./00_roles.sql',import.meta.url),'utf8');
 assert.ok(roles.includes('ALTER DEFAULT PRIVILEGES FOR ROLE getlancer_migration REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC'),'Global function PUBLIC defaults must be revoked');
 assert.ok(!permissions.includes('GRANT ALL'),'Runtime permissions must enumerate operations');

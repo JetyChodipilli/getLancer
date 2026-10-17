@@ -64,10 +64,15 @@ public class DeliveryRepository {
   }
 
   private boolean teamSeller(UUID team, UUID actor, boolean lock) {
-    if (team == null || !approvedBuilder(actor)) return false;
-    if (lock) one("SELECT id FROM teams WHERE id=? FOR SHARE", team);
-    return db.queryForObject(
-        "SELECT count(*) FROM team_members m JOIN teams t ON t.id=m.team_id WHERE m.team_id=? AND m.user_id=? AND m.role IN ('OWNER','BUSINESS_MANAGER') AND (m.expires_at IS NULL OR m.expires_at>now()) AND t.status='ACTIVE'",
+    if (team == null) return false;
+    if (lock) {
+      one("SELECT id FROM teams WHERE id=? FOR SHARE", team);
+      db.queryForList(
+          "SELECT user_id FROM team_members WHERE team_id=? AND user_id=? FOR SHARE", team, actor);
+    }
+    // A locking SELECT may evaluate validity before waiting; recheck only after it returns.
+    return approvedBuilder(actor) && db.queryForObject(
+        "SELECT count(*) FROM team_members m JOIN teams t ON t.id=m.team_id WHERE m.team_id=? AND m.user_id=? AND m.role IN ('OWNER','BUSINESS_MANAGER') AND (m.expires_at IS NULL OR m.expires_at>clock_timestamp()) AND t.status='ACTIVE'",
         Integer.class, team, actor) > 0;
   }
 
@@ -119,7 +124,7 @@ public class DeliveryRepository {
 
   List<Map<String, Object>> list(UUID actor) {
     var rows = db.queryForList(ENGAGEMENT
-        + "WHERE e.buyer_user_id=? OR e.builder_user_id=? OR EXISTS(SELECT 1 FROM business_members m WHERE m.business_id=e.business_id AND m.user_id=?) OR EXISTS(SELECT 1 FROM team_members m WHERE m.team_id=e.team_id AND m.user_id=? AND m.role IN ('OWNER','BUSINESS_MANAGER') AND (m.expires_at IS NULL OR m.expires_at>now())) ORDER BY e.updated_at DESC,e.id LIMIT 200",
+        + "WHERE e.buyer_user_id=? OR e.builder_user_id=? OR EXISTS(SELECT 1 FROM business_members m WHERE m.business_id=e.business_id AND m.user_id=?) OR EXISTS(SELECT 1 FROM team_members m WHERE m.team_id=e.team_id AND m.user_id=? AND m.role IN ('OWNER','BUSINESS_MANAGER') AND (m.expires_at IS NULL OR m.expires_at>clock_timestamp())) ORDER BY e.updated_at DESC,e.id LIMIT 200",
         actor, actor, actor, actor);
     var result = new ArrayList<Map<String, Object>>();
     for (var row : rows) {

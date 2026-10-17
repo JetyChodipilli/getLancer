@@ -113,7 +113,7 @@ class TeamsTest {
   void expiredMembershipFailsClosed() {
     when(db.queryForList(contains("SELECT m.role"), eq(team), eq(actor))).thenReturn(List.of());
     assertEquals(403, assertThrows(ApiError.class, () -> c.member(team, actor)).status);
-    assertTrue(TeamRepository.ACTIVE.contains("m.expires_at>now()"));
+    assertTrue(TeamRepository.ACTIVE.contains("m.expires_at>clock_timestamp()"));
     assertTrue(TeamRepository.ACTIVE.contains("d.approval_status='APPROVED'"));
   }
 
@@ -346,7 +346,7 @@ class TeamsTest {
       doReturn(state)
           .when(c)
           .one(
-              "SELECT id,team_id,user_id,project_label,skills,ends_at,status,created_at,ends_at>now() AS valid FROM team_staffing WHERE team_id=? AND id=?",
+              "SELECT id,team_id,user_id,project_label,skills,ends_at,status,created_at,ends_at>clock_timestamp() AS valid FROM team_staffing WHERE team_id=? AND id=?",
               team,
               record);
       assertEquals("INVALID_STATE_TRANSITION", assertThrows(

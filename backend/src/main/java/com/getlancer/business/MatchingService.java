@@ -38,7 +38,7 @@ public class MatchingService {
         teams
             ? " JOIN team_projects tp ON tp.product_id=p.id AND tp.consented_by=p.owner_user_id"
                 + " JOIN teams t ON t.id=tp.team_id JOIN team_members m ON m.team_id=t.id AND"
-                + " m.user_id=p.owner_user_id AND (m.expires_at IS NULL OR m.expires_at>now()) "
+                  + " m.user_id=p.owner_user_id AND (m.expires_at IS NULL OR m.expires_at>clock_timestamp()) "
             : " ";
     return "SELECT "
         + projection
@@ -149,7 +149,7 @@ public class MatchingService {
     return result;
   }
 
-  void insert(
+  boolean insert(
       String table,
       String foreignKey,
       UUID parent,
@@ -175,7 +175,7 @@ public class MatchingService {
       args.add(reason);
       args.add(source);
     }
-    repo.jdbc()
+    return repo.jdbc()
         .update(
             "INSERT INTO "
                 + table
@@ -192,6 +192,6 @@ public class MatchingService {
                         + ") DO UPDATE SET"
                         + " reason=excluded.reason,source=excluded.source,created_by=excluded.created_by"
                     : " DO NOTHING"),
-            args.toArray());
+            args.toArray()) > 0;
   }
 }

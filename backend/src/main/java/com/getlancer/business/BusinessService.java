@@ -38,7 +38,7 @@ public class BusinessService {
         repo.jdbc()
             .queryForList(
                 "SELECT i.id,b.name AS \"businessName\",i.business_id AS \"businessId\",CASE WHEN"
-                    + " i.status='PENDING' AND i.expires_at<=now() THEN 'EXPIRED' ELSE i.status END"
+                    + " i.status='PENDING' AND i.expires_at<=clock_timestamp() THEN 'EXPIRED' ELSE i.status END"
                     + " AS status FROM business_invitations i JOIN businesses b ON"
                     + " b.id=i.business_id WHERE i.user_id=? ORDER BY i.created_at DESC LIMIT 100",
                 u));
@@ -85,7 +85,7 @@ public class BusinessService {
         role.equals("OWNER")
             ? repo.jdbc()
                 .queryForList(
-                    "SELECT i.id,u.email,CASE WHEN i.status='PENDING' AND i.expires_at<=now() THEN"
+                    "SELECT i.id,u.email,CASE WHEN i.status='PENDING' AND i.expires_at<=clock_timestamp() THEN"
                         + " 'EXPIRED' ELSE i.status END AS status FROM business_invitations i JOIN"
                         + " users u ON u.id=i.user_id WHERE i.business_id=? ORDER BY i.created_at"
                         + " DESC LIMIT 100",
@@ -139,7 +139,7 @@ public class BusinessService {
     repo.jdbc()
         .update(
             "UPDATE business_invitations SET status='EXPIRED' WHERE business_id=? AND user_id=? AND"
-                + " status='PENDING' AND expires_at<=now()",
+                + " status='PENDING' AND expires_at<=clock_timestamp()",
             business,
             recipient);
     UUID invitation = id();

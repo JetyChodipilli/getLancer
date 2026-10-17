@@ -104,7 +104,7 @@ public class LabService {
     db.update("INSERT INTO lab_runs(id,owner_id,manifest_id,scenario_id,request_hash,idempotency_key,inputs,manifest_sha256,image_digest,operator_epoch,status,expires_at,memory_mib,cost_micros) VALUES(?,?,?,?,?,?,?::jsonb,?,?,?,'QUEUED',?,?,?)",id,owner,manifest.id(),scenario.id(),hash,key,encode(inputs),manifestHash,manifest.imageDigest(),config.epoch,Timestamp.from(expiry),manifest.memoryMiB(),manifest.maxCostMicros());
     event(id,"QUEUED","QUEUED","Waiting for the isolated provider.");outbox(id,1,"START");return projection(row(id));
   });}
-  private Map<String,Object> row(UUID id){var owner=db.queryForList("SELECT owner_id FROM lab_runs WHERE id=?",UUID.class,id);if(owner.isEmpty())throw absent();db.queryForList("SELECT id FROM users WHERE id=? FOR UPDATE",owner.get(0));var rows=db.queryForList("SELECT id,owner_id,manifest_id,scenario_id,request_hash,idempotency_key,inputs,manifest_sha256,image_digest,operator_epoch,lease_generation,status,requested_at,expires_at,last_activity_at,healthy_at,cleanup_confirmed_at,reason,attention,memory_mib,cost_micros,quota_counted FROM lab_runs WHERE id=? FOR UPDATE",id);if(rows.isEmpty())throw absent();return rows.get(0);}
+  private Map<String,Object> row(UUID id){var owner=db.queryForList("SELECT owner_id FROM lab_runs WHERE id=?",UUID.class,id);if(owner.isEmpty())throw absent();db.queryForList("SELECT id FROM users WHERE id=? FOR UPDATE",owner.get(0));var rows=db.queryForList("SELECT id,owner_id,manifest_id,scenario_id,request_hash,idempotency_key,inputs,manifest_sha256,image_digest,operator_epoch,lease_generation,status,requested_at,expires_at,last_activity_at,healthy_at,cleanup_confirmed_at,reason,attention,memory_mib,cost_micros,quota_counted,request_delivery_command,request_delivery_until FROM lab_runs WHERE id=? FOR UPDATE",id);if(rows.isEmpty())throw absent();return rows.get(0);}
   private Map<String,Object> owned(UUID id,UUID actor,boolean admin){var row=row(id);if(!admin&&!actor.equals(row.get("owner_id")))throw absent();return row;}
   private void current(Map<String,Object> run){
     var activeOwner=db.queryForList("SELECT id FROM users WHERE id=? AND account_status='ACTIVE' FOR UPDATE",UUID.class,run.get("owner_id"));if(activeOwner.isEmpty())throw new ApiError(403,"LAB_ACCOUNT_REVOKED","This account is no longer eligible for runtime execution.");
@@ -121,29 +121,39 @@ public class LabService {
     db.update("UPDATE lab_runs SET status='CANCELLING',lease_generation=?,reason=?,attention=true WHERE id=?",lease,reason,id);
     event(id,terminal,"CANCELLING",reason);outbox(id,lease,"STOP");
   }
-  private record RequestIntent(UUID owner,UUID command,String operation,Map<String,String> inputs) {}
+  private record RequestIntent(UUID owner,UUID command,LabProviderClient.Command delivery,Instant claimedUntil,LabResponses.RequestResult cached) {}
   public LabResponses.RequestResult request(UUID id,LabRequests.Request input,String key,HttpServletRequest request){key(key);syncEpoch();
     RequestIntent intent=tx(()->{
       settings();UUID owner=actor(request,false);var run=owned(id,owner,false);current(run);if(!run.get("status").equals("RUNNING")||run.get("healthy_at")==null)throw new ApiError(409,"LAB_NOT_RUNNING","Only a currently healthy running lab accepts requests.");
       var manifest=manifest((String)run.get("manifest_id"));var scenario=manifest.scenario((String)run.get("scenario_id"));if(scenario.operations().stream().noneMatch(op->op.id().equals(input.operationId())))throw new ApiError(400,"INVALID_LAB_OPERATION","Choose an operation certified for this scenario.");
       var inputs=iot.inputs(manifest,manifest.inputs(scenario,input.inputs().values()),id);String hash=hash(input);var previous=db.queryForList("SELECT command_id,run_id,idempotency_key,request_hash,lease_generation,operation_id,inputs,response,created_at FROM lab_requests WHERE run_id=? AND idempotency_key=? FOR UPDATE",id,key);UUID command;
-      if(!previous.isEmpty()){if(!hash.equals(previous.get(0).get("request_hash")))throw idempotency();command=(UUID)previous.get(0).get("command_id");}
+      if(!previous.isEmpty()){var existing=previous.get(0);if(!hash.equals(existing.get("request_hash")))throw idempotency();command=(UUID)existing.get("command_id");
+        if(number(existing,"lease_generation")!=number(run,"lease_generation"))throw new ApiError(403,"LAB_LEASE_STALE","This request belongs to an earlier closed lease.");
+        if(existing.get("response")!=null)return new RequestIntent(owner,command,null,null,decode(existing.get("response").toString(),LabResponses.RequestResult.class));
+      }
       else{command=UUID.randomUUID();db.update("INSERT INTO lab_requests(command_id,run_id,idempotency_key,request_hash,lease_generation,operation_id,inputs) VALUES(?,?,?,?,?,?,?::jsonb)",command,id,key,hash,number(run,"lease_generation"),input.operationId(),encode(inputs));}
-      return new RequestIntent(owner,command,input.operationId(),inputs);
+      // Read the wall clock after all locks: a queued transaction must not revive an expired claim.
+      Instant now=db.queryForObject("SELECT clock_timestamp()",Timestamp.class).toInstant();
+      if(run.get("request_delivery_until")!=null&&instant(run,"request_delivery_until").isAfter(now))throw new ApiError(409,"LAB_REQUEST_IN_PROGRESS","A scenario operation is already being delivered. Retry with the same request identity.");
+      Instant claimedUntil=now.plusMillis((long)config.timeoutMs+1000);
+      db.update("UPDATE lab_runs SET request_delivery_command=?,request_delivery_until=? WHERE id=?",command,Timestamp.from(claimedUntil),id);
+      return new RequestIntent(owner,command,command(run,command,"REQUEST",input.operationId(),inputs),claimedUntil,null);
     });
-    // A committed identity survives a lost response; delivery is serialized against stop and authority revocation.
-    try{return tx(()->{settings();UUID owner=actor(request,false);var run=owned(id,owner,false);current(run);
-      if(!run.get("status").equals("RUNNING"))throw new ApiError(409,"LAB_NOT_RUNNING","This run no longer accepts requests.");
-      var existing=db.queryForMap("SELECT command_id,run_id,idempotency_key,request_hash,lease_generation,operation_id,inputs,response,created_at FROM lab_requests WHERE command_id=? FOR UPDATE",intent.command());
-      if(number(existing,"lease_generation")!=number(run,"lease_generation"))throw new ApiError(403,"LAB_LEASE_STALE","This request belongs to an earlier closed lease.");
-      if(existing.get("response")!=null)return decode(existing.get("response").toString(),LabResponses.RequestResult.class);
-      var result=provider.send(command(run,intent.command(),"REQUEST",intent.operation(),intent.inputs()));if(result.state().equals("FAILED"))throw new ApiError(502,"LAB_SCENARIO_FAILED","The isolated provider confirmed failure of this scenario operation.");if(!result.state().equals("RESULT"))throw new ApiError(502,"LAB_REQUEST_UNCONFIRMED","The isolated provider has not confirmed this request.");
-      current(run);actor(request,false);var safe=new LabResponses.RequestResult(id,intent.command(),Objects.toString(result.output(),""),Objects.toString(result.summary(),""));
+    if(intent.cached()!=null)return intent.cached();
+    // The committed claim bounds retries without holding admission, account or source locks across provider I/O.
+    try{var result=provider.send(intent.delivery());if(result.state().equals("FAILED"))throw new ApiError(502,"LAB_SCENARIO_FAILED","The isolated provider confirmed failure of this scenario operation.");if(!result.state().equals("RESULT"))throw new ApiError(502,"LAB_REQUEST_UNCONFIRMED","The isolated provider has not confirmed this request.");
+      return tx(()->{settings();UUID owner=actor(request,false);var run=owned(id,owner,false);current(run);
+      if(!run.get("status").equals("RUNNING")||number(run,"lease_generation")!=intent.delivery().leaseGeneration())throw new ApiError(403,"LAB_LEASE_STALE","This request belongs to an earlier closed lease.");
+      if(!requestClaim(run,intent))throw new ApiError(409,"LAB_REQUEST_SUPERSEDED","A newer delivery attempt owns this request. Retry with the same request identity.");
+      var safe=new LabResponses.RequestResult(id,intent.command(),Objects.toString(result.output(),""),Objects.toString(result.summary(),""));
       db.update("UPDATE lab_requests SET response=?::jsonb WHERE command_id=?",encode(safe),intent.command());db.update("UPDATE lab_runs SET last_activity_at=now() WHERE id=?",id);event(id,"REQUEST_COMPLETED","RUNNING","A certified scenario operation completed.");return safe;
-    });}catch(ApiError unsafe){if(unsafe.code.equals("LAB_SCENARIO_FAILED"))tx(()->{settings();var run=owned(id,intent.owner(),false);
-      if(number(run,"lease_generation")==db.queryForObject("SELECT lease_generation FROM lab_requests WHERE command_id=?",Long.class,intent.command()))
-        db.update("UPDATE lab_requests SET confirmed_failure=true WHERE command_id=?",intent.command());return true;});if(unsafe.code.equals("LAB_ISOLATION_LOST"))tx(()->{settings();var run=owned(id,intent.owner(),false);cancel(run,"FAILED",unsafe.getMessage());return true;});throw unsafe;}
+    });}catch(ApiError unsafe){if(unsafe.code.equals("LAB_SCENARIO_FAILED")||unsafe.code.equals("LAB_ISOLATION_LOST"))tx(()->{settings();var run=owned(id,intent.owner(),false);
+      if(requestClaim(run,intent)&&number(run,"lease_generation")==intent.delivery().leaseGeneration()){
+        if(unsafe.code.equals("LAB_SCENARIO_FAILED"))db.update("UPDATE lab_requests SET confirmed_failure=true WHERE command_id=?",intent.command());else cancel(run,"FAILED",unsafe.getMessage());
+      }return true;});throw unsafe;
+    }finally{tx(()->{settings();db.update("UPDATE lab_runs SET request_delivery_command=NULL,request_delivery_until=NULL WHERE id=? AND request_delivery_command=? AND request_delivery_until=?",id,intent.command(),Timestamp.from(intent.claimedUntil()));return true;});}
   }
+  private boolean requestClaim(Map<String,Object> run,RequestIntent intent){return intent.command().equals(run.get("request_delivery_command"))&&run.get("request_delivery_until")!=null&&intent.claimedUntil().equals(instant(run,"request_delivery_until"));}
   public String events(UUID id,String cursor,HttpServletRequest request){long after=0;try{if(cursor!=null){if(!cursor.matches("[0-9]{1,18}"))throw new NumberFormatException();after=Long.parseLong(cursor);}}catch(NumberFormatException invalid){throw new ApiError(400,"INVALID_LAB_CURSOR","Use the sequence of the last received event.");}
     final long sequence=after;return tx(()->{readLock();UUID owner=actor(request,false);var run=owned(id,owner,false);current(run);
       var replay=db.queryForList("SELECT run_id,sequence,event_type,status,reason,recorded_at FROM lab_events WHERE run_id=? AND sequence>? ORDER BY sequence LIMIT 100",id,sequence);var body=new StringBuilder();int emittedBytes=0;

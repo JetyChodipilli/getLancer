@@ -130,8 +130,8 @@ public class ProjectRequestService {
       UUID business, UUID request, Map<String, Object> b, HttpServletRequest r) {
     UUID u = access(business, r);
     repo.open(repo.request(business, request));
-    matching.insert("request_shortlist", "request_id", request, b, u, "BUSINESS");
-    repo.audit(business, u, "CANDIDATE_SHORTLISTED", "Candidate added to the request shortlist");
+    if (matching.insert("request_shortlist", "request_id", request, b, u, "BUSINESS"))
+      repo.audit(business, u, "CANDIDATE_SHORTLISTED", "Candidate added to the request shortlist");
     return Map.of("ok", true);
   }
 

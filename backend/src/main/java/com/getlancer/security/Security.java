@@ -70,9 +70,11 @@ public class Security {
     request.setAttribute(SessionCookies.SECURE_ATTRIBUTE, secureCookies);
     String token = SessionCookies.read(request, "gl_session");
     if (token.isEmpty()) return null;
-    var rows = db.queryForList("SELECT u.id,u.email,u.email_verified_at,s.mfa_verified,s.issued_at,now() AS observed_at"
-        + " FROM users u JOIN sessions s ON s.user_id=u.id WHERE s.token_hash=?"
-        + " AND s.expires_at>now() AND u.account_status='ACTIVE'", Support.hash(token));
+    // Rechecks after lock waits need the current database clock, sampled once per principal query.
+    var rows = db.queryForList("WITH observed_clock AS MATERIALIZED (SELECT clock_timestamp() AS observed_at)"
+        + " SELECT u.id,u.email,u.email_verified_at,s.mfa_verified,s.issued_at,c.observed_at"
+        + " FROM users u JOIN sessions s ON s.user_id=u.id CROSS JOIN observed_clock c WHERE s.token_hash=?"
+        + " AND s.expires_at>c.observed_at AND u.account_status='ACTIVE'", Support.hash(token));
     if (rows.isEmpty()) return null;
     var row = rows.get(0);
     UUID id = (UUID) row.get("id");

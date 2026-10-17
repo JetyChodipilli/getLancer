@@ -126,6 +126,18 @@ public class DatabaseRoleGuard implements ApplicationRunner {
             AND has_column_privilege(current_user,c.oid,a.attnum,'UPDATE'))
         """, Integer.class, schema);
     if (unsafeReceipts == null || unsafeReceipts != 0) reject("webhook_receipt_permissions");
+    Integer unsafeMediaWrites = db.queryForObject("""
+        SELECT count(*) FROM (VALUES ('media_write_intents')) required(name)
+        LEFT JOIN pg_namespace n ON n.nspname=?
+        LEFT JOIN pg_class c ON c.relnamespace=n.oid AND c.relname=required.name
+        WHERE c.oid IS NULL OR has_table_privilege(current_user,c.oid,'UPDATE')
+          OR NOT has_table_privilege(current_user,c.oid,'INSERT')
+          OR NOT has_table_privilege(current_user,c.oid,'DELETE')
+          OR NOT has_column_privilege(current_user,c.oid,'expires_at','UPDATE')
+          OR EXISTS(SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+            AND a.attname<>'expires_at' AND has_column_privilege(current_user,c.oid,a.attnum,'UPDATE'))
+        """, Integer.class, schema);
+    if (unsafeMediaWrites == null || unsafeMediaWrites != 0) reject("media_write_intent_permissions");
     Boolean unsafeManifests = db.queryForObject("SELECT has_table_privilege(current_user,?,'INSERT') OR has_table_privilege(current_user,?,'DELETE')", Boolean.class,
         schema+".lab_manifests", schema+".lab_manifests");
     if (!Boolean.FALSE.equals(unsafeManifests)) reject("manifest_certification_permissions");

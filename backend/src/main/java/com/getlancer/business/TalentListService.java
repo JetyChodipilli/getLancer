@@ -68,8 +68,8 @@ public class TalentListService {
       UUID business, UUID list, Map<String, Object> b, HttpServletRequest r) {
     UUID u = access(business, r);
     list(business, list);
-    matching.insert("talent_entries", "list_id", list, b, u, "");
-    repo.audit(business, u, "TALENT_SAVED", "Eligible candidate saved to a talent list");
+    if (matching.insert("talent_entries", "list_id", list, b, u, ""))
+      repo.audit(business, u, "TALENT_SAVED", "Eligible candidate saved to a talent list");
     return Map.of("ok", true);
   }
 

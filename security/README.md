@@ -2,7 +2,10 @@
 
 Security documentation and verified remediation evidence for getLancer.
 
-- [Audit and remaining limits](AUDIT-2026-10-15.md)
+- [Current audit and remaining limits](AUDIT-2026-10-16.md)
+- [Functional and production acceptance coverage](FUNCTIONAL-COVERAGE-2026-10-16.md)
+- [Media recovery and upgrade rollout](MEDIA-RECOVERY.md)
+- [Earlier audit](AUDIT-2026-10-15.md)
 - [API access controls](API-ACCESS.md)
 - [Deployment and secret handling](DEPLOYMENT.md)
 - [Legacy requester identity migration](LEGACY-IDENTITY.md)

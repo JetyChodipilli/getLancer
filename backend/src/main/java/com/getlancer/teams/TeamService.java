@@ -340,7 +340,7 @@ public class TeamService {
       throw new ApiError(409, "CONFLICT", "This builder is already a member.");
     db.update(
         "UPDATE team_invitations SET status='EXPIRED' WHERE team_id=? AND user_id=? AND"
-            + " status='PENDING' AND (respond_by<=now() OR expires_at<=now())",
+            + " status='PENDING' AND (respond_by<=clock_timestamp() OR expires_at<=clock_timestamp())",
         t,
         user);
     UUID i = id();
@@ -565,7 +565,7 @@ public class TeamService {
     active(id);
     if (db.queryForObject(
             "SELECT count(*) FROM team_members WHERE team_id=? AND user_id=? AND (expires_at IS"
-                + " NULL OR expires_at>now())",
+                  + " NULL OR expires_at>clock_timestamp())",
             Integer.class,
             id,
             u)
@@ -709,7 +709,7 @@ public class TeamService {
   List<Map<String, Object>> staffing(UUID t) {
     return db.queryForList(
         "SELECT s.id,s.user_id AS \"userId\",d.display_name AS name,s.project_label AS"
-            + " \"projectLabel\",s.skills,s.ends_at AS \"endsAt\",CASE WHEN s.ends_at<=now() OR NOT"
+              + " \"projectLabel\",s.skills,s.ends_at AS \"endsAt\",CASE WHEN s.ends_at<=clock_timestamp() OR NOT"
             + " EXISTS(SELECT 1"
             + MEMBER_FROM
             + "WHERE m.team_id=s.team_id AND m.user_id=s.user_id AND "
@@ -753,7 +753,7 @@ public class TeamService {
     active(id);
     var s =
         one(
-            "SELECT id,team_id,user_id,project_label,skills,ends_at,status,created_at,ends_at>now() AS valid FROM team_staffing WHERE team_id=? AND id=?",
+              "SELECT id,team_id,user_id,project_label,skills,ends_at,status,created_at,ends_at>clock_timestamp() AS valid FROM team_staffing WHERE team_id=? AND id=?",
             id,
             staffingId);
     String status = TeamPolicy.choice(b, "status", Set.of("ACTIVE", "COMPLETED"));

@@ -75,6 +75,8 @@ npm run services:docker
 npm run dev:local
 ```
 
+On Windows, local Vite development uses Vinext’s Node runtime to avoid the current workerd/Miniflare filesystem startup failure. Other platforms retain the Worker runtime. Set `LOCAL_DEV_RUNTIME=worker` explicitly to exercise Cloudflare bindings; Node mode refuses configured D1/R2 bindings. Production builds always use the Worker runtime. Node mode still connects to the configured Java API and never substitutes sample data for a failed backend. The underlying Windows workerd failure remains an upstream/runtime limitation, rather than a repaired native binary.
+
 Open `http://localhost:3000`. First configure the actual database password and import the private admin authenticator key as described in the guide. Docker starts Spring Boot after PostgreSQL is healthy and the private bucket exists. Startup creates the admin only after a successful connection and migration. The [native PostgreSQL guide](ops/LOCAL_POSTGRESQL.md) remains an alternative.
 
 The same person can browse, commission work and publish showcases without switching accounts.

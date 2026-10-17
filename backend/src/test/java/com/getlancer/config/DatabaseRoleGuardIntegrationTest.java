@@ -110,6 +110,21 @@ class DatabaseRoleGuardIntegrationTest {
       finally {provision("10_permissions.sql");}
     }
   }
+  @Test void mediaRecoveryCanChangeDeadlineWithoutRewritingObjectIdentity() throws Exception {
+    UUID owner=UUID.randomUUID(), product=UUID.randomUUID(), intent=UUID.randomUUID();
+    runtime.update("INSERT INTO users(id,email,password_hash) VALUES(?,?,'synthetic-hash')",owner,owner+"@example.test");
+    runtime.update("INSERT INTO products(id,owner_user_id,slug,title,summary,description,project_type,category,technology,contribution_text) VALUES(?,?,?,'Media recovery','Private proof images','A source-owned project','SAAS','CRM','React','Built the project')",product,owner,product.toString());
+    runtime.update("INSERT INTO media_write_intents(id,product_id,expires_at) VALUES(?,?,clock_timestamp()+interval '2 minutes')",intent,product);
+    assertEquals(1,runtime.update("UPDATE media_write_intents SET expires_at=clock_timestamp() WHERE id=?",intent));
+    assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE media_write_intents SET id=? WHERE id=?",UUID.randomUUID(),intent));
+    assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE media_write_intents SET product_id=? WHERE id=?",product,intent));
+    try {
+      adminSql("GRANT UPDATE (product_id) ON "+SCHEMA+".media_write_intents TO getlancer_runtime");
+      assertRejected(runtime,"media_write_intent_permissions");
+    } finally { provision("10_permissions.sql"); }
+    assertEquals(1,runtime.update("DELETE FROM media_write_intents WHERE id=?",intent));
+  }
+
   @Test void reviewedRuntimeCanExecuteApplicationOperationsAndReadRlsTables() throws Exception {
     assertDoesNotThrow(() -> guard(runtime));
     List<String> tables = runtime.queryForList("SELECT tablename FROM pg_tables WHERE schemaname=? AND tablename<>'flyway_schema_history'", String.class, SCHEMA);

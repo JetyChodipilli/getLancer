@@ -16,7 +16,7 @@ public class TeamRepository {
   }
 
   static final String ACTIVE =
-      "(m.expires_at IS NULL OR m.expires_at>now()) AND u.account_status='ACTIVE' AND"
+      "(m.expires_at IS NULL OR m.expires_at>clock_timestamp()) AND u.account_status='ACTIVE' AND"
           + " d.approval_status='APPROVED' AND u.email_verified_at IS NOT NULL";
   static final String MEMBER_FROM =
       " FROM team_members m JOIN users u ON u.id=m.user_id JOIN developer_profiles d ON"
@@ -33,8 +33,8 @@ public class TeamRepository {
       "SELECT i.id,i.team_id AS \"teamId\",t.name AS \"teamName\",i.user_id AS"
           + " \"userId\",d.display_name AS name,i.role,i.membership_type AS"
           + " \"membershipType\",i.expires_at AS \"expiresAt\",i.project_label AS"
-          + " \"projectLabel\",CASE WHEN i.status='PENDING' AND (i.respond_by<=now() OR"
-          + " i.expires_at<=now()) THEN 'EXPIRED' ELSE i.status END AS status FROM team_invitations"
+          + " \"projectLabel\",CASE WHEN i.status='PENDING' AND (i.respond_by<=clock_timestamp() OR"
+          + " i.expires_at<=clock_timestamp()) THEN 'EXPIRED' ELSE i.status END AS status FROM team_invitations"
           + " i JOIN teams t ON t.id=i.team_id JOIN developer_profiles d ON d.user_id=i.user_id ";
   static final String ROLE =
       "SELECT id,team_id AS \"teamId\",title,description,skills,contract_type AS"
@@ -66,6 +66,9 @@ public class TeamRepository {
   }
 
   String role(UUID t, UUID u) {
+    db.queryForList(
+        "SELECT user_id FROM team_members WHERE team_id=? AND user_id=? FOR SHARE", t, u);
+    // Check authority in a new statement after any membership-row wait has completed.
     var rows =
         db.queryForList(
             "SELECT m.role" + MEMBER_FROM + "WHERE m.team_id=? AND m.user_id=? AND " + ACTIVE,

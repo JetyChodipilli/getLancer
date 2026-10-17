@@ -7,7 +7,7 @@
   },
   "scripts": {
     "install:ci": "bash scripts/install-ci.sh",
-    "dev": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vite",
+    "dev": "vite",
     "build": "bash scripts/build-verified.sh",
     "start": "node scripts/start-worker.mjs",
     "test": "npm run build && node --test tests/*.test.mjs",

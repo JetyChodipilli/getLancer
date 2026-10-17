@@ -28,6 +28,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -48,9 +51,17 @@ public class MediaService {
   final S3Client s3;
   final software.amazon.awssdk.services.s3.presigner.S3Presigner presigner;
   final String bucket;
+  final TransactionTemplate transaction;
 
   public MediaService(JdbcTemplate db, Security security, String endpoint, String region, String key, String secret, String bucket, String uploadEndpoint) {
     this(db, security, endpoint, region, key, secret, bucket, uploadEndpoint, false);
+  }
+
+  public MediaService(JdbcTemplate db, Security security, String endpoint, String region,
+      String key, String secret, String bucket, String uploadEndpoint, boolean jobsEnabled) {
+    this(db, security, endpoint, region, key, secret, bucket, uploadEndpoint, jobsEnabled,
+        new org.springframework.jdbc.datasource.DataSourceTransactionManager(
+            Objects.requireNonNull(db.getDataSource())));
   }
 
   @Autowired
@@ -58,11 +69,12 @@ public class MediaService {
       @Value("${app.storage.region}") String region, @Value("${app.storage.access-key}") String key,
       @Value("${app.storage.secret-key}") String secret, @Value("${app.storage.bucket}") String bucket,
       @Value("${app.storage.upload-endpoint:${app.storage.endpoint}}") String uploadEndpoint,
-      @Value("${app.jobs-enabled:true}") boolean jobsEnabled) {
+      @Value("${app.jobs-enabled:true}") boolean jobsEnabled, PlatformTransactionManager manager) {
     this.db = db;
     this.security = security;
     this.bucket = bucket;
     this.jobsEnabled = jobsEnabled;
+    this.transaction = new TransactionTemplate(manager);
     s3 =
         key.isBlank()
             ? null
@@ -92,13 +104,41 @@ public class MediaService {
                 .build();
   }
 
-  @Transactional
+  MediaService(JdbcTemplate db, Security security, S3Client s3,
+      software.amazon.awssdk.services.s3.presigner.S3Presigner presigner, String bucket,
+      boolean jobsEnabled, PlatformTransactionManager manager) {
+    this.db = db;
+    this.security = security;
+    this.s3 = s3;
+    this.presigner = presigner;
+    this.bucket = bucket;
+    this.jobsEnabled = jobsEnabled;
+    this.transaction = new TransactionTemplate(manager);
+  }
+
+  private <T> T tx(java.util.function.Supplier<T> work) {
+    return transaction.execute(status -> work.get());
+  }
+
+  @Transactional(propagation = Propagation.NOT_SUPPORTED)
   public Map<String, Object> upload(
       UUID product, MultipartFile file, String altText, HttpServletRequest r) throws IOException {
-    editable(product, r);
-    capacity(product);
-    storage();
-    return storeVerified(product, file.getBytes(), altText);
+    var write = tx(() -> {
+      UUID owner = editable(product, r);
+      capacity(product);
+      storage();
+      return reserveWrite(product, null, owner);
+    });
+    boolean writesStarted = false;
+    try {
+      var image = prepare(file.getBytes(), altText);
+      writesStarted = true;
+      writeImage(write, image);
+      return finishWrite(write, image, altText, r);
+    } catch (IOException | RuntimeException e) {
+      abandonWrite(write, writesStarted);
+      throw e;
+    }
   }
 
   void storage() {
@@ -107,8 +147,17 @@ public class MediaService {
   }
 
   void capacity(UUID product) {
+    capacity(product, null, null);
+  }
+
+  void capacity(UUID product, UUID ownWrite, UUID ownUpload) {
     if (db.queryForObject(
-            "SELECT count(*) FROM product_media WHERE product_id=?", Integer.class, product)
+            "SELECT (SELECT count(*) FROM product_media WHERE product_id=?)"
+                + " + (SELECT count(*) FROM media_uploads WHERE product_id=? AND completed_at IS NULL"
+                + " AND expires_at>clock_timestamp() AND (?::uuid IS NULL OR id<>?))"
+                + " + (SELECT count(*) FROM media_write_intents WHERE product_id=? AND upload_id IS NULL"
+                + " AND expires_at>clock_timestamp() AND (?::uuid IS NULL OR id<>?))",
+            Integer.class, product, product, ownUpload, ownUpload, product, ownWrite, ownWrite)
         >= 6) throw new ApiError(409, "MEDIA_LIMIT", "Use up to six proof images.");
   }
 
@@ -153,40 +202,116 @@ public class MediaService {
     return clean;
   }
 
-  Map<String, Object> storeVerified(UUID product, byte[] bytes, String alt) throws IOException {
+  record WriteIntent(UUID id, UUID product, UUID upload, UUID owner) {
+    String key() { return "products/" + product + "/" + id + ".png"; }
+    String thumbnailKey() { return "products/" + product + "/" + id + "-640.png"; }
+  }
+
+  record PreparedImage(byte[] full, byte[] thumbnail, int width, int height) {}
+
+  record PendingWrite(WriteIntent intent, Map<String, Object> upload) {}
+
+  WriteIntent reserveWrite(UUID product, UUID upload, UUID owner) {
+    var write = new WriteIntent(id(), product, upload, owner);
+    db.update(
+        "INSERT INTO media_write_intents(id,product_id,upload_id,expires_at)"
+            + " VALUES(?,?,?,clock_timestamp()+interval '2 minutes')",
+        write.id(), product, upload);
+    return write;
+  }
+
+  PreparedImage prepare(byte[] bytes, String alt) throws IOException {
     if (alt.length() > 300)
       throw new ApiError(
           400, "VALIDATION_ERROR", "Keep the image description under 300 characters.");
     byte[] clean = sanitize(bytes);
-    UUID media = id();
-    String object = "products/" + product + "/" + media + ".png";
-    s3.putObject(
-        PutObjectRequest.builder().bucket(bucket).key(object).contentType("image/png").build(),
-        RequestBody.fromBytes(clean));
-    db.update(
-        "INSERT INTO"
-            + " product_media(id,product_id,storage_key,content_type,size_bytes,verified,alt_text,sort_order)"
-            + " VALUES(?,?,?,'image/png',?,true,?,(SELECT COALESCE(max(sort_order),-1)+1 FROM"
-            + " product_media WHERE product_id=?))",
-        media,
-        product,
-        object,
-        clean.length,
-        alt.isBlank() ? "Project screenshot" : alt,
-        product);
     var decoded = ImageIO.read(new ByteArrayInputStream(clean));
-    String thumbKey = object.replace(".png", "-640.png");
-    byte[] thumbnail = thumbnail(decoded);
+    return new PreparedImage(clean, thumbnail(decoded), decoded.getWidth(), decoded.getHeight());
+  }
+
+  void writeImage(WriteIntent write, PreparedImage image) {
     s3.putObject(
-        PutObjectRequest.builder().bucket(bucket).key(thumbKey).contentType("image/png").build(),
-        RequestBody.fromBytes(thumbnail));
-    db.update(
-        "UPDATE product_media SET thumbnail_key=?,width=?,height=? WHERE id=?",
-        thumbKey,
-        decoded.getWidth(),
-        decoded.getHeight(),
-        media);
-    return Map.of("id", media, "url", "/api/v1/media/" + media);
+        PutObjectRequest.builder().bucket(bucket).key(write.key()).contentType("image/png").build(),
+        RequestBody.fromBytes(image.full()));
+    s3.putObject(
+        PutObjectRequest.builder().bucket(bucket).key(write.thumbnailKey()).contentType("image/png").build(),
+        RequestBody.fromBytes(image.thumbnail()));
+  }
+
+  Map<String, Object> pendingUpload(UUID product, UUID upload) {
+    var rows = db.queryForList(
+        "SELECT id,product_id,storage_key,content_type,size_bytes,completed_media_id,completed_at,"
+            + "expires_at FROM media_uploads"
+            + " WHERE id=? AND product_id=? FOR UPDATE", upload, product);
+    if (rows.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Upload not found.");
+    var pending = rows.get(0);
+    // Evaluate expiry after any row-lock wait, rather than in the locking SELECT.
+    pending.put("active", db.queryForObject(
+        "SELECT expires_at>clock_timestamp() FROM media_uploads WHERE id=?", Boolean.class, upload));
+    return pending;
+  }
+
+  UUID completedMedia(Map<String, Object> pending) {
+    if (pending.get("completed_at") == null) return null;
+    if (pending.get("completed_media_id") == null)
+      throw new ApiError(410, "UPLOAD_CONSUMED", "This upload can no longer be used. Start a new upload.");
+    return (UUID) pending.get("completed_media_id");
+  }
+
+  void unexpired(Map<String, Object> pending) {
+    if (!Boolean.TRUE.equals(pending.get("active")))
+      throw new ApiError(410, "UPLOAD_EXPIRED", "Start a new upload.");
+  }
+
+  Map<String, Object> finishWrite(
+      WriteIntent write, PreparedImage image, String alt, HttpServletRequest r) {
+    return tx(() -> {
+      UUID owner = editable(write.product(), r);
+      if (!owner.equals(write.owner()))
+        throw new ApiError(401, "UNAUTHENTICATED", "Please log in again.");
+      if (write.upload() != null) {
+        var pending = pendingUpload(write.product(), write.upload());
+        UUID completed = completedMedia(pending);
+        if (completed != null) {
+          db.update("UPDATE media_write_intents SET expires_at=clock_timestamp() WHERE id=?", write.id());
+          return Map.of("id", completed, "url", "/api/v1/media/" + completed);
+        }
+        unexpired(pending);
+      }
+      var intents = db.queryForList(
+          "SELECT id FROM media_write_intents"
+              + " WHERE id=? AND product_id=? FOR UPDATE", write.id(), write.product());
+      if (intents.isEmpty() || !Boolean.TRUE.equals(db.queryForObject(
+          "SELECT expires_at>clock_timestamp() FROM media_write_intents WHERE id=?",
+          Boolean.class, write.id())))
+        throw new ApiError(410, "UPLOAD_EXPIRED", "Start a new upload.");
+      capacity(write.product(), write.id(), write.upload());
+      db.update(
+          "INSERT INTO product_media(id,product_id,storage_key,content_type,size_bytes,verified,"
+              + "alt_text,sort_order,thumbnail_key,width,height)"
+              + " VALUES(?,?,?,'image/png',?,true,?,(SELECT COALESCE(max(sort_order),-1)+1"
+              + " FROM product_media WHERE product_id=?),?,?,?)",
+          write.id(), write.product(), write.key(), image.full().length,
+          alt.isBlank() ? "Project screenshot" : alt, write.product(), write.thumbnailKey(),
+          image.width(), image.height());
+      if (write.upload() != null)
+        db.update("UPDATE media_uploads SET completed_media_id=?,completed_at=clock_timestamp() WHERE id=?",
+            write.id(), write.upload());
+      db.update("DELETE FROM media_write_intents WHERE id=?", write.id());
+      return Map.of("id", write.id(), "url", "/api/v1/media/" + write.id());
+    });
+  }
+
+  void abandonWrite(WriteIntent write, boolean writesStarted) {
+    try {
+      // A committed finalization has removed its journal. An uncertain commit retains bytes
+      // until cleanup can check the database, rather than deleting them in this catch path.
+      tx(() -> writesStarted
+          ? db.update("UPDATE media_write_intents SET expires_at=LEAST(expires_at,clock_timestamp()) WHERE id=?", write.id())
+          : db.update("DELETE FROM media_write_intents WHERE id=?", write.id()));
+    } catch (RuntimeException e) {
+      org.slf4j.LoggerFactory.getLogger(MediaService.class).warn("media_write_reconciliation_pending");
+    }
   }
 
   public static byte[] thumbnail(BufferedImage image) throws IOException {
@@ -224,17 +349,6 @@ public class MediaService {
     }
     if (!Set.of("image/png", "image/jpeg").contains(type) || size < 1 || size > 5242880)
       throw new ApiError(400, "VALIDATION_ERROR", "Use a PNG or JPEG image up to 5 MB.");
-    int reserved =
-        db.queryForObject(
-            "SELECT count(*) FROM media_uploads WHERE product_id=? AND completed_media_id IS NULL"
-                + " AND expires_at>now()",
-            Integer.class,
-            product);
-    if (reserved
-            + db.queryForObject(
-                "SELECT count(*) FROM product_media WHERE product_id=?", Integer.class, product)
-        >= 6)
-      throw new ApiError(409, "MEDIA_LIMIT", "Complete pending uploads before adding more images.");
     UUID upload = id();
     String key = "pending/" + product + "/" + upload;
     var request =
@@ -252,7 +366,7 @@ public class MediaService {
                 .build());
     db.update(
         "INSERT INTO media_uploads(id,product_id,storage_key,content_type,size_bytes,expires_at)"
-            + " VALUES(?,?,?,?,?,now()+interval '10 minutes')",
+            + " VALUES(?,?,?,?,?,clock_timestamp()+interval '10 minutes')",
         upload,
         product,
         key,
@@ -271,39 +385,47 @@ public class MediaService {
         600);
   }
 
-  @Transactional
+  @Transactional(propagation = Propagation.NOT_SUPPORTED)
   public Map<String, Object> complete(UUID product, Map<String, Object> body, HttpServletRequest r)
       throws IOException {
-    editable(product, r);
-    storage();
     UUID upload = uuid(body.get("uploadId"));
-    var rows =
-        db.queryForList(
-            "SELECT id,product_id,storage_key,content_type,size_bytes,expires_at,completed_media_id,created_at FROM media_uploads WHERE id=? AND product_id=? FOR UPDATE", upload, product);
-    if (rows.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Upload not found.");
-    var pending = rows.get(0);
-    if (pending.get("completed_media_id") != null)
-      return Map.of("id", pending.get("completed_media_id"));
-    if (((java.sql.Timestamp) pending.get("expires_at"))
-        .toInstant()
-        .isBefore(java.time.Instant.now()))
-      throw new ApiError(410, "UPLOAD_EXPIRED", "Start a new upload.");
-    capacity(product);
-    String key = (String) pending.get("storage_key");
-    byte[] bytes;
-    try (var response = s3.getObject(GetObjectRequest.builder().bucket(bucket).key(key).build())) {
-      if (response.response().contentLength() != ((Number) pending.get("size_bytes")).longValue()
-          || !pending.get("content_type").equals(response.response().contentType()))
-        throw new ApiError(400, "INVALID_IMAGE", "Uploaded metadata does not match the request.");
-      bytes = response.readNBytes(5242881);
-    } catch (NoSuchKeyException e) {
-      throw new ApiError(409, "UPLOAD_NOT_READY", "Upload the image before completing it.");
+    var start = tx(() -> {
+      UUID owner = editable(product, r);
+      storage();
+      var pending = pendingUpload(product, upload);
+      if (completedMedia(pending) != null) return new PendingWrite(null, pending);
+      unexpired(pending);
+      if (!db.queryForList("SELECT id FROM media_write_intents WHERE upload_id=?", upload).isEmpty())
+        throw new ApiError(409, "UPLOAD_BUSY", "This upload is processing. Retry after cleanup.");
+      capacity(product, null, upload);
+      return new PendingWrite(reserveWrite(product, upload, owner), pending);
+    });
+    if (start.intent() == null) return Map.of("id", completedMedia(start.upload()));
+    var write = start.intent();
+    boolean writesStarted = false;
+    try {
+      String alt = text(body, "altText", 1, 300);
+      byte[] bytes;
+      var pending = start.upload();
+      try (var response = s3.getObject(GetObjectRequest.builder().bucket(bucket)
+          .key((String) pending.get("storage_key")).build())) {
+        if (response.response().contentLength() != ((Number) pending.get("size_bytes")).longValue()
+            || !pending.get("content_type").equals(response.response().contentType()))
+          throw new ApiError(400, "INVALID_IMAGE", "Uploaded metadata does not match the request.");
+        bytes = response.readNBytes(5242881);
+      } catch (NoSuchKeyException e) {
+        throw new ApiError(409, "UPLOAD_NOT_READY", "Upload the image before completing it.");
+      }
+      var image = prepare(bytes, alt);
+      writesStarted = true;
+      writeImage(write, image);
+      // Retain the pending object until its original signature expires; replay can only
+      // replace staging bytes, never the independently verified immutable media keys.
+      return finishWrite(write, image, alt, r);
+    } catch (IOException | RuntimeException e) {
+      abandonWrite(write, writesStarted);
+      throw e;
     }
-    var media = storeVerified(product, bytes, text(body, "altText", 1, 300));
-    db.update("UPDATE media_uploads SET completed_media_id=? WHERE id=?", media.get("id"), upload);
-    // The signed URL can be replayed until expiry. Keep staging cleanup after its expiry;
-    // the verified copy has a different key and can never be overwritten by the client.
-    return media;
   }
 
   public Map<String, Object> proof(UUID product, HttpServletRequest r) {
@@ -334,7 +456,7 @@ public class MediaService {
             .toList());
   }
 
-  void editable(UUID product, HttpServletRequest r) {
+  UUID editable(UUID product, HttpServletRequest r) {
     UUID owner = security.developer(r, true);
     if (db.queryForList(
             "SELECT id FROM products WHERE id=? AND owner_user_id=? AND approval_status IN"
@@ -342,6 +464,9 @@ public class MediaService {
             product,
             owner)
         .isEmpty()) throw new ApiError(404, "NOT_FOUND", "Editable project not found.");
+    if (!owner.equals(security.developer(r, true)))
+      throw new ApiError(401, "UNAUTHENTICATED", "Please log in again.");
+    return owner;
   }
 
   @Transactional
@@ -397,8 +522,11 @@ public class MediaService {
   }
 
   @Scheduled(fixedDelay = 60000)
+  @Transactional(propagation = Propagation.NOT_SUPPORTED)
   public void removeObjects() {
-    if (!jobsEnabled || s3 == null) return;
+    if (!jobsEnabled) return;
+    expireWrites();
+    if (s3 == null) return;
     for (var row :
         db.queryForList("SELECT storage_key FROM storage_deletions ORDER BY created_at LIMIT 20")) {
       String key = (String) row.get("storage_key");
@@ -409,6 +537,29 @@ public class MediaService {
         org.slf4j.LoggerFactory.getLogger(MediaService.class).warn("storage_cleanup_failed");
       }
     }
+  }
+
+  void expireWrites() {
+    tx(() -> {
+      // The two-minute write deadline bounds finalization. Wait another five minutes
+      // before deleting to accommodate bounded SDK calls already in flight. Provider
+      // behavior beyond that margin still needs the operator's object lifecycle/sweep.
+      for (var row : db.queryForList(
+          "SELECT id,product_id FROM media_write_intents WHERE expires_at<clock_timestamp()"
+              + "-interval '5 minutes' ORDER BY expires_at,id LIMIT 20 FOR UPDATE SKIP LOCKED")) {
+        var write = new WriteIntent((UUID) row.get("id"), (UUID) row.get("product_id"), null, null);
+        int linked = db.queryForObject(
+            "SELECT count(*) FROM product_media WHERE id=? OR storage_key IN (?,?)"
+                + " OR thumbnail_key IN (?,?)", Integer.class, write.id(), write.key(),
+            write.thumbnailKey(), write.key(), write.thumbnailKey());
+        if (linked == 0) {
+          db.update("INSERT INTO storage_deletions(storage_key) VALUES(?) ON CONFLICT DO NOTHING", write.key());
+          db.update("INSERT INTO storage_deletions(storage_key) VALUES(?) ON CONFLICT DO NOTHING", write.thumbnailKey());
+        }
+        db.update("DELETE FROM media_write_intents WHERE id=?", write.id());
+      }
+      return true;
+    });
   }
 
   public ResponseEntity<byte[]> get(UUID id, String variant, HttpServletRequest r) {
