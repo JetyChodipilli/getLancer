@@ -6,6 +6,8 @@ import static com.getlancer.shared.Support.uuid;
 
 import com.getlancer.products.ProductRepository;
 import com.getlancer.shared.ApiError;
+import com.getlancer.shared.Pages;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -122,18 +124,16 @@ public class MatchingService {
     return rows.get(0);
   }
 
-  List<Map<String, Object>> entries(String table, String foreignKey, UUID id) {
-    var rows =
-        repo.jdbc()
-            .queryForList(
+  Map<String, Object> entries(String table, String foreignKey, UUID id, HttpServletRequest request) {
+    var page = repo.page(request,
                 "SELECT id,kind,coalesce(builder_id,team_id) AS \"targetId\""
                     + (table.equals("request_shortlist") ? ",reason,source" : "")
                     + " FROM "
                     + table
                     + " WHERE "
                     + foreignKey
-                    + "=? ORDER BY created_at DESC,id LIMIT 100",
-                id);
+                    + "=? ORDER BY created_at DESC,id", id);
+    var rows = Pages.items(page);
     var result = new ArrayList<Map<String, Object>>();
     for (var entry : rows) {
       try {
@@ -146,7 +146,21 @@ public class MatchingService {
         result.add(entry);
       }
     }
-    return result;
+    page.put("items", result);
+    return page;
+  }
+
+  boolean hasEligibleConciergeRecommendation(UUID request) {
+    String proof = " FROM products p JOIN users u ON u.id=p.owner_user_id"
+        + " JOIN developer_profiles d ON d.user_id=u.id ";
+    return Boolean.TRUE.equals(repo.jdbc().queryForObject(
+        "SELECT EXISTS(SELECT 1 FROM request_shortlist s WHERE s.request_id=? AND s.source='CONCIERGE' AND ("
+            + "(s.kind='BUILDER' AND EXISTS(SELECT 1" + proof + " WHERE " + ELIGIBLE + " AND u.id=s.builder_id)) OR "
+            + "(s.kind='TEAM' AND EXISTS(SELECT 1" + proof
+            + " JOIN team_projects tp ON tp.product_id=p.id AND tp.consented_by=p.owner_user_id"
+            + " JOIN teams t ON t.id=tp.team_id JOIN team_members m ON m.team_id=t.id AND m.user_id=p.owner_user_id"
+            + " WHERE " + ELIGIBLE + " AND t.id=s.team_id AND t.status='ACTIVE'"
+            + " AND (m.expires_at IS NULL OR m.expires_at>clock_timestamp())))))", Boolean.class, request));
   }
 
   boolean insert(

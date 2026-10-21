@@ -37,6 +37,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     })
 @AutoConfigureMockMvc
 class BusinessIntegrationTest {
+  @Autowired com.fasterxml.jackson.databind.ObjectMapper mapper;
   @Autowired JdbcTemplate db;
   @Autowired MockMvc mvc;
   UUID owner, manager, outsider, builder, admin, business, product, team;
@@ -356,4 +357,121 @@ class BusinessIntegrationTest {
         .andExpect(jsonPath("$.repositoryVerifications.length()").value(0))
         .andExpect(jsonPath("$.teamStaffing.length()").value(0));
   }
+  UUID retainedBrief(String title, String status) {
+    UUID id = UUID.randomUUID();
+    db.update("INSERT INTO business_requests(id,business_id,created_by,title,description,category,technology,budget,timeline,status)"
+        + " VALUES(?,?,?,?,'A retained private customer approval workflow','CRM','React','10k','2 months',?)",
+        id, business, owner, title, status);
+    return id;
+  }
+
+  void assertAllPages(String path, String actor, String collection, String metadata, int expected, String identity) throws Exception {
+    var ids = new HashSet<String>();
+    int page = 0;
+    boolean more;
+    do {
+      var response = mapper.readTree(mvc.perform(as(get(path).param("page", String.valueOf(page)).param("size", "37"), actor))
+          .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+      var information = metadata == null ? response : response.path(metadata);
+      assertEquals(page, information.path("page").asInt());
+      assertEquals(37, information.path("size").asInt());
+      assertEquals(expected, information.path("totalItems").asInt());
+      assertEquals((expected + 36) / 37, information.path("totalPages").asInt());
+      assertTrue(response.path(collection).size() <= 37);
+      for (var row : response.path(collection)) {
+        assertFalse(row.path(identity).asText().isBlank());
+        assertTrue(ids.add(row.path(identity).asText()), "Pages must not repeat retained records");
+      }
+      more = information.path("hasMore").asBoolean();
+      page++;
+      assertTrue(page <= (expected + 36) / 37 + 1, "Pagination must terminate");
+    } while (more);
+    assertEquals(expected, ids.size());
+  }
+
+  @Test
+  void everyRetainedBusinessCollectionContinuesBeyondOneHundredWithoutTenantLeakage() throws Exception {
+    for (int i = 0; i < 105; i++) {
+      UUID member = user("retained-member-" + i, false), other = UUID.randomUUID();
+      db.update("INSERT INTO business_members(business_id,user_id,role) VALUES(?,?,'HIRING_MANAGER')", business, member);
+      db.update("INSERT INTO businesses(id,name,summary,owner_id) VALUES(?,'Retained business','Private retained workspace',?)", other, owner);
+      db.update("INSERT INTO business_members(business_id,user_id,role) VALUES(?,?,'OWNER')", other, owner);
+      db.update("INSERT INTO business_invitations(id,business_id,user_id,status) VALUES(?,?,?,'DECLINED')", UUID.randomUUID(), business, member);
+      db.update("INSERT INTO business_invitations(id,business_id,user_id,status) VALUES(?,?,?,'DECLINED')", UUID.randomUUID(), other, owner);
+      db.update("INSERT INTO business_activity(id,business_id,actor_id,action,detail) VALUES(?,?,?,'REQUEST_UPDATED','Retained audit history')", UUID.randomUUID(), business, owner);
+      db.update("INSERT INTO talent_lists(id,business_id,name,created_by) VALUES(?,?,'Retained list',?)", UUID.randomUUID(), business, owner);
+      retainedBrief("Retained request " + i, "CLOSED");
+    }
+    assertAllPages("/api/v1/businesses", "owner", "items", "itemsPage", 106, "id");
+    assertAllPages("/api/v1/businesses", "owner", "invitations", "invitationsPage", 105, "id");
+    assertAllPages(root(), "owner", "members", "membersPage", 106, "userId");
+    assertAllPages(root(), "owner", "invitations", "invitationsPage", 105, "id");
+    assertAllPages(root(), "owner", "activity", "activityPage", 106, "id");
+    assertAllPages(root() + "/requests", "owner", "items", null, 105, "id");
+    assertAllPages(root() + "/talent-lists", "owner", "items", null, 105, "id");
+    mvc.perform(as(get(root() + "/requests?page=2&size=37"), "outsider")).andExpect(status().isNotFound());
+    mvc.perform(as(get(root() + "?size=101"), "owner")).andExpect(status().isBadRequest());
+    mvc.perform(as(get(root() + "/requests?page=-1"), "owner")).andExpect(status().isBadRequest());
+    mvc.perform(as(get(root() + "/talent-lists?page=100001"), "owner")).andExpect(status().isBadRequest());
+    mvc.perform(as(get(root() + "/requests?page=99&size=100"), "owner"))
+        .andExpect(jsonPath("$.items.length()").value(0)).andExpect(jsonPath("$.totalItems").value(105));
+    // A hiring manager's invitation page is empty and carries no owner-only count.
+    db.update("INSERT INTO business_members(business_id,user_id,role) VALUES(?,?,'HIRING_MANAGER')", business, manager);
+    mvc.perform(as(get(root() + "?page=2&size=37"), "manager"))
+        .andExpect(jsonPath("$.invitations.length()").value(0)).andExpect(jsonPath("$.invitationsPage.totalItems").value(0));
+  }
+
+  @Test
+  void savedAndShortlistedUnavailableRecordsStayReachableAndFulfillmentSeesProofPastPageOneHundred() throws Exception {
+    UUID request = retainedBrief("Retained shortlist", "OPEN"), list = UUID.randomUUID(), concierge = UUID.randomUUID();
+    db.update("INSERT INTO talent_lists(id,business_id,name,created_by) VALUES(?,?,'Large retained list',?)", list, business, owner);
+    // Eligible concierge proof is intentionally older than one hundred unavailable records.
+    db.update("INSERT INTO request_shortlist(id,request_id,kind,builder_id,created_by,reason,source,created_at)"
+        + " VALUES(?,?,'BUILDER',?,?,'Current approved proof','CONCIERGE',now()-interval '10 days')", UUID.randomUUID(), request, builder, owner);
+    for (int i = 0; i < 105; i++) {
+      UUID unavailable = user("unavailable-proof-" + i, false);
+      db.update("INSERT INTO talent_entries(id,list_id,kind,builder_id,created_by) VALUES(?,?,'BUILDER',?,?)", UUID.randomUUID(), list, unavailable, owner);
+      db.update("INSERT INTO request_shortlist(id,request_id,kind,builder_id,created_by,reason,source)"
+          + " VALUES(?,?,'BUILDER',?,?,'Previously saved evidence','BUSINESS')", UUID.randomUUID(), request, unavailable, owner);
+    }
+    String entries = root() + "/talent-lists/" + list + "/entries", shortlist = root() + "/requests/" + request + "/shortlist";
+    assertAllPages(entries, "owner", "items", null, 105, "id");
+    assertAllPages(shortlist, "owner", "items", null, 106, "id");
+    mvc.perform(as(get(entries + "?page=2&size=37"), "owner"))
+        .andExpect(jsonPath("$.items[0].unavailable").value(true));
+    mvc.perform(as(get(shortlist + "?page=2&size=37"), "outsider")).andExpect(status().isNotFound());
+    db.update("INSERT INTO concierge_requests(id,request_id,requested_by,status) VALUES(?,?,?,'IN_PROGRESS')", concierge, request, owner);
+    db.update("UPDATE products SET visibility='PRIVATE_CASE_STUDY' WHERE id=?", product);
+    mvc.perform(json(patch("/api/v1/admin/concierge/" + concierge), "admin", "{\"status\":\"FULFILLED\"}"))
+        .andExpect(status().isConflict());
+    db.update("UPDATE products SET visibility='PUBLIC' WHERE id=?", product);
+    mvc.perform(json(patch("/api/v1/admin/concierge/" + concierge), "admin", "{\"status\":\"FULFILLED\"}"))
+        .andExpect(status().isOk());
+    assertEquals(106, db.queryForObject("SELECT count(*) FROM request_shortlist WHERE request_id=?", Integer.class, request));
+  }
+
+  @Test
+  void oldFulfilledSourcingCannotHideNewWorkAndHistoryIncludesCompletedClosedBriefs() throws Exception {
+    for (int i = 0; i < 105; i++) {
+      UUID history = retainedBrief("Completed sourcing " + i, i % 2 == 0 ? "CLOSED" : "OPEN");
+      db.update("INSERT INTO concierge_requests(id,request_id,requested_by,status,created_at) VALUES(?,?,?,'FULFILLED',now()-interval '10 days')",
+          UUID.randomUUID(), history, owner);
+      UUID active = retainedBrief("Sourcing in progress " + i, "OPEN");
+      db.update("INSERT INTO concierge_requests(id,request_id,requested_by,status) VALUES(?,?,?,'IN_PROGRESS')", UUID.randomUUID(), active, owner);
+    }
+    UUID newest = retainedBrief("Newest requested sourcing", "OPEN");
+    db.update("INSERT INTO concierge_requests(id,request_id,requested_by,status) VALUES(?,?,?,'REQUESTED')", UUID.randomUUID(), newest, owner);
+    mvc.perform(as(get("/api/v1/admin/concierge?size=1"), "admin"))
+        .andExpect(jsonPath("$.items[0].requestId").value(newest.toString()))
+        .andExpect(jsonPath("$.items[0].status").value("REQUESTED"))
+        .andExpect(jsonPath("$.itemsPage.totalItems").value(106))
+        .andExpect(jsonPath("$.historyPage.totalItems").value(105));
+    assertAllPages("/api/v1/admin/concierge", "admin", "items", "itemsPage", 106, "id");
+    assertAllPages("/api/v1/admin/concierge", "admin", "history", "historyPage", 105, "id");
+    db.update("UPDATE sessions SET mfa_verified=false WHERE user_id=?", admin);
+    mvc.perform(as(get("/api/v1/admin/concierge?page=2&size=37"), "admin")).andExpect(status().isForbidden());
+    mvc.perform(as(get("/api/v1/admin/concierge?page=2&size=37"), "owner")).andExpect(status().isForbidden());
+    assertEquals(211, db.queryForObject("SELECT count(*) FROM concierge_requests", Integer.class));
+  }
+
 }

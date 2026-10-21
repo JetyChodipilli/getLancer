@@ -150,6 +150,44 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     mvc.perform(get("/api/v1/components?kind=BACKEND")).andExpect(jsonPath("$.items").isEmpty()).andExpect(jsonPath("$.executionMode").value("Source only"));
     mvc.perform(get("/api/v1/components?page=-1")).andExpect(status().isBadRequest());
   }
+  MockHttpServletRequestBuilder combinedComponents(){
+    return get("/api/v1/components").param("language","JavaScript").param("framework","VANILLA").param("license","MIT").param("mode","Browser local");
+  }
+  @Test void combinedComponentFiltersMatchLegacyMetadataBeforeStablePagination()throws Exception{
+    var first=response(combinedComponents());var next=response(combinedComponents().param("page","1"));var empty=response(combinedComponents().param("page","2"));
+    assertEquals(24,first.path("totalItems").asInt());assertEquals(2,first.path("totalPages").asInt());assertEquals(12,first.path("size").asInt());assertTrue(first.path("hasMore").asBoolean());
+    assertEquals(12,first.path("items").size());assertEquals(12,next.path("items").size());assertFalse(next.path("hasMore").asBoolean());assertTrue(empty.path("items").isEmpty());assertEquals(24,empty.path("totalItems").asInt());assertEquals(2,empty.path("page").asInt());
+    var slugs=new HashSet<String>();for(var page:List.of(first,next))for(var item:page.path("items")){assertTrue(slugs.add(item.path("slug").asText()));assertFalse(item.has("files"));}
+    var match=response(combinedComponents().param("category","AUTH").param("q","password"));assertEquals(1,match.path("totalItems").asInt());assertEquals("quiet-sign-in",match.path("items").get(0).path("slug").asText());
+    assertEquals(24,response(get("/api/v1/components").param("language","js").param("framework","HTML / CSS / JavaScript").param("license","mit").param("mode","browser local")).path("totalItems").asInt());
+    for(var filter:Map.of("language","Java","framework","React","license","Apache-2.0","mode","Source only").entrySet())assertEquals(0,response(get("/api/v1/components").param(filter.getKey(),filter.getValue())).path("totalItems").asInt());
+  }
+  @Test void combinedComponentCountsExcludePrivateDraftsAndRecheckCurrentCreatorAuthority()throws Exception{
+    var ids=new HashSet<String>();
+    for(int n=0;n<2;n++){UUID id=draft();submit(id);response(approve(id));ids.add("remix-"+id);}
+    draft(); // An unpublished record must affect neither totals nor page boundaries.
+    var last=response(combinedComponents().param("page","2"));assertEquals(26,last.path("totalItems").asInt());assertEquals(3,last.path("totalPages").asInt());assertEquals(2,last.path("items").size());assertFalse(last.path("hasMore").asBoolean());
+    var shown=new HashSet<String>();for(var item:last.path("items")){shown.add(item.path("slug").asText());assertFalse(item.has("files"));assertFalse(item.has("reviewReason"));assertFalse(item.has("sourceHash"));}assertEquals(ids,shown);
+    assertEquals(2,response(combinedComponents().param("builder","builder")).path("totalItems").asInt());assertEquals(0,response(combinedComponents().param("builder","other")).path("totalItems").asInt());
+    db.update("UPDATE users SET account_status='SUSPENDED' WHERE id=?",builder);assertEquals(0,response(combinedComponents().param("builder","builder")).path("totalItems").asInt());db.update("UPDATE users SET account_status='ACTIVE' WHERE id=?",builder);
+    db.update("UPDATE developer_profiles SET approval_status='PROFILE_PENDING' WHERE user_id=?",builder);assertEquals(0,response(combinedComponents().param("builder","builder")).path("totalItems").asInt());db.update("UPDATE developer_profiles SET approval_status='APPROVED' WHERE user_id=?",builder);
+    db.update("DELETE FROM user_roles WHERE user_id=? AND role='DEVELOPER'",builder);assertEquals(0,response(combinedComponents().param("builder","builder")).path("totalItems").asInt());db.update("INSERT INTO user_roles(user_id,role) VALUES(?,'DEVELOPER')",builder);
+    assertEquals(2,response(combinedComponents().param("builder","builder")).path("totalItems").asInt());
+  }
+  @Test void componentSearchTreatsSqlWildcardsAsLiteralCharacters()throws Exception{
+    UUID id=draft();
+    response(body(patch("/api/v1/me/components/"+id),"builder",Map.of("recipeSlug","portfolio-card","title","Literal % _ \\ card","summary","An original literal search example for component discovery.","contribution","Selected an original recipe to check literal component search behavior.","rightsConsent",true)));submit(id);response(approve(id));
+    for(String term:List.of("%","_","\\","Literal % _ \\ card"))assertEquals(1,response(combinedComponents().param("builder","builder").param("q",term)).path("totalItems").asInt());
+    assertEquals(0,response(combinedComponents().param("builder","builder").param("q","missing_%")).path("totalItems").asInt());
+  }
+  @Test void componentFilterValidationRejectsUnboundedOrMalformedInput()throws Exception{
+    for(String key:List.of("category","kind","builder","language","framework","license","mode"))mvc.perform(get("/api/v1/components").param(key,"x".repeat(101))).andExpect(status().isBadRequest());
+    mvc.perform(get("/api/v1/components").param("q","x".repeat(201))).andExpect(status().isBadRequest());
+    for(String key:List.of("q","category","kind","builder","language","framework","license","mode"))mvc.perform(get("/api/v1/components").param(key,"bad\nvalue")).andExpect(status().isBadRequest());
+    for(String page:List.of("-1","10001","1.5","NaN"))mvc.perform(get("/api/v1/components").param("page",page)).andExpect(status().isBadRequest());
+    mvc.perform(get("/api/v1/components").param("category","UNKNOWN")).andExpect(status().isBadRequest());mvc.perform(get("/api/v1/components").param("kind","HOSTED")).andExpect(status().isBadRequest());
+    var backend=response(combinedComponents().param("kind","BACKEND"));assertEquals(0,backend.path("totalItems").asInt());assertTrue(backend.path("items").isEmpty());assertEquals("Source only",backend.path("executionMode").asText());
+  }
   @Test void exactlyThreeFreeSlotsAreAtomicAndIndependentOfFullProjectCapacity()throws Exception{
     for(int n=0;n<3;n++){
       UUID id=draft();

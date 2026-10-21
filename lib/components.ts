@@ -1,14 +1,56 @@
 import seeds from '../backend/src/main/resources/catalog/components.metadata.json' with {type: 'json'};
-export type ComponentEntry = { revision?: number; uploaded?: boolean; previewUrl?: string; previewExpiresAt?: string; archiveSha256?: string; manifestSha256?: string; sourceHash?: string; withdrawn?: boolean; published?: boolean; id?: string; slug: string; recipeSlug?: string; title: string; summary: string; category: string; kind: string; framework: string; executionMode: string; creator: string; builderSlug?: string; contribution?: string; license: string; version: string; sha256: string; scenario: string; status?: string; reviewReason?: string; files?: Record<string, string> };
-export type ComponentPage = { items: ComponentEntry[]; totalItems: number; page: number; hasMore: boolean };
+export type ComponentEntry = { revision?: number; uploaded?: boolean; previewUrl?: string; previewExpiresAt?: string; archiveSha256?: string; manifestSha256?: string; sourceHash?: string; withdrawn?: boolean; published?: boolean; id?: string; slug: string; recipeSlug?: string; title: string; summary: string; category: string; kind: string; language?: string; framework: string; executionMode: string; creator: string; builderSlug?: string; contribution?: string; license: string; version: string; sha256: string; scenario: string; status?: string; reviewReason?: string; files?: Record<string, string> };
+export type ComponentPage = { items: ComponentEntry[]; totalItems: number; page: number; size: number; totalPages: number; hasMore: boolean };
+export type ComponentFilters = { q: string; category: string; kind: string; builder: string; language: string; framework: string; license: string; mode: string; page: number };
 export type Capacity = { free: number; purchased: number; used: number; limit: number };
 export type SlotPricing = { amountMinor: number | null; enabled: boolean; salesEnabled: boolean; configured: boolean; currency: string; mode: string; reason: string };
 export type SlotPurchase = { id: string; amountMinor: number; mode: string; status: string; orderId?: string; keyId?: string; refundedMinor: number; grantsSlot: boolean };
 export const componentSeeds: ComponentEntry[] = seeds;
 export const componentCategories = [['NAVBAR', 'Navigation bars'], ['SIDEBAR', 'Sidebars'], ['FORM', 'Forms'], ['CARD', 'Cards'], ['AUTH', 'Login & auth'], ['DASHBOARD', 'Dashboards']] as const;
+export const componentLanguages = [['HTML', 'HTML'], ['CSS', 'CSS'], ['JavaScript', 'JavaScript']] as const;
+export const componentFrameworks = [['VANILLA', 'Plain browser (no framework)']] as const;
+export const componentLicenses = [['MIT', 'MIT']] as const;
+export const componentModes = [['Browser local', 'Browser local'], ['Source only', 'Source only']] as const;
+export const emptyComponentFilters: ComponentFilters = { q: '', category: '', kind: 'FRONTEND', builder: '', language: '', framework: '', license: '', mode: '', page: 0 };
+const languageKey = (value: string) => value.trim().toLowerCase().replace(/^javascript$/, 'js');
+const frameworkKey = (value: string) => /^(html\/css\/(javascript|js)|vanilla)$/.test(value.toLowerCase().replaceAll(/\s/g, '')) ? 'vanilla' : value.trim().toLowerCase();
+export function parseComponentFilters(params: URLSearchParams): ComponentFilters {
+  const filters = { ...emptyComponentFilters };
+  for (const key of ['q', 'category', 'kind', 'builder', 'language', 'framework', 'license', 'mode'] as const) {
+    const value = params.get(key) ?? filters[key];
+    if (value.length > (key === 'q' ? 200 : 100) || /[\u0000-\u001f\u007f]/.test(value)) throw Error('Choose valid component filters.');
+    filters[key] = value.trim();
+  }
+  const page = params.get('page') || '0';
+  if (!/^\d+$/.test(page) || Number(page) > 10000 || !['FRONTEND', 'BACKEND'].includes(filters.kind) || (filters.category && !componentCategories.some(([key]) => key === filters.category))) throw Error('Choose valid component filters.');
+  filters.page = Number(page);
+  filters.language = componentLanguages.find(([key]) => languageKey(key) === languageKey(filters.language))?.[0] ?? filters.language;
+  if (frameworkKey(filters.framework) === 'vanilla') filters.framework = 'VANILLA';
+  filters.license = componentLicenses.find(([key]) => key.toLowerCase() === filters.license.toLowerCase())?.[0] ?? filters.license;
+  filters.mode = componentModes.find(([key]) => key.toLowerCase() === filters.mode.toLowerCase())?.[0] ?? filters.mode;
+  return filters;
+}
+export function componentFilterParams(filters: ComponentFilters, changes: Partial<ComponentFilters> = {}): URLSearchParams {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries({ ...filters, ...changes })) if (value !== '' && !(key === 'page' && value === 0) && !(key === 'kind' && value === 'FRONTEND')) params.set(key, String(value));
+  return params;
+}
+export function filterComponents(items: ComponentEntry[], filters: ComponentFilters): ComponentEntry[] {
+  return items.filter(c => c.kind === filters.kind && (!filters.builder || c.builderSlug === filters.builder)
+    && (!filters.category || c.category === filters.category)
+    && (!filters.q || (c.title + ' ' + c.summary).toLowerCase().includes(filters.q.toLowerCase()))
+    && (!filters.language || (c.language ?? c.framework).split(/[\s/,]+/).some(token => languageKey(token) === languageKey(filters.language)))
+    && (!filters.framework || frameworkKey(c.framework) === frameworkKey(filters.framework))
+    && (!filters.license || c.license.toLowerCase() === filters.license.toLowerCase())
+    && (!filters.mode || c.executionMode.toLowerCase() === filters.mode.toLowerCase()));
+}
 export const collegeCategories = [['FULL_STACK', 'Full stack'], ['DATA_ANALYTICS', 'Data analytics'], ['AI_ML', 'AI & machine learning'], ['IOT', 'IoT']] as const;
 export const componentLabel = (value: string) => componentCategories.find(([key]) => key === value)?.[1] || collegeCategories.find(([key]) => key === value)?.[1] || value.toLowerCase().replaceAll('_', ' ');
-export function seedCatalog(q = '', category = '', kind = 'FRONTEND', page = 0): ComponentPage { const all = kind === 'BACKEND' ? [] : componentSeeds.filter(c => (!category || c.category === category) && (!q || (c.title + ' ' + c.summary).toLowerCase().includes(q.toLowerCase()))); return { items: all.slice(page * 12, (page + 1) * 12).map(({ files: _, ...c }) => c), totalItems: all.length, page, hasMore: (page + 1) * 12 < all.length }; }
+export function seedCatalog(q = '', category = '', kind = 'FRONTEND', page = 0, additional: Partial<Pick<ComponentFilters, 'language' | 'framework' | 'license' | 'mode' | 'builder'>> = {}): ComponentPage {
+  const filters = parseComponentFilters(new URLSearchParams({ ...additional, q, category, kind, page: String(page) }));
+  const all = filterComponents(componentSeeds, filters);
+  return { items: all.slice(filters.page * 12, (filters.page + 1) * 12).map(item => { const card = { ...item }; delete card.files; return card; }), totalItems: all.length, page: filters.page, size: 12, totalPages: Math.ceil(all.length / 12), hasMore: (filters.page + 1) * 12 < all.length };
+}
 
 /** Uncompressed ZIP, bounded to curated text files; browsers need no package/build dependency. */
 export function componentZip(files: Record<string, string>): Uint8Array {

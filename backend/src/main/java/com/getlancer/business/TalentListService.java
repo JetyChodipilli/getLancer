@@ -33,13 +33,7 @@ public class TalentListService {
   @Transactional
   public Map<String, Object> lists(UUID business, HttpServletRequest r) {
     access(business, r);
-    return Map.of(
-        "items",
-        repo.jdbc()
-            .queryForList(
-                "SELECT id,name FROM talent_lists WHERE business_id=? ORDER BY created_at DESC,id"
-                    + " LIMIT 100",
-                business));
+    return repo.page(r, "SELECT id,name FROM talent_lists WHERE business_id=? ORDER BY created_at DESC,id", business);
   }
 
   @Transactional
@@ -60,7 +54,7 @@ public class TalentListService {
   public Map<String, Object> entries(UUID business, UUID list, HttpServletRequest r) {
     access(business, r);
     list(business, list);
-    return Map.of("items", matching.entries("talent_entries", "list_id", list));
+    return matching.entries("talent_entries", "list_id", list, r);
   }
 
   @Transactional

@@ -7,9 +7,10 @@ import static com.getlancer.shared.Support.id;
 import static com.getlancer.shared.Support.text;
 
 import com.getlancer.shared.ApiError;
+import com.getlancer.shared.Pages;
 import jakarta.servlet.http.HttpServletRequest;
 import java.sql.Timestamp;
-import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -26,22 +27,15 @@ public class BusinessService {
 
   public Map<String, Object> mine(HttpServletRequest r) {
     UUID u = repo.verified(r);
-    return Map.of(
-        "items",
-        repo.jdbc()
-            .queryForList(
-                BUSINESS
-                    + "JOIN business_members m ON m.business_id=b.id WHERE m.user_id=? ORDER BY"
-                    + " b.created_at DESC LIMIT 100",
-                u),
-        "invitations",
-        repo.jdbc()
-            .queryForList(
-                "SELECT i.id,b.name AS \"businessName\",i.business_id AS \"businessId\",CASE WHEN"
-                    + " i.status='PENDING' AND i.expires_at<=clock_timestamp() THEN 'EXPIRED' ELSE i.status END"
-                    + " AS status FROM business_invitations i JOIN businesses b ON"
-                    + " b.id=i.business_id WHERE i.user_id=? ORDER BY i.created_at DESC LIMIT 100",
-                u));
+    var businesses = repo.page(r, BUSINESS
+        + "JOIN business_members m ON m.business_id=b.id WHERE m.user_id=? ORDER BY b.created_at DESC,b.id", u);
+    var invitations = repo.page(r,
+        "SELECT i.id,b.name AS \"businessName\",i.business_id AS \"businessId\",CASE WHEN"
+            + " i.status='PENDING' AND i.expires_at<=clock_timestamp() THEN 'EXPIRED' ELSE i.status END"
+            + " AS status FROM business_invitations i JOIN businesses b ON b.id=i.business_id"
+            + " WHERE i.user_id=? ORDER BY i.created_at DESC,i.id", u);
+    return Map.of("items", Pages.items(businesses), "itemsPage", BusinessRepository.metadata(businesses),
+        "invitations", Pages.items(invitations), "invitationsPage", BusinessRepository.metadata(invitations));
   }
 
   @Transactional
@@ -67,36 +61,26 @@ public class BusinessService {
   public Map<String, Object> workspace(UUID id, HttpServletRequest r) {
     UUID u = repo.verified(r);
     String role = repo.access(id, u, false);
-    return Map.of(
-        "business",
-        repo.one(BUSINESS + "WHERE b.id=?", id),
-        "myRole",
-        role,
-        "members",
-        repo.jdbc()
-            .queryForList(
-                "SELECT m.user_id AS \"userId\",coalesce(d.display_name,'Hiring manager') AS"
-                    + " name,m.role FROM business_members m JOIN users u ON u.id=m.user_id LEFT"
-                    + " JOIN developer_profiles d ON d.user_id=m.user_id WHERE m.business_id=? AND"
-                    + " u.account_status='ACTIVE' AND u.email_verified_at IS NOT NULL ORDER BY"
-                    + " m.role,u.id",
-                id),
-        "invitations",
-        role.equals("OWNER")
-            ? repo.jdbc()
-                .queryForList(
-                    "SELECT i.id,u.email,CASE WHEN i.status='PENDING' AND i.expires_at<=clock_timestamp() THEN"
-                        + " 'EXPIRED' ELSE i.status END AS status FROM business_invitations i JOIN"
-                        + " users u ON u.id=i.user_id WHERE i.business_id=? ORDER BY i.created_at"
-                        + " DESC LIMIT 100",
-                    id)
-            : List.of(),
-        "activity",
-        repo.jdbc()
-            .queryForList(
-                "SELECT id,action,detail,created_at AS \"createdAt\" FROM business_activity WHERE"
-                    + " business_id=? ORDER BY created_at DESC,id LIMIT 100",
-                id));
+    var members = repo.page(r,
+        "SELECT m.user_id AS \"userId\",coalesce(d.display_name,'Hiring manager') AS name,m.role"
+            + " FROM business_members m JOIN users u ON u.id=m.user_id LEFT JOIN developer_profiles d ON d.user_id=m.user_id"
+            + " WHERE m.business_id=? AND u.account_status='ACTIVE' AND u.email_verified_at IS NOT NULL ORDER BY m.role,u.id", id);
+    var invitations = repo.page(r,
+        "SELECT i.id,u.email,CASE WHEN i.status='PENDING' AND i.expires_at<=clock_timestamp() THEN 'EXPIRED' ELSE i.status END AS status"
+            + " FROM business_invitations i JOIN users u ON u.id=i.user_id WHERE i.business_id=? AND ? ORDER BY i.created_at DESC,i.id",
+        id, role.equals("OWNER"));
+    var activity = repo.page(r,
+        "SELECT id,action,detail,created_at AS \"createdAt\" FROM business_activity WHERE business_id=? ORDER BY created_at DESC,id", id);
+    var result = new LinkedHashMap<String, Object>();
+    result.put("business", repo.one(BUSINESS + "WHERE b.id=?", id));
+    result.put("myRole", role);
+    result.put("members", Pages.items(members));
+    result.put("membersPage", BusinessRepository.metadata(members));
+    result.put("invitations", Pages.items(invitations));
+    result.put("invitationsPage", BusinessRepository.metadata(invitations));
+    result.put("activity", Pages.items(activity));
+    result.put("activityPage", BusinessRepository.metadata(activity));
+    return result;
   }
 
   @Transactional

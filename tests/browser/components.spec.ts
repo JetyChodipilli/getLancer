@@ -27,7 +27,7 @@ test('preview viewport, keyboard tabs and anonymous free download preserve worki
  await page.goto('/components/quiet-sign-in');await page.getByRole('button',{name:'Phone',exact:true}).click();expect((await page.locator('.kit-preview-stage iframe').boundingBox())!.width).toBeLessThanOrEqual(377);await reflow(page);
  await page.getByRole('tab',{name:'Source',exact:true}).click();await expect(page.getByRole('button',{name:'README.md',exact:true})).toBeVisible();await page.getByRole('button',{name:'README.md',exact:true}).click();await expect(page.getByRole('region',{name:'README.md source'}).or(page.locator('pre[aria-label="README.md source"]'))).toContainText('No packages');
  await page.getByRole('tab',{name:'Source',exact:true}).focus();await page.keyboard.press('ArrowRight');await page.keyboard.press('Enter');await expect(page.getByRole('tab',{name:'Setup & licence',exact:true})).toHaveAttribute('aria-selected','true');await reflow(page);
- const downloadEvent=page.waitForEvent('download');await page.getByRole('button',{name:'Download source',exact:true}).click();const download=await downloadEvent,bytes=readFileSync((await download.path())!);expect(download.suggestedFilename()).toBe('quiet-sign-in-1.0.0.zip');const files=JSON.parse(execFileSync('python3',['-c',"import sys,io,zipfile,json; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); assert z.testzip() is None; print(json.dumps({n:z.read(n).decode() for n in z.namelist()}))"],{input:bytes,encoding:'utf8'}));expect(Object.keys(files).sort()).toEqual(['LICENSE','README.md','index.html']);expect(createHash('sha256').update(files['index.html']).digest('hex')).toBe(recipes.find((c:any)=>c.slug==='quiet-sign-in').sha256);
+ const downloadEvent=page.waitForEvent('download');await page.getByRole('button',{name:'Download source',exact:true}).click();const download=await downloadEvent,bytes=readFileSync((await download.path())!);expect(download.suggestedFilename()).toBe('quiet-sign-in-1.0.0.zip');const files=JSON.parse(execFileSync('python3',['-c',"import sys,io,zipfile,json; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); assert z.testzip() is None; print(json.dumps({n:z.read(n).decode() for n in z.namelist()}))"],{input:bytes,encoding:'utf8'}));expect(Object.keys(files).sort()).toEqual(['LICENSE','README.md','index.html']);expect(createHash('sha256').update(files['index.html']).digest('hex')).toBe(recipes.find((c:{slug:string})=>c.slug==='quiet-sign-in').sha256);
  await page.goto('/components');await page.screenshot({path:info.outputPath('component-catalogue.png'),fullPage:true});
 });
 test('sample creator and college forms stay compact and never manufacture a purchase',async({page})=>{
@@ -35,4 +35,38 @@ test('sample creator and college forms stay compact and never manufacture a purc
  await page.getByRole('button',{name:'New component',exact:true}).click();const dialog=page.getByRole('dialog');await dialog.getByLabel('Component title',{exact:true}).fill('Sample navigation remix');await dialog.getByLabel('Summary',{exact:true}).fill('A curated navigation for a small studio.');await dialog.getByRole('button',{name:'Continue to contribution',exact:true}).click();await dialog.getByLabel('Your contribution & intended use',{exact:true}).fill('I selected this original recipe to explain a studio navigation use case.');await dialog.getByRole('checkbox',{name:/I preserve/}).check();await dialog.getByRole('button',{name:'Save component draft',exact:true}).click();await expect(dialog).not.toBeVisible();await expect(page.getByRole('heading',{name:'Sample navigation remix',exact:true})).toBeVisible();await reflow(page);
  await page.goto('/preview/college-projects');await page.getByRole('button',{name:'Add college context',exact:true}).click();await page.getByLabel('Coding language / framework',{exact:true}).fill('Python / FastAPI');await page.getByLabel('Problem you solved',{exact:true}).fill('Make a synthetic dataset easier to understand.');await page.getByLabel('Outcome & supporting evidence',{exact:true}).fill('A reproducible example explaining how the data changes.');await page.getByLabel('Prerequisites / local setup',{exact:true}).fill('Python fundamentals and local setup.');await page.getByLabel('Your individual contribution',{exact:true}).fill('I implemented the data cleaning and presentation modules.');await page.getByRole('checkbox',{name:/I have permission/}).check();await page.getByRole('button',{name:'Save context for review',exact:true}).click();await expect(page.getByText('Python / FastAPI · Academic details private')).toBeVisible();await reflow(page);expect(gateway).toEqual([]);
  await page.goto('/college-projects');await page.getByLabel('Project category',{exact:true}).selectOption('AI_ML');await page.getByRole('button',{name:'Search',exact:true}).click();await expect(page.locator('.kit-grid>.kit-card')).toHaveCount(3);for(const slug of ['tableflow','nearest-intent','energy-forecast'])await expect(page.locator('.kit-card h2 a[href="/college-projects/'+slug+'"]')).toBeVisible();await reflow(page);
+});
+
+test('combined component metadata filters retain their URL state through pages, empty results and reset',async({page})=>{
+ const query=new URLSearchParams({language:'JavaScript',framework:'VANILLA',license:'MIT',mode:'Browser local'});
+ await page.goto('/components?'+query);
+ const labels=['Component category','Component language','Component framework','Component licence','Execution mode'];
+ for(const label of labels){const control=page.getByLabel(label,{exact:true});await expect(control).toBeVisible();const box=await control.boundingBox();expect(box!.height).toBeGreaterThanOrEqual(44);}
+ await expect(page.locator('.kit-grid>.kit-card')).toHaveCount(12);await reflow(page);
+ const first=await page.locator('.kit-card h2 a').evaluateAll(links=>links.map(link=>link.getAttribute('href')));
+ await page.getByRole('link',{name:'Next page →',exact:true}).click();
+ await expect(page.locator('.kit-grid>.kit-card')).toHaveCount(12);await expect(page.getByText('Page 2 of 2',{exact:true})).toBeVisible();
+ for(const [key,value] of query)expect(new URL(page.url()).searchParams.get(key)).toBe(value);
+ expect(new URL(page.url()).searchParams.get('page')).toBe('1');
+ const second=await page.locator('.kit-card h2 a').evaluateAll(links=>links.map(link=>link.getAttribute('href')));expect(new Set([...first,...second]).size).toBe(24);
+ await page.getByLabel('Component category',{exact:true}).selectOption('AUTH');await page.getByRole('button',{name:'Search',exact:true}).click();
+ await expect(page.locator('.kit-grid>.kit-card')).toHaveCount(4);expect(new URL(page.url()).searchParams.has('page')).toBe(false);
+ await expect(page.getByLabel('Component language',{exact:true})).toHaveValue('JavaScript');await expect(page.getByLabel('Component framework',{exact:true})).toHaveValue('VANILLA');await expect(page.getByLabel('Component licence',{exact:true})).toHaveValue('MIT');
+ await page.getByLabel('Execution mode',{exact:true}).selectOption('Source only');await page.getByRole('button',{name:'Search',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'No components found.',exact:true})).toBeVisible();await expect(page.getByLabel('Execution mode',{exact:true})).toHaveValue('Source only');await reflow(page);
+ await page.getByRole('link',{name:'Reset',exact:true}).click();await expect(page.locator('.kit-grid>.kit-card')).toHaveCount(12);
+ for(const label of labels)await expect(page.getByLabel(label,{exact:true})).toHaveValue('');
+});
+
+test('component lane, builder and out-of-range page recovery preserve scoped filters',async({page})=>{
+ const query=new URLSearchParams({builder:'connected-builder',q:'card',language:'HTML',framework:'VANILLA',license:'MIT',mode:'Browser local',page:'2'});
+ await page.goto('/components?'+query);await expect(page.getByRole('heading',{name:'No components found.',exact:true})).toBeVisible();
+ const firstHref=await page.getByRole('link',{name:'First page',exact:true}).getAttribute('href');expect(firstHref).not.toBeNull();
+ const firstPage=new URL(firstHref!,page.url());
+ expect(firstPage.searchParams.has('page')).toBe(false);for(const key of ['builder','q','language','framework','license','mode'])expect(firstPage.searchParams.get(key)).toBe(query.get(key));
+ await page.getByRole('link',{name:/^Backend/}).click();expect(new URL(page.url()).searchParams.get('kind')).toBe('BACKEND');expect(new URL(page.url()).searchParams.get('builder')).toBe('connected-builder');expect(new URL(page.url()).searchParams.has('page')).toBe(false);
+ await page.getByLabel('Search components',{exact:true}).fill('navigation');await page.getByRole('button',{name:'Search',exact:true}).click();
+ expect(new URL(page.url()).searchParams.get('builder')).toBe('connected-builder');await expect(page.getByLabel('Component language',{exact:true})).toHaveValue('HTML');
+ await page.getByRole('link',{name:'Reset',exact:true}).click();const reset=new URL(page.url()).searchParams;expect(reset.get('builder')).toBe('connected-builder');expect(reset.get('kind')).toBe('BACKEND');for(const key of ['q','category','language','framework','license','mode','page'])expect(reset.has(key)).toBe(false);await reflow(page);
+ await page.goto('/components?kind=HOSTED');await expect(page.getByRole('heading',{name:'Choose valid component filters.',exact:true})).toBeVisible();await expect(page.getByRole('alert')).toContainText('supported component type');
 });

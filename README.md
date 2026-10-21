@@ -1,5 +1,7 @@
 # getLancer V5.2 — Spectral Studio
 
+See [phase completion repairs and remaining acceptance](docs/phase-completion/STATUS.md) for the current implementation gaps, verification artifacts and work required before launch.
+
 A proof-of-work marketplace connecting clients with the builders behind working software, with team workspaces and private business hiring.
 
 ## Current implementation status

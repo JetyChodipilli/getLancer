@@ -271,4 +271,136 @@ class TeamsIntegrationTest {
           .andExpect(status().isForbidden());
     }
   }
+
+  @Test
+  void largeTeamCollectionsAreBoundedAndEveryRoleRemainsReachable() throws Exception {
+    db.update(
+        "INSERT INTO team_roles(id,team_id,title,description,skills,contract_type,compensation_band,created_at)"
+            + " SELECT md5('paging-role-'||g)::uuid,?,'Role '||g,'Build useful software','Java',"
+            + "'PERMANENT','5k',TIMESTAMPTZ '2025-01-01' FROM generate_series(1,127) g", team);
+    db.update("INSERT INTO team_invitations(id,team_id,user_id,role,membership_type,status) SELECT md5('paging-invite-'||g)::uuid,?,?,'MEMBER','PERMANENT','DECLINED' FROM generate_series(1,127) g", team, applicant);
+    db.update("INSERT INTO team_applications(id,team_id,role_id,user_id,message) SELECT md5('paging-application-'||id)::uuid,team_id,id,?,'Please consider my application' FROM team_roles WHERE team_id=?", applicant, team);
+    db.update("INSERT INTO team_staffing(id,team_id,user_id,project_label,skills,ends_at) SELECT md5('paging-staff-'||g)::uuid,?,?,'Assignment '||g,'Java',now()+interval '1 day' FROM generate_series(1,127) g", team, owner);
+    String base = "/api/v1/teams/" + team;
+    mvc.perform(get(base + "/workspace").cookie(new Cookie("gl_session", "owner")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.roles.length()").value(50))
+        .andExpect(jsonPath("$.pages.roles.totalItems").value(127))
+        .andExpect(jsonPath("$.pages.roles.hasMore").value(true))
+        .andExpect(jsonPath("$.invitations.length()").value(50))
+        .andExpect(jsonPath("$.applications.length()").value(50))
+        .andExpect(jsonPath("$.staffing.length()").value(50));
+    for (String collection : List.of("invitations", "applications"))
+      mvc.perform(get("/api/v1/me/teams").param("collection", collection).param("page", "1").param("size", "100")
+              .cookie(new Cookie("gl_session", "applicant")))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$." + collection + ".length()").value(27))
+          .andExpect(jsonPath("$.pages." + collection + ".totalItems").value(127));
+    Set<String> seen = new HashSet<>();
+    var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+    for (int page = 0; page < 8; page++) {
+      var response = mvc.perform(get(base).param("collection", "roles").param("page", "" + page).param("size", "17"))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.pages.roles.page").value(page))
+          .andExpect(jsonPath("$.pages.roles.totalItems").value(127))
+          .andExpect(jsonPath("$.members").doesNotExist())
+          .andReturn().getResponse().getContentAsString();
+      for (var row : mapper.readTree(response).get("roles")) assertTrue(seen.add(row.get("id").asText()));
+    }
+    assertEquals(127, seen.size());
+    mvc.perform(get(base).param("collection", "roles").param("page", "8").param("size", "17"))
+        .andExpect(jsonPath("$.roles.length()").value(0))
+        .andExpect(jsonPath("$.pages.roles.hasMore").value(false));
+    mvc.perform(get(base).param("collection", "leads")).andExpect(status().isBadRequest());
+    mvc.perform(get(base).param("size", "101")).andExpect(status().isBadRequest());
+    mvc.perform(get(base + "/workspace").param("collection", "constructor").cookie(new Cookie("gl_session", "owner")))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void leadPagesHaveBoundedNotePreviewsAndParentScopedContinuation() throws Exception {
+    db.update(
+        "INSERT INTO team_leads(id,team_id,client_id,title,description,budget,timeline,created_at)"
+            + " SELECT md5('paging-lead-'||g)::uuid,?,?,'Portal '||g,'Customer approvals','10k','2 months',"
+            + "TIMESTAMPTZ '2025-01-01' FROM generate_series(1,121) g", team, client);
+    db.update(
+        "INSERT INTO team_lead_notes(id,lead_id,actor_id,body,created_at)"
+            + " SELECT md5('paging-note-'||l.id||'-'||g)::uuid,l.id,?,'Private note '||g,"
+            + "TIMESTAMPTZ '2025-01-01'+g*interval '1 second' FROM team_leads l CROSS JOIN generate_series(1,31) g"
+            + " WHERE l.team_id=?", owner, team);
+    var noteQueries = new java.util.concurrent.atomic.AtomicInteger();
+    var countedDb = new JdbcTemplate(db.getDataSource()) {
+      @Override
+      public List<Map<String, Object>> queryForList(String sql, Object... args) {
+        if (sql.contains("team_lead_notes")) noteQueries.incrementAndGet();
+        return super.queryForList(sql, args);
+      }
+    };
+    var actorSecurity = org.mockito.Mockito.mock(com.getlancer.security.Security.class);
+    var request = new org.springframework.mock.web.MockHttpServletRequest();
+    request.setParameter("collection", "leads");
+    request.setParameter("size", "100");
+    org.mockito.Mockito.when(actorSecurity.user(request)).thenReturn(owner);
+    var service = new com.getlancer.teams.TeamService(countedDb, actorSecurity,
+        org.mockito.Mockito.mock(com.getlancer.products.ProductService.class), new com.getlancer.teams.TeamRepository(countedDb));
+    assertEquals(100, ((List<?>) service.workspace(team, request).get("leads")).size());
+    assertEquals(1, noteQueries.get(), "one batched note query per lead page");
+    String base = "/api/v1/teams/" + team;
+    mvc.perform(get(base + "/workspace").param("collection", "leads").param("size", "100")
+            .cookie(new Cookie("gl_session", "owner")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.leads.length()").value(100))
+        .andExpect(jsonPath("$.pages.leads.totalItems").value(121))
+        .andExpect(jsonPath("$.leads[0].notes.length()").value(5))
+        .andExpect(jsonPath("$.leads[0].notesPage.totalItems").value(31))
+        .andExpect(jsonPath("$.leads[0].notesPage.hasMore").value(true));
+    mvc.perform(get(base + "/workspace").param("collection", "leads").param("size", "100").param("page", "1")
+            .cookie(new Cookie("gl_session", "owner")))
+        .andExpect(jsonPath("$.leads.length()").value(21))
+        .andExpect(jsonPath("$.pages.leads.hasMore").value(false));
+    UUID lead = db.queryForObject("SELECT id FROM team_leads WHERE team_id=? ORDER BY id LIMIT 1", UUID.class, team);
+    String notes = base + "/leads/" + lead + "/notes";
+    mvc.perform(get(notes).param("page", "1").param("size", "5").cookie(new Cookie("gl_session", "owner")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items.length()").value(5))
+        .andExpect(jsonPath("$.items[0].text").value("Private note 6"))
+        .andExpect(jsonPath("$.totalItems").value(31));
+    mvc.perform(get("/api/v1/me/teams").param("collection", "requests").param("page", "1").param("size", "100")
+            .cookie(new Cookie("gl_session", "client")))
+        .andExpect(jsonPath("$.requests.length()").value(21))
+        .andExpect(jsonPath("$.requests[0].notes.length()").value(0))
+        .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Private note"))));
+    mvc.perform(get(notes).cookie(new Cookie("gl_session", "client"))).andExpect(status().isForbidden());
+    UUID other = UUID.randomUUID();
+    db.update("INSERT INTO teams(id,slug,name,summary,availability,owner_id) VALUES(?,?,'Other','Another team','Available',?)", other, other.toString(), owner);
+    db.update("INSERT INTO team_members(team_id,user_id,role,membership_type) VALUES(?,?,'OWNER','PERMANENT')", other, owner);
+    mvc.perform(get("/api/v1/teams/" + other + "/leads/" + lead + "/notes").cookie(new Cookie("gl_session", "owner")))
+        .andExpect(status().isNotFound());
+    assertEquals(3751, db.queryForObject("SELECT count(*) FROM team_lead_notes", Integer.class));
+  }
+
+  @Test
+  void collectionContinuationRechecksDemotionExpiryAndVisibleActivityTotals() throws Exception {
+    db.update("INSERT INTO team_members(team_id,user_id,role,membership_type,expires_at) VALUES(?,?,'BUSINESS_MANAGER','CONTRACT',now()+interval '1 day')", team, applicant);
+    db.update("INSERT INTO team_leads(id,team_id,client_id,title,description,budget,timeline) VALUES(?,?,?,'Portal','Customer approvals','10k','2 months')", UUID.randomUUID(), team, client);
+    UUID lead = db.queryForObject("SELECT id FROM team_leads", UUID.class);
+    String workspace = "/api/v1/teams/" + team + "/workspace", notes = "/api/v1/teams/" + team + "/leads/" + lead + "/notes";
+    mvc.perform(get(workspace).param("collection", "leads").param("size", "1").cookie(new Cookie("gl_session", "applicant")))
+        .andExpect(status().isOk());
+    db.update("UPDATE team_members SET role='MEMBER' WHERE team_id=? AND user_id=?", team, applicant);
+    mvc.perform(get(workspace).param("collection", "leads").param("page", "1").cookie(new Cookie("gl_session", "applicant")))
+        .andExpect(status().isForbidden());
+    mvc.perform(get(notes).param("page", "1").cookie(new Cookie("gl_session", "applicant"))).andExpect(status().isForbidden());
+    db.update("INSERT INTO team_activity(id,team_id,actor_id,action,detail,scope) SELECT md5('private-activity-'||g)::uuid,?,?,'LEAD_UPDATED','Secret pricing','commercial' FROM generate_series(1,230) g", team, owner);
+    db.update("INSERT INTO team_activity(id,team_id,actor_id,action,detail,scope) SELECT md5('member-activity-'||g)::uuid,?,?,'TEAM_UPDATED','Visible update','member' FROM generate_series(1,3) g", team, owner);
+    mvc.perform(get(workspace).param("collection", "activity").param("size", "2").param("page", "1").cookie(new Cookie("gl_session", "applicant")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.activity.length()").value(2))
+        .andExpect(jsonPath("$.pages.activity.totalItems").value(4))
+        .andExpect(jsonPath("$.pages.activity.hasMore").value(false))
+        .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Secret pricing"))));
+    db.update("UPDATE team_members SET role='BUSINESS_MANAGER',expires_at=now()-interval '1 second' WHERE team_id=? AND user_id=?", team, applicant);
+    mvc.perform(get(workspace).param("collection", "leads").param("page", "1").cookie(new Cookie("gl_session", "applicant"))).andExpect(status().isForbidden());
+    mvc.perform(get(notes).param("page", "1").cookie(new Cookie("gl_session", "applicant"))).andExpect(status().isForbidden());
+  }
 }

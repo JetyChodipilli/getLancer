@@ -291,3 +291,5 @@ GET ADMIN_MFA /api/v1/admin/education-releases
 GET ADMIN_MFA /api/v1/admin/education-releases/{id}
 POST ADMIN_MFA /api/v1/admin/education-releases/{id}/package
 POST ADMIN_MFA /api/v1/admin/education-releases/{id}/review
+
+GET SESSION /api/v1/teams/{id}/leads/{leadId}/notes

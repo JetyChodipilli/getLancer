@@ -1,0 +1,15 @@
+[Unit]
+Description=getLancer guest-only offline source builder
+After=local-fs.target
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/python3 -I /opt/getlancer-provider/builder_agent.py
+Restart=no
+PrivateTmp=yes
+LimitCORE=0
+StandardOutput=null
+StandardError=null
+
+[Install]
+WantedBy=multi-user.target

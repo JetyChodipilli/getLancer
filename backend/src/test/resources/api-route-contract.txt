@@ -285,3 +285,4 @@ PUT /api/v1/developer/availability
 PUT /api/v1/developer/profile
 PUT /api/v1/me/college-projects/{id}
 PUT /api/v1/teams/{id}
+GET /api/v1/teams/{id}/leads/{leadId}/notes
