@@ -1125,7 +1125,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/TeamsIntegrationTest.java",
-      "sha256": "e8a744e08d7c4aa25ee75a3439a246f6589ce26f907a81b3a030c7f7a09f507a"
+      "sha256": "438d7bd78f9f5b1b41fd4946f427d647dbf7b73264f317fa0ed56de6ca1488bd"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/TypedRequestsIntegrationTest.java",

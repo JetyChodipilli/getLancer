@@ -33,6 +33,9 @@ class Firecracker:
         require(stat.S_ISCHR(info.st_mode) and os.major(info.st_rdev) == 10 and os.minor(info.st_rdev) == 232,
                 "KVM_REQUIRED", 503)
         os.close(os.open("/dev/kvm", os.O_RDWR | os.O_CLOEXEC))
+        tun = os.stat("/dev/net/tun")
+        require(stat.S_ISCHR(tun.st_mode) and os.major(tun.st_rdev) == 10 and os.minor(tun.st_rdev) == 200,
+                "JAILER_TUN_DEVICE_REQUIRED", 503)
 
     def unit(self, run_id):
         return f"{self.prefix}-{identity(run_id)}.service"
@@ -146,7 +149,9 @@ class Firecracker:
                 "--property=MemoryMax=" + str((cmd["memoryMiB"] + 128) * 1048576),
                 "--property=MemorySwapMax=0", "--property=LimitCORE=0", "--property=LimitNOFILE=256",
                 "--property=StandardOutput=null", "--property=StandardError=null", "--property=UMask=0077",
-                "--property=DevicePolicy=closed", "--property=DeviceAllow=/dev/kvm rw",
+                # The jailer creates both nodes even when the VM has no network device.
+                "--property=DevicePolicy=closed", "--property=DeviceAllow=/dev/kvm rwm",
+                "--property=DeviceAllow=/dev/net/tun m",
                 "--property=DeviceAllow=/dev/null rw", "--property=DeviceAllow=/dev/zero rw",
                 "--property=DeviceAllow=/dev/urandom r", "--", self.jailer,
                 "--id", cmd["runId"], "--exec-file", self.firecracker, "--uid", str(uid), "--gid", str(uid),

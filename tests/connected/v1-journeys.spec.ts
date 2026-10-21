@@ -331,7 +331,8 @@ test('E2E-06 reports a public showcase, triages it, suspends it and shows the ow
   await triage.getByLabel('Review stage',{exact:true}).selectOption('UNDER_REVIEW');
   await triage.getByLabel('Investigation note',{exact:true}).fill('Inspected this synthetic report, current public listing and builder contribution.');
   await mutation(admin.page,'/admin/reports/'+report.reference+'/triage',()=>triage.getByRole('button',{name:'Record triage',exact:true}).click());
-  await expect(triage).toContainText('UNDER_REVIEW');
+  // The default triage filter is OPEN; the updated record leaves that result set.
+  await expect(triage).toHaveCount(0);
   // Refresh the primary report queue after the independent triage panel saves its decision.
   await admin.page.reload();
   const queue=admin.page.locator('.row').filter({has:admin.page.getByText(detail,{exact:true})});

@@ -372,7 +372,7 @@ class TeamsIntegrationTest {
         .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Private note"))));
     mvc.perform(get(notes).cookie(new Cookie("gl_session", "client"))).andExpect(status().isForbidden());
     UUID other = UUID.randomUUID();
-    db.update("INSERT INTO teams(id,slug,name,summary,availability,owner_id) VALUES(?,?,'Other','Another team','Available',?)", other, other.toString(), owner);
+    db.update("INSERT INTO teams(id,slug,name,summary,availability,project_range,owner_id) VALUES(?,?,'Other','Another team','Available','5k-10k',?)", other, other.toString(), owner);
     db.update("INSERT INTO team_members(team_id,user_id,role,membership_type) VALUES(?,?,'OWNER','PERMANENT')", other, owner);
     mvc.perform(get("/api/v1/teams/" + other + "/leads/" + lead + "/notes").cookie(new Cookie("gl_session", "owner")))
         .andExpect(status().isNotFound());

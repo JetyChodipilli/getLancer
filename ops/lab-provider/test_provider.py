@@ -476,6 +476,11 @@ class BoundaryTests(unittest.TestCase):
             self.assertIn("--property=PrivateNetwork=yes", launched)
             self.assertIn("--property=ExitType=cgroup", launched)
             self.assertIn("--property=KillMode=control-group", launched)
+            self.assertIn("--property=DevicePolicy=closed", launched)
+            self.assertIn("--property=DeviceAllow=/dev/kvm rwm", launched)
+            self.assertIn("--property=DeviceAllow=/dev/net/tun m", launched)
+            self.assertNotIn("--property=DeviceAllow=/dev/net/tun rw", launched)
+            self.assertNotIn("--property=DeviceAllow=/dev/net/tun rwm", launched)
             self.assertIn("--no-api", launched)
             self.assertNotIn("--no-seccomp", launched)
             ttl = int(next(v.split("=",2)[2] for v in launched if v.startswith("--property=RuntimeMaxSec=")))
@@ -660,6 +665,7 @@ class BoundaryTests(unittest.TestCase):
             invoke([sys.executable, "-c", "import time;time.sleep(2)"], {}, timeout=0.05, scope_factory=DisposableOperationScope)
 
     def test_guest_operation_scope_kills_detached_descendants_on_success_and_timeout(self):
+        import select
         import signal
         import sys
         for hangs in (False, True):
@@ -667,10 +673,19 @@ class BoundaryTests(unittest.TestCase):
                 marker = Path(folder)/"detached.pid"
                 class TrackedScope(DisposableOperationScope):
                     closed = False
+                    exited = False
                     def close(self):
                         self.closed = True
                         if marker.exists():
-                            os.kill(int(marker.read_text()), signal.SIGKILL)
+                            # pidfd follows this PID namespace; inherited /proc may expose the host's unrelated PID.
+                            descriptor = os.pidfd_open(int(marker.read_text()))
+                            try:
+                                exited = select.poll()
+                                exited.register(descriptor, select.POLLIN)
+                                os.kill(int(marker.read_text()), signal.SIGKILL)
+                                self.exited = bool(exited.poll(1000))
+                            finally:
+                                os.close(descriptor)
                 scope = TrackedScope()
                 program = ("import os,sys,time,json; pid=os.fork(); "
                            "exec(\"if pid==0:\\n os.setsid(); os.close(0); os.close(1); os.close(2); "
@@ -686,11 +701,7 @@ class BoundaryTests(unittest.TestCase):
                     else:
                         self.assertEqual(invoke([sys.executable, str(script), str(marker)], {}, scope_factory=lambda: scope)["output"], "done")
                     self.assertTrue(scope.closed)
-                    detached = int(marker.read_text())
-                    deadline = time.monotonic()+1
-                    while Path(f"/proc/{detached}/stat").exists() and Path(f"/proc/{detached}/stat").read_text().split()[2] != "Z" and time.monotonic() < deadline:
-                        time.sleep(.01)
-                    self.assertTrue(not Path(f"/proc/{detached}").exists() or Path(f"/proc/{detached}/stat").read_text().split()[2] == "Z")
+                    self.assertTrue(scope.exited, "detached descendant must actually exit after cleanup")
                 finally:
                     if marker.exists():
                         try:
