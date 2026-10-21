@@ -7,7 +7,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   lab-scenarios:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -72,7 +72,7 @@ jobs:
           node scripts/build-iot-material.mjs --verify
           npm run labs:docker
   backend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       SECURITY_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -149,7 +149,7 @@ jobs:
             backend/target/dependency-audit.json
           retention-days: 7
   frontend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: {persist-credentials: false}
@@ -213,7 +213,7 @@ jobs:
           retention-days: 1
   docker-startup:
     needs: frontend
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
       COMPOSE_PROJECT_NAME: getlancer-ci-${{ github.run_id }}
@@ -304,7 +304,7 @@ jobs:
           - {language: java-kotlin, build-mode: manual}
           - {language: javascript-typescript, build-mode: none}
           - {language: python, build-mode: none}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -366,7 +366,7 @@ jobs:
           retention-days: 7
   container-security:
     needs: backend
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
