@@ -4,7 +4,7 @@ COPY pom.xml .
 COPY src src
 # Database integration tests run in CI against PostgreSQL before image promotion.
 RUN mvn -B -DskipTests package
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:25-jre-alpine
 RUN apk add --upgrade --no-cache 'libexpat>=2.9.0-r0' \
     && addgroup -S getlancer && adduser -S getlancer -G getlancer
 USER getlancer
