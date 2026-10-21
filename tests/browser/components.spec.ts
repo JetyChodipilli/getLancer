@@ -64,7 +64,7 @@ test('component lane, builder and out-of-range page recovery preserve scoped fil
  const firstHref=await page.getByRole('link',{name:'First page',exact:true}).getAttribute('href');expect(firstHref).not.toBeNull();
  const firstPage=new URL(firstHref!,page.url());
  expect(firstPage.searchParams.has('page')).toBe(false);for(const key of ['builder','q','language','framework','license','mode'])expect(firstPage.searchParams.get(key)).toBe(query.get(key));
- await page.getByRole('link',{name:/^Backend/}).click();expect(new URL(page.url()).searchParams.get('kind')).toBe('BACKEND');expect(new URL(page.url()).searchParams.get('builder')).toBe('connected-builder');expect(new URL(page.url()).searchParams.has('page')).toBe(false);
+ await page.getByRole('navigation',{name:'Component type',exact:true}).getByRole('link',{name:'Backend',exact:true}).click();expect(new URL(page.url()).searchParams.get('kind')).toBe('BACKEND');expect(new URL(page.url()).searchParams.get('builder')).toBe('connected-builder');expect(new URL(page.url()).searchParams.has('page')).toBe(false);
  await page.getByLabel('Search components',{exact:true}).fill('navigation');await page.getByRole('button',{name:'Search',exact:true}).click();
  expect(new URL(page.url()).searchParams.get('builder')).toBe('connected-builder');await expect(page.getByLabel('Component language',{exact:true})).toHaveValue('HTML');
  await page.getByRole('link',{name:'Reset',exact:true}).click();const reset=new URL(page.url()).searchParams;expect(reset.get('builder')).toBe('connected-builder');expect(reset.get('kind')).toBe('BACKEND');for(const key of ['q','category','language','framework','license','mode','page'])expect(reset.has(key)).toBe(false);await reflow(page);
