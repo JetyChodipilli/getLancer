@@ -30,8 +30,8 @@ public class TeamsController {
   }
 
   @GetMapping("/teams")
-  public Map<String, Object> directory(@RequestParam(defaultValue = "") String q) {
-    return service.directory(q);
+  public Map<String, Object> directory(@RequestParam(defaultValue = "") String q, HttpServletRequest r) {
+    return service.directory(q, r);
   }
 
   @PostMapping("/teams")
@@ -40,8 +40,8 @@ public class TeamsController {
   }
 
   @GetMapping("/teams/{id}")
-  public Map<String, Object> detail(@PathVariable UUID id) {
-    return service.detail(id);
+  public Map<String, Object> detail(@PathVariable UUID id, HttpServletRequest r) {
+    return service.detail(id, r);
   }
 
   @GetMapping("/me/teams")
@@ -148,6 +148,12 @@ public class TeamsController {
       @Valid @RequestBody TeamLeadUpdate b,
       HttpServletRequest r) {
     return service.updateLead(id, leadId, TypedInputs.map(b), r);
+  }
+
+  @GetMapping("/teams/{id}/leads/{leadId}/notes")
+  public Map<String, Object> leadNotes(
+      @PathVariable UUID id, @PathVariable UUID leadId, HttpServletRequest r) {
+    return service.leadNotes(id, leadId, r);
   }
 
   @PostMapping("/teams/{id}/projects")

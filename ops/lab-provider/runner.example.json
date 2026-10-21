@@ -1,0 +1,15 @@
+{
+  "epoch": "00000000-0000-0000-0000-000000000000",
+  "inventory": "/etc/getlancer-provider/inventory.json",
+  "stateDir": "/var/lib/getlancer-provider/state",
+  "socket": "/run/getlancer-runner/control.sock",
+  "gatewayUid": 61999,
+  "driver": {
+    "uidBase": 62000,
+    "jailBase": "/srv/getlancer-provider/runtime-jails",
+    "firecracker": "/opt/getlancer-provider/bin/firecracker",
+    "firecrackerSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "jailer": "/opt/getlancer-provider/bin/jailer",
+    "jailerSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  }
+}

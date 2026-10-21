@@ -7,7 +7,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   lab-scenarios:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -72,7 +72,7 @@ jobs:
           node scripts/build-iot-material.mjs --verify
           npm run labs:docker
   backend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       SECURITY_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -107,11 +107,20 @@ jobs:
         with: {node-version: '22'}
       - name: Bind reviewed GET assessments to passing security regressions
         run: node scripts/sast-dispositions.mjs --write-evidence
+      - name: Bind named implementation repairs to passing PostgreSQL tests
+        run: node scripts/phase-completion-evidence.mjs backend
+        env:
+          PHASE_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: backend-verification-${{ github.event.pull_request.head.sha || github.sha }}
           path: backend/target/surefire-reports
+          retention-days: 7
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: phase-backend-evidence-${{ github.event.pull_request.head.sha || github.sha }}
+          path: backend/target/phase-completion-evidence.json
           retention-days: 7
       - name: Verify production JAR excludes test mocks and frontend simulations
         run: |
@@ -140,7 +149,7 @@ jobs:
             backend/target/dependency-audit.json
           retention-days: 7
   frontend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: {persist-credentials: false}
@@ -173,11 +182,13 @@ jobs:
         run: |
           node scripts/check-security-contract.mjs
           node ops/database/check-permissions.mjs
+      - name: Verify separate provider protocol and durable lifecycle regressions
+        run: python3 -m unittest discover -s ops/lab-provider -p 'test_*.py'
       - run: node --experimental-strip-types --test tests/*.test.mjs
       - name: Install Chromium for responsive workspace acceptance
         run: npx playwright install --with-deps chromium
       - name: Verify desktop, phone and tablet workspace journeys
-        run: npx playwright test
+        run: npx playwright test --workers=2 --max-failures=3
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
@@ -202,8 +213,8 @@ jobs:
           retention-days: 1
   docker-startup:
     needs: frontend
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
     env:
       COMPOSE_PROJECT_NAME: getlancer-ci-${{ github.run_id }}
     steps:
@@ -249,12 +260,20 @@ jobs:
         run: node scripts/verify-connected-frontend.mjs
       - name: Verify connected V1 through V4 service journeys and database recovery
         run: node scripts/smoke-docker.mjs
+      - name: Prepare isolated V1 browser journey actors and prerequisites
+        run: node scripts/ci-v1-fixture.mjs
       - name: Verify connected frontend after real service journeys
         run: node scripts/verify-connected-frontend.mjs
       - name: Install connected browser test runner
         run: npx playwright install --with-deps chromium
-      - name: Verify real hiring, delivery, source, maintenance and hosted demo browser journeys on desktop, phone and tablet
-        run: npx playwright test --config playwright.connected.config.ts
+      - name: Verify original V1 and hiring, delivery, source, maintenance and hosted demo browser journeys
+        run: npx playwright test --config playwright.connected.config.ts --reporter=line,json
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/connected/results.json
+      - name: Bind all six original browser journeys and viewport results
+        run: node scripts/phase-completion-evidence.mjs connected
+        env:
+          PHASE_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
@@ -284,7 +303,8 @@ jobs:
         include:
           - {language: java-kotlin, build-mode: manual}
           - {language: javascript-typescript, build-mode: none}
-    runs-on: ubuntu-latest
+          - {language: python, build-mode: none}
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -346,7 +366,7 @@ jobs:
           retention-days: 7
   container-security:
     needs: backend
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4

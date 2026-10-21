@@ -2,7 +2,7 @@ import educationSeeds from '../backend/src/main/resources/catalog/education.json
 import type {EducationRelease,EducationOffer} from './education';
 import componentSources from '../backend/src/main/resources/catalog/components.json' with { type: 'json' };
 import { backendOrigin } from './server';
-import { componentSeeds, seedCatalog, type ComponentEntry, type ComponentPage } from './components';
+import { componentFilterParams, parseComponentFilters, seedCatalog, type ComponentEntry, type ComponentPage } from './components';
 import { examples, type Product } from './catalog';
 export type Education = { category: string; language: string; problem: string; outcome: string; prerequisites: string; contribution: string; executionMode: string; mode: string; status: string; institution?: string; academicYear?: string; branch?: string; shareAcademicDetails: boolean; reviewReason?: string; difficulty?:string;release?:EducationRelease;previewPackageUrl?:string|null };
 export type CollegeProject = Product & { education: Education };
@@ -18,7 +18,12 @@ export const sampleCollegeProjects:CollegeProject[]=educationSeeds.map(seed=>{
  return {...product,title:seed.title,summary:seed.summary,education:{category:s.category,language:s.language||product.technology,problem:s.problem||s.summary,outcome:s.outcome||s.summary,prerequisites:s.package.prerequisites.join('\n'),contribution:s.contribution,executionMode:s.demoMode,mode:s.mode,status:release.status,difficulty:s.difficulty,shareAcademicDetails:false,release,previewPackageUrl:seed.previewPackageUrl}};
 });
 async function read<T>(path: string): Promise<T | undefined> { const origin = await backendOrigin(); if (!origin) return undefined; const res = await fetch(origin + '/api/v1' + path, { cache: 'no-store', signal: AbortSignal.timeout(15000) }); if (res.status === 404) return undefined; if (!res.ok) throw Error('This catalogue is temporarily unavailable. Please try again.'); return res.json(); }
-export async function componentCatalog(params: URLSearchParams) { const connected = !!(await backendOrigin()); const data = connected ? await read<ComponentPage>('/components?' + params) : (params.get('builder') ? { items: [], totalItems: 0, hasMore: false, page: 0 } : seedCatalog(params.get('q') || '', params.get('category') || '', params.get('kind') || 'FRONTEND', Number(params.get('page') || 0))); if (!data) throw Error('Component catalogue unavailable.'); return { data, preview: !connected }; }
+export async function componentCatalog(params: URLSearchParams) {
+  const filters = parseComponentFilters(params), connected = !!(await backendOrigin());
+  const data = connected ? await read<ComponentPage>('/components?' + componentFilterParams(filters)) : seedCatalog(filters.q, filters.category, filters.kind, filters.page, filters);
+  if (!data) throw Error('Component catalogue unavailable.');
+  return { data, preview: !connected };
+}
 export async function componentDetail(slug:string){
  const connected=!!(await backendOrigin());const item:ComponentEntry|undefined=connected?await read<ComponentEntry>('/components/'+encodeURIComponent(slug)):componentSources.find(c=>c.slug===slug);
  if(connected&&item?.uploaded){const state=await read<{available:boolean;url?:string;expiresAt?:string}>('/components/'+encodeURIComponent(slug)+'/preview');if(state?.available){item.previewUrl=state.url;item.previewExpiresAt=state.expiresAt;}}

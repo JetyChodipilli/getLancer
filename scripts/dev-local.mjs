@@ -8,7 +8,7 @@ try {
   const env={...process.env};
   // Only the explicit local Spring profile imports the local backend environment.
   if(backend)env.SPRING_PROFILES_ACTIVE='local';
-  for(const key of ['APP_ENV','APP_BASE_URL','BACKEND_URL','DEMO_MODE','BACKEND_PROXY_SECRET','INDEX_PUBLIC_PAGES','DEMO_PUBLIC_URL_TEMPLATE'])if(values[key]!==undefined)env[key]=values[key];
+  for(const key of ['APP_ENV','APP_BASE_URL','BACKEND_URL','DEMO_MODE','BACKEND_PROXY_SECRET','INDEX_PUBLIC_PAGES','DEMO_PUBLIC_URL_TEMPLATE','OBJECT_STORAGE_UPLOAD_ENDPOINT'])if(values[key]!==undefined)env[key]=values[key];
   const command=backend?(win?'cmd.exe':'mvn'):process.execPath;
   const args=backend?(win?['/d','/s','/c','mvn -f backend/pom.xml spring-boot:run']:['-f','backend/pom.xml','spring-boot:run']):['node_modules/vite/bin/vite.js','--host','127.0.0.1','--port','3000','--strictPort'];
   const child=spawn(command,args,{cwd:projectRoot,env,stdio:'inherit'});

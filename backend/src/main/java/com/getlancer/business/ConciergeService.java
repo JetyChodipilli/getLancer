@@ -1,8 +1,7 @@
 package com.getlancer.business;
 
-import static com.getlancer.shared.Support.id;
-
 import com.getlancer.shared.ApiError;
+import com.getlancer.shared.Pages;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
 import java.util.Set;
@@ -43,16 +42,15 @@ public class ConciergeService {
   @Transactional
   public Map<String, Object> queue(HttpServletRequest r) {
     repo.admin(r);
-    return Map.of(
-        "items",
-        repo.jdbc()
-            .queryForList(
-                "SELECT c.id,c.status,r.id AS \"requestId\",r.business_id AS \"businessId\",b.name"
-                    + " AS \"businessName\",r.title,r.description,r.category,r.technology,r.budget,r.timeline,c.created_at"
-                    + " AS \"createdAt\" FROM concierge_requests c JOIN business_requests r ON"
-                    + " r.id=c.request_id JOIN businesses b ON b.id=r.business_id WHERE"
-                    + " r.status='OPEN' AND c.status IN ('REQUESTED','IN_PROGRESS','FULFILLED')"
-                    + " ORDER BY c.created_at,c.id LIMIT 100"));
+    String projection = "SELECT c.id,c.status,r.id AS \"requestId\",r.business_id AS \"businessId\",b.name"
+        + " AS \"businessName\",r.title,r.description,r.category,r.technology,r.budget,r.timeline,c.created_at"
+        + " AS \"createdAt\" FROM concierge_requests c JOIN business_requests r ON r.id=c.request_id"
+        + " JOIN businesses b ON b.id=r.business_id WHERE ";
+    var actionable = repo.page(r, projection + "r.status='OPEN' AND c.status IN ('REQUESTED','IN_PROGRESS')"
+        + " ORDER BY CASE WHEN c.status='REQUESTED' THEN 0 ELSE 1 END,c.created_at,c.id");
+    var history = repo.page(r, projection + "c.status='FULFILLED' ORDER BY c.created_at DESC,c.id");
+    return Map.of("items", Pages.items(actionable), "itemsPage", BusinessRepository.metadata(actionable),
+        "history", Pages.items(history), "historyPage", BusinessRepository.metadata(history));
   }
 
   @Transactional
@@ -73,8 +71,7 @@ public class ConciergeService {
     if (!valid)
       throw new ApiError(409, "INVALID_STATE_TRANSITION", "Invalid concierge transition.");
     if (next.equals("FULFILLED")
-        && matching.entries("request_shortlist", "request_id", (UUID) c.get("requestId")).stream()
-            .noneMatch(e -> e.get("source").equals("CONCIERGE") && e.containsKey("candidate")))
+        && !matching.hasEligibleConciergeRecommendation((UUID) c.get("requestId")))
       throw new ApiError(409, "EMPTY_SHORTLIST", "Add an eligible concierge recommendation first.");
     repo.jdbc()
         .update("UPDATE concierge_requests SET status=?,updated_at=now() WHERE id=?", next, id);

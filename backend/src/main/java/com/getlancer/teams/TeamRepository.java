@@ -1,7 +1,6 @@
 package com.getlancer.teams;
 
 import com.getlancer.shared.ApiError;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -77,15 +76,4 @@ public class TeamRepository {
     return rows.isEmpty() ? null : (String) rows.get(0).get("role");
   }
 
-  List<Map<String, Object>> members(UUID t) {
-    return db.queryForList(
-        "SELECT m.user_id AS \"userId\",d.display_name AS name,m.role,m.membership_type AS"
-            + " \"membershipType\",m.expires_at AS \"expiresAt\",m.project_label AS"
-            + " \"projectLabel\""
-            + MEMBER_FROM
-            + "WHERE m.team_id=? AND "
-            + ACTIVE
-            + " ORDER BY d.display_name",
-        t);
-  }
 }

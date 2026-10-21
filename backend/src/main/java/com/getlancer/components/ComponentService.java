@@ -33,6 +33,7 @@ public class ComponentService {
   final com.getlancer.publishing.PublishingCapacity publishing;
   final ProductService products;
   final List<Map<String,Object>> recipes;
+  final String catalogSources;
   static final Set<String> CATEGORIES=Set.of("NAVBAR","SIDEBAR","FORM","CARD","AUTH","DASHBOARD");
   static final Set<String> COLLEGE=Set.of("FULL_STACK","DATA_ANALYTICS","AI_ML","IOT");
   static final String JOIN=" FROM component_entries c JOIN users u ON u.id=c.owner_id JOIN developer_profiles d ON d.user_id=u.id";
@@ -53,6 +54,13 @@ public class ComponentService {
       }
        ).stream().map(ComponentService::sourceProjection).toList();
       if(recipes.size()>100)throw new IllegalStateException("Catalogue contains too many recipes");
+      var metadata=new LinkedHashMap<String,Object>();
+      for(var recipe:recipes){
+        var fields=new LinkedHashMap<String,Object>();
+        for(String key:List.of("category","kind","language","framework","license","executionMode"))if(recipe.containsKey(key))fields.put(key,recipe.get(key));
+        metadata.put(recipe.get("slug").toString(),fields);
+      }
+      catalogSources=encode(metadata);
     }
   }
   Map<String,Object> recipe(String slug) {
@@ -102,7 +110,7 @@ public class ComponentService {
   /** Catalogue metadata is a deliberate dynamic exception; pin metadata keys and bound source files. */
   static Map<String,Object> sourceProjection(Map<String,Object> source) {
     var projected=new LinkedHashMap<String,Object>();
-    for(String key:List.of("slug","category","title","summary","version","framework","kind","executionMode","creator","license","scenario","sha256","archiveSha256","manifestSha256"))
+    for(String key:List.of("slug","category","title","summary","version","language","framework","kind","executionMode","creator","license","scenario","sha256","archiveSha256","manifestSha256"))
       if(source.containsKey(key)) {
         if(!(source.get(key) instanceof String value)||value.length()>20000)
           throw new IllegalStateException("Invalid catalogue metadata");
@@ -169,30 +177,48 @@ public class ComponentService {
     return out;
   }
   public Map<String,Object> catalog(String q,String category,String kind,String builder,int page) {
-    if(q.length()>200||page<0||page>10000||!category.isBlank()&&!CATEGORIES.contains(category)||!Set.of("FRONTEND","BACKEND").contains(kind)) throw new ApiError(400,"VALIDATION_ERROR","Choose valid component filters.");
-    if(kind.equals("BACKEND"))return Map.of("items",List.of(),"totalItems",0,"hasMore",false,"page",page,"executionMode","Source only");
+    return catalog(q,category,kind,builder,page,"","","","");
+  }
+  public Map<String,Object> catalog(String q,String category,String kind,String builder,int page,String language,String framework,String license,String mode) {
+    if(q.length()>200)throw new ApiError(400,"VALIDATION_ERROR","Choose valid component filters.");
+    for(String value:List.of(category,kind,builder,language,framework,license,mode))if(value.length()>100)throw new ApiError(400,"VALIDATION_ERROR","Choose valid component filters.");
+    for(String value:List.of(q,category,kind,builder,language,framework,license,mode))if(value.chars().anyMatch(c->c<32||c==127))throw new ApiError(400,"VALIDATION_ERROR","Choose valid component filters.");
+    q=q.strip();category=category.strip();kind=kind.strip();builder=builder.strip();language=language.strip();framework=framework.strip();license=license.strip();mode=mode.strip();
+    if(page<0||page>10000||!category.isBlank()&&!CATEGORIES.contains(category)||!Set.of("FRONTEND","BACKEND").contains(kind)) throw new ApiError(400,"VALIDATION_ERROR","Choose valid component filters.");
+    if(kind.equals("BACKEND"))return Map.of("items",List.of(),"totalItems",0,"totalPages",0,"size",12,"hasMore",false,"page",page,"executionMode","Source only");
     var all=new ArrayList<Map<String,Object>>();
     if(builder.isBlank())all.addAll(recipes);
     // ponytail: bounded recipe catalogue plus paginated database remixes; no separate search infrastructure.
-    String sql="SELECT c.id,c.recipe_slug,c.slug,c.title,c.summary,c.contribution,c.revision,c.status,c.review_reason,c.published_at,c.published_source,c.published_context,c.draft_source,c.submitted_source,c.submitted_context,c.withdrawn_at,d.display_name AS creator,d.slug AS builder_slug"+JOIN+" WHERE c.status='ACTIVE' AND c.withdrawn_at IS NULL AND "+ELIGIBLE;
+    // Match the same released source shown by detail; private drafts never influence counts.
+    String source="COALESCE(released.filter_metadata,c.published_filter_metadata,seed.value)";
+    String sql=JOIN+" LEFT JOIN LATERAL (SELECT r.filter_metadata FROM component_releases r WHERE r.component_id=c.id ORDER BY r.revision DESC LIMIT 1) released ON true LEFT JOIN jsonb_each(?::jsonb) seed ON seed.key=c.recipe_slug WHERE c.status='ACTIVE' AND c.withdrawn_at IS NULL AND "+ELIGIBLE+" AND "+source+"->>'kind'=?";
     var args=new ArrayList<Object>();
+    args.add(catalogSources);args.add(kind);
     if(!builder.isBlank()){
       sql+=" AND d.slug=?";
       args.add(builder);
     }
     if(!q.isBlank()){
-      sql+=" AND (c.published_context->>'title' ILIKE ? OR c.published_context->>'summary' ILIKE ?)";
-      String term="%"+q.replace("%","\\%").replace("_","\\_")+"%";
-      args.add(term);
+      sql+=" AND concat_ws(' ',c.published_context->>'title',c.published_context->>'summary') ILIKE ?";
+      String term="%"+q.replace("\\","\\\\").replace("%","\\%").replace("_","\\_")+"%";
       args.add(term);
     }
     if(!category.isBlank()){
-      var slugs=recipes.stream().filter(x->category.equals(x.get("category"))).map(x->x.get("slug")).toList();
-      sql+=" AND c.recipe_slug IN ("+String.join(",",Collections.nCopies(slugs.size(),"?"))+")";
-      args.addAll(slugs);
+      sql+=" AND "+source+"->>'category'=?";args.add(category);
     }
-    long count=db.queryForObject("SELECT count(*) FROM ("+sql+") matches",Long.class,args.toArray());
-    all.removeIf(x->!matches(x,q,category));
+    if(!language.isBlank()){
+      sql+=" AND EXISTS(SELECT 1 FROM regexp_split_to_table(lower(COALESCE("+source+"->>'language',"+source+"->>'framework','')),'[[:space:]/,]+') AS languages(token) WHERE (CASE token WHEN 'javascript' THEN 'js' ELSE token END)=?)";args.add(languageKey(language));
+    }
+    if(!framework.isBlank()){
+      String value="COALESCE("+source+"->>'framework','')";
+      sql+=" AND (CASE WHEN lower(regexp_replace("+value+",'[[:space:]]','','g')) IN ('html/css/javascript','html/css/js','vanilla') THEN 'vanilla' ELSE lower(btrim("+value+")) END)=?";args.add(frameworkKey(framework));
+    }
+    if(!license.isBlank()){sql+=" AND lower("+source+"->>'license')=?";args.add(license.toLowerCase(Locale.ROOT));}
+    if(!mode.isBlank()){sql+=" AND lower("+source+"->>'executionMode')=?";args.add(mode.toLowerCase(Locale.ROOT));}
+    long count=db.queryForObject("SELECT count(*)"+sql,Long.class,args.toArray());
+    var filtered=new ArrayList<Map<String,Object>>();
+    for(var recipe:all)if(matches(recipe,q,category,language,framework,license,mode))filtered.add(recipe);
+    all=filtered;
     int seedCount=all.size(),offset=page*12;
     var result=new ArrayList<Map<String,Object>>();
     if(offset<seedCount)result.addAll(all.subList(offset,Math.min(seedCount,offset+12)));
@@ -200,12 +226,18 @@ public class ComponentService {
     if(take>0){
       args.add(take);
       args.add(Math.max(0,offset-seedCount));
-      result.addAll(db.queryForList(sql+" ORDER BY c.created_at DESC,c.id LIMIT ? OFFSET ?",args.toArray()).stream().map(this::publicEntry).toList());
+      result.addAll(db.queryForList("SELECT c.id,c.recipe_slug,c.slug,c.title,c.summary,c.contribution,c.revision,c.status,c.review_reason,c.published_at,c.published_source,c.published_context,c.draft_source,c.submitted_source,c.submitted_context,c.withdrawn_at,d.display_name AS creator,d.slug AS builder_slug"+sql+" ORDER BY c.created_at DESC,c.id LIMIT ? OFFSET ?",args.toArray()).stream().map(this::publicEntry).toList());
     }
-    return Map.of("items",result.stream().map(ComponentService::card).toList(),"totalItems",seedCount+count,"hasMore",offset+12<seedCount+count,"page",page);
+    return Map.of("items",result.stream().map(ComponentService::card).toList(),"totalItems",seedCount+count,"totalPages",(seedCount+count+11)/12,"size",12,"hasMore",offset+12<seedCount+count,"page",page);
   }
-  static boolean matches(Map<String,Object> x,String q,String category) {
-    return (category.isBlank()||category.equals(x.get("category")))&&(q.isBlank()||(x.get("title")+" "+x.get("summary")).toLowerCase(Locale.ROOT).contains(q.toLowerCase(Locale.ROOT)));
+  static String languageKey(String value){return value.strip().toLowerCase(Locale.ROOT).replaceAll("^javascript$","js");}
+  static String frameworkKey(String value){String key=value.toLowerCase(Locale.ROOT).replaceAll("\\s","");return Set.of("html/css/javascript","html/css/js","vanilla").contains(key)?"vanilla":value.strip().toLowerCase(Locale.ROOT);}
+  static boolean matches(Map<String,Object> x,String q,String category,String language,String framework,String license,String mode) {
+    return (category.isBlank()||category.equals(x.get("category")))&&(q.isBlank()||(x.get("title")+" "+x.get("summary")).toLowerCase(Locale.ROOT).contains(q.toLowerCase(Locale.ROOT)))
+      &&(language.isBlank()||java.util.Arrays.stream(Objects.toString(x.getOrDefault("language",x.get("framework")),"").split("[\\s/,]+")).anyMatch(token->languageKey(token).equals(languageKey(language))))
+      &&(framework.isBlank()||frameworkKey(Objects.toString(x.get("framework"),"")).equals(frameworkKey(framework)))
+      &&(license.isBlank()||license.equalsIgnoreCase(Objects.toString(x.get("license"),"")))
+      &&(mode.isBlank()||mode.equalsIgnoreCase(Objects.toString(x.get("executionMode"),"")));
   }
   public Map<String,Object> detail(String slug) {
     var seed=recipes.stream().filter(x->slug.equals(x.get("slug"))).findFirst();

@@ -1,34 +1,50 @@
 'use client';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import ReviewFields from './review-fields';
 import { api } from '@/lib/api';
 
 export default function Confirmation() {
+  const linkRevision = useRef(0);
   const [token, setToken] = useState('');
   const [context, setContext] = useState<{kind: string; used: boolean; inquiry?: {projectTitle: string; builder: string; description: string}} | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    const value = new URLSearchParams(location.hash.slice(1)).get('token') || new URLSearchParams(location.search).get('token') || '';
-    history.replaceState(null, '', '/confirm'); setToken(value);
-    if (!value) { setError('Open the confirmation link from your email.'); return; }
-    api('/auth/confirmation', {method: 'POST', body: JSON.stringify({token: value})}).then(data => {setContext(data); if (data.used) setMessage('This response has already been recorded.');}).catch(e => setError(e.message));
+    function readLink(event?: Event) {
+      const value = new URLSearchParams(location.hash.slice(1)).get('token') || new URLSearchParams(location.search).get('token') || '';
+      // A fragment navigation emits both popstate and hashchange. The first
+      // handler removes the bearer token; the second must preserve that result.
+      if (event && !value) return;
+      const current = ++linkRevision.current;
+      history.replaceState(null, '', '/confirm');
+      setToken(value); setContext(null); setMessage(''); setError(''); setBusy(false);
+      if (!value) { setError('Open the confirmation link from your email.'); return; }
+      api('/auth/confirmation', {method: 'POST', body: JSON.stringify({token: value})}).then(data => {
+        if (current !== linkRevision.current) return;
+        setContext(data); if (data.used) setMessage('This response has already been recorded.');
+      }).catch(e => { if (current === linkRevision.current) setError(e.message); });
+    }
+    readLink();
+    window.addEventListener('hashchange', readLink);
+    window.addEventListener('popstate', readLink);
+    return () => { linkRevision.current++; window.removeEventListener('hashchange', readLink); window.removeEventListener('popstate', readLink); };
   }, []);
   async function submit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault(); setBusy(true); setError('');
+    e.preventDefault(); if (busy) return; const current = linkRevision.current; setBusy(true); setError('');
     const form = new FormData(e.currentTarget);
     const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
     try {
       await api('/auth/confirm', {method: 'POST', body: JSON.stringify({token, ...Object.fromEntries(form), decision: submitter?.value || 'ACCEPT'})});
+      if (current !== linkRevision.current) return;
       setMessage(context?.kind === 'ACCOUNT_DELETION' ? 'Your account is closed. Public content is hidden and retained records are pending a privacy review.' : context?.kind === 'PASSWORD_RESET' ? 'Your password has been changed. You can log in now.' : context?.kind === 'REVIEW' ? 'Your review has been saved for moderation.' : 'Your response has been recorded.');
-    } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
+    } catch (e) { if (current === linkRevision.current) setError((e as Error).message); } finally { if (current === linkRevision.current) setBusy(false); }
   }
   const kind = context?.kind;
   const outcome = kind === 'HIRE_CONFIRMATION' || kind === 'COMPLETION_CONFIRMATION';
   const titles: Record<string,string> = {ACCOUNT_DELETION: 'Confirm account closure', EMAIL_VERIFICATION: 'Confirm your email', CLIENT_INQUIRY_CONFIRMATION: 'Send your inquiry to the builder', PASSWORD_RESET: 'Choose a new password', HIRE_CONFIRMATION: 'Confirm your hire', COMPLETION_CONFIRMATION: 'Confirm project completion', REVIEW: 'Review your experience'};
-  return <main className="wrap" id="main"><div className="panel form" style={{margin: '20px auto'}}><h1 style={{fontSize:32}}>{titles[kind || ''] || 'Your confirmation'}</h1>
+  return <main className="wrap confirmation-page" id="main"><div className="panel form" style={{margin: '20px auto'}}><h1 style={{fontSize:32}}>{titles[kind || ''] || 'Your confirmation'}</h1>
     {context?.inquiry && <div className="samplebar"><strong>{context.inquiry.projectTitle} · {context.inquiry.builder}</strong><p>{context.inquiry.description}</p></div>}
     {message ? <div role="status" className="success">{message}</div> : context && <form className="form" onSubmit={submit}>
       {kind === 'PASSWORD_RESET' && <><label htmlFor="new-password">New password</label><input name="password" id="new-password" type="password" autoComplete="new-password" minLength={12} maxLength={72} required/></>}

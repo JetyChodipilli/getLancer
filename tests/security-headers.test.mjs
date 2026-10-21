@@ -81,3 +81,15 @@ test('response security wraps all response types without losing cookies or priva
  assert.equal(secured.headers.get('x-content-type-options'),'nosniff');assert.equal(secured.headers.get('referrer-policy'),'no-referrer');assert.equal(secured.headers.get('strict-transport-security'),'max-age=31536000');assert.match(secured.headers.get('content-security-policy'),/frame-ancestors 'none'/);
  assert.equal(secureFrontendResponse(new Response('local'),'http://localhost/',false).headers.get('strict-transport-security'),null);
 });
+
+test('signed uploads permit only the configured origin on connected pages', async()=>{
+ const {uploadConnectSource}=await import('../lib/security-headers.ts');
+ const origin=uploadConnectSource('https://uploads.example.com/bucket','https://getlancer.example');
+ assert.equal(origin,'https://uploads.example.com');
+ assert.ok(directiveSources(frontendCsp(true,createFrontendNonce(),undefined,origin),'connect-src').has(origin));
+ assert.ok(!directiveSources(frontendCsp(false,createFrontendNonce(),undefined,origin),'connect-src').has(origin));
+ assert.equal(uploadConnectSource('http://localhost:9000','http://localhost:3000'),'http://localhost:9000');
+ for(const endpoint of ['https://*.example.com','https://user:pass@example.com','https://example.com?x=1','https://example.com#x','http://storage.example.com','https://example.com;script-src *']) assert.throws(()=>uploadConnectSource(endpoint,'https://app.example.com'));
+ assert.throws(()=>uploadConnectSource('http://localhost:9000','https://app.example.com'));
+ assert.equal(uploadConnectSource(undefined,'https://app.example.com'),undefined);
+});

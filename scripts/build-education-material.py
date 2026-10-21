@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build deterministic original example ZIPs and immutable public audit facts."""
 from pathlib import Path
-import hashlib,io,json,os,sys,tempfile,zipfile
+import hashlib,io,json,sys,tempfile,zipfile
 root=Path(__file__).resolve().parents[1]
 verify=sys.argv[1:]==['--verify']
 if sys.argv[1:] and not verify:raise ValueError('Only --verify is supported')
@@ -22,7 +22,8 @@ def publish(path,data):
         try:
             with tempfile.NamedTemporaryFile(dir=path.parent,delete=False) as stream:
                 temporary=Path(stream.name);stream.write(data)
-            os.chmod(temporary,0o644);temporary.replace(path)
+            # The asset packager reads as this owner; keep the temporary file's private permissions.
+            temporary.replace(path)
         finally:
             if temporary is not None and temporary.exists():temporary.unlink()
 records=[]

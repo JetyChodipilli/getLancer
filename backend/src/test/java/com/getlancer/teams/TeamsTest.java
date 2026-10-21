@@ -121,14 +121,9 @@ class TeamsTest {
   void workspaceFiltersPrivateCollectionsAndActivity() {
     capability("MEMBER");
     doReturn(row("id", team)).when(c).team(team);
-    doReturn(List.of()).when(c).members(team);
-    doReturn(List.of()).when(c).projects(team);
-    when(db.queryForList(contains("FROM team_activity"), eq(team)))
-        .thenReturn(
-            List.of(
-                row("scope", "commercial", "detail", "Secret pricing"),
-                row("scope", "recruit", "detail", "Private application"),
-                row("scope", "member", "detail", "Profile updated")));
+    when(db.queryForObject(anyString(), eq(Long.class), any(Object[].class))).thenReturn(0L);
+    when(db.queryForList(contains("FROM team_activity"), eq(team), eq(51), eq(0)))
+        .thenReturn(new ArrayList<>(List.of(row("detail", "Profile updated"))));
     var result = c.workspace(team, request);
     for (String field : List.of("leads", "applications", "invitations", "staffing"))
       assertEquals(List.of(), result.get(field));
@@ -138,18 +133,14 @@ class TeamsTest {
 
   @Test
   void publicMembersDoNotRevealStaffingProjectOrExpiry() {
-    doReturn(
-            List.of(
-                row(
-                    "userId",
-                    target,
-                    "projectLabel",
-                    "Confidential acquisition",
-                    "expiresAt",
-                    Instant.now().plusSeconds(3600))))
-        .when(c)
-        .members(team);
-    var member = c.publicMembers(team).get(0);
+    doReturn(row("status", "ACTIVE")).when(c).team(team);
+    request.setParameter("collection", "members");
+    when(db.queryForObject(anyString(), eq(Long.class), eq(team))).thenReturn(1L);
+    when(db.queryForList(eq(TeamService.MEMBERS + " LIMIT ? OFFSET ?"), eq(team), eq(51), eq(0)))
+        .thenReturn(new ArrayList<>(List.of(row("userId", target, "projectLabel", "Confidential acquisition", "expiresAt", Instant.now().plusSeconds(3600)))));
+    @SuppressWarnings("unchecked")
+    var members = (List<Map<String,Object>>) c.detail(team, request).get("members");
+    var member = members.get(0);
     assertNull(member.get("projectLabel"));
     assertNull(member.get("expiresAt"));
     assertEquals(target, member.get("userId"));
@@ -384,6 +375,6 @@ class TeamsTest {
   @Test
   void suspendedTeamIsNotPublic() {
     doReturn(row("status", "SUSPENDED")).when(c).team(team);
-    assertEquals(404, assertThrows(ApiError.class, () -> c.detail(team)).status);
+    assertEquals(404, assertThrows(ApiError.class, () -> c.detail(team, request)).status);
   }
 }

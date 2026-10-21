@@ -1,0 +1,31 @@
+[Unit]
+Description=getLancer isolated KVM runner (dedicated provider host)
+After=local-fs.target
+
+[Service]
+Type=exec
+User=root
+Group=labgateway
+RuntimeDirectory=getlancer-runner
+RuntimeDirectoryMode=0750
+ExecStart=/usr/bin/python3 -I /opt/getlancer-provider/service.py runner --config /etc/getlancer-provider/runner.json
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/getlancer-provider/state /srv/getlancer-provider /run/getlancer-runner
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+MemoryMax=192M
+TasksMax=16
+LimitNOFILE=128
+UMask=0077
+StandardOutput=null
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -15,11 +15,14 @@ import com.getlancer.products.ProductRepository;
 import com.getlancer.products.ProductService;
 import com.getlancer.security.Security;
 import com.getlancer.shared.ApiError;
+import com.getlancer.shared.Pages;
 import jakarta.servlet.http.HttpServletRequest;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -101,25 +104,12 @@ public class TeamService {
         scope);
   }
 
-  List<Map<String, Object>> members(UUID t) {
-    return repository.members(t);
-  }
-
-  List<Map<String, Object>> publicMembers(UUID t) {
-    return members(t).stream()
-        .map(
-            m -> {
-              m.put("expiresAt", null);
-              m.put("projectLabel", null);
-              return m;
-            })
-        .toList();
-  }
-
-  List<Map<String, Object>> projects(UUID t) {
-    return products.dtos(
-        db.queryForList(
-            ProductRepository.SELECT
+  static final String MEMBERS =
+      "SELECT m.user_id AS \"userId\",d.display_name AS name,m.role,m.membership_type AS"
+          + " \"membershipType\",m.expires_at AS \"expiresAt\",m.project_label AS \"projectLabel\""
+          + MEMBER_FROM + "WHERE m.team_id=? AND " + ACTIVE
+          + " ORDER BY d.display_name,m.user_id";
+  static final String PROJECTS = ProductRepository.SELECT
                 + " JOIN team_projects tp ON tp.product_id=p.id WHERE tp.team_id=? AND"
                 + " tp.consented_by=p.owner_user_id AND "
                 + ProductRepository.PUBLIC
@@ -127,29 +117,85 @@ public class TeamService {
                 + MEMBER_FROM
                 + "WHERE m.team_id=tp.team_id AND m.user_id=p.owner_user_id AND "
                 + ACTIVE
-                + ") ORDER BY p.created_at DESC",
-            t));
+                + ") ORDER BY p.created_at DESC,p.id";
+  static final String NOTES =
+      "SELECT n.id,n.body AS text,n.created_at AS \"createdAt\","
+          + "coalesce(d.display_name,'Team member') AS \"actorName\" FROM team_lead_notes n"
+          + " LEFT JOIN developer_profiles d ON d.user_id=n.actor_id ";
+  static final int NOTE_PREVIEW_SIZE = 5;
+
+  String collection(HttpServletRequest r, Set<String> allowed) {
+    String selected = r.getParameter("collection");
+    if (selected != null && !allowed.contains(selected))
+      throw new ApiError(400, "VALIDATION_ERROR", "Choose a valid collection.");
+    return selected;
   }
 
-  List<Map<String, Object>> leads(String where, boolean privateNotes, Object... args) {
-    var rows = db.queryForList(LEAD + where, args);
+  Map<String, Object> emptyPage(HttpServletRequest r) {
+    return new LinkedHashMap<>(Map.of("items", List.of(), "page", Pages.number(r, "page", 0, 100000),
+        "size", Pages.number(r, "size", 50, 100), "hasMore", false, "totalItems", 0L,
+        "totalPages", 0L));
+  }
+
+  Map<String, Object> page(Map<String, Object> response, String selected, String key,
+      HttpServletRequest r, boolean allowed, String sql, Object... args) {
+    if (selected != null && !selected.equals(key)) return null;
+    var result = allowed ? Pages.query(db, r, sql, args) : emptyPage(r);
+    response.put(key, result.get("items"));
+    @SuppressWarnings("unchecked")
+    var metadata = (Map<String, Object>) response.computeIfAbsent("pages", unused -> new LinkedHashMap<>());
+    var summary = new LinkedHashMap<>(result);
+    summary.remove("items");
+    metadata.put(key, summary);
+    return result;
+  }
+
+  List<Map<String, Object>> leadDtos(List<Map<String, Object>> rows, boolean privateNotes) {
     for (var l : rows) {
       if (!privateNotes) {
         l.put("assigneeId", null);
         l.put("followUpAt", null);
       }
-      l.put(
-          "notes",
-          privateNotes
-              ? db.queryForList(
-                  "SELECT n.body AS text,n.created_at AS"
-                      + " \"createdAt\",coalesce(d.display_name,'Team member') AS \"actorName\""
-                      + " FROM team_lead_notes n LEFT JOIN developer_profiles d ON"
-                      + " d.user_id=n.actor_id WHERE n.lead_id=? ORDER BY n.created_at,n.id",
-                  l.get("id"))
-              : List.of());
+      l.put("notes", new ArrayList<Map<String, Object>>());
+      if (privateNotes) l.put("notesPage", Map.of("page", 0, "size", NOTE_PREVIEW_SIZE,
+          "hasMore", false, "totalItems", 0L, "totalPages", 0L));
+    }
+    if (!privateNotes || rows.isEmpty()) return rows;
+    // One bounded result for the entire lead page, rather than hydrating every note per lead.
+    var byId = new LinkedHashMap<Object, Map<String, Object>>();
+    rows.forEach(l -> byId.put(l.get("id"), l));
+    String placeholders = String.join(",", Collections.nCopies(rows.size(), "(?::uuid)"));
+    var notes = db.queryForList(
+        "SELECT preview.id,selected.\"leadId\",preview.text,preview.\"createdAt\",preview.\"actorName\",counts.total"
+            + " FROM (VALUES " + placeholders + ") selected(\"leadId\")"
+            + " CROSS JOIN LATERAL (SELECT count(*) AS total FROM team_lead_notes n"
+            + " WHERE n.lead_id=selected.\"leadId\") counts"
+            + " CROSS JOIN LATERAL (" + NOTES
+            + "WHERE n.lead_id=selected.\"leadId\" ORDER BY n.created_at,n.id LIMIT "
+            + NOTE_PREVIEW_SIZE + ") preview ORDER BY selected.\"leadId\",preview.\"createdAt\",preview.id",
+        byId.keySet().toArray());
+    for (var note : notes) {
+      var lead = byId.get(note.remove("leadId"));
+      long total = ((Number) note.remove("total")).longValue();
+      @SuppressWarnings("unchecked")
+      var preview = (List<Map<String, Object>>) lead.get("notes");
+      preview.add(note);
+      lead.put("notesPage", Map.of("page", 0, "size", NOTE_PREVIEW_SIZE,
+          "hasMore", total > NOTE_PREVIEW_SIZE, "totalItems", total,
+          "totalPages", (total + NOTE_PREVIEW_SIZE - 1) / NOTE_PREVIEW_SIZE));
     }
     return rows;
+  }
+
+  List<Map<String, Object>> leads(String where, boolean privateNotes, Object... args) {
+    return leadDtos(db.queryForList(LEAD + where, args), privateNotes);
+  }
+
+  @Transactional
+  public Map<String, Object> leadNotes(UUID id, UUID leadId, HttpServletRequest r) {
+    TeamPolicy.require(member(id, security.user(r)), "commercial");
+    one("SELECT id FROM team_leads WHERE team_id=? AND id=?", id, leadId);
+    return Pages.query(db, r, NOTES + "WHERE n.lead_id=? ORDER BY n.created_at,n.id", leadId);
   }
 
   Map<String, Object> invitation(UUID i) {
@@ -160,16 +206,14 @@ public class TeamService {
     return i == null ? null : Timestamp.from(i);
   }
 
-  public Map<String, Object> directory(String q) {
+  public Map<String, Object> directory(String q, HttpServletRequest r) {
     if (q.length() > 200) throw new ApiError(400, "VALIDATION_ERROR", "Search is too long.");
-    return Map.of(
-        "items",
-        db.queryForList(
+    return Pages.query(db, r,
             TEAM
                 + "WHERE t.status='ACTIVE' AND (t.name ILIKE ? OR t.summary ILIKE ?) ORDER BY"
-                + " t.created_at DESC LIMIT 100",
+                + " t.created_at DESC,t.id",
             "%" + q + "%",
-            "%" + q + "%"));
+            "%" + q + "%");
   }
 
   @Transactional
@@ -203,20 +247,18 @@ public class TeamService {
     return team(t);
   }
 
-  public Map<String, Object> detail(UUID id) {
+  public Map<String, Object> detail(UUID id, HttpServletRequest r) {
     var t = team(id);
     if (!"ACTIVE".equals(t.get("status"))) throw new ApiError(404, "NOT_FOUND", "Team not found.");
-    return Map.of(
-        "team",
-        t,
-        "members",
-        publicMembers(id),
-        "projects",
-        projects(id),
-        "roles",
-        db.queryForList(ROLE + "WHERE team_id=? AND status='OPEN' ORDER BY created_at DESC", id),
-        "reviews",
-        db.queryForList(
+    String selected = collection(r, Set.of("members", "projects", "roles", "reviews"));
+    Map<String, Object> x = new LinkedHashMap<>();
+    x.put("team", t);
+    var members = page(x, selected, "members", r, true, MEMBERS, id);
+    if (members != null) Pages.items(members).forEach(m -> {m.put("expiresAt", null); m.put("projectLabel", null);});
+    var projects = page(x, selected, "projects", r, true, PROJECTS, id);
+    if (projects != null) x.put("projects", products.dtos(Pages.items(projects)));
+    page(x, selected, "roles", r, true, ROLE + "WHERE team_id=? AND status='OPEN' ORDER BY created_at DESC,id", id);
+    page(x, selected, "reviews", r, true,
             "SELECT r.id,r.rating,r.review_text AS \"reviewText\",r.created_at AS"
                 + " \"createdAt\",d.user_id AS \"memberId\",d.display_name AS"
                 + " \"memberName\",'Verified member review' AS attribution FROM reviews r JOIN"
@@ -226,79 +268,79 @@ public class TeamService {
                 + ACTIVE
                 + " AND r.moderation_status='PUBLISHED' AND i.moderation_status='CLEAR' AND"
                 + " i.current_status='COMPLETED' AND i.email_confirmed_at IS NOT NULL ORDER BY"
-                + " r.created_at DESC LIMIT 100",
-            id));
+                + " r.created_at DESC,r.id", id);
+    return x;
   }
 
   public Map<String, Object> mine(HttpServletRequest r) {
     UUID u = security.user(r);
-    return Map.of(
-        "canCreate",
-        db.queryForObject("SELECT EXISTS(SELECT 1 FROM users u JOIN developer_profiles d ON d.user_id=u.id WHERE u.id=? AND u.email_verified_at IS NOT NULL AND d.approval_status='APPROVED' AND EXISTS(SELECT 1 FROM user_roles ur WHERE ur.user_id=u.id AND ur.role='DEVELOPER') AND EXISTS(SELECT 1 FROM products p WHERE p.owner_user_id=u.id AND p.approval_status='APPROVED' AND p.lifecycle_status<>'SUSPENDED'))", Boolean.class, u),
-        "items",
-        db
-            .queryForList(
-                TEAM
+    String selected = collection(r, Set.of("items", "invitations", "applications", "requests"));
+    String applications = APPLICATION + "WHERE a.user_id=?";
+    var applicationArgs = new ArrayList<Object>();
+    applicationArgs.add(u);
+    String roleIds = r.getParameter("roleIds");
+    if (roleIds != null) {
+      // Look up displayed roles before paging the actor's application history.
+      String[] ids = roleIds.split(",", -1);
+      if (!"applications".equals(selected) || roleIds.length() > 3699 || ids.length > 100)
+        throw new ApiError(400, "VALIDATION_ERROR", "Choose up to 100 valid role IDs.");
+      try {
+        for (String id : ids) applicationArgs.add(UUID.fromString(id));
+      } catch (IllegalArgumentException e) {
+        throw new ApiError(400, "VALIDATION_ERROR", "Choose up to 100 valid role IDs.");
+      }
+      applications += " AND a.role_id IN (" + String.join(",", Collections.nCopies(ids.length, "?")) + ")";
+    }
+    Map<String, Object> x = new LinkedHashMap<>();
+    x.put("canCreate",
+        db.queryForObject("SELECT EXISTS(SELECT 1 FROM users u JOIN developer_profiles d ON d.user_id=u.id WHERE u.id=? AND u.email_verified_at IS NOT NULL AND d.approval_status='APPROVED' AND EXISTS(SELECT 1 FROM user_roles ur WHERE ur.user_id=u.id AND ur.role='DEVELOPER') AND EXISTS(SELECT 1 FROM products p WHERE p.owner_user_id=u.id AND p.approval_status='APPROVED' AND p.lifecycle_status<>'SUSPENDED'))", Boolean.class, u));
+    // Include the current role in the same bounded query as the memberships.
+    page(x, selected, "items", r, true,
+                TEAM.replace("SELECT t.id,", "SELECT (SELECT m.role FROM team_members m WHERE m.team_id=t.id AND m.user_id=?) AS \"myRole\",t.id,")
                     + "WHERE EXISTS(SELECT 1"
                     + MEMBER_FROM
                     + "WHERE m.team_id=t.id AND m.user_id=? AND "
                     + ACTIVE
-                    + ")",
-                u)
-            .stream()
-            .map(
-                t -> {
-                  t.put("myRole", role((UUID) t.get("id"), u));
-                  return t;
-                })
-            .toList(),
-        "invitations",
-        db.queryForList(INVITE + "WHERE i.user_id=? ORDER BY i.created_at DESC", u),
-        "applications",
-        db.queryForList(APPLICATION + "WHERE a.user_id=? ORDER BY a.created_at DESC", u),
-        "requests",
-        leads("WHERE l.client_id=? ORDER BY l.created_at DESC", false, u));
+                    + ") ORDER BY t.created_at DESC,t.id", u, u);
+    page(x, selected, "invitations", r, true, INVITE + "WHERE i.user_id=? ORDER BY i.created_at DESC,i.id", u);
+    page(x, selected, "applications", r, true, applications + " ORDER BY a.created_at DESC,a.id", applicationArgs.toArray());
+    var requests = page(x, selected, "requests", r, true, LEAD + "WHERE l.client_id=? ORDER BY l.created_at DESC,l.id", u);
+    if (requests != null) leadDtos(Pages.items(requests), false);
+    return x;
   }
 
+  @Transactional
   public Map<String, Object> workspace(UUID id, HttpServletRequest r) {
     String role = member(id, security.user(r));
     Map<String, Object> x = new LinkedHashMap<>();
     x.put("team", team(id));
     x.put("myRole", role);
-    x.put("members", members(id));
-    x.put("projects", projects(id));
+    String selected = collection(r, Set.of("members", "projects", "invitations", "roles", "applications", "leads", "staffing", "activity"));
     boolean recruit = TeamPolicy.permits(role, "recruit"),
         commercial = TeamPolicy.permits(role, "commercial"),
         staff = TeamPolicy.permits(role, "staff");
-    x.put("invitations", recruit ? db.queryForList(INVITE + "WHERE i.team_id=?", id) : List.of());
-    x.put("roles", db.queryForList(ROLE + "WHERE team_id=?", id));
-    x.put(
-        "applications",
-        recruit ? db.queryForList(APPLICATION + "WHERE a.team_id=?", id) : List.of());
-    x.put(
-        "leads",
-        commercial ? leads("WHERE l.team_id=? ORDER BY l.created_at DESC", true, id) : List.of());
-    x.put("staffing", staff ? staffing(id) : List.of());
-    x.put(
-        "activity",
-        db
-            .queryForList(
+    if (selected != null) {
+      if (Set.of("invitations", "applications").contains(selected)) TeamPolicy.require(role, "recruit");
+      if (selected.equals("leads")) TeamPolicy.require(role, "commercial");
+      if (selected.equals("staffing")) TeamPolicy.require(role, "staff");
+    }
+    page(x, selected, "members", r, true, MEMBERS, id);
+    var projects = page(x, selected, "projects", r, true, PROJECTS, id);
+    if (projects != null) x.put("projects", products.dtos(Pages.items(projects)));
+    page(x, selected, "invitations", r, recruit, INVITE + "WHERE i.team_id=? ORDER BY i.created_at DESC,i.id", id);
+    page(x, selected, "roles", r, true, ROLE + "WHERE team_id=? ORDER BY created_at DESC,id", id);
+    page(x, selected, "applications", r, recruit, APPLICATION + "WHERE a.team_id=? ORDER BY a.created_at DESC,a.id", id);
+    var leads = page(x, selected, "leads", r, commercial, LEAD + "WHERE l.team_id=? ORDER BY l.created_at DESC,l.id", id);
+    if (leads != null) leadDtos(Pages.items(leads), commercial);
+    page(x, selected, "staffing", r, staff, STAFFING + "WHERE s.team_id=? ORDER BY s.created_at DESC,s.id", id);
+    String scopes = "'member'";
+    for (String scope : List.of("owner", "recruit", "commercial", "staff"))
+      if (TeamPolicy.permits(role, scope)) scopes += ",'" + scope + "'";
+    page(x, selected, "activity", r, true,
                 "SELECT a.id,a.action,coalesce(d.display_name,'Team member') AS"
-                    + " \"actorName\",a.detail,a.created_at AS \"createdAt\",a.scope FROM"
+                    + " \"actorName\",a.detail,a.created_at AS \"createdAt\" FROM"
                     + " team_activity a LEFT JOIN developer_profiles d ON d.user_id=a.actor_id"
-                    + " WHERE a.team_id=? ORDER BY a.created_at DESC LIMIT 200",
-                id)
-            .stream()
-            .filter(
-                a ->
-                    "member".equals(a.get("scope"))
-                        || TeamPolicy.permits(role, (String) a.get("scope")))
-            .map(
-                a -> {
-                  a.remove("scope");
-                  return a;
-                })
-            .toList());
+                    + " WHERE a.team_id=? AND a.scope IN (" + scopes + ") ORDER BY a.created_at DESC,a.id", id);
     return x;
   }
 
@@ -322,16 +364,14 @@ public class TeamService {
     TeamPolicy.require(member(id, security.user(r)), "recruit");
     active(id);
     if (q.length() > 200) throw new ApiError(400, "VALIDATION_ERROR", "Search is too long.");
-    return Map.of(
-        "items",
-        db.queryForList(
+    return Pages.query(db, r,
             "SELECT d.user_id AS id,d.display_name AS name,d.headline,d.technology AS skills FROM"
                 + " developer_profiles d JOIN users u ON u.id=d.user_id WHERE"
                 + " d.approval_status='APPROVED' AND u.account_status='ACTIVE' AND"
                 + " u.email_verified_at IS NOT NULL AND (d.display_name ILIKE ? OR d.technology"
-                + " ILIKE ?) ORDER BY d.display_name LIMIT 50",
+                + " ILIKE ?) ORDER BY d.display_name,d.user_id",
             "%" + q + "%",
-            "%" + q + "%"));
+            "%" + q + "%");
   }
 
   public UUID invite(UUID t, UUID user, String role, String type, Instant expiry, String label) {
@@ -706,8 +746,7 @@ public class TeamService {
     return Map.of("ok", true);
   }
 
-  List<Map<String, Object>> staffing(UUID t) {
-    return db.queryForList(
+  static final String STAFFING =
         "SELECT s.id,s.user_id AS \"userId\",d.display_name AS name,s.project_label AS"
               + " \"projectLabel\",s.skills,s.ends_at AS \"endsAt\",CASE WHEN s.ends_at<=clock_timestamp() OR NOT"
             + " EXISTS(SELECT 1"
@@ -715,10 +754,7 @@ public class TeamService {
             + "WHERE m.team_id=s.team_id AND m.user_id=s.user_id AND "
             + ACTIVE
             + ") THEN 'COMPLETED' ELSE s.status END AS status FROM team_staffing s JOIN"
-            + " developer_profiles d ON d.user_id=s.user_id WHERE s.team_id=? ORDER BY s.created_at"
-            + " DESC",
-        t);
-  }
+            + " developer_profiles d ON d.user_id=s.user_id ";
 
   @Transactional
   public Map<String, Object> addStaffing(UUID id, Map<String, Object> b, HttpServletRequest r) {
@@ -742,7 +778,7 @@ public class TeamService {
         text(b, "skills", 0, 500),
         timestamp(end));
     audit(id, u, "STAFFING_CREATED", "Temporary project assignment created", "staff");
-    return staffing(id).stream().filter(x -> s.equals(x.get("id"))).findFirst().orElseThrow();
+    return one(STAFFING + "WHERE s.team_id=? AND s.id=?", id, s);
   }
 
   @Transactional
@@ -767,15 +803,12 @@ public class TeamService {
     }
     db.update("UPDATE team_staffing SET status=? WHERE id=?", status, staffingId);
     audit(id, u, "STAFFING_UPDATED", status, "staff");
-    return staffing(id).stream()
-        .filter(x -> staffingId.equals(x.get("id")))
-        .findFirst()
-        .orElseThrow();
+    return one(STAFFING + "WHERE s.team_id=? AND s.id=?", id, staffingId);
   }
 
   public Map<String, Object> admin(HttpServletRequest r) {
     security.admin(r);
-    return Map.of("items", db.queryForList(TEAM + "ORDER BY t.created_at DESC LIMIT 500"));
+    return Pages.query(db, r, TEAM + "ORDER BY t.created_at DESC,t.id");
   }
 
   @Transactional

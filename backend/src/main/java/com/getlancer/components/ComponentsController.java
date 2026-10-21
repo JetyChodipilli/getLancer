@@ -26,8 +26,8 @@ public class ComponentsController {
   public ComponentsController(ComponentService service){
     this.service=service;
   }
-  @GetMapping("/components") public Object catalog(@RequestParam(defaultValue="")String q,@RequestParam(defaultValue="")String category,@RequestParam(defaultValue="FRONTEND")String kind,@RequestParam(defaultValue="")String builder,@RequestParam(defaultValue="0")int page){
-    return service.catalog(q,category,kind,builder,page);
+  @GetMapping("/components") public Object catalog(@RequestParam(defaultValue="")String q,@RequestParam(defaultValue="")String category,@RequestParam(defaultValue="FRONTEND")String kind,@RequestParam(defaultValue="")String builder,@RequestParam(defaultValue="0")int page,@RequestParam(defaultValue="")String language,@RequestParam(defaultValue="")String framework,@RequestParam(defaultValue="")String license,@RequestParam(defaultValue="")String mode){
+    return service.catalog(q,category,kind,builder,page,language,framework,license,mode);
   }
   @GetMapping("/components/{slug}") public Object detail(@PathVariable String slug){
     return service.detail(slug);

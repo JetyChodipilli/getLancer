@@ -1,0 +1,8 @@
+{
+  "listen": "127.0.0.1",
+  "port": 9443,
+  "secretFile": "/etc/getlancer-provider/gateway.secret",
+  "runnerSocket": "/run/getlancer-runner/control.sock",
+  "tlsCertificate": null,
+  "tlsKey": null
+}

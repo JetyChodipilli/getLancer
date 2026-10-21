@@ -150,6 +150,79 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     mvc.perform(get("/api/v1/components?kind=BACKEND")).andExpect(jsonPath("$.items").isEmpty()).andExpect(jsonPath("$.executionMode").value("Source only"));
     mvc.perform(get("/api/v1/components?page=-1")).andExpect(status().isBadRequest());
   }
+  MockHttpServletRequestBuilder combinedComponents(){
+    return get("/api/v1/components").param("language","JavaScript").param("framework","VANILLA").param("license","MIT").param("mode","Browser local");
+  }
+  @Test void combinedComponentFiltersMatchLegacyMetadataBeforeStablePagination()throws Exception{
+    var first=response(combinedComponents());var next=response(combinedComponents().param("page","1"));var empty=response(combinedComponents().param("page","2"));
+    assertEquals(24,first.path("totalItems").asInt());assertEquals(2,first.path("totalPages").asInt());assertEquals(12,first.path("size").asInt());assertTrue(first.path("hasMore").asBoolean());
+    assertEquals(12,first.path("items").size());assertEquals(12,next.path("items").size());assertFalse(next.path("hasMore").asBoolean());assertTrue(empty.path("items").isEmpty());assertEquals(24,empty.path("totalItems").asInt());assertEquals(2,empty.path("page").asInt());
+    var slugs=new HashSet<String>();for(var page:List.of(first,next))for(var item:page.path("items")){assertTrue(slugs.add(item.path("slug").asText()));assertFalse(item.has("files"));}
+    var match=response(combinedComponents().param("category","AUTH").param("q","password"));assertEquals(1,match.path("totalItems").asInt());assertEquals("quiet-sign-in",match.path("items").get(0).path("slug").asText());
+    assertEquals(24,response(get("/api/v1/components").param("language","js").param("framework","HTML / CSS / JavaScript").param("license","mit").param("mode","browser local")).path("totalItems").asInt());
+    for(var filter:Map.of("language","Java","framework","React","license","Apache-2.0","mode","Source only").entrySet())assertEquals(0,response(get("/api/v1/components").param(filter.getKey(),filter.getValue())).path("totalItems").asInt());
+  }
+  @Test void combinedComponentCountsExcludePrivateDraftsAndRecheckCurrentCreatorAuthority()throws Exception{
+    var ids=new HashSet<String>();
+    for(int n=0;n<2;n++){UUID id=draft();submit(id);response(approve(id));ids.add("remix-"+id);}
+    draft(); // An unpublished record must affect neither totals nor page boundaries.
+    var last=response(combinedComponents().param("page","2"));assertEquals(26,last.path("totalItems").asInt());assertEquals(3,last.path("totalPages").asInt());assertEquals(2,last.path("items").size());assertFalse(last.path("hasMore").asBoolean());
+    var shown=new HashSet<String>();for(var item:last.path("items")){shown.add(item.path("slug").asText());assertFalse(item.has("files"));assertFalse(item.has("reviewReason"));assertFalse(item.has("sourceHash"));}assertEquals(ids,shown);
+    assertEquals(2,response(combinedComponents().param("builder","builder")).path("totalItems").asInt());assertEquals(0,response(combinedComponents().param("builder","other")).path("totalItems").asInt());
+    db.update("UPDATE users SET account_status='SUSPENDED' WHERE id=?",builder);assertEquals(0,response(combinedComponents().param("builder","builder")).path("totalItems").asInt());db.update("UPDATE users SET account_status='ACTIVE' WHERE id=?",builder);
+    db.update("UPDATE developer_profiles SET approval_status='PROFILE_PENDING' WHERE user_id=?",builder);assertEquals(0,response(combinedComponents().param("builder","builder")).path("totalItems").asInt());db.update("UPDATE developer_profiles SET approval_status='APPROVED' WHERE user_id=?",builder);
+    db.update("DELETE FROM user_roles WHERE user_id=? AND role='DEVELOPER'",builder);assertEquals(0,response(combinedComponents().param("builder","builder")).path("totalItems").asInt());db.update("INSERT INTO user_roles(user_id,role) VALUES(?,'DEVELOPER')",builder);
+    assertEquals(2,response(combinedComponents().param("builder","builder")).path("totalItems").asInt());
+  }
+  @Test void catalogueCountsAndFiltersReadCompactMetadataWithoutSourcePrivileges()throws Exception{
+    UUID id=draft();submit(id);response(approve(id));
+    var source=(com.fasterxml.jackson.databind.node.ObjectNode)json.readTree(db.queryForObject("SELECT source::text FROM component_releases WHERE component_id=?",String.class,id));
+    source.put("version","2.0.0");source.put("category","AUTH");source.put("language","TypeScript");source.put("framework","React");source.put("license","Apache-2.0");source.put("executionMode","Source only");
+    source.put("archiveBase64","x".repeat(1048576));
+    ((com.fasterxml.jackson.databind.node.ObjectNode)source.path("files")).put("index.html","x".repeat(1048576));
+    db.update("INSERT INTO component_releases(component_id,revision,source,context,source_sha256) VALUES(?,200,?::jsonb,'{}'::jsonb,?)",id,json.writeValueAsString(source),source.path("sha256").asText());
+    var metadata=json.readTree(db.queryForObject("SELECT filter_metadata::text FROM component_releases WHERE component_id=? AND revision=200",String.class,id));
+    assertEquals(6,metadata.size());assertEquals("TypeScript",metadata.path("language").asText());assertFalse(metadata.has("files"));assertFalse(metadata.has("archiveBase64"));
+    assertTrue(db.queryForObject("SELECT octet_length(filter_metadata::text)<1024 AND octet_length(source::text)>2000000 FROM component_releases WHERE component_id=? AND revision=200",Boolean.class,id));
+    // The newest release takes precedence over the immutable first publication.
+    assertEquals("HTML / CSS / JavaScript",db.queryForObject("SELECT published_filter_metadata->>'framework' FROM component_entries WHERE id=?",String.class,id));
+    assertEquals(1,response(get("/api/v1/components").param("builder","builder").param("language","TypeScript").param("framework","React").param("license","Apache-2.0").param("mode","Source only")).path("totalItems").asInt());
+    var catalogue=applicationContext.getBean(com.getlancer.components.ComponentService.class);
+    String reader="component_filter_reader_"+UUID.randomUUID().toString().replace("-","");
+    new org.springframework.transaction.support.TransactionTemplate(transactionManager).executeWithoutResult(transaction->{
+      transaction.setRollbackOnly(); // The temporary role, grants and policies never escape this test.
+      db.execute("CREATE ROLE "+reader+" NOLOGIN NOINHERIT");
+      db.execute("GRANT USAGE ON SCHEMA getlancer_test TO "+reader);
+      db.execute("GRANT SELECT (id,owner_id,recipe_slug,status,withdrawn_at,published_filter_metadata) ON component_entries TO "+reader);
+      db.execute("GRANT SELECT (component_id,revision,filter_metadata) ON component_releases TO "+reader);
+      for(String table:List.of("users","developer_profiles","user_roles"))db.execute("GRANT SELECT ON "+table+" TO "+reader);
+      for(String table:List.of("component_entries","component_releases","users","developer_profiles","user_roles"))db.execute("CREATE POLICY "+reader+" ON "+table+" FOR SELECT TO "+reader+" USING (true)");
+      db.execute("SET LOCAL ROLE "+reader);
+      assertFalse(db.queryForObject("SELECT has_column_privilege(current_user,'getlancer_test.component_releases','source','SELECT')",Boolean.class));
+      assertFalse(db.queryForObject("SELECT has_column_privilege(current_user,'getlancer_test.component_entries','published_source','SELECT')",Boolean.class));
+      // Curated cards fill page zero, so these requests perform counts/filters only.
+      // They must succeed even though this connection cannot read any source snapshot.
+      assertEquals(25L,catalogue.catalog("","","FRONTEND","",0).get("totalItems"));
+      assertEquals(24L,catalogue.catalog("","","FRONTEND","",0,"JavaScript","VANILLA","MIT","Browser local").get("totalItems"));
+    });
+    response(body(post("/api/v1/me/components/"+id+"/withdraw"),"builder",Map.of()));
+    assertEquals(0,response(get("/api/v1/components").param("builder","builder")).path("totalItems").asInt());
+    assertEquals(metadata,json.readTree(db.queryForObject("SELECT filter_metadata::text FROM component_releases WHERE component_id=? AND revision=200",String.class,id)));
+  }
+  @Test void componentSearchTreatsSqlWildcardsAsLiteralCharacters()throws Exception{
+    UUID id=draft();
+    response(body(patch("/api/v1/me/components/"+id),"builder",Map.of("recipeSlug","portfolio-card","title","Literal % _ \\ card","summary","An original literal search example for component discovery.","contribution","Selected an original recipe to check literal component search behavior.","rightsConsent",true)));submit(id);response(approve(id));
+    for(String term:List.of("%","_","\\","Literal % _ \\ card"))assertEquals(1,response(combinedComponents().param("builder","builder").param("q",term)).path("totalItems").asInt());
+    assertEquals(0,response(combinedComponents().param("builder","builder").param("q","missing_%")).path("totalItems").asInt());
+  }
+  @Test void componentFilterValidationRejectsUnboundedOrMalformedInput()throws Exception{
+    for(String key:List.of("category","kind","builder","language","framework","license","mode"))mvc.perform(get("/api/v1/components").param(key,"x".repeat(101))).andExpect(status().isBadRequest());
+    mvc.perform(get("/api/v1/components").param("q","x".repeat(201))).andExpect(status().isBadRequest());
+    for(String key:List.of("q","category","kind","builder","language","framework","license","mode"))mvc.perform(get("/api/v1/components").param(key,"bad\nvalue")).andExpect(status().isBadRequest());
+    for(String page:List.of("-1","10001","1.5","NaN"))mvc.perform(get("/api/v1/components").param("page",page)).andExpect(status().isBadRequest());
+    mvc.perform(get("/api/v1/components").param("category","UNKNOWN")).andExpect(status().isBadRequest());mvc.perform(get("/api/v1/components").param("kind","HOSTED")).andExpect(status().isBadRequest());
+    var backend=response(combinedComponents().param("kind","BACKEND"));assertEquals(0,backend.path("totalItems").asInt());assertTrue(backend.path("items").isEmpty());assertEquals("Source only",backend.path("executionMode").asText());
+  }
   @Test void exactlyThreeFreeSlotsAreAtomicAndIndependentOfFullProjectCapacity()throws Exception{
     for(int n=0;n<3;n++){
       UUID id=draft();
@@ -649,6 +722,11 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
         }
         var released=json.readTree(upgrade.queryForObject("SELECT source::text FROM component_releases WHERE component_id=?",String.class,ids.get("ACTIVE")));
         assertEquals(recipe,released);assertEquals(1,upgrade.queryForObject("SELECT count(*) FROM component_releases",Integer.class));
+        var publishedFilters=json.readTree(upgrade.queryForObject("SELECT published_filter_metadata::text FROM component_entries WHERE id=?",String.class,ids.get("ACTIVE")));
+        var releasedFilters=json.readTree(upgrade.queryForObject("SELECT filter_metadata::text FROM component_releases WHERE component_id=?",String.class,ids.get("ACTIVE")));
+        assertEquals(publishedFilters,releasedFilters);assertEquals(recipe.path("category"),releasedFilters.path("category"));assertEquals(recipe.path("framework"),releasedFilters.path("framework"));
+        assertFalse(releasedFilters.has("files"));assertFalse(releasedFilters.has("archiveBase64"));
+        assertNull(upgrade.queryForObject("SELECT published_filter_metadata FROM component_entries WHERE id=?",String.class,ids.get("DRAFT")));
         assertThrows(org.springframework.dao.DataAccessException.class,()->upgrade.update("UPDATE component_entries SET title='Unreviewed migration mutation' WHERE id=?",ids.get("PENDING")));
         assertThrows(org.springframework.dao.DataAccessException.class,()->upgrade.update("UPDATE component_releases SET source_sha256=?","0".repeat(64)));
         assertEquals(0,upgrade.queryForObject("SELECT count(*) FROM component_previews",Integer.class));

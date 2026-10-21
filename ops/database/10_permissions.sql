@@ -51,6 +51,11 @@ BEGIN
     EXECUTE format('ALTER FUNCTION %s OWNER TO getlancer_migration',object.signature);
     EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC,getlancer_runtime,getlancer_backup,getlancer_readonly',object.signature);
   END LOOP;
+  -- Generated publication metadata is evaluated on runtime source writes.
+  -- This pure JSON projection is the only application-callable schema function.
+  IF to_regprocedure(format('%I.component_filter_metadata(jsonb)',schema_name)) IS NOT NULL THEN
+    EXECUTE format('GRANT EXECUTE ON FUNCTION %I.component_filter_metadata(jsonb) TO getlancer_runtime',schema_name);
+  END IF;
   FOREACH table_name IN ARRAY known_tables LOOP
     IF NOT EXISTS(SELECT FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=schema_name AND c.relname=table_name AND c.relkind IN ('r','p')) THEN CONTINUE; END IF;
     EXECUTE format('ALTER TABLE %I.%I ENABLE ROW LEVEL SECURITY',schema_name,table_name);
@@ -91,7 +96,7 @@ BEGIN
   IF to_regclass(format('%I.flyway_schema_history',schema_name)) IS NOT NULL THEN
     EXECUTE format('GRANT SELECT ON %I.flyway_schema_history TO getlancer_backup,getlancer_readonly',schema_name);
   END IF;
-  -- Application IDs are UUIDs; no runtime sequence mutation or function execution is needed.
+  -- Application IDs are UUIDs; no runtime sequence mutation is needed.
   -- PostgreSQL trigger functions execute through their triggers; callers need no EXECUTE grant.
 END $permissions$;
 COMMIT;

@@ -35,11 +35,7 @@ public class ProjectRequestService {
   @Transactional
   public Map<String, Object> list(UUID b, HttpServletRequest r) {
     access(b, r);
-    return Map.of(
-        "items",
-        repo.jdbc()
-            .queryForList(
-                REQUEST + "WHERE r.business_id=? ORDER BY r.created_at DESC,r.id LIMIT 100", b));
+    return repo.page(r, REQUEST + "WHERE r.business_id=? ORDER BY r.created_at DESC,r.id", b);
   }
 
   private Object[] fields(Map<String, Object> b) {
@@ -122,7 +118,7 @@ public class ProjectRequestService {
   public Map<String, Object> shortlist(UUID business, UUID request, HttpServletRequest r) {
     access(business, r);
     repo.request(business, request);
-    return Map.of("items", matching.entries("request_shortlist", "request_id", request));
+    return matching.entries("request_shortlist", "request_id", request, r);
   }
 
   @Transactional

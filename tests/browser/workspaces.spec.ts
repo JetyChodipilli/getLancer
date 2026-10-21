@@ -28,7 +28,8 @@ test('concierge opt-in completes through the isolated administrator preview',asy
  await page.getByText('Interactive business preview',{exact:true}).click();await page.getByLabel('Preview actor',{exact:true}).selectOption('admin');await expect(page.getByRole('heading',{name:'Concierge requests',exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Start sourcing',exact:true}).click();await page.getByRole('button',{name:'Review matching evidence',exact:true}).click();
  const candidate=page.locator('.business-candidate').filter({has:page.getByRole('heading',{name:'Northstar Studio',exact:true})});await candidate.getByLabel('Client-visible recommendation reason',{exact:true}).fill('Consented CRM proof and active approved builders fit this brief.');await candidate.getByRole('button',{name:'Recommend candidate',exact:true}).click();await page.getByRole('button',{name:'Mark fulfilled',exact:true}).click();
- await expect(page.getByText('Fulfilled',{exact:true})).toBeVisible();await noOverflow(page);
+ await expect(page.getByRole('button',{name:'Mark fulfilled',exact:true})).toHaveCount(0);
+ await page.getByText('Fulfilled sourcing history (1)',{exact:true}).click();await expect(page.getByText('Fulfilled',{exact:true})).toBeVisible();await noOverflow(page);
 });
 test('keyboard dialog dismissal restores the primary action',async({page})=>{
  await page.goto('/preview/business');await page.getByRole('button',{name:'New project request',exact:true}).click();await expect(page.getByLabel('Project title',{exact:true})).toBeFocused();await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).not.toBeVisible();await expect(page.getByRole('button',{name:'New project request',exact:true})).toBeFocused();

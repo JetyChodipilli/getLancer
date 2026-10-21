@@ -1,0 +1,13 @@
+{
+  "epoch": "00000000-0000-0000-0000-000000000000",
+  "outputDir": "/srv/getlancer-builder/candidates",
+  "driver": {
+    "uidBase": 62020,
+    "jailBase": "/srv/getlancer-builder/jails",
+    "firecracker": "/opt/getlancer-provider/bin/firecracker",
+    "firecrackerSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "jailer": "/opt/getlancer-provider/bin/jailer",
+    "jailerSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "jobs": {}
+}

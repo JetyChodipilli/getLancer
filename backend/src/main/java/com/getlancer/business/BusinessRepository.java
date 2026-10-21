@@ -5,6 +5,8 @@ import static com.getlancer.shared.Support.text;
 
 import com.getlancer.security.Security;
 import com.getlancer.shared.ApiError;
+import com.getlancer.shared.Pages;
+import java.util.LinkedHashMap;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
 import java.util.Set;
@@ -37,6 +39,16 @@ public class BusinessRepository {
 
   JdbcTemplate jdbc() {
     return db;
+  }
+
+  Map<String, Object> page(HttpServletRequest request, String sql, Object... args) {
+    return Pages.query(db, request, sql, args);
+  }
+
+  static Map<String, Object> metadata(Map<String, Object> page) {
+    var result = new LinkedHashMap<>(page);
+    result.remove("items");
+    return result;
   }
 
   UUID admin(HttpServletRequest r) {

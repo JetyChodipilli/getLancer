@@ -1,0 +1,19 @@
+[Unit]
+Description=getLancer guest-only fixed operation agent
+After=local-fs.target
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/python3 -I /opt/getlancer-provider/guest_agent.py
+Restart=no
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/tmp /sys/fs/cgroup
+LimitNOFILE=128
+LimitCORE=0
+StandardOutput=null
+StandardError=null
+
+[Install]
+WantedBy=multi-user.target

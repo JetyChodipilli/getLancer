@@ -125,6 +125,8 @@ test('real hiring journey persists consent, matching, talent, MFA concierge and 
   await studio.getByLabel('Client-visible recommendation reason',{exact:true}).fill('Consented public Inventory and React evidence fits this private brief.');
   await studio.getByRole('button',{name:'Recommend candidate',exact:true}).click();
   await sourcing.getByRole('button',{name:'Mark fulfilled',exact:true}).click();
+  await expect(sourcing).toHaveCount(0);
+  await admin.getByText(/^Fulfilled sourcing history \(/).click();
   await expect(sourcing.getByText('Fulfilled',{exact:true})).toBeVisible();
   await page.reload();
   await page.getByLabel('Business workspace',{exact:true}).selectOption(b.id);
