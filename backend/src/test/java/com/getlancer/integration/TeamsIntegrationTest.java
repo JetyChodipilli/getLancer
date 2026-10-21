@@ -318,6 +318,55 @@ class TeamsIntegrationTest {
   }
 
   @Test
+  void visibleRoleApplicationLookupIsBoundedAndScopedToTheCurrentApplicant() throws Exception {
+    db.update(
+        "INSERT INTO team_roles(id,team_id,title,description,skills,contract_type,compensation_band,created_at)"
+            + " SELECT md5('status-role-'||g)::uuid,?,'Role '||g,'Build useful software','Java',"
+            + "'PERMANENT','5k',TIMESTAMPTZ '2025-01-01'+g*interval '1 second' FROM generate_series(1,53) g", team);
+    db.update(
+        "INSERT INTO team_applications(id,team_id,role_id,user_id,message,created_at)"
+            + " SELECT md5('status-application-'||g)::uuid,?,md5('status-role-'||g)::uuid,?,"
+            + "'Please consider my application',TIMESTAMPTZ '2025-02-01'-g*interval '1 second' FROM generate_series(1,53) g", team, applicant);
+    var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+    var history = mvc.perform(get("/api/v1/me/teams").cookie(new Cookie("gl_session", "applicant")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.applications.length()").value(50))
+        .andExpect(jsonPath("$.pages.applications.totalItems").value(53))
+        .andReturn().getResponse().getContentAsString();
+    UUID oldest = db.queryForObject("SELECT role_id FROM team_applications ORDER BY created_at LIMIT 1", UUID.class);
+    for (var row : mapper.readTree(history).get("applications"))
+      assertNotEquals(oldest.toString(), row.get("roleId").asText());
+    for (int page = 0; page < 2; page++) {
+      var publicRoles = mvc.perform(get("/api/v1/teams/" + team).param("collection", "roles").param("page", "" + page))
+          .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+      var ids = new ArrayList<String>();
+      for (var row : mapper.readTree(publicRoles).get("roles")) ids.add(row.get("id").asText());
+      var matching = mvc.perform(get("/api/v1/me/teams").param("collection", "applications")
+              .param("roleIds", String.join(",", ids)).param("size", "100")
+              .cookie(new Cookie("gl_session", "applicant")))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.applications.length()").value(ids.size()))
+          .andExpect(jsonPath("$.pages.applications.hasMore").value(false))
+          .andExpect(jsonPath("$.items").doesNotExist())
+          .andReturn().getResponse().getContentAsString();
+      var applied = new HashSet<String>();
+      for (var row : mapper.readTree(matching).get("applications")) applied.add(row.get("roleId").asText());
+      assertEquals(new HashSet<>(ids), applied);
+    }
+    mvc.perform(get("/api/v1/me/teams").param("collection", "applications").param("roleIds", oldest.toString())
+            .cookie(new Cookie("gl_session", "owner")))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.applications.length()").value(0));
+    mvc.perform(get("/api/v1/me/teams").param("collection", "applications").param("roleIds", oldest.toString()))
+        .andExpect(status().isUnauthorized());
+    for (String ids : List.of("", "invalid", oldest + ",", String.join(",", Collections.nCopies(101, oldest.toString()))))
+      mvc.perform(get("/api/v1/me/teams").param("collection", "applications").param("roleIds", ids)
+              .cookie(new Cookie("gl_session", "applicant")))
+          .andExpect(status().isBadRequest());
+    mvc.perform(get("/api/v1/me/teams").param("roleIds", oldest.toString()).cookie(new Cookie("gl_session", "applicant")))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
   void leadPagesHaveBoundedNotePreviewsAndParentScopedContinuation() throws Exception {
     db.update(
         "INSERT INTO team_leads(id,team_id,client_id,title,description,budget,timeline,created_at)"

@@ -1,15 +1,23 @@
 'use client';
-import {FormEvent,useEffect,useRef,useState} from 'react';
+import {FormEvent,useCallback,useEffect,useRef,useState} from 'react';
 import Link from 'next/link';
 import {api} from '@/lib/api';
 import MoreRecords from './more-records';
 import {Field,TeamForm,human,type TeamRequest} from './team-workspace';
 import './teams.css';
 
+async function applicationRoleIds(request:TeamRequest,roles:{id:string}[]):Promise<string[]>{
+ if(!roles.length)return [];
+ const query=new URLSearchParams({collection:'applications',size:'100',roleIds:roles.map(role=>role.id).join(',')});
+ const result=await request('/me/teams?'+query);
+ return result.applications.map((application:{roleId:string})=>application.roleId);
+}
+
 export default function TeamPublic({id,request=api,embedded=false,onSelect}:{id?:string,request?:TeamRequest,embedded?:boolean,onSelect?:(id:string)=>void}){
  const [data,setData]=useState<any>(null),[me,setMe]=useState<any>(null),[membership,setMembership]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(''),[notice,setNotice]=useState(''),[query,setQuery]=useState(''),[search,setSearch]=useState(''),[applied,setApplied]=useState<string[]>([]);const generation=useRef(0);
- useEffect(()=>{const run=++generation.current;setLoading(true);setData(null);setError('');setNotice('');setApplied([]);Promise.all([request(id?'/teams/'+encodeURIComponent(id):'/teams?q='+encodeURIComponent(search)),request('/me').catch(()=>null),request('/me/teams').catch(()=>null),id?request('/teams/'+encodeURIComponent(id)+'/workspace?collection=members&size=1').catch(()=>null):Promise.resolve(null)]).then(([result,user,index,currentTeam])=>{if(run!==generation.current)return;setData(result);setMe(user);setMembership(!!currentTeam?.myRole);setApplied(index?.applications?.filter((a:any)=>a.teamId===id).map((a:any)=>a.roleId)||[])}).catch(e=>{if(run===generation.current)setError(e.message)}).finally(()=>{if(run===generation.current)setLoading(false)});return()=>{generation.current++}},[id,search,request]);
- function continuation(collection:string){const info=data?.pages?.[collection];if(!info)return null;const path='/teams/'+encodeURIComponent(id!)+'?collection='+collection;return <MoreRecords key={path} path={path} collection={collection} firstPage={info} request={request} label={'Load more '+collection} onItems={rows=>setData((old:any)=>({...old,[collection]:[...old[collection],...rows.filter((row:any)=>!old[collection].some((item:any)=>(item.id??item.userId)===(row.id??row.userId)))]}))}/>;}
+ useEffect(()=>{const run=++generation.current;setLoading(true);setData(null);setError('');setNotice('');setApplied([]);Promise.all([request(id?'/teams/'+encodeURIComponent(id):'/teams?q='+encodeURIComponent(search)),request('/me').catch(()=>null),id?request('/teams/'+encodeURIComponent(id)+'/workspace?collection=members&size=1').catch(()=>null):Promise.resolve(null)]).then(async([result,user,currentTeam])=>{const applications=id&&user&&!currentTeam?.myRole?await applicationRoleIds(request,result.roles):[];if(run!==generation.current)return;setData(result);setMe(user);setMembership(!!currentTeam?.myRole);setApplied(applications)}).catch(e=>{if(run===generation.current)setError(e.message)}).finally(()=>{if(run===generation.current)setLoading(false)});return()=>{generation.current++}},[id,search,request]);
+ const rolePageRequest=useCallback<TeamRequest>(async(path,init)=>{const run=generation.current,result=await request(path,init);if(me&&!membership){const applications=await applicationRoleIds(request,result.roles);if(run===generation.current)setApplied(current=>Array.from(new Set([...current,...applications])))}return result},[request,me,membership]);
+ function continuation(collection:string){const info=data?.pages?.[collection];if(!info)return null;const path='/teams/'+encodeURIComponent(id!)+'?collection='+collection;return <MoreRecords key={path} path={path} collection={collection} firstPage={info} request={collection==='roles'?rolePageRequest:request} label={'Load more '+collection} onItems={rows=>setData((old:any)=>({...old,[collection]:[...old[collection],...rows.filter((row:any)=>!old[collection].some((item:any)=>(item.id??item.userId)===(row.id??row.userId)))]}))}/>;}
  const team=data?.team;const approved=me?.profile?.approval_status==='APPROVED'||me?.profileStatus==='APPROVED';
  const select=(teamId:string,label:string)=>onSelect?<button className="button" onClick={()=>onSelect(teamId)}>{label}</button>:<Link href={'/teams/'+teamId} className="button">{label}</Link>;
  const contents=<>

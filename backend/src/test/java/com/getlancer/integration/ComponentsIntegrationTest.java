@@ -174,6 +174,41 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     db.update("DELETE FROM user_roles WHERE user_id=? AND role='DEVELOPER'",builder);assertEquals(0,response(combinedComponents().param("builder","builder")).path("totalItems").asInt());db.update("INSERT INTO user_roles(user_id,role) VALUES(?,'DEVELOPER')",builder);
     assertEquals(2,response(combinedComponents().param("builder","builder")).path("totalItems").asInt());
   }
+  @Test void catalogueCountsAndFiltersReadCompactMetadataWithoutSourcePrivileges()throws Exception{
+    UUID id=draft();submit(id);response(approve(id));
+    var source=(com.fasterxml.jackson.databind.node.ObjectNode)json.readTree(db.queryForObject("SELECT source::text FROM component_releases WHERE component_id=?",String.class,id));
+    source.put("version","2.0.0");source.put("category","AUTH");source.put("language","TypeScript");source.put("framework","React");source.put("license","Apache-2.0");source.put("executionMode","Source only");
+    source.put("archiveBase64","x".repeat(1048576));
+    ((com.fasterxml.jackson.databind.node.ObjectNode)source.path("files")).put("index.html","x".repeat(1048576));
+    db.update("INSERT INTO component_releases(component_id,revision,source,context,source_sha256) VALUES(?,200,?::jsonb,'{}'::jsonb,?)",id,json.writeValueAsString(source),source.path("sha256").asText());
+    var metadata=json.readTree(db.queryForObject("SELECT filter_metadata::text FROM component_releases WHERE component_id=? AND revision=200",String.class,id));
+    assertEquals(6,metadata.size());assertEquals("TypeScript",metadata.path("language").asText());assertFalse(metadata.has("files"));assertFalse(metadata.has("archiveBase64"));
+    assertTrue(db.queryForObject("SELECT octet_length(filter_metadata::text)<1024 AND octet_length(source::text)>2000000 FROM component_releases WHERE component_id=? AND revision=200",Boolean.class,id));
+    // The newest release takes precedence over the immutable first publication.
+    assertEquals("HTML / CSS / JavaScript",db.queryForObject("SELECT published_filter_metadata->>'framework' FROM component_entries WHERE id=?",String.class,id));
+    assertEquals(1,response(get("/api/v1/components").param("builder","builder").param("language","TypeScript").param("framework","React").param("license","Apache-2.0").param("mode","Source only")).path("totalItems").asInt());
+    var catalogue=applicationContext.getBean(com.getlancer.components.ComponentService.class);
+    String reader="component_filter_reader_"+UUID.randomUUID().toString().replace("-","");
+    new org.springframework.transaction.support.TransactionTemplate(transactionManager).executeWithoutResult(transaction->{
+      transaction.setRollbackOnly(); // The temporary role, grants and policies never escape this test.
+      db.execute("CREATE ROLE "+reader+" NOLOGIN NOINHERIT");
+      db.execute("GRANT USAGE ON SCHEMA getlancer_test TO "+reader);
+      db.execute("GRANT SELECT (id,owner_id,recipe_slug,status,withdrawn_at,published_filter_metadata) ON component_entries TO "+reader);
+      db.execute("GRANT SELECT (component_id,revision,filter_metadata) ON component_releases TO "+reader);
+      for(String table:List.of("users","developer_profiles","user_roles"))db.execute("GRANT SELECT ON "+table+" TO "+reader);
+      for(String table:List.of("component_entries","component_releases","users","developer_profiles","user_roles"))db.execute("CREATE POLICY "+reader+" ON "+table+" FOR SELECT TO "+reader+" USING (true)");
+      db.execute("SET LOCAL ROLE "+reader);
+      assertFalse(db.queryForObject("SELECT has_column_privilege(current_user,'getlancer_test.component_releases','source','SELECT')",Boolean.class));
+      assertFalse(db.queryForObject("SELECT has_column_privilege(current_user,'getlancer_test.component_entries','published_source','SELECT')",Boolean.class));
+      // Curated cards fill page zero, so these requests perform counts/filters only.
+      // They must succeed even though this connection cannot read any source snapshot.
+      assertEquals(25L,catalogue.catalog("","","FRONTEND","",0).get("totalItems"));
+      assertEquals(24L,catalogue.catalog("","","FRONTEND","",0,"JavaScript","VANILLA","MIT","Browser local").get("totalItems"));
+    });
+    response(body(post("/api/v1/me/components/"+id+"/withdraw"),"builder",Map.of()));
+    assertEquals(0,response(get("/api/v1/components").param("builder","builder")).path("totalItems").asInt());
+    assertEquals(metadata,json.readTree(db.queryForObject("SELECT filter_metadata::text FROM component_releases WHERE component_id=? AND revision=200",String.class,id)));
+  }
   @Test void componentSearchTreatsSqlWildcardsAsLiteralCharacters()throws Exception{
     UUID id=draft();
     response(body(patch("/api/v1/me/components/"+id),"builder",Map.of("recipeSlug","portfolio-card","title","Literal % _ \\ card","summary","An original literal search example for component discovery.","contribution","Selected an original recipe to check literal component search behavior.","rightsConsent",true)));submit(id);response(approve(id));
@@ -687,6 +722,11 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
         }
         var released=json.readTree(upgrade.queryForObject("SELECT source::text FROM component_releases WHERE component_id=?",String.class,ids.get("ACTIVE")));
         assertEquals(recipe,released);assertEquals(1,upgrade.queryForObject("SELECT count(*) FROM component_releases",Integer.class));
+        var publishedFilters=json.readTree(upgrade.queryForObject("SELECT published_filter_metadata::text FROM component_entries WHERE id=?",String.class,ids.get("ACTIVE")));
+        var releasedFilters=json.readTree(upgrade.queryForObject("SELECT filter_metadata::text FROM component_releases WHERE component_id=?",String.class,ids.get("ACTIVE")));
+        assertEquals(publishedFilters,releasedFilters);assertEquals(recipe.path("category"),releasedFilters.path("category"));assertEquals(recipe.path("framework"),releasedFilters.path("framework"));
+        assertFalse(releasedFilters.has("files"));assertFalse(releasedFilters.has("archiveBase64"));
+        assertNull(upgrade.queryForObject("SELECT published_filter_metadata FROM component_entries WHERE id=?",String.class,ids.get("DRAFT")));
         assertThrows(org.springframework.dao.DataAccessException.class,()->upgrade.update("UPDATE component_entries SET title='Unreviewed migration mutation' WHERE id=?",ids.get("PENDING")));
         assertThrows(org.springframework.dao.DataAccessException.class,()->upgrade.update("UPDATE component_releases SET source_sha256=?","0".repeat(64)));
         assertEquals(0,upgrade.queryForObject("SELECT count(*) FROM component_previews",Integer.class));

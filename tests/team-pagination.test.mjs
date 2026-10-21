@@ -66,6 +66,25 @@ test('recruitment histories and staffing remain reachable in their own authorize
  d.setActor('pm');await assert.rejects(d.request(base+'/workspace?collection=applications&page=1'),e=>e.status===403);
 });
 
+test('visible role application lookups include old applications on every public roles page',async()=>{
+ const d=createTeamDemo(),roleIds=[];
+ for(let n=0;n<53;n++)roleIds.push((await send(d,base+'/roles',{...role,title:`Application role ${n}`})).id);
+ d.setActor('applicant');
+ for(const roleId of roleIds.slice().reverse())await send(d,base+'/roles/'+roleId+'/applications',{message:'I build accessible products.'});
+ const history=await d.request('/me/teams');assert.equal(history.applications.length,50);assert.equal(history.pages.applications.totalItems,53);
+ assert.ok(!history.applications.some(a=>a.roleId===roleIds.at(-1)),'the oldest application must be outside the history preview');
+ for(let page=0;page<2;page++){
+  const visible=await d.request(base+'?collection=roles&page='+page);
+  const query=new URLSearchParams({collection:'applications',size:'100',roleIds:visible.roles.map(r=>r.id).join(',')});
+  const matching=await d.request('/me/teams?'+query);
+  assert.deepEqual(new Set(matching.applications.map(a=>a.roleId)),new Set(visible.roles.filter(r=>roleIds.includes(r.id)).map(r=>r.id)));
+  assert.equal(matching.pages.applications.hasMore,false);assert.equal(matching.items,undefined);
+ }
+ const lookup='/me/teams?collection=applications&roleIds='+roleIds.at(-1);
+ d.setActor('owner');assert.deepEqual((await d.request(lookup)).applications,[],'another actor cannot see the applicant status');
+ for(const query of ['roleIds='+roleIds[0],'collection=items&roleIds='+roleIds[0],'collection=applications&roleIds=','collection=applications&roleIds='+Array(101).fill(roleIds[0]).join(',')])await assert.rejects(d.request('/me/teams?'+query),e=>e.status===400);
+});
+
 test('every continuation rechecks current role and filters activity before pagination',async()=>{
  const d=createTeamDemo();
  for(let n=0;n<22;n++)await send(d,base+'/leads/lead-portal',{note:'Commercial secret'},'PATCH');

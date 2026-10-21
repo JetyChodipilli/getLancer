@@ -17,6 +17,12 @@ This work closes specific implementation gaps found while auditing V1 through V5
 
 The `8e8d1d8` connected run passed 23 cases and failed 13; encrypted restore was skipped after that failure. This recovery adds an exact configured storage origin to connected CSP, consumes subsequent confirmation links without stale responses, initializes report targets after hydration, preserves intrinsic dialog form rows, bounds phone workspace rows and opens fulfilled concierge history in its test. New navigation and CSP regressions accompany the repairs. These changes still require a successful full CI run on their own commit. Local Chromium crashes before launch in the recovery environment; local browser acceptance is not claimed.
 
+## Preservation checks before merge
+
+The merge review found and repaired three pagination regressions: public role application status now uses one authenticated lookup bounded to each displayed role page; repeated builder searches receive a fresh continuation identity; catalogue counts and filters read stored compact publication metadata rather than full source/archive JSON. Demo, PostgreSQL and browser regressions cover the repaired triggers. The full latest-head workflow must pass before merging.
+
+Migration V46 adds stored generated metadata to `component_entries` and `component_releases`. It projects existing snapshots once, which rewrites those tables and takes migration locks. Before a future production rollout, measure this migration on a restored backup and plan the migration window. Reapply `ops/database/10_permissions.sql` after migration to grant the runtime only the pure projection function needed for source writes. This code merge does not activate a production rollout.
+
 ## Complete the remaining work
 
 1. Run all candidate CI jobs. Review PostgreSQL regressions, six V1 journeys, responsive browser checks, SAST, dependency reports and restore evidence on the same head. Fix failures before merging. Backend evidence is `backend/target/phase-completion-evidence.json` in `phase-backend-evidence-<head>`; browser evidence is `test-results/connected/phase-completion-evidence.json` inside the connected artifact.

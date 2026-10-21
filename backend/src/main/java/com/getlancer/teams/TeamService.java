@@ -275,6 +275,22 @@ public class TeamService {
   public Map<String, Object> mine(HttpServletRequest r) {
     UUID u = security.user(r);
     String selected = collection(r, Set.of("items", "invitations", "applications", "requests"));
+    String applications = APPLICATION + "WHERE a.user_id=?";
+    var applicationArgs = new ArrayList<Object>();
+    applicationArgs.add(u);
+    String roleIds = r.getParameter("roleIds");
+    if (roleIds != null) {
+      // Look up displayed roles before paging the actor's application history.
+      String[] ids = roleIds.split(",", -1);
+      if (!"applications".equals(selected) || roleIds.length() > 3699 || ids.length > 100)
+        throw new ApiError(400, "VALIDATION_ERROR", "Choose up to 100 valid role IDs.");
+      try {
+        for (String id : ids) applicationArgs.add(UUID.fromString(id));
+      } catch (IllegalArgumentException e) {
+        throw new ApiError(400, "VALIDATION_ERROR", "Choose up to 100 valid role IDs.");
+      }
+      applications += " AND a.role_id IN (" + String.join(",", Collections.nCopies(ids.length, "?")) + ")";
+    }
     Map<String, Object> x = new LinkedHashMap<>();
     x.put("canCreate",
         db.queryForObject("SELECT EXISTS(SELECT 1 FROM users u JOIN developer_profiles d ON d.user_id=u.id WHERE u.id=? AND u.email_verified_at IS NOT NULL AND d.approval_status='APPROVED' AND EXISTS(SELECT 1 FROM user_roles ur WHERE ur.user_id=u.id AND ur.role='DEVELOPER') AND EXISTS(SELECT 1 FROM products p WHERE p.owner_user_id=u.id AND p.approval_status='APPROVED' AND p.lifecycle_status<>'SUSPENDED'))", Boolean.class, u));
@@ -287,7 +303,7 @@ public class TeamService {
                     + ACTIVE
                     + ") ORDER BY t.created_at DESC,t.id", u, u);
     page(x, selected, "invitations", r, true, INVITE + "WHERE i.user_id=? ORDER BY i.created_at DESC,i.id", u);
-    page(x, selected, "applications", r, true, APPLICATION + "WHERE a.user_id=? ORDER BY a.created_at DESC,a.id", u);
+    page(x, selected, "applications", r, true, applications + " ORDER BY a.created_at DESC,a.id", applicationArgs.toArray());
     var requests = page(x, selected, "requests", r, true, LEAD + "WHERE l.client_id=? ORDER BY l.created_at DESC,l.id", u);
     if (requests != null) leadDtos(Pages.items(requests), false);
     return x;

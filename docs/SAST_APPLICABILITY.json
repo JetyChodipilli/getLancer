@@ -239,7 +239,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/components/ComponentService.java",
-      "sha256": "7832a0c25d841014981d3babac42047fb59cdae283bc763cd5ed267f7a326f08"
+      "sha256": "0ec179b07a5d71cbaf48c99fd5b5f4ac0eb37246bb517159e95d4b482c8411e0"
     },
     {
       "path": "backend/src/main/java/com/getlancer/components/ComponentSlotService.java",
@@ -727,7 +727,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/teams/TeamService.java",
-      "sha256": "03e4a8a5c113610d82d41f402aec895aa1cc2dea7ff805fa20f9e58f660df4bb"
+      "sha256": "a9f06c8ad6ac70ac73b71aee1555ac3ba0836361e92aea27ed15bf0954d24bcf"
     },
     {
       "path": "backend/src/main/java/com/getlancer/teams/TeamsController.java",
@@ -934,6 +934,10 @@
       "sha256": "d116e29eb4579dccf17514c68315df9860a31710f03cea3bd83c2e448929b23f"
     },
     {
+      "path": "backend/src/main/resources/db/migration/V46__component_filter_metadata.sql",
+      "sha256": "73299cf2cb4627d662502a96b215a0a7601ba278d821e6fef5a6b0c360f6ecfd"
+    },
+    {
       "path": "backend/src/main/resources/db/migration/V4__single_administrator.sql",
       "sha256": "c09a70dc7d3077eaffcc5e315f0d282a11b5565003d621012c6f813a6cc87450"
     },
@@ -1085,7 +1089,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java",
-      "sha256": "96549d017fc2cbbd7d4a99ca6e92b38289794bd573ce7d49348e684e243f9ad2"
+      "sha256": "ce1bbe7fbc045881f811a82e966438ad60473c16b9b25a86cf545c86341554f1"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/DataExposureIntegrationTest.java",
@@ -1125,7 +1129,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/TeamsIntegrationTest.java",
-      "sha256": "438d7bd78f9f5b1b41fd4946f427d647dbf7b73264f317fa0ed56de6ca1488bd"
+      "sha256": "915d73ebdbc1948511e5ae2e2e77abfebffe122d23dfd330190d6b755ff3d7dd"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/TypedRequestsIntegrationTest.java",

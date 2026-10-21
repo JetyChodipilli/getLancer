@@ -190,8 +190,8 @@ public class ComponentService {
     if(builder.isBlank())all.addAll(recipes);
     // ponytail: bounded recipe catalogue plus paginated database remixes; no separate search infrastructure.
     // Match the same released source shown by detail; private drafts never influence counts.
-    String source="COALESCE(released.source,c.published_source,seed.value)";
-    String sql="SELECT c.id,c.recipe_slug,c.slug,c.title,c.summary,c.contribution,c.revision,c.status,c.review_reason,c.published_at,c.published_source,c.published_context,c.draft_source,c.submitted_source,c.submitted_context,c.withdrawn_at,d.display_name AS creator,d.slug AS builder_slug"+JOIN+" LEFT JOIN LATERAL (SELECT r.source FROM component_releases r WHERE r.component_id=c.id ORDER BY r.revision DESC LIMIT 1) released ON true LEFT JOIN jsonb_each(?::jsonb) seed ON seed.key=c.recipe_slug WHERE c.status='ACTIVE' AND c.withdrawn_at IS NULL AND "+ELIGIBLE+" AND "+source+"->>'kind'=?";
+    String source="COALESCE(released.filter_metadata,c.published_filter_metadata,seed.value)";
+    String sql=JOIN+" LEFT JOIN LATERAL (SELECT r.filter_metadata FROM component_releases r WHERE r.component_id=c.id ORDER BY r.revision DESC LIMIT 1) released ON true LEFT JOIN jsonb_each(?::jsonb) seed ON seed.key=c.recipe_slug WHERE c.status='ACTIVE' AND c.withdrawn_at IS NULL AND "+ELIGIBLE+" AND "+source+"->>'kind'=?";
     var args=new ArrayList<Object>();
     args.add(catalogSources);args.add(kind);
     if(!builder.isBlank()){
@@ -215,7 +215,7 @@ public class ComponentService {
     }
     if(!license.isBlank()){sql+=" AND lower("+source+"->>'license')=?";args.add(license.toLowerCase(Locale.ROOT));}
     if(!mode.isBlank()){sql+=" AND lower("+source+"->>'executionMode')=?";args.add(mode.toLowerCase(Locale.ROOT));}
-    long count=db.queryForObject("SELECT count(*) FROM ("+sql+") matches",Long.class,args.toArray());
+    long count=db.queryForObject("SELECT count(*)"+sql,Long.class,args.toArray());
     var filtered=new ArrayList<Map<String,Object>>();
     for(var recipe:all)if(matches(recipe,q,category,language,framework,license,mode))filtered.add(recipe);
     all=filtered;
@@ -226,7 +226,7 @@ public class ComponentService {
     if(take>0){
       args.add(take);
       args.add(Math.max(0,offset-seedCount));
-      result.addAll(db.queryForList(sql+" ORDER BY c.created_at DESC,c.id LIMIT ? OFFSET ?",args.toArray()).stream().map(this::publicEntry).toList());
+      result.addAll(db.queryForList("SELECT c.id,c.recipe_slug,c.slug,c.title,c.summary,c.contribution,c.revision,c.status,c.review_reason,c.published_at,c.published_source,c.published_context,c.draft_source,c.submitted_source,c.submitted_context,c.withdrawn_at,d.display_name AS creator,d.slug AS builder_slug"+sql+" ORDER BY c.created_at DESC,c.id LIMIT ? OFFSET ?",args.toArray()).stream().map(this::publicEntry).toList());
     }
     return Map.of("items",result.stream().map(ComponentService::card).toList(),"totalItems",seedCount+count,"totalPages",(seedCount+count+11)/12,"size",12,"hasMore",offset+12<seedCount+count,"page",page);
   }
