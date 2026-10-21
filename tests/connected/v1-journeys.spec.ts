@@ -165,7 +165,7 @@ test('E2E-02 publishes a new draft with a real screenshot, live URL, review and 
   await dialog.getByLabel('Image 1 description',{exact:true}).fill('Synthetic inventory stock screen submitted through the real browser upload.');
   await mutation(page,'/developer/products/'+created.id+'/media',()=>dialog.getByRole('button',{name:'Save image order and descriptions',exact:true}).click(),200,'PATCH');
   await dialog.getByRole('button',{name:'Close',exact:true}).click();
-  await mutation(page,'/developer/products/'+created.id+'/submit',()=>card(page,title).getByRole('button',{name:'Submit for review',exact:true}).click());
+  await mutation(page,'/developer/products/'+created.id+'/submit',()=>card(page,title).getByRole('button',{name:'Submit for review',exact:true}).click(),204);
   await expect(card(page,title)).toContainText('Pending Review');
   await search(visitor.page,title);
   await expect(visitor.page.getByLabel('Project demos',{exact:true}).getByRole('heading',{name:title,exact:true})).toHaveCount(0);
@@ -179,10 +179,10 @@ test('E2E-02 publishes a new draft with a real screenshot, live URL, review and 
   await expect(review).not.toBeVisible();
   // Approval activates automatically when free capacity exists. Also exercise the explicit owner action.
   await workspace(page,'showcases');await expect(card(page,title)).toContainText('Approved · Active');
-  await mutation(page,'/developer/products/'+created.id+'/archive',()=>card(page,title).getByRole('button',{name:'Archive',exact:true}).click());
+  await mutation(page,'/developer/products/'+created.id+'/archive',()=>card(page,title).getByRole('button',{name:'Archive',exact:true}).click(),204);
   await expect(page.getByRole('tab',{name:'Active (0)',exact:true})).toBeVisible();
   await page.getByRole('tab',{name:'Archived',exact:true}).click();
-  await mutation(page,'/developer/products/'+created.id+'/activate',()=>card(page,title).getByRole('button',{name:'Activate',exact:true}).click());
+  await mutation(page,'/developer/products/'+created.id+'/activate',()=>card(page,title).getByRole('button',{name:'Activate',exact:true}).click(),204);
   await page.getByRole('tab',{name:'Active (1)',exact:true}).click();await expect(card(page,title)).toBeVisible();
   await search(visitor.page,title);
   await visitor.page.getByLabel('Project demos',{exact:true}).getByRole('heading',{name:title,exact:true}).getByRole('link').click();
@@ -206,10 +206,10 @@ test('E2E-03 blocks the fourth active showcase with SLOT_LIMIT_REACHED and reuse
   await expect(page.getByRole('alert')).toContainText('All slots for this project category are in use.');
   await expect(card(page,fourth.title)).toContainText('Approved · Draft');
   await page.getByRole('tab',{name:'Active (3)',exact:true}).click();
-  await mutation(page,'/developer/products/'+first.id+'/archive',()=>card(page,first.title).getByRole('button',{name:'Archive',exact:true}).click());
+  await mutation(page,'/developer/products/'+first.id+'/archive',()=>card(page,first.title).getByRole('button',{name:'Archive',exact:true}).click(),204);
   await expect(page.getByRole('tab',{name:'Active (2)',exact:true})).toBeVisible();
   await page.getByRole('tab',{name:'Drafts & review',exact:true}).click();
-  await mutation(page,'/developer/products/'+fourth.id+'/activate',()=>card(page,fourth.title).getByRole('button',{name:'Activate',exact:true}).click());
+  await mutation(page,'/developer/products/'+fourth.id+'/activate',()=>card(page,fourth.title).getByRole('button',{name:'Activate',exact:true}).click(),204);
   await page.getByRole('tab',{name:'Active (3)',exact:true}).click();
   await expect(card(page,fourth.title)).toContainText('Approved · Active');await expect(card(page,first.title)).toHaveCount(0);
   await page.reload();await expect(page.getByRole('tab',{name:'Active (3)',exact:true})).toHaveAttribute('aria-selected','true');

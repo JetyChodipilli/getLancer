@@ -93,7 +93,7 @@ export async function prepareV1Fixtures(){
    projectType:'SAAS',category:'Inventory',technology:'React',visibility:'PUBLIC',contribution:'Designed the schema and implemented the inventory workflow.',
    liveUrl:'https://example.com/getlancer-v1-demo',videoUrl:'',repositoryUrl:'',pricingNote:'',availableForSimilarWork:true,rightsConfirmed:true,
   },'POST',201);
-  await builder('/developer/products/'+created.id+'/submit',{});
+  await builder('/developer/products/'+created.id+'/submit',{},'POST',204);
   await admin('/admin/products/'+created.id+'/approve',{reason:'Disposable V1 prerequisite: synthetic showcase with a public example URL.'});
   const owned=await builder('/developer/products');
   const result=owned.items.find(item=>item.id===created.id);assert.ok(result);

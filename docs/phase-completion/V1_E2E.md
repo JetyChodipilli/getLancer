@@ -11,6 +11,8 @@
 | E2E-05 Marketplace outcome | Approved builder/public product, verified client and one email-confirmed inquiry in `INQUIRY_RECEIVED` | Review form unavailable before completion; responded, discussion, reported proposal value/currency, hire request, delivered hire link and client confirmation, in progress, completion request, delivered completion link and client confirmation, eligible anonymous review submission, held review absent publicly, administrator publication and anonymous verified public review |
 | E2E-06 Moderation | Approved builder/public product | Public report, administrator MFA, priority/investigation triage, review-stage persistence, report resolution with suspension, disappearance from search and detail, restricted owner view with the exact reason and appeal link |
 
+Product submission, archival and activation return HTTP 204; creation returns 201 and capacity rejection returns 409. Fixture and browser assertions retain those exact response contracts.
+
 Approval currently activates a product automatically when capacity is available. E2E-02 asserts that behavior, then archives and explicitly activates the same approved product through the owner UI. It does not silently treat an API fixture as the publication transition. E2E-03 independently tests the capacity-blocked activation path.
 
 ## Disposable CI integration
