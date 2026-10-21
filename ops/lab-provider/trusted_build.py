@@ -95,4 +95,5 @@ if __name__ == "__main__":
     parser.add_argument("--config", required=True)
     parser.add_argument("--job", required=True)
     args = parser.parse_args()
-    print(encode(build(decode(read_trusted(args.config)), args.job)).decode())
+    build(decode(read_trusted(args.config)), args.job)
+    print("Unsigned build candidate created; review the private output directory.")

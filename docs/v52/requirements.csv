@@ -1,69 +1,69 @@
 id,title,priority,acceptanceId,verificationId,owner,primaryVerification,supplementaryVerification,softwareEvidence,launchGate,launchEvidence
-FR-001,Discovery,Must,AC-FR-001,TC-FR-001,BE/FE/Content,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/components.spec.ts,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-002,Free policy,Must,AC-FR-002,TC-FR-002,BE/FE/Content,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/components.spec.ts,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-003,Search,Must,AC-FR-003,TC-FR-003,BE/FE/Content,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/components.spec.ts,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-004,Frontend scope,Must,AC-FR-004,TC-FR-004,BE/FE/Content,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/components.spec.ts,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-005,Preview,Must,AC-FR-005,TC-FR-005,BE/FE/Content,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/components.spec.ts,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-006,Component states,Must,AC-FR-006,TC-FR-006,BE/FE/Content,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/components.spec.ts,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-007,Source access,Must,AC-FR-007,TC-FR-007,BE/FE/Content,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/components.spec.ts,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-008,Setup,Must,AC-FR-008,TC-FR-008,BE/FE/Content,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/components.spec.ts,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-009,Licensing,Must,AC-FR-009,TC-FR-009,BE/FE/Content,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/components.spec.ts,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-010,Versioning,Must,AC-FR-010,TC-FR-010,BE/FE/Content,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/components.spec.ts,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-011,Contributions,Must,AC-FR-011,TC-FR-011,BE/FE/Content,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/components.spec.ts,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-012,Moderation,Must,AC-FR-012,TC-FR-012,BE/FE/Content,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/components.spec.ts,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-013,Talent proof,Must,AC-FR-013,TC-FR-013,BE/FE/Content,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/components.spec.ts,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-014,Capacity,Must,AC-FR-014,TC-FR-014,BE/FE/Content,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/components.spec.ts,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-015,Saved items,Must,AC-FR-015,TC-FR-015,BE/FE/Content,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/components.spec.ts,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-016,Backend scope,Must,AC-FR-016,TC-FR-016,Infra/BE/QA,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,scripts/verify-lab-scenarios.mjs,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-017,Language coverage,Must,AC-FR-017,TC-FR-017,Infra/BE/QA,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,scripts/verify-lab-scenarios.mjs,PENDING_FINAL_HEAD_CI,L3,UNMET
-FR-018,Real execution,Must,AC-FR-018,TC-FR-018,Infra/BE/QA,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,scripts/verify-lab-scenarios.mjs,PENDING_FINAL_HEAD_CI,L3,UNMET
-FR-019,Request console,Must,AC-FR-019,TC-FR-019,Infra/BE/QA,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,scripts/verify-lab-scenarios.mjs,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-020,Redis,Must,AC-FR-020,TC-FR-020,Infra/BE/QA,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,scripts/verify-lab-scenarios.mjs,PENDING_FINAL_HEAD_CI,L3,UNMET
-FR-021,Security modules,Must,AC-FR-021,TC-FR-021,Infra/BE/QA,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,scripts/verify-lab-scenarios.mjs,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-022,Payment modules,Must,AC-FR-022,TC-FR-022,Infra/BE/QA,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,scripts/verify-lab-scenarios.mjs,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-023,Execution evidence,Must,AC-FR-023,TC-FR-023,Infra/BE/QA,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,scripts/verify-lab-scenarios.mjs,PENDING_FINAL_HEAD_CI,L3,UNMET
-FR-024,Scenarios,Must,AC-FR-024,TC-FR-024,Infra/BE/QA,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,scripts/verify-lab-scenarios.mjs,PENDING_FINAL_HEAD_CI,L3,UNMET
-FR-025,Lifecycle,Must,AC-FR-025,TC-FR-025,Infra/BE/QA,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,scripts/verify-lab-scenarios.mjs,PENDING_FINAL_HEAD_CI,L3,UNMET
-FR-026,Free compute limits,Must,AC-FR-026,TC-FR-026,Infra/BE/QA,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,scripts/verify-lab-scenarios.mjs,PENDING_FINAL_HEAD_CI,L3,UNMET
-FR-027,Local reproduction,Must,AC-FR-027,TC-FR-027,Infra/BE/QA,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,scripts/verify-lab-scenarios.mjs,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-028,College categories,Must,AC-FR-028,TC-FR-028,BE/FE/Content,backend/src/test/java/com/getlancer/EducationIntegrationTest.java,tests/browser/education.spec.ts,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-029,College modes,Must,AC-FR-029,TC-FR-029,BE/FE/Content,backend/src/test/java/com/getlancer/EducationIntegrationTest.java,tests/browser/education.spec.ts,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-030,Project metadata,Must,AC-FR-030,TC-FR-030,BE/FE/Content,backend/src/test/java/com/getlancer/EducationIntegrationTest.java,tests/browser/education.spec.ts,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-031,Source/demo disclosure,Must,AC-FR-031,TC-FR-031,BE/FE/Content,backend/src/test/java/com/getlancer/EducationIntegrationTest.java,tests/browser/education.spec.ts,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-032,Student privacy/team,Must,AC-FR-032,TC-FR-032,BE/FE/Content,backend/src/test/java/com/getlancer/EducationIntegrationTest.java,tests/browser/education.spec.ts,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-033,Showcase contribution,Must,AC-FR-033,TC-FR-033,BE/FE/Content,backend/src/test/java/com/getlancer/EducationIntegrationTest.java,tests/browser/education.spec.ts,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-034,Paid integration,Must,AC-FR-034,TC-FR-034,Payments/BE,backend/src/test/java/com/getlancer/EducationCommerceIntegrationTest.java,tests/connected/templates.spec.ts,PENDING_FINAL_HEAD_CI,L4,UNMET
-FR-035,Purchase support,Must,AC-FR-035,TC-FR-035,Payments/BE,backend/src/test/java/com/getlancer/EducationCommerceIntegrationTest.java,tests/connected/templates.spec.ts,PENDING_FINAL_HEAD_CI,L4,UNMET
-FR-036,Analytics evidence,Must,AC-FR-036,TC-FR-036,Content/Security,backend/src/test/java/com/getlancer/education/EducationDataAiTest.java,scripts/verify-data-ai.mjs,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-037,AI evidence,Must,AC-FR-037,TC-FR-037,Content/Security,backend/src/test/java/com/getlancer/education/EducationDataAiTest.java,scripts/verify-data-ai.mjs,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-038,IoT evidence,Must,AC-FR-038,TC-FR-038,Content/Infra/FE,backend/src/test/java/com/getlancer/labs/LabIotPolicyTest.java,scripts/verify-iot.mjs,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-039,Data/AI hosting,Must,AC-FR-039,TC-FR-039,Content/Security,backend/src/test/java/com/getlancer/education/EducationDataAiTest.java,scripts/verify-data-ai.mjs,PENDING_FINAL_HEAD_CI,L3,UNMET
-FR-040,IoT simulation,Must,AC-FR-040,TC-FR-040,Content/Infra/FE,backend/src/test/java/com/getlancer/labs/LabIotPolicyTest.java,scripts/verify-iot.mjs,PENDING_FINAL_HEAD_CI,L3,UNMET
-FR-041,Reuse relationships,Must,AC-FR-041,TC-FR-041,BE,backend/src/test/java/com/getlancer/EducationIntegrationTest.java,tests/browser/education.spec.ts,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-042,Reports,Must,AC-FR-042,TC-FR-042,Moderator/BE,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/education.spec.ts,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-043,Operations,Must,AC-FR-043,TC-FR-043,Infra/Product/BE,backend/src/test/java/com/getlancer/integration/OperationsIntegrationTest.java,tests/browser/v52.spec.ts,PENDING_FINAL_HEAD_CI,L5,UNMET
-FR-044,Measurement,Must,AC-FR-044,TC-FR-044,Infra/Product/BE,backend/src/test/java/com/getlancer/integration/OperationsIntegrationTest.java,tests/browser/v52.spec.ts,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-045,Demo honesty,Must,AC-FR-045,TC-FR-045,FE/BE,tests/connected-mode.test.mjs,tests/browser/v52.spec.ts,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-FR-046,Extension workflow,Must,AC-FR-046,TC-FR-046,BE/Content,backend/src/test/java/com/getlancer/labs/LabAdapterPolicyTest.java,tests/lab-certification.test.mjs,PENDING_FINAL_HEAD_CI,L3,UNMET
-NFR-001,Usability/accessibility,Must,AC-NFR-001,TC-NFR-001,FE/QA,tests/browser/v52.spec.ts,tests/browser/v46-accessibility.spec.ts,PENDING_FINAL_HEAD_CI,L6,UNMET
-NFR-002,Web performance,Must,AC-NFR-002,TC-NFR-002,FE/QA,tests/browser/v46-performance.spec.ts,scripts/v52-load.mjs,PENDING_FINAL_HEAD_CI,L2,UNMET
-NFR-003,Isolation,Must,AC-NFR-003,TC-NFR-003,Security/Infra,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,tests/browser/frontend-security.spec.ts,PENDING_FINAL_HEAD_CI,L3,UNMET
-NFR-004,Authorization,Must,AC-NFR-004,TC-NFR-004,Security/BE,backend/src/test/java/com/getlancer/security/AuthorizationIntegrationTest.java,tests/connected/components.spec.ts,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-NFR-005,Financial integrity,Must,AC-NFR-005,TC-NFR-005,Payments/Security,backend/src/test/java/com/getlancer/EducationCommerceIntegrationTest.java,backend/src/test/java/com/getlancer/integration/CommerceIntegrationTest.java,PENDING_FINAL_HEAD_CI,L4,UNMET
-NFR-006,Network security,Must,AC-NFR-006,TC-NFR-006,Infra/Security,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,tests/lab-certification.test.mjs,PENDING_FINAL_HEAD_CI,L3,UNMET
-NFR-007,Resource limits,Must,AC-NFR-007,TC-NFR-007,Infra,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,scripts/verify-lab-packages.mjs,PENDING_FINAL_HEAD_CI,L3,UNMET
-NFR-008,Privacy,Must,AC-NFR-008,TC-NFR-008,Privacy/BE,backend/src/test/java/com/getlancer/integration/DataExposureIntegrationTest.java,backend/src/test/java/com/getlancer/integration/OperationsIntegrationTest.java,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-NFR-009,Concurrency,Must,AC-NFR-009,TC-NFR-009,Infra/BE,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-NFR-010,Cost,Must,AC-NFR-010,TC-NFR-010,Infra,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,ops/v52/README.md,PENDING_FINAL_HEAD_CI,L3,UNMET
-NFR-011,Runtime latency,Must,AC-NFR-011,TC-NFR-011,Infra,scripts/verify-lab-scenarios.mjs,ops/labs/check-v48-benchmark.mjs,PENDING_FINAL_HEAD_CI,L2,UNMET
-NFR-012,Catalogue API,Must,AC-NFR-012,TC-NFR-012,BE/QA,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,scripts/v52-load.mjs,PENDING_FINAL_HEAD_CI,L2,UNMET
-NFR-013,Availability,Must,AC-NFR-013,TC-NFR-013,Infra,scripts/v52-monitor.mjs,tests/v52-operations.test.mjs,PENDING_FINAL_HEAD_CI,L1,UNMET
-NFR-014,Recovery,Must,AC-NFR-014,TC-NFR-014,Infra/BE,scripts/verify-restore-ci.mjs,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,PENDING_FINAL_HEAD_CI,L5,UNMET
-NFR-015,Reproducibility,Must,AC-NFR-015,TC-NFR-015,Content/QA,scripts/v52-content.mjs,tests/college-seed-packages.test.mjs,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-NFR-016,Responsive quality,Must,AC-NFR-016,TC-NFR-016,FE/QA,tests/browser/v52.spec.ts,tests/browser/education.spec.ts,PENDING_FINAL_HEAD_CI,L6,UNMET
-NFR-017,Licence provenance,Must,AC-NFR-017,TC-NFR-017,Content/Moderator,scripts/v52-content.mjs,scripts/audit-sbom.mjs,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-NFR-018,Data consistency,Must,AC-NFR-018,TC-NFR-018,BE,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,backend/src/test/java/com/getlancer/EducationIntegrationTest.java,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-NFR-019,Maintainability,Must,AC-NFR-019,TC-NFR-019,BE/Infra,backend/src/test/java/com/getlancer/labs/LabProtocolTest.java,backend/src/test/java/com/getlancer/labs/LabAdapterPolicyTest.java,PENDING_FINAL_HEAD_CI,,REVIEW_REQUIRED
-NFR-020,Test quality,Must,AC-NFR-020,TC-NFR-020,QA,scripts/v52-release-contract.mjs,.github/workflows/ci.yml,PENDING_FINAL_HEAD_CI,L7,UNMET
-NFR-021,Data/model safety,Must,AC-NFR-021,TC-NFR-021,Security/Content,backend/src/test/java/com/getlancer/labs/LabDataAiPolicyTest.java,tests/data-ai-security.test.mjs,PENDING_FINAL_HEAD_CI,L3,UNMET
-NFR-022,Release observability,Must,AC-NFR-022,TC-NFR-022,Infra/QA,backend/src/test/java/com/getlancer/integration/OperationsIntegrationTest.java,tests/v52-operations.test.mjs,PENDING_FINAL_HEAD_CI,L5,UNMET
+FR-001,Discovery,Must,AC-FR-001,TC-FR-001,BE/FE/Content,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/components.spec.ts,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-002,Free policy,Must,AC-FR-002,TC-FR-002,BE/FE/Content,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/components.spec.ts,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-003,Search,Must,AC-FR-003,TC-FR-003,BE/FE/Content,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/components.spec.ts,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-004,Frontend scope,Must,AC-FR-004,TC-FR-004,BE/FE/Content,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/components.spec.ts,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-005,Preview,Must,AC-FR-005,TC-FR-005,BE/FE/Content,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/components.spec.ts,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-006,Component states,Must,AC-FR-006,TC-FR-006,BE/FE/Content,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/components.spec.ts,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-007,Source access,Must,AC-FR-007,TC-FR-007,BE/FE/Content,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/components.spec.ts,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-008,Setup,Must,AC-FR-008,TC-FR-008,BE/FE/Content,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/components.spec.ts,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-009,Licensing,Must,AC-FR-009,TC-FR-009,BE/FE/Content,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/components.spec.ts,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-010,Versioning,Must,AC-FR-010,TC-FR-010,BE/FE/Content,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/components.spec.ts,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-011,Contributions,Must,AC-FR-011,TC-FR-011,BE/FE/Content,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/components.spec.ts,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-012,Moderation,Must,AC-FR-012,TC-FR-012,BE/FE/Content,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/components.spec.ts,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-013,Talent proof,Must,AC-FR-013,TC-FR-013,BE/FE/Content,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/components.spec.ts,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-014,Capacity,Must,AC-FR-014,TC-FR-014,BE/FE/Content,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/components.spec.ts,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-015,Saved items,Must,AC-FR-015,TC-FR-015,BE/FE/Content,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/components.spec.ts,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-016,Backend scope,Must,AC-FR-016,TC-FR-016,Infra/BE/QA,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,scripts/verify-lab-scenarios.mjs,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-017,Language coverage,Must,AC-FR-017,TC-FR-017,Infra/BE/QA,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,scripts/verify-lab-scenarios.mjs,PENDING_CLAUSE_REVIEW,L3,UNMET
+FR-018,Real execution,Must,AC-FR-018,TC-FR-018,Infra/BE/QA,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,scripts/verify-lab-scenarios.mjs,PENDING_CLAUSE_REVIEW,L3,UNMET
+FR-019,Request console,Must,AC-FR-019,TC-FR-019,Infra/BE/QA,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,scripts/verify-lab-scenarios.mjs,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-020,Redis,Must,AC-FR-020,TC-FR-020,Infra/BE/QA,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,scripts/verify-lab-scenarios.mjs,PENDING_CLAUSE_REVIEW,L3,UNMET
+FR-021,Security modules,Must,AC-FR-021,TC-FR-021,Infra/BE/QA,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,scripts/verify-lab-scenarios.mjs,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-022,Payment modules,Must,AC-FR-022,TC-FR-022,Infra/BE/QA,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,scripts/verify-lab-scenarios.mjs,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-023,Execution evidence,Must,AC-FR-023,TC-FR-023,Infra/BE/QA,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,scripts/verify-lab-scenarios.mjs,PENDING_CLAUSE_REVIEW,L3,UNMET
+FR-024,Scenarios,Must,AC-FR-024,TC-FR-024,Infra/BE/QA,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,scripts/verify-lab-scenarios.mjs,PENDING_CLAUSE_REVIEW,L3,UNMET
+FR-025,Lifecycle,Must,AC-FR-025,TC-FR-025,Infra/BE/QA,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,scripts/verify-lab-scenarios.mjs,PENDING_CLAUSE_REVIEW,L3,UNMET
+FR-026,Free compute limits,Must,AC-FR-026,TC-FR-026,Infra/BE/QA,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,scripts/verify-lab-scenarios.mjs,PENDING_CLAUSE_REVIEW,L3,UNMET
+FR-027,Local reproduction,Must,AC-FR-027,TC-FR-027,Infra/BE/QA,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,scripts/verify-lab-scenarios.mjs,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-028,College categories,Must,AC-FR-028,TC-FR-028,BE/FE/Content,backend/src/test/java/com/getlancer/EducationIntegrationTest.java,tests/browser/education.spec.ts,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-029,College modes,Must,AC-FR-029,TC-FR-029,BE/FE/Content,backend/src/test/java/com/getlancer/EducationIntegrationTest.java,tests/browser/education.spec.ts,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-030,Project metadata,Must,AC-FR-030,TC-FR-030,BE/FE/Content,backend/src/test/java/com/getlancer/EducationIntegrationTest.java,tests/browser/education.spec.ts,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-031,Source/demo disclosure,Must,AC-FR-031,TC-FR-031,BE/FE/Content,backend/src/test/java/com/getlancer/EducationIntegrationTest.java,tests/browser/education.spec.ts,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-032,Student privacy/team,Must,AC-FR-032,TC-FR-032,BE/FE/Content,backend/src/test/java/com/getlancer/EducationIntegrationTest.java,tests/browser/education.spec.ts,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-033,Showcase contribution,Must,AC-FR-033,TC-FR-033,BE/FE/Content,backend/src/test/java/com/getlancer/EducationIntegrationTest.java,tests/browser/education.spec.ts,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-034,Paid integration,Must,AC-FR-034,TC-FR-034,Payments/BE,backend/src/test/java/com/getlancer/EducationCommerceIntegrationTest.java,tests/connected/templates.spec.ts,PENDING_CLAUSE_REVIEW,L4,UNMET
+FR-035,Purchase support,Must,AC-FR-035,TC-FR-035,Payments/BE,backend/src/test/java/com/getlancer/EducationCommerceIntegrationTest.java,tests/connected/templates.spec.ts,PENDING_CLAUSE_REVIEW,L4,UNMET
+FR-036,Analytics evidence,Must,AC-FR-036,TC-FR-036,Content/Security,backend/src/test/java/com/getlancer/education/EducationDataAiTest.java,scripts/verify-data-ai.mjs,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-037,AI evidence,Must,AC-FR-037,TC-FR-037,Content/Security,backend/src/test/java/com/getlancer/education/EducationDataAiTest.java,scripts/verify-data-ai.mjs,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-038,IoT evidence,Must,AC-FR-038,TC-FR-038,Content/Infra/FE,backend/src/test/java/com/getlancer/labs/LabIotPolicyTest.java,scripts/verify-iot.mjs,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-039,Data/AI hosting,Must,AC-FR-039,TC-FR-039,Content/Security,backend/src/test/java/com/getlancer/education/EducationDataAiTest.java,scripts/verify-data-ai.mjs,PENDING_CLAUSE_REVIEW,L3,UNMET
+FR-040,IoT simulation,Must,AC-FR-040,TC-FR-040,Content/Infra/FE,backend/src/test/java/com/getlancer/labs/LabIotPolicyTest.java,scripts/verify-iot.mjs,PENDING_CLAUSE_REVIEW,L3,UNMET
+FR-041,Reuse relationships,Must,AC-FR-041,TC-FR-041,BE,backend/src/test/java/com/getlancer/EducationIntegrationTest.java,tests/browser/education.spec.ts,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-042,Reports,Must,AC-FR-042,TC-FR-042,Moderator/BE,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,tests/browser/education.spec.ts,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-043,Operations,Must,AC-FR-043,TC-FR-043,Infra/Product/BE,backend/src/test/java/com/getlancer/integration/OperationsIntegrationTest.java,tests/browser/v52.spec.ts,PENDING_CLAUSE_REVIEW,L5,UNMET
+FR-044,Measurement,Must,AC-FR-044,TC-FR-044,Infra/Product/BE,backend/src/test/java/com/getlancer/integration/OperationsIntegrationTest.java,tests/browser/v52.spec.ts,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-045,Demo honesty,Must,AC-FR-045,TC-FR-045,FE/BE,tests/connected-mode.test.mjs,tests/browser/v52.spec.ts,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+FR-046,Extension workflow,Must,AC-FR-046,TC-FR-046,BE/Content,backend/src/test/java/com/getlancer/labs/LabAdapterPolicyTest.java,tests/lab-certification.test.mjs,PENDING_CLAUSE_REVIEW,L3,UNMET
+NFR-001,Usability/accessibility,Must,AC-NFR-001,TC-NFR-001,FE/QA,tests/browser/v52.spec.ts,tests/browser/v46-accessibility.spec.ts,PENDING_CLAUSE_REVIEW,L6,UNMET
+NFR-002,Web performance,Must,AC-NFR-002,TC-NFR-002,FE/QA,tests/browser/v46-performance.spec.ts,scripts/v52-load.mjs,PENDING_CLAUSE_REVIEW,L2,UNMET
+NFR-003,Isolation,Must,AC-NFR-003,TC-NFR-003,Security/Infra,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,tests/browser/frontend-security.spec.ts,PENDING_CLAUSE_REVIEW,L3,UNMET
+NFR-004,Authorization,Must,AC-NFR-004,TC-NFR-004,Security/BE,backend/src/test/java/com/getlancer/security/AuthorizationIntegrationTest.java,tests/connected/components.spec.ts,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+NFR-005,Financial integrity,Must,AC-NFR-005,TC-NFR-005,Payments/Security,backend/src/test/java/com/getlancer/EducationCommerceIntegrationTest.java,backend/src/test/java/com/getlancer/integration/CommerceIntegrationTest.java,PENDING_CLAUSE_REVIEW,L4,UNMET
+NFR-006,Network security,Must,AC-NFR-006,TC-NFR-006,Infra/Security,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,tests/lab-certification.test.mjs,PENDING_CLAUSE_REVIEW,L3,UNMET
+NFR-007,Resource limits,Must,AC-NFR-007,TC-NFR-007,Infra,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,scripts/verify-lab-packages.mjs,PENDING_CLAUSE_REVIEW,L3,UNMET
+NFR-008,Privacy,Must,AC-NFR-008,TC-NFR-008,Privacy/BE,backend/src/test/java/com/getlancer/integration/DataExposureIntegrationTest.java,backend/src/test/java/com/getlancer/integration/OperationsIntegrationTest.java,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+NFR-009,Concurrency,Must,AC-NFR-009,TC-NFR-009,Infra/BE,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+NFR-010,Cost,Must,AC-NFR-010,TC-NFR-010,Infra,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,ops/v52/README.md,PENDING_CLAUSE_REVIEW,L3,UNMET
+NFR-011,Runtime latency,Must,AC-NFR-011,TC-NFR-011,Infra,scripts/verify-lab-scenarios.mjs,ops/labs/check-v48-benchmark.mjs,PENDING_CLAUSE_REVIEW,L2,UNMET
+NFR-012,Catalogue API,Must,AC-NFR-012,TC-NFR-012,BE/QA,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,scripts/v52-load.mjs,PENDING_CLAUSE_REVIEW,L2,UNMET
+NFR-013,Availability,Must,AC-NFR-013,TC-NFR-013,Infra,scripts/v52-monitor.mjs,tests/v52-operations.test.mjs,PENDING_CLAUSE_REVIEW,L1,UNMET
+NFR-014,Recovery,Must,AC-NFR-014,TC-NFR-014,Infra/BE,scripts/verify-restore-ci.mjs,backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java,PENDING_CLAUSE_REVIEW,L5,UNMET
+NFR-015,Reproducibility,Must,AC-NFR-015,TC-NFR-015,Content/QA,scripts/v52-content.mjs,tests/college-seed-packages.test.mjs,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+NFR-016,Responsive quality,Must,AC-NFR-016,TC-NFR-016,FE/QA,tests/browser/v52.spec.ts,tests/browser/education.spec.ts,PENDING_CLAUSE_REVIEW,L6,UNMET
+NFR-017,Licence provenance,Must,AC-NFR-017,TC-NFR-017,Content/Moderator,scripts/v52-content.mjs,scripts/audit-sbom.mjs,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+NFR-018,Data consistency,Must,AC-NFR-018,TC-NFR-018,BE,backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java,backend/src/test/java/com/getlancer/EducationIntegrationTest.java,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+NFR-019,Maintainability,Must,AC-NFR-019,TC-NFR-019,BE/Infra,backend/src/test/java/com/getlancer/labs/LabProtocolTest.java,backend/src/test/java/com/getlancer/labs/LabAdapterPolicyTest.java,PENDING_CLAUSE_REVIEW,,REVIEW_REQUIRED
+NFR-020,Test quality,Must,AC-NFR-020,TC-NFR-020,QA,scripts/v52-release-contract.mjs,.github/workflows/ci.yml,PENDING_CLAUSE_REVIEW,L7,UNMET
+NFR-021,Data/model safety,Must,AC-NFR-021,TC-NFR-021,Security/Content,backend/src/test/java/com/getlancer/labs/LabDataAiPolicyTest.java,tests/data-ai-security.test.mjs,PENDING_CLAUSE_REVIEW,L3,UNMET
+NFR-022,Release observability,Must,AC-NFR-022,TC-NFR-022,Infra/QA,backend/src/test/java/com/getlancer/integration/OperationsIntegrationTest.java,tests/v52-operations.test.mjs,PENDING_CLAUSE_REVIEW,L5,UNMET

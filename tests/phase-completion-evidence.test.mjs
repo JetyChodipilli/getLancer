@@ -1,7 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {backendChecks,verifyBackendEvidence,verifyBrowserEvidence,observeRequirements} from '../scripts/phase-completion-evidence.mjs';
+import {backendChecks,verifyBackendEvidence,verifyBrowserEvidence,observeRequirements,bindEvidence} from '../scripts/phase-completion-evidence.mjs';
 import {readFileSync} from 'node:fs';
+import fs from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {syncBuiltinESMExports} from 'node:module';
 const reports=()=>Object.fromEntries(backendChecks.map(check=>['TEST-'+check.className+'.xml',Buffer.from('<testsuite>'+check.tests.map(name=>'<testcase classname="'+check.className+'" name="'+name+'"/>').join('')+'</testsuite>')]));
 const browser=()=>({suites:[{specs:Array.from({length:6},(_,index)=>({title:'E2E-0'+(index+1)+' observed journey',ok:true,tests:['desktop','phone','tablet'].map(projectName=>({projectName,expectedStatus:'passed',status:'expected',results:[{status:'passed'}]}))}))}]});
 test('backend repair signoff requires every exact named test with real unambiguous passing XML',()=>{
@@ -22,4 +26,24 @@ test('requirement observations retain owner review and launch gates, and reject 
  const duplicate=structuredClone(register);duplicate.requirements[1].id=duplicate.requirements[0].id;assert.throws(()=>observeRequirements(duplicate,()=>Buffer.from('source')));
  const unsafe=structuredClone(register);unsafe.requirements[0].primaryVerification='../outside';assert.throws(()=>observeRequirements(unsafe,()=>Buffer.from('source')));
  assert.throws(()=>observeRequirements(register,()=>{throw new Error('missing artifact')}));
+});
+test('evidence stays bound to the opened inode when its pathname is replaced and rejects a final symlink',()=>{
+ const root=fs.mkdtempSync(join(tmpdir(),'phase-evidence-')),folder=join(root,'test-results/connected');fs.mkdirSync(folder,{recursive:true});
+ const path=join(folder,'results.json'),retained=join(folder,'retained.json'),forged=join(folder,'forged.json'),original=browser(),replacement=browser();replacement.suites[0].specs[0].title+=' forged';
+ fs.writeFileSync(path,JSON.stringify(original));fs.writeFileSync(forged,JSON.stringify(replacement));
+ const lstat=fs.lstatSync,fstat=fs.fstatSync;let swapped=false;
+ function swap(){if(swapped)return;swapped=true;fs.renameSync(path,retained);fs.symlinkSync(forged,path)}
+ fs.lstatSync=(...args)=>{const value=lstat(...args);if(args[0]===path)swap();return value};
+ fs.fstatSync=(...args)=>{const value=fstat(...args);swap();return value};syncBuiltinESMExports();
+ try{
+  const identity={sourceSha:'a'.repeat(40),workflowRunId:'1',workflowRunAttempt:'1'};
+  const evidence=bindEvidence('connected',root,identity);assert.ok(swapped);assert.equal(evidence.checks[0].title,original.suites[0].specs[0].title);
+  assert.throws(()=>bindEvidence('connected',root,identity),/ELOOP/);
+ }finally{fs.lstatSync=lstat;fs.fstatSync=fstat;syncBuiltinESMExports();fs.rmSync(root,{recursive:true,force:true})}
+});
+test('evidence rejects an inode that grows after its size was checked',()=>{
+ const root=fs.mkdtempSync(join(tmpdir(),'phase-evidence-')),folder=join(root,'test-results/connected');fs.mkdirSync(folder,{recursive:true});const path=join(folder,'results.json');fs.writeFileSync(path,JSON.stringify(browser()));
+ const fstat=fs.fstatSync;let grown=false;
+ fs.fstatSync=(...args)=>{const value=fstat(...args);if(!grown){grown=true;fs.appendFileSync(path,' ')}return value};syncBuiltinESMExports();
+ try{assert.throws(()=>bindEvidence('connected',root,{sourceSha:'a'.repeat(40),workflowRunId:'1',workflowRunAttempt:'1'}),/Evidence changed during read/)}finally{fs.fstatSync=fstat;syncBuiltinESMExports();fs.rmSync(root,{recursive:true,force:true})}
 });

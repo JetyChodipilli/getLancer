@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {readFileSync,writeFileSync,mkdirSync,lstatSync} from 'node:fs';
+import {writeFileSync,mkdirSync,openSync,fstatSync,readSync,closeSync,constants} from 'node:fs';
 import {resolve,dirname} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {junitCases,requirePassingTest} from './junit-evidence.mjs';
@@ -45,7 +45,15 @@ export function observeRequirements(register,read){
  });
 }
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
-function readBounded(path){const file=lstatSync(path);assert.ok(file.isFile()&&!file.isSymbolicLink()&&file.size<=16*1024*1024,'Require bounded regular evidence.');return readFileSync(path)}
+function readBounded(path){
+ const fd=openSync(path,constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);
+ try{
+  const file=fstatSync(fd);assert.ok(file.isFile()&&file.size<=16*1024*1024,'Require bounded regular evidence.');
+  const bytes=Buffer.alloc(file.size);let offset=0;
+  while(offset<bytes.length){const count=readSync(fd,bytes,offset,bytes.length-offset,null);assert.ok(count>0,'Evidence changed during read.');offset+=count}
+  assert.equal(readSync(fd,Buffer.alloc(1),0,1,null),0,'Evidence changed during read.');return bytes;
+ }finally{closeSync(fd)}
+}
 export function bindEvidence(stage,root,identity){
  assert.ok(['backend','connected'].includes(stage),'Choose backend or connected evidence.');
  assert.match(identity.sourceSha||'',/^[a-f0-9]{40}$/);assert.match(identity.workflowRunId||'',/^[1-9][0-9]*$/);assert.match(identity.workflowRunAttempt||'',/^[1-9][0-9]*$/);

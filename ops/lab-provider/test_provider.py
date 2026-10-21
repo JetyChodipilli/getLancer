@@ -487,6 +487,30 @@ class BoundaryTests(unittest.TestCase):
             self.assertTrue(1 <= ttl <= 300)
             self.assertIn(str(driver.root(cmd["runId"]) / "kernel"), checks)
             self.assertIn(str(driver.root(cmd["runId"]) / "rootfs"), checks)
+            self.assertEqual(stat.S_IMODE((driver.root(cmd["runId"])/"config.json").stat().st_mode), 0o400)
+            source, output = folder/"source.zip", folder/"output.ext4"
+            source.write_bytes(b"reviewed archive")
+            output.write_bytes(b"\0"*512)
+            import shutil
+            copy = shutil.copyfileobj
+            def private_copy(src, dst, length):
+                self.assertEqual(stat.S_IMODE(os.fstat(dst.fileno()).st_mode), 0o600,
+                    "source/output must be private before their first byte is copied")
+                return copy(src, dst, length)
+            build_cmd = dict(cmd, runId=uid())
+            previous_mask = os.umask(0)
+            try:
+                with patch("firecracker.asset", side_effect=check_asset), patch("firecracker.trusted_path", side_effect=Path), \
+                     patch("firecracker.os.chown") as owner, patch("firecracker.shutil.copyfileobj", side_effect=private_copy), \
+                     patch.object(driver, "call"), patch.object(driver, "isolated", return_value=True), \
+                     patch.object(driver, "exchange", return_value={"state": "READY"}):
+                    self.assertTrue(driver.start(entry, build_cmd, 1, (("source",source,False),("output",output,True))))
+                    for name, mode in (("source",0o400),("output",0o600),("config.json",0o400)):
+                        staged = driver.root(build_cmd["runId"])/name
+                        self.assertEqual(stat.S_IMODE(staged.stat().st_mode), mode)
+                        owner.assert_any_call(staged, 62001, 62001)
+            finally:
+                os.umask(previous_mask)
 
     def test_linked_inode_is_reverified_before_any_vm_can_launch(self):
         with tempfile.TemporaryDirectory() as folder:

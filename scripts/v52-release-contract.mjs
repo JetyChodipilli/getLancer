@@ -16,7 +16,7 @@ export function verifyReleaseContract(value,root=resolve('.')) {
    assert.ok(typeof item[key]==='string'&&!item[key].includes('..')&&!item[key].startsWith('/'),'Unsafe evidence path.');
    assert.ok(existsSync(resolve(root,item[key])),`Missing evidence artifact for ${item.id}: ${item[key]}`);
   }
-  assert.ok(['PENDING_FINAL_HEAD_CI','PASSING_FINAL_HEAD_CI'].includes(item.softwareEvidence),'Unsupported software evidence status.');
+  assert.ok(['PENDING_FINAL_HEAD_CI','PASSING_FINAL_HEAD_CI','PENDING_CLAUSE_REVIEW'].includes(item.softwareEvidence),'Unsupported software evidence status.');
   assert.ok(item.launchGate===null||/^L[1-7]$/.test(item.launchGate));
   assert.equal(item.launchEvidence,item.launchGate?'UNMET':'REVIEW_REQUIRED','This inventory cannot self-certify a live deployment.');
  }

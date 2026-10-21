@@ -119,24 +119,27 @@ class Firecracker:
         for name, source, writable in extra_drives:
             require(name in ("source", "output") and type(writable) is bool, "INVALID_BUILD_DRIVE", 503)
             source = trusted_path(source)
-            with source.open("rb") as src, (root / name).open("xb") as dst:
+            with source.open("rb") as src, os.fdopen(os.open(root / name,
+                    os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600), "wb") as dst:
                 shutil.copyfileobj(src, dst, 1048576)
                 if name == "source":
                     dst.write(b"\0" * ((-dst.tell()) % 512))
                 dst.flush()
                 os.fsync(dst.fileno())
-            os.chmod(root / name, 0o600 if writable else 0o444)
+            os.chmod(root / name, 0o600 if writable else 0o400)
+            os.chown(root / name, uid, uid)
             if writable:
-                os.chown(root / name, uid, uid)
                 max_write = max(max_write, (root / name).stat().st_size)
             drives.append({"drive_id": name, "path_on_host": "/" + name, "is_root_device": False, "is_read_only": not writable})
         boot = {"boot-source": {"kernel_image_path": "/kernel",
                  "boot_args": "ro root=/dev/vda reboot=k panic=1 pci=off nomodules 8250.nr_uarts=0 quiet loglevel=1"},
                 "drives": drives, "machine-config": {"vcpu_count": 1, "mem_size_mib": cmd["memoryMiB"], "smt": False},
                 "vsock": {"guest_cid": 3, "uds_path": "/run/vsock"}, "network-interfaces": []}
-        with (root / "config.json").open("xb") as stream:
+        with os.fdopen(os.open(root / "config.json",
+                os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600), "wb") as stream:
             stream.write(encode(boot))
-        os.chmod(root / "config.json", 0o444)
+        os.chmod(root / "config.json", 0o400)
+        os.chown(root / "config.json", uid, uid)
         unit = self.unit(cmd["runId"])
         # Recompute after staging. Reserve one second each for activation and forced stop.
         ttl = math.floor(instant(cmd["expiresAt"]) - time.time()) - 2
