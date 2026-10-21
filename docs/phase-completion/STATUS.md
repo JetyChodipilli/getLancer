@@ -13,6 +13,10 @@ This work closes specific implementation gaps found while auditing V1 through V5
 | Original V1 browser coverage | Six original chains use the real Java/PostgreSQL/SMTP/object-storage stack, at three widths. | [Journey contract](V1_E2E.md); exact head connected CI is authoritative. |
 | Stale requirement status | CI emits source/run/attempt-bound repair evidence and hashes the primary/supplementary artifacts of all 68 requirement rows. Named checks reject missing, skipped, duplicate and retried results. | Backend/connected evidence artifacts. File observations retain `clauseReview: REQUIRED`; they do not promote all 68 requirements. |
 
+## Connected recovery candidate
+
+The `8e8d1d8` connected run passed 23 cases and failed 13; encrypted restore was skipped after that failure. This recovery adds an exact configured storage origin to connected CSP, consumes subsequent confirmation links without stale responses, initializes report targets after hydration, preserves intrinsic dialog form rows, bounds phone workspace rows and opens fulfilled concierge history in its test. New navigation and CSP regressions accompany the repairs. These changes still require a successful full CI run on their own commit. Local Chromium crashes before launch in the recovery environment; local browser acceptance is not claimed.
+
 ## Complete the remaining work
 
 1. Run all candidate CI jobs. Review PostgreSQL regressions, six V1 journeys, responsive browser checks, SAST, dependency reports and restore evidence on the same head. Fix failures before merging. Backend evidence is `backend/target/phase-completion-evidence.json` in `phase-backend-evidence-<head>`; browser evidence is `test-results/connected/phase-completion-evidence.json` inside the connected artifact.

@@ -384,3 +384,21 @@ body .studio-shell.trust-workspace .trust-project p { margin: 6px 0; font-size: 
   body .studio-shell :focus-visible { outline-color: Highlight; }
   body .studio-shell :is(.studio-rail nav a, [role=tab]):focus-visible { outline: 2px solid Highlight; outline-offset: -3px; }
 }
+
+/* Intrinsic form rows remain reachable when the dialog scrolls on a phone. */
+:is(.demo-dialog, .workspace-dialog) { grid-auto-rows: max-content; align-content: start; }
+.real-showcase-editor { grid-auto-rows: max-content; align-content: start; }
+.real-showcase-editor > :is(fieldset, [data-slot=select-trigger], .filtercontrol) { grid-column: 1 / -1; min-width: 0; }
+@media (max-width: 640px) {
+  body .studio-shell .studio-page-head { flex-wrap: wrap; }
+  body .studio-shell .row { flex-direction: column; align-items: stretch; }
+  body .studio-shell .row > * { max-width: 100%; }
+  body .studio-shell .row .stack { flex-wrap: wrap; }
+  .structured-form-page .detailgrid > * { min-width: 0; }
+}
+
+.confirmation-page .panel { min-width: 0; overflow-wrap: anywhere; }
+body .studio-shell :is(.studio-rail, .workspace-layout) { min-width: 0; max-width: 100%; }
+/* Inner lifecycle tabs have no workspace-tabs class; keep their own scroll area. */
+body .studio-shell [data-slot=tabs-list] { max-width: 100%; overflow-x: auto; }
+body .studio-shell [data-slot=tabs-list] [role=tab] { flex-shrink: 0; }

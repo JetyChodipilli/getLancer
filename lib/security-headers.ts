@@ -51,22 +51,48 @@ export function publisherFrameSource(template: string | undefined, requestUrl: s
   return `${publisher.protocol}//*.${suffix}${publisher.port ? ':' + publisher.port : ''}`;
 }
 
+function storageEndpoint(value: string): URL {
+  if (!/^https?:\/\//i.test(value) || /[\s\u0000-\u001f\u007f*\\]/.test(value)) throw Error('OBJECT_STORAGE_UPLOAD_ENDPOINT must be a fixed storage URL.');
+  const endpoint = new URL(value);
+  const host = endpoint.hostname;
+  const dns = host.length <= 253 && host.split('.').every(label => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(label));
+  const ipv6 = /^\[[a-f0-9:]+\]$/i.test(host);
+  if ((!dns && !ipv6) || endpoint.username || endpoint.password || value.includes('?') || value.includes('#')) throw Error('OBJECT_STORAGE_UPLOAD_ENDPOINT must have a fixed host without credentials, query or fragment.');
+  return endpoint;
+}
+
+/** Authorize one operator-selected upload origin, never a URL returned by an upload request. */
+export function uploadConnectSource(configuredEndpoint: string | undefined, requestUrl: string): string | undefined {
+  if (!configuredEndpoint?.trim()) return undefined;
+  const endpoint = storageEndpoint(configuredEndpoint.trim());
+  const app = new URL(requestUrl);
+  const local = endpoint.protocol === 'http:' && localAppHosts.has(endpoint.hostname) && endpoint.port === '9000'
+    && app.protocol === 'http:' && localAppHosts.has(app.hostname);
+  if (endpoint.protocol !== 'https:' && !local) throw Error('OBJECT_STORAGE_UPLOAD_ENDPOINT requires HTTPS, except loopback MinIO on port 9000 for a loopback HTTP app.');
+  return endpoint.origin;
+}
+
 // Provider hosts are enabled only for connected pages. Checkout loads on user intent.
-export function frontendCsp(connected: boolean, nonce = createFrontendNonce(), publisher?: string): string {
+export function frontendCsp(connected: boolean, nonce = createFrontendNonce(), publisher?: string, upload?: string): string {
   if (!/^[A-Za-z0-9+/]{43}=$/.test(nonce)) throw Error('A frontend nonce must contain 32 random bytes.');
   // publisherFrameSource produces the sole allowed narrow DNS wildcard.
   if (publisher && !/^https?:\/\/\*\.[a-z0-9.-]+(?::\d+)?$/.test(publisher)) throw Error('Invalid publisher CSP source.');
+  if (upload) {
+    const endpoint = storageEndpoint(upload);
+    if (endpoint.origin !== upload || (endpoint.protocol !== 'https:' && !(endpoint.protocol === 'http:' && localAppHosts.has(endpoint.hostname) && endpoint.port === '9000'))) throw Error('Invalid storage upload CSP source.');
+  }
+  const storage = connected && upload ? ' ' + upload : '';
   const payment = connected ? ' https://checkout.razorpay.com https://api.razorpay.com' : '';
-  return `default-src 'self'; script-src 'self' 'nonce-${nonce}' ${trustedRecipeScriptSources.join(' ')}${connected ? ' https://checkout.razorpay.com' : ''}; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'${payment}; frame-src 'self' https://www.youtube-nocookie.com https://player.vimeo.com https://www.loom.com${payment}${publisher ? ' ' + publisher : ''}; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`;
+  return `default-src 'self'; script-src 'self' 'nonce-${nonce}' ${trustedRecipeScriptSources.join(' ')}${connected ? ' https://checkout.razorpay.com' : ''}; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'${payment}${storage}; frame-src 'self' https://www.youtube-nocookie.com https://player.vimeo.com https://www.loom.com${payment}${publisher ? ' ' + publisher : ''}; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`;
 }
 
 /** Apply the same protections to HTML, API and image-optimizer responses. */
-export function secureFrontendResponse(response: Response, requestUrl: string, connected: boolean, nonce = createFrontendNonce(), publisher?: string): Response {
+export function secureFrontendResponse(response: Response, requestUrl: string, connected: boolean, nonce = createFrontendNonce(), publisher?: string, upload?: string): Response {
   const secured = new Response(response.body, response);
   secured.headers.set('X-Content-Type-Options', 'nosniff');
   secured.headers.set('Referrer-Policy', 'no-referrer');
   secured.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-  secured.headers.set('Content-Security-Policy', frontendCsp(connected, nonce, publisher));
+  secured.headers.set('Content-Security-Policy', frontendCsp(connected, nonce, publisher, upload));
   if (new URL(requestUrl).protocol === 'https:') secured.headers.set('Strict-Transport-Security', 'max-age=31536000');
   return secured;
 }

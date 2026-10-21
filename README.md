@@ -110,6 +110,7 @@ Configure these server-only frontend settings when connecting the backend:
 | `BACKEND_URL` | HTTPS origin of the Spring API |
 | `DEMO_MODE` | `true` permits the frontend-only preview when BACKEND_URL is absent. A configured BACKEND_URL always selects real services, even with this flag still true. `false` requires BACKEND_URL and fails if it is missing. |
 | `APP_BASE_URL` | Exact frontend origin; must also match the backend setting |
+| `OBJECT_STORAGE_UPLOAD_ENDPOINT` | Same operator-configured S3 upload endpoint as the backend. Connected-page CSP permits its exact origin for signed browser PUTs. Use HTTPS; loopback HTTP MinIO on port 9000 is allowed only for a loopback HTTP application. Storage credentials stay in the backend. |
 | `INDEX_PUBLIC_PAGES` | Keep `false` until public-release gates pass |
 
 The browser uses same-origin `/api/v1` requests. Database, email and storage secrets never enter client code. A configured but unavailable API returns an error rather than substituting sample listings.
