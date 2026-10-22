@@ -1,13 +1,14 @@
 import {test,expect,type Page} from '@playwright/test';
 
 async function withinViewport(page:Page){
- const layout=await page.evaluate(()=>({
-  width:document.documentElement.scrollWidth,viewport:innerWidth,
-  overflowing:[...document.querySelectorAll('main form,main form *,main .row,main .row *')].flatMap(element=>{
+ const viewport=page.viewportSize()!.width;
+ const layout=await page.evaluate(viewport=>({
+  width:document.documentElement.scrollWidth,viewport,
+  overflowing:[...document.querySelectorAll('body *')].flatMap(element=>{
    const box=element.getBoundingClientRect();
-   return box.width&&box.right>innerWidth+1?[{tag:element.tagName,className:element.className,right:box.right,width:box.width,text:element.textContent?.slice(0,90)}]:[];
+   return box.width&&box.right>viewport+1?[{tag:element.tagName,className:element.className,right:box.right,width:box.width,text:element.textContent?.slice(0,90)}]:[];
   }).slice(0,12),
- }));
+ }),viewport);
  expect(layout.width,JSON.stringify(layout)).toBeLessThanOrEqual(layout.viewport+1);
 }
 
@@ -30,6 +31,7 @@ test('qualified inquiries and their native filters fit with long client details'
  await expect(page.getByRole('heading',{name:'Qualified inquiries',exact:true})).toBeVisible();
  await expect(page.getByRole('link',{name:email,exact:true})).toHaveAttribute('href','mailto:'+email);
  await expect(page.getByRole('button',{name:'Mark responded',exact:true})).toBeVisible();
+ await expect(page.getByRole('region',{name:'Your next step',exact:true}).getByRole('button',{name:'View inquiries',exact:true})).toBeVisible();
  await withinViewport(page);
  const filters=page.getByRole('form',{name:'Filter qualified inquiries',exact:true});
  await filters.getByLabel('Status',{exact:true}).selectOption('COMPLETION_PENDING_CONFIRMATION');

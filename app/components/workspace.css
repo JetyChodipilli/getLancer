@@ -123,9 +123,6 @@ body .studio-shell .workspacehead { display: flex; justify-content: space-betwee
 body .studio-shell .workspacehead > div { min-width: 0; }
 body .studio-shell .workspacehead p { margin: 4px 0 0; color: var(--studio-muted); font-size: 14px; line-height: 22px; }
 body .studio-shell .workspacehead select { max-width: 250px; }
-/* Native status/date controls must not enlarge the inquiry form's grid track. */
-body .studio-shell .inquiry-filters { grid-template-columns: minmax(0, 1fr); }
-body .studio-shell .inquiry-filters :is(.split, label) { min-width: 0; }
 
 /* One material surface per container; nested records get opaque backplates. */
 body .studio-shell :is(.panel, .demo-card, [data-slot=card], .team-section:not(.team-overview), .team-context, .business-section, .business-brief-panel, .business-shortlist, .business-candidate-section, .business-request-list, .business-candidate, .delivery-list, .delivery-detail, .commerce-section, .commerce-template-list),
@@ -362,7 +359,7 @@ body .studio-shell.trust-workspace .trust-project p { margin: 6px 0; font-size: 
   body .studio-shell .demo-card .demo-card-body { padding: 16px; }
   body .studio-shell .browse-toolbar-sticky { position: static; padding: 12px; border-radius: 16px; }
   body .studio-shell .next-action { flex-wrap: wrap; padding: 16px; }
-  body .studio-shell .next-action .button { width: 100%; }
+  body .studio-shell .next-action .button { width: 100%; margin-inline: 0; }
   .studio-shell :is(.form .split, .profile-field-grid) { grid-template-columns: minmax(0, 1fr); }
   :is(.demo-dialog, .workspace-dialog) { max-width: calc(100vw - 24px) !important; max-height: calc(100dvh - 24px) !important; padding: 20px !important; }
   :is(.demo-dialog, .workspace-dialog) :is(.showcase-editor, .real-showcase-editor) { grid-template-columns: minmax(0, 1fr); }

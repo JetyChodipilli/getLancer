@@ -64,7 +64,14 @@ async function search(page:Page,title:string){
  await expect(page.getByText('Projects are illustrative.',{exact:false})).toHaveCount(0);
 }
 async function reflow(page:Page){
- expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()!.width+1);
+ const viewport=page.viewportSize()!.width;
+ const layout=await page.evaluate(viewport=>({width:document.documentElement.scrollWidth,viewport,
+  overflowing:[...document.querySelectorAll('body *')].flatMap(element=>{
+   const box=element.getBoundingClientRect();
+   return box.width&&box.right>viewport+1?[{tag:element.tagName,className:element.className,right:box.right,width:box.width,text:element.textContent?.slice(0,90)}]:[];
+  }).slice(0,12),
+ }),viewport);
+ expect(layout.width,JSON.stringify(layout)).toBeLessThanOrEqual(viewport+1);
 }
 async function mail(email:string,consumed:Set<string>,pattern:RegExp){
  const deadline=Date.now()+60000;
