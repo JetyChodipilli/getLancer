@@ -29,11 +29,13 @@ The release profile schedules 20 read-only catalogue GETs per second for at leas
 
 ```bash
 task_revision=$(git rev-parse HEAD)
-node scripts/v52-load.mjs --origin https://staging.example.test --environment staging --revision "$task_revision" --profile /restricted/evidence/profile.json --out /restricted/evidence/load-final
+node scripts/v52-load.mjs --origin https://staging.example.test --catalogue components --environment staging --revision "$task_revision" --profile /restricted/evidence/profile.json --out /restricted/evidence/load-final
 node scripts/v52-evidence.mjs inspect --file /restricted/evidence/load-final.json --environment staging --revision "$task_revision"
 ```
 
 Use the commit actually serving the endpoint; `git rev-parse HEAD` is appropriate only when that exact checkout is deployed. The `.jsonl` is a hash chained raw observation journal; `.json` is its unsigned manifest. Output files are exclusive creations and have mode `0600`. Use new filenames for every run.
+
+Both collectors accept only `--catalogue products|components|college-projects`, record that target in the journal, and keep the existing `products` default. Run a separate declared profile for each new catalogue. Older logs without a selector remain inspectable as product measurements; product-only load evidence cannot pass the new-catalogue release gate. Catalogue probes do not measure source-download availability, which needs separate operational evidence.
 
 Client round-trip p95 and server application p95 are separate values. Successful catalogue responses provide `Server-Timing: app;dur=...`, measured by the Java server using a monotonic clock through metadata serialization; network transfer is outside that server measurement. The server gate requires p95 at most 300 ms and complete request-local timing. If an ingress removes the header, the tool reports server timing as **UNMET**. It does not substitute browser/network latency for server latency. Record observed failures rather than removing slow or failed samples. This finite profile does not certify arbitrary concurrency, a million users, source downloads, writes or provider execution capacity.
 

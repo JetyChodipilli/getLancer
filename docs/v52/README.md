@@ -15,3 +15,7 @@ Operations surfaces quota, budget, stale-worker and orphan attention with named 
 Load measurements declare their dataset and environment. Client latency is separate from request-local server timing. The seven-day recorder uses real time, outage samples and explicit admission denominators; its tests only validate the evidence mechanism. Synthetic fixtures cannot certify a production soak.
 
 Validation results and immutable CI/head identity are recorded in VALIDATION.md after verification. Existing legacy UI, manual screen-reader research, production availability, physical hardware and future language/GPU/team scope are not silently certified by automated new-flow checks.
+
+## Clause review update — 22 October 2026
+
+The source-review pass now covers all 68 requirements and 246 obligations. It found confirmed defects and additional implementation/test gaps, so delivery through V5.2 is not a claim that all original requirements are implemented or accepted. See [the requirements review](REQUIREMENTS_REVIEW.md) and its machine-readable evidence. The register uses `CLAUSE_REVIEWED`, which never closes owner or launch acceptance. Real infrastructure, production and human gates remain open.

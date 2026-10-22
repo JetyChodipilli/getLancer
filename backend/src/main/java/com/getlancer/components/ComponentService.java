@@ -246,6 +246,18 @@ public class ComponentService {
     if(rows.isEmpty())throw new ApiError(404,"NOT_FOUND","Component not found.");
     return publicEntry(rows.get(0));
   }
+  @Transactional(readOnly=true)
+  public org.springframework.http.ResponseEntity<byte[]> source(String slug,String sha256) {
+    var item=detail(slug); // Reuse current publication, withdrawal and creator authority.
+    if(item.get("id")==null||!Boolean.TRUE.equals(item.get("uploaded")))throw new ApiError(404,"NOT_FOUND","Reviewed upload not found.");
+    var source=publishedSource(Map.of("id",item.get("id")));
+    var inspected=ComponentArchive.reviewed(source);
+    if(!inspected.archiveSha256().equals(sha256))throw new ApiError(409,"SOURCE_VERSION_CHANGED","Refresh to download the current reviewed archive.");
+    byte[] bytes=java.util.Base64.getDecoder().decode(source.get("archiveBase64").toString());
+    return org.springframework.http.ResponseEntity.ok().contentType(org.springframework.http.MediaType.parseMediaType("application/zip"))
+      .header("Content-Disposition",org.springframework.http.ContentDisposition.attachment().filename(slug+"-"+source.get("version")+".zip").build().toString())
+      .header("Cache-Control","no-store").body(bytes);
+  }
   public Map<String,Object> own(HttpServletRequest r) {
     UUID owner=security.developer(r,false);
     return Map.of("items",db.queryForList("SELECT c.id,c.recipe_slug,c.slug,c.title,c.summary,c.contribution,c.revision,c.status,c.review_reason,c.published_at,c.published_source,c.published_context,c.draft_source,c.submitted_source,c.submitted_context,c.withdrawn_at,d.display_name AS creator,d.slug AS builder_slug"+JOIN+" WHERE c.owner_id=? ORDER BY c.created_at DESC LIMIT 100",owner).stream().map(this::privateEntry).map(ComponentService::card).toList(),"capacity",slots.capacity(owner),"pricing",slots.pricing(),"recipes",recipes.stream().map(ComponentService::card).toList());

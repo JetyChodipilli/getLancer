@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "scope": "V4.5\u2013V5.2",
-  "authority": "GetLancer_V4_5_to_V5_2_Full_Plan.pdf, pages 18\u201330",
+  "scope": "V4.5–V5.2",
+  "authority": "GetLancer_V4_5_to_V5_2_Full_Plan.pdf, pages 18–30",
   "requirements": [
     {
       "id": "FR-001",
@@ -12,9 +12,10 @@
       "owner": "BE/FE/Content",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java",
       "supplementaryVerification": "tests/browser/components.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-002",
@@ -25,9 +26,10 @@
       "owner": "BE/FE/Content",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java",
       "supplementaryVerification": "tests/browser/components.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-003",
@@ -38,9 +40,10 @@
       "owner": "BE/FE/Content",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java",
       "supplementaryVerification": "tests/browser/components.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-004",
@@ -51,9 +54,10 @@
       "owner": "BE/FE/Content",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java",
       "supplementaryVerification": "tests/browser/components.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-005",
@@ -64,9 +68,10 @@
       "owner": "BE/FE/Content",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java",
       "supplementaryVerification": "tests/browser/components.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-006",
@@ -77,9 +82,10 @@
       "owner": "BE/FE/Content",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java",
       "supplementaryVerification": "tests/browser/components.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-007",
@@ -90,9 +96,10 @@
       "owner": "BE/FE/Content",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java",
       "supplementaryVerification": "tests/browser/components.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-008",
@@ -103,9 +110,10 @@
       "owner": "BE/FE/Content",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java",
       "supplementaryVerification": "tests/browser/components.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-009",
@@ -116,9 +124,10 @@
       "owner": "BE/FE/Content",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java",
       "supplementaryVerification": "tests/browser/components.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-010",
@@ -129,9 +138,10 @@
       "owner": "BE/FE/Content",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java",
       "supplementaryVerification": "tests/browser/components.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-011",
@@ -142,9 +152,10 @@
       "owner": "BE/FE/Content",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java",
       "supplementaryVerification": "tests/browser/components.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-012",
@@ -155,9 +166,10 @@
       "owner": "BE/FE/Content",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java",
       "supplementaryVerification": "tests/browser/components.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-013",
@@ -168,9 +180,10 @@
       "owner": "BE/FE/Content",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java",
       "supplementaryVerification": "tests/browser/components.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-014",
@@ -181,9 +194,10 @@
       "owner": "BE/FE/Content",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java",
       "supplementaryVerification": "tests/browser/components.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-015",
@@ -194,9 +208,10 @@
       "owner": "BE/FE/Content",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java",
       "supplementaryVerification": "tests/browser/components.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-016",
@@ -207,9 +222,10 @@
       "owner": "Infra/BE/QA",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java",
       "supplementaryVerification": "scripts/verify-lab-scenarios.mjs",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-017",
@@ -220,9 +236,10 @@
       "owner": "Infra/BE/QA",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java",
       "supplementaryVerification": "scripts/verify-lab-scenarios.mjs",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": "L3",
-      "launchEvidence": "UNMET"
+      "launchEvidence": "UNMET",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-018",
@@ -233,9 +250,10 @@
       "owner": "Infra/BE/QA",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java",
       "supplementaryVerification": "scripts/verify-lab-scenarios.mjs",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": "L3",
-      "launchEvidence": "UNMET"
+      "launchEvidence": "UNMET",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-019",
@@ -246,9 +264,10 @@
       "owner": "Infra/BE/QA",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java",
       "supplementaryVerification": "scripts/verify-lab-scenarios.mjs",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-020",
@@ -259,9 +278,10 @@
       "owner": "Infra/BE/QA",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java",
       "supplementaryVerification": "scripts/verify-lab-scenarios.mjs",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": "L3",
-      "launchEvidence": "UNMET"
+      "launchEvidence": "UNMET",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-021",
@@ -272,9 +292,10 @@
       "owner": "Infra/BE/QA",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java",
       "supplementaryVerification": "scripts/verify-lab-scenarios.mjs",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-022",
@@ -285,9 +306,10 @@
       "owner": "Infra/BE/QA",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java",
       "supplementaryVerification": "scripts/verify-lab-scenarios.mjs",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-023",
@@ -298,9 +320,10 @@
       "owner": "Infra/BE/QA",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java",
       "supplementaryVerification": "scripts/verify-lab-scenarios.mjs",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": "L3",
-      "launchEvidence": "UNMET"
+      "launchEvidence": "UNMET",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-024",
@@ -311,9 +334,10 @@
       "owner": "Infra/BE/QA",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java",
       "supplementaryVerification": "scripts/verify-lab-scenarios.mjs",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": "L3",
-      "launchEvidence": "UNMET"
+      "launchEvidence": "UNMET",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-025",
@@ -324,9 +348,10 @@
       "owner": "Infra/BE/QA",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java",
       "supplementaryVerification": "scripts/verify-lab-scenarios.mjs",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": "L3",
-      "launchEvidence": "UNMET"
+      "launchEvidence": "UNMET",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-026",
@@ -337,9 +362,10 @@
       "owner": "Infra/BE/QA",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java",
       "supplementaryVerification": "scripts/verify-lab-scenarios.mjs",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": "L3",
-      "launchEvidence": "UNMET"
+      "launchEvidence": "UNMET",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-027",
@@ -350,9 +376,10 @@
       "owner": "Infra/BE/QA",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java",
       "supplementaryVerification": "scripts/verify-lab-scenarios.mjs",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-028",
@@ -363,9 +390,10 @@
       "owner": "BE/FE/Content",
       "primaryVerification": "backend/src/test/java/com/getlancer/EducationIntegrationTest.java",
       "supplementaryVerification": "tests/browser/education.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-029",
@@ -376,9 +404,10 @@
       "owner": "BE/FE/Content",
       "primaryVerification": "backend/src/test/java/com/getlancer/EducationIntegrationTest.java",
       "supplementaryVerification": "tests/browser/education.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-030",
@@ -389,9 +418,10 @@
       "owner": "BE/FE/Content",
       "primaryVerification": "backend/src/test/java/com/getlancer/EducationIntegrationTest.java",
       "supplementaryVerification": "tests/browser/education.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-031",
@@ -402,9 +432,10 @@
       "owner": "BE/FE/Content",
       "primaryVerification": "backend/src/test/java/com/getlancer/EducationIntegrationTest.java",
       "supplementaryVerification": "tests/browser/education.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-032",
@@ -415,9 +446,10 @@
       "owner": "BE/FE/Content",
       "primaryVerification": "backend/src/test/java/com/getlancer/EducationIntegrationTest.java",
       "supplementaryVerification": "tests/browser/education.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-033",
@@ -428,9 +460,10 @@
       "owner": "BE/FE/Content",
       "primaryVerification": "backend/src/test/java/com/getlancer/EducationIntegrationTest.java",
       "supplementaryVerification": "tests/browser/education.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-034",
@@ -441,9 +474,10 @@
       "owner": "Payments/BE",
       "primaryVerification": "backend/src/test/java/com/getlancer/EducationCommerceIntegrationTest.java",
       "supplementaryVerification": "tests/connected/templates.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": "L4",
-      "launchEvidence": "UNMET"
+      "launchEvidence": "UNMET",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-035",
@@ -454,9 +488,10 @@
       "owner": "Payments/BE",
       "primaryVerification": "backend/src/test/java/com/getlancer/EducationCommerceIntegrationTest.java",
       "supplementaryVerification": "tests/connected/templates.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": "L4",
-      "launchEvidence": "UNMET"
+      "launchEvidence": "UNMET",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-036",
@@ -467,9 +502,10 @@
       "owner": "Content/Security",
       "primaryVerification": "backend/src/test/java/com/getlancer/education/EducationDataAiTest.java",
       "supplementaryVerification": "scripts/verify-data-ai.mjs",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-037",
@@ -480,9 +516,10 @@
       "owner": "Content/Security",
       "primaryVerification": "backend/src/test/java/com/getlancer/education/EducationDataAiTest.java",
       "supplementaryVerification": "scripts/verify-data-ai.mjs",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-038",
@@ -493,9 +530,10 @@
       "owner": "Content/Infra/FE",
       "primaryVerification": "backend/src/test/java/com/getlancer/labs/LabIotPolicyTest.java",
       "supplementaryVerification": "scripts/verify-iot.mjs",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-039",
@@ -506,9 +544,10 @@
       "owner": "Content/Security",
       "primaryVerification": "backend/src/test/java/com/getlancer/education/EducationDataAiTest.java",
       "supplementaryVerification": "scripts/verify-data-ai.mjs",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": "L3",
-      "launchEvidence": "UNMET"
+      "launchEvidence": "UNMET",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-040",
@@ -519,9 +558,10 @@
       "owner": "Content/Infra/FE",
       "primaryVerification": "backend/src/test/java/com/getlancer/labs/LabIotPolicyTest.java",
       "supplementaryVerification": "scripts/verify-iot.mjs",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": "L3",
-      "launchEvidence": "UNMET"
+      "launchEvidence": "UNMET",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-041",
@@ -532,9 +572,10 @@
       "owner": "BE",
       "primaryVerification": "backend/src/test/java/com/getlancer/EducationIntegrationTest.java",
       "supplementaryVerification": "tests/browser/education.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-042",
@@ -545,9 +586,10 @@
       "owner": "Moderator/BE",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java",
       "supplementaryVerification": "tests/browser/education.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-043",
@@ -558,9 +600,10 @@
       "owner": "Infra/Product/BE",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/OperationsIntegrationTest.java",
       "supplementaryVerification": "tests/browser/v52.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": "L5",
-      "launchEvidence": "UNMET"
+      "launchEvidence": "UNMET",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-044",
@@ -571,9 +614,10 @@
       "owner": "Infra/Product/BE",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/OperationsIntegrationTest.java",
       "supplementaryVerification": "tests/browser/v52.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-045",
@@ -584,9 +628,10 @@
       "owner": "FE/BE",
       "primaryVerification": "tests/connected-mode.test.mjs",
       "supplementaryVerification": "tests/browser/v52.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "FR-046",
@@ -597,9 +642,10 @@
       "owner": "BE/Content",
       "primaryVerification": "backend/src/test/java/com/getlancer/labs/LabAdapterPolicyTest.java",
       "supplementaryVerification": "tests/lab-certification.test.mjs",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": "L3",
-      "launchEvidence": "UNMET"
+      "launchEvidence": "UNMET",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "NFR-001",
@@ -610,9 +656,10 @@
       "owner": "FE/QA",
       "primaryVerification": "tests/browser/v52.spec.ts",
       "supplementaryVerification": "tests/browser/v46-accessibility.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": "L6",
-      "launchEvidence": "UNMET"
+      "launchEvidence": "UNMET",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "NFR-002",
@@ -623,9 +670,10 @@
       "owner": "FE/QA",
       "primaryVerification": "tests/browser/v46-performance.spec.ts",
       "supplementaryVerification": "scripts/v52-load.mjs",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": "L2",
-      "launchEvidence": "UNMET"
+      "launchEvidence": "UNMET",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "NFR-003",
@@ -636,9 +684,10 @@
       "owner": "Security/Infra",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java",
       "supplementaryVerification": "tests/browser/frontend-security.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": "L3",
-      "launchEvidence": "UNMET"
+      "launchEvidence": "UNMET",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "NFR-004",
@@ -649,9 +698,10 @@
       "owner": "Security/BE",
       "primaryVerification": "backend/src/test/java/com/getlancer/security/AuthorizationIntegrationTest.java",
       "supplementaryVerification": "tests/connected/components.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "NFR-005",
@@ -662,9 +712,10 @@
       "owner": "Payments/Security",
       "primaryVerification": "backend/src/test/java/com/getlancer/EducationCommerceIntegrationTest.java",
       "supplementaryVerification": "backend/src/test/java/com/getlancer/integration/CommerceIntegrationTest.java",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": "L4",
-      "launchEvidence": "UNMET"
+      "launchEvidence": "UNMET",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "NFR-006",
@@ -675,9 +726,10 @@
       "owner": "Infra/Security",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java",
       "supplementaryVerification": "tests/lab-certification.test.mjs",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": "L3",
-      "launchEvidence": "UNMET"
+      "launchEvidence": "UNMET",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "NFR-007",
@@ -688,9 +740,10 @@
       "owner": "Infra",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java",
       "supplementaryVerification": "scripts/verify-lab-packages.mjs",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": "L3",
-      "launchEvidence": "UNMET"
+      "launchEvidence": "UNMET",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "NFR-008",
@@ -701,9 +754,10 @@
       "owner": "Privacy/BE",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/DataExposureIntegrationTest.java",
       "supplementaryVerification": "backend/src/test/java/com/getlancer/integration/OperationsIntegrationTest.java",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "NFR-009",
@@ -714,9 +768,10 @@
       "owner": "Infra/BE",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java",
       "supplementaryVerification": "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "NFR-010",
@@ -727,9 +782,10 @@
       "owner": "Infra",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java",
       "supplementaryVerification": "ops/v52/README.md",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": "L3",
-      "launchEvidence": "UNMET"
+      "launchEvidence": "UNMET",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "NFR-011",
@@ -740,9 +796,10 @@
       "owner": "Infra",
       "primaryVerification": "scripts/verify-lab-scenarios.mjs",
       "supplementaryVerification": "ops/labs/check-v48-benchmark.mjs",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": "L2",
-      "launchEvidence": "UNMET"
+      "launchEvidence": "UNMET",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "NFR-012",
@@ -753,9 +810,10 @@
       "owner": "BE/QA",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java",
       "supplementaryVerification": "scripts/v52-load.mjs",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": "L2",
-      "launchEvidence": "UNMET"
+      "launchEvidence": "UNMET",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "NFR-013",
@@ -766,9 +824,10 @@
       "owner": "Infra",
       "primaryVerification": "scripts/v52-monitor.mjs",
       "supplementaryVerification": "tests/v52-operations.test.mjs",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": "L1",
-      "launchEvidence": "UNMET"
+      "launchEvidence": "UNMET",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "NFR-014",
@@ -779,9 +838,10 @@
       "owner": "Infra/BE",
       "primaryVerification": "scripts/verify-restore-ci.mjs",
       "supplementaryVerification": "backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": "L5",
-      "launchEvidence": "UNMET"
+      "launchEvidence": "UNMET",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "NFR-015",
@@ -792,9 +852,10 @@
       "owner": "Content/QA",
       "primaryVerification": "scripts/v52-content.mjs",
       "supplementaryVerification": "tests/college-seed-packages.test.mjs",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "NFR-016",
@@ -805,9 +866,10 @@
       "owner": "FE/QA",
       "primaryVerification": "tests/browser/v52.spec.ts",
       "supplementaryVerification": "tests/browser/education.spec.ts",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": "L6",
-      "launchEvidence": "UNMET"
+      "launchEvidence": "UNMET",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "NFR-017",
@@ -818,9 +880,10 @@
       "owner": "Content/Moderator",
       "primaryVerification": "scripts/v52-content.mjs",
       "supplementaryVerification": "scripts/audit-sbom.mjs",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "NFR-018",
@@ -831,9 +894,10 @@
       "owner": "BE",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java",
       "supplementaryVerification": "backend/src/test/java/com/getlancer/EducationIntegrationTest.java",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "NFR-019",
@@ -844,9 +908,10 @@
       "owner": "BE/Infra",
       "primaryVerification": "backend/src/test/java/com/getlancer/labs/LabProtocolTest.java",
       "supplementaryVerification": "backend/src/test/java/com/getlancer/labs/LabAdapterPolicyTest.java",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": null,
-      "launchEvidence": "REVIEW_REQUIRED"
+      "launchEvidence": "REVIEW_REQUIRED",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "NFR-020",
@@ -857,9 +922,10 @@
       "owner": "QA",
       "primaryVerification": "scripts/v52-release-contract.mjs",
       "supplementaryVerification": ".github/workflows/ci.yml",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": "L7",
-      "launchEvidence": "UNMET"
+      "launchEvidence": "UNMET",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "NFR-021",
@@ -870,9 +936,10 @@
       "owner": "Security/Content",
       "primaryVerification": "backend/src/test/java/com/getlancer/labs/LabDataAiPolicyTest.java",
       "supplementaryVerification": "tests/data-ai-security.test.mjs",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": "L3",
-      "launchEvidence": "UNMET"
+      "launchEvidence": "UNMET",
+      "clauseReview": "docs/v52/clause-review.json"
     },
     {
       "id": "NFR-022",
@@ -883,9 +950,10 @@
       "owner": "Infra/QA",
       "primaryVerification": "backend/src/test/java/com/getlancer/integration/OperationsIntegrationTest.java",
       "supplementaryVerification": "tests/v52-operations.test.mjs",
-      "softwareEvidence": "PENDING_CLAUSE_REVIEW",
+      "softwareEvidence": "CLAUSE_REVIEWED",
       "launchGate": "L5",
-      "launchEvidence": "UNMET"
+      "launchEvidence": "UNMET",
+      "clauseReview": "docs/v52/clause-review.json"
     }
   ]
 }

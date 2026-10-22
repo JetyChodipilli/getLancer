@@ -10,7 +10,9 @@ export const pause = milliseconds => new Promise(done => setTimeout(done, millis
 async function until(target) {for (let remaining = target - performance.now(); remaining > 0; remaining = target - performance.now()) await pause(Math.ceil(remaining));}
 export function argumentsFor(argv, allowed) {assert(argv.length % 2 === 0, 'Arguments require explicit values'); const result = {}; for (let i = 0; i < argv.length; i += 2) {assert(allowed.includes(argv[i]) && result[argv[i]] === undefined, 'Unknown or repeated argument'); result[argv[i]] = argv[i + 1];} return result;}
 export function numberArg(value, min, max) {assert(typeof value === 'string' && /^(?:0|[1-9][0-9]*)$/.test(value), 'Use an integer argument'); const number = Number(value); integer(number, min, max); return number;}
+function catalogue(config) {const value=config.catalogue ?? "products"; assert(["products","components","college-projects"].includes(value), "Choose a supported catalogue"); return value;}
 function configuration(config, kind) {
+  catalogue(config);
   assert(/^[a-f0-9]{40}$/.test(config.revision), 'Supply the actual deployed commit'); assert(/^[a-z][a-z0-9-]{1,63}$/.test(config.environment), 'Name the deployment environment');
   origin(config.origin); serverProfile(config.serverProfile); integer(config.timeoutMs, 1, LIMITS.timeoutMs); integer(config.durationMs, 100, kind === 'SOAK' ? LIMITS.sevenDaysMs + LIMITS.cadenceMs : 300000);
   assert(['MEASUREMENT', 'TEST'].includes(config.purpose ?? 'MEASUREMENT')); if (kind === 'SOAK') {integer(config.cadenceMs, 100, LIMITS.cadenceMs); assert(Math.floor(config.durationMs / config.cadenceMs) + 1 <= LIMITS.observations, 'Bound the observation cohort');} else {integer(config.rate, 1, LIMITS.loadRate); integer(config.concurrency, 1, LIMITS.loadConcurrency);}
@@ -38,7 +40,7 @@ export async function requestProbe(url, {timeoutMs, adminCookie, fetchImpl = fet
 }
 function startJournal(config, kind) {
   const startedAt = new Date().toISOString(), startedMono = performance.now();
-  const header = {version: 1, kind, purpose: config.purpose ?? 'MEASUREMENT', environment: config.environment, revision: config.revision, origin: origin(config.origin), startedAt, segmentId: randomUUID(), serverProfile: config.serverProfile, config: kind === 'SOAK' ? {cadenceMs: config.cadenceMs, timeoutMs: config.timeoutMs} : {rate: config.rate, concurrency: config.concurrency, durationMs: config.durationMs, timeoutMs: config.timeoutMs}};
+  const header = {version: 1, kind, purpose: config.purpose ?? 'MEASUREMENT', environment: config.environment, revision: config.revision, origin: origin(config.origin), startedAt, segmentId: randomUUID(), serverProfile: config.serverProfile, config: kind === 'SOAK' ? {catalogue: catalogue(config), cadenceMs: config.cadenceMs, timeoutMs: config.timeoutMs} : {catalogue: catalogue(config), rate: config.rate, concurrency: config.concurrency, durationMs: config.durationMs, timeoutMs: config.timeoutMs}};
   const file = resolve(config.out + '.jsonl'); assert(/^[A-Za-z0-9][A-Za-z0-9_.-]{0,159}$/.test(basename(file)) && !basename(file).includes('..'), 'Use a safe output filename');
   const descriptor = openSync(file, 'wx', 0o600), first = canonical(header) + '\n'; writeFileSync(descriptor, first); let closed = false, size = Buffer.byteLength(first);
   const writer = {previous: hash(canonical(header)), append: line => {size += Buffer.byteLength(line); assert(size <= LIMITS.fileBytes, 'Collector journal exceeded its byte budget'); writeFileSync(descriptor, line);}};
@@ -52,7 +54,7 @@ export async function monitor(config) {
   try {
     for (let scheduled = 0; scheduled <= config.durationMs; scheduled += config.cadenceMs) {
       await until(journal.startedMono + scheduled);
-      const publicPromise = requestProbe(journal.header.origin + '/api/v1/products?page=0&size=1', {timeoutMs: config.timeoutMs, fetchImpl: config.fetchImpl});
+      const publicPromise = requestProbe(journal.header.origin + '/api/v1/' + catalogue(config) + '?page=0&size=1', {timeoutMs: config.timeoutMs, fetchImpl: config.fetchImpl});
       let runtimePromise = Promise.resolve(null);
       if (config.adminCookieFile) {
         // The operator may rotate a freshly authenticated cookie file; expiry is an observed failure.
@@ -73,7 +75,7 @@ export async function load(config) {
     for (let i = 0; i < total; i++) {
       const scheduled = Math.floor(i * 1000 / config.rate); await until(journal.startedMono + scheduled);
       if (pending.size >= config.concurrency || performance.now() - journal.startedMono - scheduled > 1000) {record(scheduled, capacitySkip()); continue;}
-      const request = requestProbe(journal.header.origin + '/api/v1/products?page=' + i % 50 + '&size=20', {timeoutMs: config.timeoutMs, fetchImpl: config.fetchImpl}).then(response => record(scheduled, response)); pending.add(request); request.finally(() => pending.delete(request));
+      const request = requestProbe(journal.header.origin + '/api/v1/' + catalogue(config) + '?page=' + i % 50 + '&size=20', {timeoutMs: config.timeoutMs, fetchImpl: config.fetchImpl}).then(response => record(scheduled, response)); pending.add(request); request.finally(() => pending.delete(request));
     }
     await Promise.all(pending); return finishJournal(journal, config);
   } finally {journal.close();}

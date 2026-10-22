@@ -6,7 +6,7 @@ import {mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync} from 'nod
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createServer} from 'node:http';
-import {spawnSync} from 'node:child_process';
+import {spawn,spawnSync} from 'node:child_process';
 import {ACTIVATION_CONTROLS, appendObservation, boundedFile, canonical, CONTROL_FACTS, DRILL_CONTROLS, HANDOVER_CONTROLS, envelope, hash, journalReport, LIMITS, openReport, parse, readJournal, validateReport, verifyReportFile} from '../ops/v52/evidence.mjs';
 import {argumentsFor, load, monitor, numberArg, requestProbe} from '../ops/v52/collector.mjs';
 
@@ -18,7 +18,7 @@ function directory(t) {const dir = mkdtempSync(join(tmpdir(), 'v52-test-')); t.a
 function snapshot(at, admitted = 10, failures = 0) {return {observedAt: new Date(at).toISOString(), counterEpoch: epoch, operatorEpoch: '11111111-1111-4111-8111-111111111111', measuredFrom: epoch, admitted, healthy: admitted - failures, pending: 0, completed: admitted, infraFailures: failures, scenarioFailures: 3, quotaDenials: 5, validationDenials: 7};}
 function fixture(t, kind = 'SOAK', changes = {}) {
   const dir = directory(t), path = join(dir, 'observations.jsonl'), duration = kind === 'SOAK' ? LIMITS.sevenDaysMs : 60000;
-  const header = {version: 1, kind, purpose: 'TEST', environment, revision, origin: 'https://test.example', startedAt: new Date(now - duration).toISOString(), segmentId: randomUUID(), serverProfile, config: kind === 'SOAK' ? {cadenceMs: 60000, timeoutMs: 5000} : {rate: 20, concurrency: 10, durationMs: 60000, timeoutMs: 5000}};
+  const header = {version: 1, kind, purpose: 'TEST', environment, revision, origin: 'https://test.example', startedAt: new Date(now - duration).toISOString(), segmentId: randomUUID(), serverProfile, config: kind === 'SOAK' ? {catalogue: 'components', cadenceMs: 60000, timeoutMs: 5000} : {catalogue: 'components', rate: 20, concurrency: 10, durationMs: 60000, timeoutMs: 5000}};
   const records = [];
   if (kind === 'SOAK') for (let i = 0; i <= duration / 60000; i++) {const at = start + i * 60000, admitted = 10 + Math.floor(i * 100 / (duration / 60000)), failures = admitted === 110 ? 1 : 0; records.push({sequence: i + 1, sampledAt: new Date(at).toISOString(), elapsedMs: i * 60000, publicProbe: okay(), runtimeProbe: {status: 200, outcome: 'OK', durationMs: 10, snapshot: snapshot(at, admitted, failures)}});}
   else for (let i = 0; i < 1200; i++) {const scheduledElapsedMs = i * 50, elapsedMs = scheduledElapsedMs + 10; records.push({sequence: i + 1, sampledAt: new Date(now - duration + elapsedMs).toISOString(), elapsedMs, scheduledElapsedMs, response: okay()});}
@@ -78,3 +78,28 @@ test('handover recursively verifies independent reports and rejects a missing or
   const result = validateReport(handover.report, {baseDir: handover.dir, environment, revision, now, release: false, publicKeyBytes: pair.publicKey}); assert.equal(result.gates.dependentLaunchGates, true); assert.equal(result.releaseEligible, false); const missing = structuredClone(handover.report); missing.reports.pop(); assert.throws(() => inspect({...handover, report: missing})); writeFileSync(join(handover.dir, handover.report.reports[0].file), '{}'); assert.throws(() => validateReport(handover.report, {baseDir: handover.dir, environment, revision, now, release: false, publicKeyBytes: pair.publicKey}));
 });
 test('CLI failure remains concise and never echoes secret-bearing arguments', () => {const result = spawnSync(process.execPath, ['scripts/v52-monitor.mjs', '--origin', 'https://synthetic-secret@test.example', '--environment', environment, '--revision', revision, '--out', '/unused', '--duration-ms', '100'], {encoding: 'utf8'}); assert.equal(result.status, 1); assert(!result.stderr.includes('synthetic-secret')); assert(!result.stdout.includes('synthetic-secret'));});
+
+
+test('catalogue collectors bind explicit new routes and reject arbitrary destinations', async t => {
+ const dir=directory(t), seen=[];
+ const fetchImpl=async url=>{seen.push(new URL(url).pathname);return new Response(JSON.stringify({items:[],totalItems:10000}),{headers:{'Server-Timing':'app;dur=0'}});};
+ for(const catalogue of ['products','components','college-projects']){
+  const result=await load({origin:'https://test.example',catalogue,environment,revision,serverProfile,out:join(dir,'load-'+catalogue),purpose:'TEST',durationMs:100,rate:20,concurrency:10,timeoutMs:500,fetchImpl});
+  const journal=readJournal(result.logFile);assert.equal(journal.header.config.catalogue,catalogue);assert(seen.slice(-2).every(path=>path==='/api/v1/'+catalogue));
+ }
+ const result=await monitor({origin:'https://test.example',catalogue:'components',environment,revision,serverProfile,out:join(dir,'soak-components'),purpose:'TEST',durationMs:100,cadenceMs:100,timeoutMs:500,fetchImpl});
+ assert.equal(readJournal(result.logFile).header.config.catalogue,'components');assert(seen.slice(-2).every(path=>path==='/api/v1/components'));
+ await assert.rejects(()=>load({origin:'https://test.example',catalogue:'../admin',environment,revision,serverProfile,out:join(dir,'invalid'),purpose:'TEST',durationMs:100,rate:20,concurrency:10,timeoutMs:500,fetchImpl}));
+});
+
+test('collector CLIs read the supplied profile with both default and explicit catalogue targets', async t => {
+ const dir=directory(t),profile=join(dir,'profile.json'),seen=[];writeFileSync(profile,JSON.stringify(serverProfile));
+ const server=createServer((request,response)=>{seen.push(new URL(request.url,'http://localhost').pathname);response.setHeader('Content-Type','application/json');response.end(JSON.stringify({items:[],totalItems:10000}));});
+ await new Promise(done=>server.listen(0,'127.0.0.1',done));t.after(()=>server.close());
+ for(const script of ['v52-load.mjs','v52-monitor.mjs'])for(const explicit of [false,true]){
+  const args=['scripts/'+script,'--origin','http://127.0.0.1:'+server.address().port,'--environment',environment,'--revision',revision,'--profile',profile,'--out',join(dir,script+'-'+explicit),'--duration-ms','100',...(script==='v52-monitor.mjs'?['--cadence-ms','100']:[]),...(explicit?['--catalogue','components']:[])];
+  const result=await new Promise((resolve,reject)=>{const child=spawn(process.execPath,args,{stdio:['ignore','pipe','pipe']});let stdout='',stderr='';child.stdout.on('data',chunk=>stdout+=chunk);child.stderr.on('data',chunk=>stderr+=chunk);child.on('error',reject);child.on('close',code=>resolve({code,stdout,stderr}));});
+  assert.equal(result.code,0,result.stderr);const output=JSON.parse(result.stdout);assert.equal(readJournal(output.logFile).header.config.catalogue,explicit?'components':'products');
+  assert(seen.slice(-2).every(path=>path==='/api/v1/'+(explicit?'components':'products')));
+ }
+});

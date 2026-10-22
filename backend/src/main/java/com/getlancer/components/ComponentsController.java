@@ -33,6 +33,7 @@ public class ComponentsController {
     return service.detail(slug);
   }
   @GetMapping("/components/{slug}/preview") public Object preview(@PathVariable String slug){return service.preview(slug);}
+  @GetMapping("/components/{slug}/source") public org.springframework.http.ResponseEntity<byte[]> source(@PathVariable String slug,@RequestParam String sha256){return service.source(slug,sha256);}
   @PostMapping("/me/components/{id}/preview") public Object publishPreview(@PathVariable UUID id,HttpServletRequest r){return service.publishPreview(id,r);}
   @GetMapping("/components/{slug}/versions") public Object history(@PathVariable String slug){return service.history(slug);}
   @GetMapping("/me/components") public Object own(HttpServletRequest r){

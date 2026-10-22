@@ -809,6 +809,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
   @Test void uploadedSourceChangingVersionsRequireFreshReviewAndFreezeAllFiles()throws Exception{
     UUID id=draft();byte[] first=contributionZip("Original custom source");response(sourceUpload(id,"1.0.0",first,"builder"));
     mvc.perform(sourceUpload(id,"1.0.1",first,"other")).andExpect(status().isNotFound());
+    mvc.perform(get("/api/v1/components/remix-"+id+"/source").param("sha256","0".repeat(64))).andExpect(status().isNotFound());
     var draftSource=response(as(get("/api/v1/me/components/"+id),"builder"));assertTrue(draftSource.path("uploaded").asBoolean());assertFalse(draftSource.has("archiveBase64"));
     var privateExport=response(as(get("/api/v1/me/export"),"builder"));
     assertEquals(draftSource.path("files"),privateExport.path("components").get(0).path("draft_source").path("files"));
@@ -817,11 +818,19 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     submit(id);assertThrows(org.springframework.dao.DataAccessException.class,()->db.update("UPDATE component_entries SET draft_source=jsonb_set(draft_source,'{files,README.md}','\"changed\"') WHERE id=?",id));
     mvc.perform(sourceUpload(id,"1.0.1",first,"builder")).andExpect(status().isConflict());response(approve(id));
     var published=response(get("/api/v1/components/remix-"+id));assertEquals(draftSource.path("files"),published.path("files"));assertFalse(published.has("archiveBase64"));
+    String archiveHash=published.path("archiveSha256").asText();
+    assertEquals(com.getlancer.hosting.StaticArchive.sha(first),archiveHash);
+    assertArrayEquals(first,mvc.perform(get("/api/v1/components/remix-"+id+"/source").param("sha256",archiveHash)).andExpect(status().isOk()).andExpect(content().contentType("application/zip")).andReturn().getResponse().getContentAsByteArray());
+    mvc.perform(get("/api/v1/components/remix-"+id+"/source").param("sha256","0".repeat(64))).andExpect(status().isConflict());
     response(body(post("/api/v1/me/components/"+id+"/new-version"),"builder",Map.of()));
     mvc.perform(sourceUpload(id,"1.0.0",first,"builder")).andExpect(status().isConflict());response(sourceUpload(id,"1.0.1",contributionZip("Changed custom source"),"builder"));
     assertEquals(published.path("files"),response(get("/api/v1/components/remix-"+id)).path("files"));submit(id);response(approve(id));
     assertNotEquals(published.path("sha256"),response(get("/api/v1/components/remix-"+id)).path("sha256"));
     assertEquals(2,response(get("/api/v1/components/remix-"+id+"/versions")).path("items").size());
+    mvc.perform(get("/api/v1/components/remix-"+id+"/source").param("sha256",archiveHash)).andExpect(status().isConflict());
+    db.update("UPDATE users SET account_status='SUSPENDED' WHERE id=?",builder);
+    mvc.perform(get("/api/v1/components/remix-"+id+"/source").param("sha256",archiveHash)).andExpect(status().isNotFound());
+    db.update("UPDATE users SET account_status='ACTIVE' WHERE id=?",builder);
     assertEquals(published.path("sha256").asText(),db.queryForObject("SELECT source_sha256 FROM component_releases WHERE component_id=? ORDER BY revision LIMIT 1",String.class,id));
     var releasedExport=response(as(get("/api/v1/me/export"),"builder")).path("componentReleases");
     assertEquals(2,releasedExport.size());assertEquals("1.0.0",releasedExport.get(0).path("source").path("version").asText());assertEquals("1.0.1",releasedExport.get(1).path("source").path("version").asText());

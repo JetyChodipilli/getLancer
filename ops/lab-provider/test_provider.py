@@ -142,6 +142,43 @@ class EntrypointTests(unittest.TestCase):
                             stale_socket("/root-controlled/control.sock", 61999)
                         path.unlink.assert_not_called()
 
+    def test_native_evidence_rejects_foreign_replayed_and_misbound_events_atomically(self):
+        import copy
+        policy = {"argv": ["/bin/true"], "cwd": "/fixture", "source": "/fixture/source.py",
+            "sourceSha256": "a"*64, "language": "python", "pattern": "security",
+            "operations": {"authorize": ["identity"]}, "redisSha256": None}
+        cmd = {"runId": uid(), "operationId": "authorize", "inputs": {"identity": "editor"}}
+        request_id = uid()
+        event = {"runId": cmd["runId"], "sourceHash": policy["sourceSha256"], "requestId": request_id,
+            "sequence": 1, "type": "AUTH_ALLOWED", "edge": "service-policy",
+            "recordedAt": timestamp(time.time()), "summary": "Synthetic role allowed."}
+        value = {"runId": cmd["runId"], "sourceHash": policy["sourceSha256"], "requestId": request_id,
+            "pattern": "security", "status": 200, "durationMs": 1, "state": {}, "events": [event]}
+        for key, invalid in (("runId", uid()), ("sourceHash", "b"*64), ("requestId", uid()),
+                ("sequence", 0), ("sequence", True), ("type", "CACHE_HIT"), ("edge", "emulator-ledger"),
+                ("recordedAt", "not-a-time")):
+            native = NativeHTTP(policy)
+            native.binding = cmd
+            bad = copy.deepcopy(value)
+            bad["events"].append(dict(event, sequence=2))
+            bad["events"][1][key] = invalid
+            with patch.object(native, "healthy", return_value=True), patch.object(native, "call", return_value=(200, bad)):
+                with self.assertRaises(Rejected, msg=key):
+                    native.request(cmd)
+            self.assertEqual(native.sequence, 0, "Rejected batches must not partially advance authority")
+        native = NativeHTTP(policy)
+        native.binding = cmd
+        with patch.object(native, "healthy", return_value=True), patch.object(native, "call", return_value=(200, value)) as call:
+            self.assertEqual(json.loads(native.request(cmd)["output"])["events"][0]["sequence"], 1)
+            with self.assertRaises(Rejected):
+                native.request(cmd)
+            calls = call.call_count
+            with self.assertRaises(Rejected):
+                native.request(dict(cmd, runId=uid()))
+            self.assertEqual(call.call_count, calls, "Foreign commands must fail before forwarding")
+            value["events"][0]["sequence"] = 2
+            self.assertEqual(json.loads(native.request(cmd)["output"])["events"][0]["sequence"], 2)
+
     def test_native_bridge_uses_actual_python_http_source_and_current_operation_state(self):
         import sys
         source = Path(__file__).resolve().parents[2]/"labs/python/server.py"

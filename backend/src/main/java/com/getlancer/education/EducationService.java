@@ -97,7 +97,7 @@ public class EducationService {
   private Map<String,Object> dto(Map<String,Object> row,boolean privateView){
     var out=new LinkedHashMap<String,Object>();out.put("id",row.get("id"));out.put("productId",row.get("product_id"));out.put("revision",row.get("revision"));out.put("status",row.get("status"));out.put("sourceHash",row.get("source_hash"));
     Map<String,Object> snapshot;if(row.get("snapshot")!=null)snapshot=schema.read(row.get("snapshot"));else{var product=db.queryForMap(ProductRepository.SELECT+" WHERE p.id=?",row.get("product_id"));snapshot=core(schema.read(row.get("draft")),product);}
-    var projected=schema.publicView(snapshot);out.put("snapshot",privateView?snapshot:projected);out.put("academic",academic((UUID)row.get("id"),privateView));out.put("componentLinks",components(projected,false));out.putAll(demo(snapshot,(UUID)row.get("product_id"),false));out.put("teams",teams((UUID)row.get("product_id"),(UUID)row.get("owner_id")));
+    var projected=schema.publicView(snapshot);var visibleComponents=components(projected,false);projected.put("componentLinks",visibleComponents);out.put("snapshot",privateView?snapshot:projected);out.put("academic",academic((UUID)row.get("id"),privateView));out.put("componentLinks",visibleComponents);out.putAll(demo(snapshot,(UUID)row.get("product_id"),false));out.put("teams",teams((UUID)row.get("product_id"),(UUID)row.get("owner_id")));
     if(privateView){
       out.put("reviewReason",row.get("review_reason"));out.put("freePackageId",row.get("free_package_id"));out.put("versionId",row.get("source_version_id"));
       if(row.get("snapshot")==null&&"FREE".equals(snapshot.get("mode"))&&row.get("free_package_id")!=null)out.put("sourceBinding",freeBinding(row,snapshot));

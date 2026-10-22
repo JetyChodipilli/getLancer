@@ -41,3 +41,7 @@ Migration V46 adds stored generated metadata to `component_entries` and `compone
 | L7 | Clause-specific review of all 46 FRs and 22 NFRs, limited cohort signoff and named handover | Product/QA |
 
 No provider deployment, live merchant activation, production admission signature or launch signoff is produced by this repair branch.
+
+## Clause review update — 22 October 2026
+
+The source-review pass now covers all 68 requirements and 246 obligations. It found confirmed defects and additional implementation/test gaps, so delivery through V5.2 is not a claim that all original requirements are implemented or accepted. See [the requirements review](../v52/REQUIREMENTS_REVIEW.md) and its machine-readable evidence. The register uses `CLAUSE_REVIEWED`, which never closes owner or launch acceptance. Real infrastructure, production and human gates remain open.

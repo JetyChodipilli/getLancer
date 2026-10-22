@@ -45,7 +45,8 @@ function header(value) {
   exact(value, ['version', 'kind', 'purpose', 'environment', 'revision', 'origin', 'startedAt', 'segmentId', 'serverProfile', 'config']);
   assert.equal(value.version, 1); assert(['LOAD', 'SOAK'].includes(value.kind)); assert(['MEASUREMENT', 'TEST'].includes(value.purpose));
   assert(typeof value.environment === 'string' && /^[a-z][a-z0-9-]{1,63}$/.test(value.environment)); assert(/^[a-f0-9]{40}$/.test(value.revision)); origin(value.origin); timestamp(value.startedAt); uuid(value.segmentId); serverProfile(value.serverProfile);
-  const configKeys = value.kind === 'SOAK' ? ['cadenceMs', 'timeoutMs'] : ['rate', 'concurrency', 'durationMs', 'timeoutMs']; exact(value.config, configKeys);
+  const configKeys = value.kind === 'SOAK' ? ['cadenceMs', 'timeoutMs'] : ['rate', 'concurrency', 'durationMs', 'timeoutMs']; exact(value.config, [...configKeys, ...(value.config.catalogue === undefined ? [] : ['catalogue'])]);
+  if(value.config.catalogue !== undefined) assert(['products','components','college-projects'].includes(value.config.catalogue));
   integer(value.config.timeoutMs, 1, LIMITS.timeoutMs);
   if (value.kind === 'SOAK') integer(value.config.cadenceMs, 100, LIMITS.cadenceMs);
   else {integer(value.config.rate, 1, LIMITS.loadRate); integer(value.config.concurrency, 1, LIMITS.loadConcurrency); integer(value.config.durationMs, 100, 300000);}
@@ -88,7 +89,7 @@ export function readJournal(path) {
 export function appendObservation(writer, value) {const record = {...value, previousSha256: writer.previous}; const signed = {...record, sha256: hash(canonical(record))}; writer.append(canonical(signed) + '\n'); writer.previous = signed.sha256; return signed;}
 export function journalReport(journals, kind = journals[0]?.header.kind) {
   assert(journals.length > 0 && journals.length <= 100, 'Provide bounded collector segments'); const first = journals[0].header;
-  for (const journal of journals) {assert.equal(journal.header.kind, kind); for (const key of ['purpose', 'environment', 'revision', 'origin']) assert.equal(journal.header[key], first[key], 'Mixed collector provenance');}
+  for (const journal of journals) {assert.equal(journal.header.kind, kind); for (const key of ['purpose', 'environment', 'revision', 'origin']) assert.equal(journal.header[key], first[key], 'Mixed collector provenance'); assert.equal(journal.header.config.catalogue ?? 'products', first.config.catalogue ?? 'products', 'Mixed catalogue targets');}
   return {version: 1, kind, purpose: first.purpose, environment: first.environment, revision: first.revision, startedAt: first.startedAt, endedAt: new Date(journals.at(-1).lastAt).toISOString(), collector: 'getlancer-v52-ops-1', logs: journals.map(journal => ({file: journal.file, sha256: journal.sha256}))};
 }
 const percentile = values => [...values].sort((a, b) => a - b)[Math.ceil(values.length * .95) - 1];
@@ -129,7 +130,7 @@ function loadSummary(journals) {
   for (let i = 0; i < expected; i++) assert(scheduled.has(Math.floor(i * 1000 / config.rate)), 'Load schedule does not match its declared rate');
   const clientP95Ms = successful.length ? percentile(successful.map(o => o.response.durationMs)) : null, serverP95Ms = server.length === successful.length && server.length ? percentile(server.map(o => o.response.serverDurationMs)) : null;
   const eligibleRows = rows.length ? Math.min(...rows) : null;
-  return {requests: expected, successfulRequests: successful.length, failedRequests: expected - successful.length, declaredRate: config.rate, durationMs: config.durationMs, peakMeasuredConcurrency: peak, eligibleRows, clientP95Ms, serverP95Ms, latencyScope: 'Client round trip and request-local Server-Timing app duration are separate measurements', gates: {declared20Rps: config.rate === LIMITS.loadRate, boundedConcurrency10: config.concurrency === LIMITS.loadConcurrency, fullMinute: config.durationMs >= LIMITS.loadDurationMs && journal.lastAt - timestamp(journal.header.startedAt) >= config.durationMs - 1000 / config.rate, catalogue10000Eligible: eligibleRows !== null && eligibleRows >= LIMITS.eligibleRows, allRequestsSuccessful: successful.length === expected, serverP95AtMost300Ms: serverP95Ms !== null && serverP95Ms <= 300}};
+  return {catalogue: config.catalogue ?? 'products', requests: expected, successfulRequests: successful.length, failedRequests: expected - successful.length, declaredRate: config.rate, durationMs: config.durationMs, peakMeasuredConcurrency: peak, eligibleRows, clientP95Ms, serverP95Ms, latencyScope: 'Client round trip and request-local Server-Timing app duration are separate measurements', gates: {newCatalogueMeasured: ['components','college-projects'].includes(config.catalogue), declared20Rps: config.rate === LIMITS.loadRate, boundedConcurrency10: config.concurrency === LIMITS.loadConcurrency, fullMinute: config.durationMs >= LIMITS.loadDurationMs && journal.lastAt - timestamp(journal.header.startedAt) >= config.durationMs - 1000 / config.rate, catalogue10000Eligible: eligibleRows !== null && eligibleRows >= LIMITS.eligibleRows, allRequestsSuccessful: successful.length === expected, serverP95AtMost300Ms: serverP95Ms !== null && serverP95Ms <= 300}};
 }
 export const DRILL_CONTROLS = ['BUDGET_STOP', 'ADMISSIONS_PAUSE', 'WITHDRAWAL', 'RESTORE', 'CAPABILITY_REVOCATION', 'ROLLBACK', 'CLEANUP', 'FINANCIAL_SOURCE_RETENTION'];
 export const ACTIVATION_CONTROLS = ['DOMAIN', 'TLS', 'RUNTIME_ISOLATION', 'RUNTIME_PROVIDER', 'MERCHANT_LIVE', 'PAYMENT_CALLBACKS'];

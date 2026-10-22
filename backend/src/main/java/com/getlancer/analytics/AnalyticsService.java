@@ -71,7 +71,7 @@ public class AnalyticsService {
     } else if (Set.of("component_view","component_source_view").contains(event)) {
       String slug=artifactSlug(body);
       var artifact=components.detail(slug); // Reuse source visibility, review and withdrawal rules.
-      mode="FRONTEND".equals(artifact.get("kind"))?"BROWSER_LOCAL":"SOURCE_ONLY";
+      mode="Browser local".equals(artifact.get("executionMode"))?"BROWSER_LOCAL":"SOURCE_ONLY";
       version=java.util.Objects.toString(artifact.get("sha256"));
       if(!version.matches("[a-f0-9]{64}")) throw new ApiError(503,"ARTIFACT_UNAVAILABLE","Reviewed source metadata is unavailable.");
     } else if (event.equals("lab_view")) {
