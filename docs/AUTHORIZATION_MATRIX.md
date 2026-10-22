@@ -502,3 +502,11 @@ This document does not certify database RLS, reverse-proxy isolation, production
 [TeamRepository]: ../backend/src/main/java/com/getlancer/teams/TeamRepository.java
 [TeamService]: ../backend/src/main/java/com/getlancer/teams/TeamService.java
 [TrustService]: ../backend/src/main/java/com/getlancer/trust/TrustService.java
+
+## Reviewed component archive route addition
+
+| HTTP method | Route | Public/private | Authentication | Required role | Ownership requirement | Membership requirement | MFA requirement | CSRF requirement | Rate-limit class | Audit requirement | Domain-state gate | Source |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| GET | `/api/v1/components/{slug}/source` | Public entry (PUBLIC) | A | — | — | — | — | — | D | DENY; N | Current published, nonwithdrawn component and eligible creator; original reviewed upload; exact requested archive SHA-256 | [ComponentService.source][ComponentService] |
+
+This anonymous free route returns the approved uploaded ZIP with `Cache-Control: no-store`. It adds one route to the published application inventory; the source contract verifier reconciles the current complete inventory. Raw archive base64 remains outside public JSON projections.

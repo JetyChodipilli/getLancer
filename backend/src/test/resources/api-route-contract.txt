@@ -60,6 +60,7 @@ GET /api/v1/components
 GET /api/v1/components/slots/pricing
 GET /api/v1/components/{slug}
 GET /api/v1/components/{slug}/preview
+GET /api/v1/components/{slug}/source
 GET /api/v1/components/{slug}/versions
 GET /api/v1/developer/analytics
 GET /api/v1/developer/inquiries
