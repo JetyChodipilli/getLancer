@@ -161,8 +161,17 @@ test('switching labs while a recording loads cannot apply evidence to another la
 });
 
 test('reduced motion and source preview contain no idle edge animation', async ({page}) => {
-  await page.emulateMedia({reducedMotion: 'reduce'}); await index(page); await page.goto('/labs/scenarios'); await expect(page.locator('.scenario-edge')).toHaveCount(3); await noHighlight(page);
+  await page.emulateMedia({reducedMotion: 'reduce'}); await index(page); await page.goto('/labs/scenarios');
+  // The initial source catalogue also has three edges. Wait for the async fixture
+  // before measuring controls so hydration/index updates cannot detach a handle.
+  await expect(page.locator('#scenario-inspector-heading')).toHaveText('Browser fixture Java cache');
+  await expect(page.locator('.scenario-edge')).toHaveCount(3); await noHighlight(page);
   expect(await page.locator('.scenario-edge').first().evaluate(node => getComputedStyle(node).animationName)).toBe('none');
-  for (const button of await page.locator('.scenario-view-controls button').all()) expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await expect(page.locator('.scenario-view-controls button')).toHaveCount(2);
+  for (const name of ['Source & setup', 'Recorded evidence']) {
+    const button = page.getByRole('button', {name, exact: true});
+    await expect(button).toBeVisible();
+    await expect.poll(async () => (await button.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+  }
   await reflow(page);
 });
