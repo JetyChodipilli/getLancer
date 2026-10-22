@@ -1,6 +1,7 @@
 FROM node:22.23.3-alpine3.23
 # The publisher uses Node's standard library; package managers are unnecessary runtime dependencies.
-RUN apk add --no-cache flock \
+# Require Alpine's patched libc even when the Node base image still carries r23.
+RUN apk add --upgrade --no-cache flock 'musl>=1.2.5-r24' 'musl-utils>=1.2.5-r24' \
     && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /opt/yarn-* \
     && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
         /usr/local/bin/yarn /usr/local/bin/yarnpkg /usr/local/bin/pnpm /usr/local/bin/pnpx \
