@@ -7,7 +7,8 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {syncBuiltinESMExports} from 'node:module';
 const reports=()=>Object.fromEntries(backendChecks.map(check=>['TEST-'+check.className+'.xml',Buffer.from('<testsuite>'+check.tests.map(name=>'<testcase classname="'+check.className+'" name="'+name+'"/>').join('')+'</testsuite>')]));
-const browser=()=>({suites:[{specs:Array.from({length:6},(_,index)=>({title:'E2E-0'+(index+1)+' observed journey',ok:true,tests:['desktop','phone','tablet'].map(projectName=>({projectName,expectedStatus:'passed',status:'expected',results:[{status:'passed'}]}))}))}]});
+const browser=()=>({suites:[{specs:Array.from({length:6},(_,index)=>({title:'E2E-0'+(index+1)+' observed journey',file:'v1-journeys.spec.ts',line:100+index,column:1,ok:true,tests:['desktop','phone','tablet'].map(projectName=>({projectName,expectedStatus:'passed',status:'expected',results:[{status:'passed'}]}))}))}]});
+const splitBrowser=()=>({suites:['desktop','phone','tablet'].map(projectName=>({suites:[{specs:browser().suites[0].specs.map(spec=>({...spec,tests:spec.tests.filter(test=>test.projectName===projectName)}))}]}))});
 test('backend repair signoff requires every exact named test with real unambiguous passing XML',()=>{
  const valid=reports();assert.equal(verifyBackendEvidence(name=>valid[name]).length,3);
  for(const mutate of [v=>delete v[Object.keys(v)[0]],v=>v[Object.keys(v)[0]]=Buffer.from('<testsuite><system-out>all passed</system-out></testsuite>'),v=>v[Object.keys(v)[0]]=Buffer.from(v[Object.keys(v)[0]].toString().replace('/>','><skipped/></testcase>')),v=>v[Object.keys(v)[0]]=Buffer.from(v[Object.keys(v)[0]].toString().replace('</testsuite>',v[Object.keys(v)[0]].toString().match(/<testcase[^>]+\/>/)[0]+'</testsuite>'))]){
@@ -17,6 +18,20 @@ test('backend repair signoff requires every exact named test with real unambiguo
 test('browser repair signoff rejects missing journeys, widths, skips, failures and hidden retries',()=>{
  assert.equal(verifyBrowserEvidence(browser()).length,6);
  for(const mutate of [v=>v.suites[0].specs.pop(),v=>v.suites[0].specs[0].ok=false,v=>v.suites[0].specs[0].tests.pop(),v=>v.suites[0].specs[0].tests[0].projectName='unknown',v=>v.suites[0].specs[0].tests[0].results[0].status='skipped',v=>v.suites[0].specs[0].tests[0].results.push({status:'passed'})]){const value=browser();mutate(value);assert.throws(()=>verifyBrowserEvidence(value))}
+});
+test('browser repair signoff combines project entries only for the same original source journey',()=>{
+ assert.deepEqual(verifyBrowserEvidence(splitBrowser()),verifyBrowserEvidence(browser()));
+ for(const mutate of [
+  v=>v.suites.pop(),
+  v=>v.suites[1].suites[0].specs[0].file='another.spec.ts',
+  v=>v.suites[1].suites[0].specs[0].line++,
+  v=>v.suites[1].suites[0].specs[0].title+=' another journey',
+  v=>v.suites[1].suites[0].specs[0].tests[0].projectName='desktop',
+  v=>v.suites[1].suites[0].specs[0].ok=false,
+  v=>v.suites[1].suites[0].specs[0].tests[0].results[0].status='skipped',
+  v=>v.suites[1].suites[0].specs[0].tests[0].results.push({status:'passed'}),
+  v=>v.suites[1].suites[0].specs.push(structuredClone(v.suites[1].suites[0].specs[0])),
+ ]){const value=splitBrowser();mutate(value);assert.throws(()=>verifyBrowserEvidence(value))}
 });
 test('requirement observations retain owner review and launch gates, and reject ambiguous or missing artifacts',()=>{
  const register=JSON.parse(readFileSync('docs/v52/requirements.json','utf8'));

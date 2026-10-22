@@ -21,11 +21,13 @@ export function verifyBrowserEvidence(report){
  const verified=[];
  for(let number=1;number<=6;number++){
   const prefix='E2E-'+String(number).padStart(2,'0')+' ',matching=specs.filter(spec=>spec.title?.startsWith(prefix));
-  assert.equal(matching.length,1,'Missing/ambiguous original browser journey: '+prefix);
-  const spec=matching[0];assert.equal(spec.ok,true,'Browser journey failed: '+prefix);
-  assert.equal(spec.tests.length,3,'Each journey must execute at three viewport profiles.');
-  assert.deepEqual(new Set(spec.tests.map(test=>test.projectName)),new Set(['desktop','phone','tablet']));
-  for(const test of spec.tests){assert.equal(test.expectedStatus,'passed');assert.equal(test.status,'expected');assert.equal(test.results.length,1,'Require a clean result without hidden retries.');assert.equal(test.results[0].status,'passed','Skipped/failed browser case cannot close acceptance.')}
+  // Playwright can emit one spec per project instead of merging their tests.
+  // Only combine entries for the same source location and full journey title.
+  assert.equal(new Set(matching.map(spec=>JSON.stringify([spec.file,spec.line,spec.column,spec.title]))).size,1,'Missing/ambiguous original browser journey: '+prefix);
+  const spec=matching[0],tests=matching.flatMap(entry=>{assert.equal(entry.ok,true,'Browser journey failed: '+prefix);return entry.tests});
+  assert.equal(tests.length,3,'Each journey must execute at three viewport profiles.');
+  assert.deepEqual(new Set(tests.map(test=>test.projectName)),new Set(['desktop','phone','tablet']));
+  for(const test of tests){assert.equal(test.expectedStatus,'passed');assert.equal(test.status,'expected');assert.equal(test.results.length,1,'Require a clean result without hidden retries.');assert.equal(test.results[0].status,'passed','Skipped/failed browser case cannot close acceptance.')}
   verified.push({id:prefix.trim(),title:spec.title,profiles:['desktop','phone','tablet']});
  }
  return verified;
