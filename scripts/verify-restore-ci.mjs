@@ -15,6 +15,14 @@ const target='getlancer_restore_ci';
 assert.equal(query('postgres',`SELECT count(*) FROM pg_database WHERE datname='${target}'`),'0','Refuse to overwrite an existing restore target.');
 const countsSql="SELECT (SELECT count(*) FROM getlancer.users),(SELECT count(*) FROM getlancer.products),(SELECT count(*) FROM getlancer.product_media),(SELECT count(*) FROM getlancer.inquiries),(SELECT count(*) FROM getlancer.reviews),(SELECT count(*) FROM getlancer.moderation_actions),(SELECT count(*) FROM getlancer.delivery_engagements),(SELECT count(*) FROM getlancer.delivery_agreements),(SELECT count(*) FROM getlancer.delivery_milestones),(SELECT count(*) FROM getlancer.delivery_disputes),(SELECT count(*) FROM getlancer.payment_attempts),(SELECT count(*) FROM getlancer.payment_ledger),(SELECT count(*) FROM getlancer.source_templates),(SELECT count(*) FROM getlancer.source_versions),(SELECT count(*) FROM getlancer.template_purchases),(SELECT count(*) FROM getlancer.commerce_ledger),(SELECT count(*) FROM getlancer.commerce_audit),(SELECT count(*) FROM getlancer.maintenance_offers),(SELECT count(*) FROM getlancer.maintenance_subscriptions),(SELECT count(*) FROM getlancer.maintenance_periods),(SELECT count(*) FROM getlancer.maintenance_requests),(SELECT count(*) FROM getlancer.maintenance_provider_disputes),(SELECT count(*) FROM getlancer.maintenance_refunds),(SELECT count(*) FROM getlancer.maintenance_ledger),(SELECT count(*) FROM getlancer.maintenance_webhook_events),(SELECT count(*) FROM getlancer.maintenance_audit),(SELECT count(*) FROM getlancer.hosted_demos),(SELECT count(*) FROM getlancer.hosting_audit),(SELECT count(*) FROM getlancer.flyway_schema_history WHERE success)";
 const before=query('getLancer',countsSql);
+// Service smoke tests and each viewport create independent outcome records.
+// Preserve their actual counts rather than assuming a single fixture actor.
+const outcomes=[
+ {name:'completed inquiries',sql:"SELECT count(*) FROM getlancer.inquiries WHERE current_status='COMPLETED' AND email_confirmed_at IS NOT NULL"},
+ {name:'published anonymous reviews',sql:"SELECT count(*) FROM getlancer.reviews WHERE moderation_status='PUBLISHED' AND visibility='ANONYMOUS'"},
+ {name:'suspended products',sql:"SELECT count(*) FROM getlancer.products WHERE approval_status='SUSPENDED'"},
+].map(outcome=>({...outcome,count:query('getLancer',outcome.sql)}));
+for(const outcome of outcomes)assert.match(outcome.count,/^[1-9][0-9]*$/,'Require source '+outcome.name+' before recovery.');
 const archive=command(['pg_dump','-U','postgres','-d','getLancer','--schema=getlancer','--format=custom','--no-owner','--no-acl']);
 assert.ok(archive.length>1000);
 const directory=mkdtempSync(join(tmpdir(),'getlancer-restore-')),key=randomBytes(32),nonce=randomBytes(12);
@@ -32,9 +40,7 @@ try{
  command(['pg_restore','-U','postgres','-d',target,'--no-owner','--no-acl','--exit-on-error'],restoredArchive);
  assert.equal(query(target,countsSql),before);
  assert.equal(query(target,"SELECT count(*) FROM getlancer.user_roles WHERE role='ADMIN'"),'1');
- assert.equal(query(target,"SELECT count(*) FROM getlancer.inquiries WHERE current_status='COMPLETED' AND email_confirmed_at IS NOT NULL"),'1');
- assert.equal(query(target,"SELECT count(*) FROM getlancer.reviews WHERE moderation_status='PUBLISHED' AND visibility='ANONYMOUS'"),'1');
- assert.equal(query(target,"SELECT count(*) FROM getlancer.products WHERE approval_status='SUSPENDED'"),'1');
+ for(const outcome of outcomes)assert.equal(query(target,outcome.sql),outcome.count,'Restored '+outcome.name+' must match the source database.');
  assert.equal(query(target,"SELECT count(*) FROM getlancer.maintenance_periods WHERE provider_invoice_id='inv_ci_fixture123' AND refunded_minor=0 AND transfer_state='CONFIRMED'"),'1');
  assert.equal(query(target,"SELECT count(*) FROM getlancer.maintenance_requests r JOIN getlancer.maintenance_periods p ON p.id=r.period_id WHERE p.provider_invoice_id='inv_ci_fixture123' AND r.status='CANCELLED'"),'1');
  assert.equal(query(target,"SELECT count(*) FROM getlancer.maintenance_ledger WHERE entry_key='ci-retained-capture'"),'1');
