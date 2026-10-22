@@ -54,7 +54,9 @@ test('combined component metadata filters retain their URL state through pages, 
  await expect(page.getByLabel('Component language',{exact:true})).toHaveValue('JavaScript');await expect(page.getByLabel('Component framework',{exact:true})).toHaveValue('VANILLA');await expect(page.getByLabel('Component licence',{exact:true})).toHaveValue('MIT');
  await page.getByLabel('Execution mode',{exact:true}).selectOption('Source only');await page.getByRole('button',{name:'Search',exact:true}).click();
  await expect(page.getByRole('heading',{name:'No components found.',exact:true})).toBeVisible();await expect(page.getByLabel('Execution mode',{exact:true})).toHaveValue('Source only');await reflow(page);
- await page.getByRole('link',{name:'Reset',exact:true}).click();await expect(page.locator('.kit-grid>.kit-card')).toHaveCount(12);
+ const resetDocument=page.waitForRequest(request=>request.isNavigationRequest()&&request.resourceType()==='document'&&new URL(request.url()).pathname==='/components');
+ await Promise.all([resetDocument,page.getByRole('link',{name:'Reset',exact:true}).click()]);
+ await expect(page).toHaveURL(/\/components$/);await expect(page.locator('.kit-grid>.kit-card')).toHaveCount(12);
  for(const label of labels)await expect(page.getByLabel(label,{exact:true})).toHaveValue('');
 });
 

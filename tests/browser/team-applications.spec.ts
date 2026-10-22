@@ -1,8 +1,8 @@
 import {test,expect} from '@playwright/test';
-import {buildSync} from 'esbuild';
+import {build} from 'esbuild';
 
 type HarnessWindow=Window&{requests:string[];failNextLookup:boolean};
-function fixture(){return buildSync({stdin:{contents:`
+async function fixture(){return (await build({stdin:{contents:`
  import {useState} from 'react';import {createRoot} from 'react-dom/client';
  import TeamPublic from './app/components/team-public';import {createTeamDemo} from './lib/team-demo';
  window.requests=[];window.failNextLookup=false;
@@ -11,10 +11,16 @@ function fixture(){return buildSync({stdin:{contents:`
  const request=async(path,init)=>{window.requests.push(path);if(path.includes('roleIds=')&&window.failNextLookup){window.failNextLookup=false;throw new Error('Application lookup unavailable. Retry.')}return demo.request(path,init)};
  function Harness(){const [version,setVersion]=useState(0);return <><button onClick={()=>{demo.setActor('member');setVersion(n=>n+1)}}>Use member account</button><TeamPublic key={version} embedded id="team-studio" request={request}/></>}
  (async()=>{const roles=[];for(let n=0;n<53;n++)roles.push(await send(base+'/roles',{title:'Application role '+n,description:'Build accessible software with our team.',skills:'Java',contractType:'PERMANENT',compensationBand:'5k'}));demo.setActor('applicant');for(const role of roles.reverse())await send(base+'/roles/'+role.id+'/applications',{message:'I build accessible products.'});createRoot(document.getElementById('root')).render(<Harness/>);})();
- `,loader:'tsx',resolveDir:process.cwd()},bundle:true,write:false,platform:'browser',format:'iife',jsx:'automatic',loader:{'.css':'empty'},define:{'process.env.NODE_ENV':'"test"'}}).outputFiles[0].text;}
+ `,loader:'tsx',resolveDir:process.cwd()},bundle:true,write:false,platform:'browser',format:'iife',jsx:'automatic',loader:{'.css':'empty'},define:{'process.env.NODE_ENV':'"test"'},
+ plugins:[{name:'team-public-harness',setup(builder){
+  builder.onResolve({filter:/^next\/link$/},()=>({path:'next-link',namespace:'harness'}));
+  builder.onLoad({filter:/.*/,namespace:'harness'},()=>({contents:`export default function Link({children,...props}){return <a {...props}>{children}</a>}`,loader:'jsx',resolveDir:process.cwd()}));
+ }}],
+ })).outputFiles[0].text;}
 
 test('public profiles preserve old application status across role pages and retry failed lookups',async({page})=>{
- await page.setContent('<div id="root"></div>');await page.addScriptTag({content:fixture()});
+ const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+ await page.setContent('<div id="root"></div>');await page.addScriptTag({content:await fixture()});
  const role=(name:string)=>page.locator('.team-role-card').filter({has:page.getByRole('heading',{name,exact:true})});
  const oldest=role('Application role 52');
  await expect(oldest.getByRole('status')).toHaveText('Application submitted. Check your workspace for updates.');
@@ -37,4 +43,5 @@ test('public profiles preserve old application status across role pages and retr
  await page.getByRole('button',{name:'Use member account',exact:true}).click();
  await expect(role('Application role 52').getByText('You are already a team member.',{exact:true})).toBeVisible();
  await expect(page.getByText('Apply for this role',{exact:true})).toHaveCount(0);
+ expect(errors).toEqual([]);
 });
