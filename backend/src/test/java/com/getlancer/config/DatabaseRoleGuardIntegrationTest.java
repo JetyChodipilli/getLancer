@@ -223,16 +223,23 @@ class DatabaseRoleGuardIntegrationTest {
     migration.update("INSERT INTO lab_manifests(id,payload_text,payload_sha256,signature) VALUES(?,'{}',?,'fixture')",id,"a".repeat(64));
     TransactionTemplate transactions = new TransactionTemplate(new DataSourceTransactionManager(runtime.getDataSource()));
     transactions.executeWithoutResult(tx -> assertEquals(1,runtime.queryForList("SELECT id FROM lab_manifests WHERE id=? FOR SHARE",id).size()));
-    assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("INSERT INTO lab_manifests(id,payload_text,payload_sha256,signature) VALUES(?,'{}',?,'fixture')",id+"-forbidden","a".repeat(64)));
+    assertEquals(1,runtime.update("INSERT INTO lab_manifests(id,payload_text,payload_sha256,signature,execution_approved) VALUES(?,'{}',?,'fixture',false)",id+"-source","a".repeat(64)));
+    assertEquals(1,runtime.update("UPDATE lab_manifests SET revoked_at=coalesce(revoked_at,now()) WHERE id=?",id));
+    assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE lab_manifests SET revoked_at=NULL WHERE id=?",id));
+    for(String column:List.of("payload_text","execution_approved")) assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE lab_manifests SET "+column+"="+column+" WHERE id=?",id));
     assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE lab_manifests SET id=id WHERE id=?",id));
     assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("DELETE FROM lab_manifests WHERE id=?",id));
     for(String table:List.of("lab_events","lab_operator_audit")) {
       assertEquals(Boolean.FALSE,runtime.queryForObject("SELECT has_any_column_privilege(current_user,?,'UPDATE') OR has_table_privilege(current_user,?,'DELETE')",Boolean.class,SCHEMA+"."+table,SCHEMA+"."+table));
     }
     try {
-      adminSql("GRANT INSERT ON "+SCHEMA+".lab_manifests TO getlancer_runtime");
+      adminSql("GRANT UPDATE(payload_text) ON "+SCHEMA+".lab_manifests TO getlancer_runtime");
       assertRejected(runtime,"manifest_certification_permissions");
     } finally { provision("10_permissions.sql"); }
+    for(String forbidden:List.of("REVOKE INSERT ON ","GRANT DELETE ON ")) {
+      try {adminSql(forbidden+SCHEMA+".lab_manifests "+(forbidden.startsWith("REVOKE")?"FROM":"TO")+" getlancer_runtime");assertRejected(runtime,"manifest_certification_permissions");}
+      finally {provision("10_permissions.sql");}
+    }
     for(String directRole:List.of("anon","authenticated")) {
       try(Connection connection=DriverManager.getConnection(url,admin,adminPassword);Statement statement=connection.createStatement()) {
         statement.execute("SET ROLE "+directRole);

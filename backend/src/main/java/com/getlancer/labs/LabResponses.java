@@ -7,14 +7,23 @@ import java.util.UUID;
 public final class LabResponses {
   private LabResponses() {}
   public record Manifest(String id,String title,String summary,String language,String framework,String sourceUrl,String setup,
-      String executionMode,List<LabManifest.Scenario> scenarios,LabManifest.Adapter adapter,LabConfiguration.Runtime availability) {}
+      String executionMode,List<LabManifest.Scenario> scenarios,LabManifest.Adapter adapter,LabConfiguration.Runtime availability,String sourceSha256) {}
   public record Catalogue(List<Manifest> items,LabConfiguration.Runtime runtime) {}
   public record Quota(int dailyLimit,int remaining,Instant resetAt,UUID activeRunId,LabConfiguration.Runtime runtime) {}
   public record Run(UUID id,String manifestId,String scenarioId,String status,String executionMode,boolean verified,
       Instant requestedAt,Instant expiresAt,String reason,String eventsUrl) {}
-  public record RequestResult(UUID runId,UUID commandId,String output,String summary) {}
-  public record EventData(String status,String reason) {}
+  public record RequestResult(UUID runId,UUID commandId,String output,String summary,LabObservations.Observation observation) {
+    public RequestResult(UUID runId,UUID commandId,String output,String summary){this(runId,commandId,output,summary,null);}
+  }
+  @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+  public record EventData(String status,String reason,LabObservations.Observation observation) {
+    public EventData(String status,String reason){this(status,reason,null);}
+  }
   public record Event(UUID runId,long sequence,String type,Instant recordedAt,EventData data) {}
   public record Admin(LabConfiguration.Runtime runtime,boolean paused,String pauseReason,long queued,long starting,long running,
-      long cancelling,long attention,long activeReservations,long memoryReservedMiB,long dailyReservedMicros,long monthlyReservedMicros) {}
+      long cancelling,long attention,long activeReservations,long memoryReservedMiB,long dailyReservedMicros,long monthlyReservedMicros,
+      Limits limits,List<Certificate> certifications,List<Alert> alerts) {}
+  public record Limits(int dailyRunLimit,int maxActiveRuns,int maxMemoryMiB,long dailyBudgetMicros,long monthlyBudgetMicros) {}
+  public record Certificate(String id,String title,String language,String framework,LabManifest.Adapter adapter,Instant approvedUntil,String manifestSha256,String status,String reason) {}
+  public record Alert(String code,long count,String message) {}
 }

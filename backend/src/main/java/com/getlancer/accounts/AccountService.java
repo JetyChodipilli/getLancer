@@ -170,6 +170,7 @@ public class AccountService {
     result.put("hostedDemos", hosting.export(id));
     result.put("labRuns", db.queryForList("SELECT id,manifest_id,scenario_id,status,inputs,requested_at,expires_at,healthy_at,cleanup_confirmed_at FROM lab_runs WHERE owner_id=? ORDER BY requested_at,id", id));
     result.put("labRequests", db.queryForList("SELECT q.command_id,q.run_id,q.operation_id,q.inputs,q.response,q.created_at FROM lab_requests q JOIN lab_runs r ON r.id=q.run_id WHERE r.owner_id=? ORDER BY q.created_at,q.command_id", id));
+    result.put("reports",db.queryForList("SELECT id,target_type,target_id,reason,detail,status,resolution,created_at,updated_at,education_release_id,source_hash,component_revision,component_version,component_source_hash FROM reports WHERE reporter_id=? ORDER BY created_at,id",id));
     return AccountExportResponse.from(result, json);
   }
 

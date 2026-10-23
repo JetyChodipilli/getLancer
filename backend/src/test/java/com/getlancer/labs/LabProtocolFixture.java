@@ -20,8 +20,8 @@ public final class LabProtocolFixture implements AutoCloseable {
   public static final String SECRET="fixture-secret-never-production-0123456789";
   public final ObjectMapper json=new ObjectMapper().findAndRegisterModules();public final KeyPair key;public final UUID epoch=UUID.randomUUID();public final String evidenceHash="e".repeat(64);
   public final Path evidence;private final HttpServer server;public final Map<UUID,LabProviderClient.Command> commands=new ConcurrentHashMap<>();
-  private final Map<UUID,Long> leases=new ConcurrentHashMap<>();private final java.util.Set<UUID> healthyRuns=ConcurrentHashMap.newKeySet();
-  public volatile boolean failStart,failStop,failRequest,wrongBinding,redirect,oversized,notIsolated,slowBody,confirmedRequestFailure;
+  private final Map<UUID,Integer> observationCursors=new ConcurrentHashMap<>();private final Map<UUID,Long> leases=new ConcurrentHashMap<>();private final java.util.Set<UUID> healthyRuns=ConcurrentHashMap.newKeySet();
+  public volatile boolean failStart,failStop,failRequest,wrongBinding,redirect,oversized,notIsolated,slowBody,confirmedRequestFailure,nativeObservations,foreignObservation,replayedObservation;
   public LabProtocolFixture(){try{
     key=KeyPairGenerator.getInstance("Ed25519").generateKeyPair();evidence=Files.createTempFile("lab-protocol-evidence-",".json");
     writeEvidence(new LabConfiguration.Evidence("Controlled HTTP protocol fixture; not deployment evidence","KVM",true,true,true,true,true,Instant.now().plusSeconds(3600),evidenceHash,epoch));
@@ -34,11 +34,19 @@ public final class LabProtocolFixture implements AutoCloseable {
         if(redirect){exchange.getResponseHeaders().set("Location","http://127.0.0.1:1/secret");exchange.sendResponseHeaders(302,-1);return;}
         if(command.action().equals("START")&&failStart||command.action().equals("STOP")&&failStop||command.action().equals("REQUEST")&&failRequest){exchange.sendResponseHeaders(503,-1);return;}
         if(command.action().equals("START"))healthyRuns.add(command.runId());String state=command.action().equals("STOP")?"CLEANED":command.action().equals("REQUEST")?(confirmedRequestFailure?"FAILED":"RESULT"):"RUNNING";
-        var result=new LabProviderClient.Result(wrongBinding?UUID.randomUUID():command.runId(),command.leaseGeneration(),command.operatorEpoch(),command.commandId(),command.manifestSha256(),command.imageDigest(),command.expiresAt(),state,state.equals("RUNNING")||state.equals("RESULT"),!notIsolated,healthyRuns.contains(command.runId()),command.action().equals("REQUEST")?"Fixture operation completed":"","Controlled protocol fixture");
+        var result=new LabProviderClient.Result(wrongBinding?UUID.randomUUID():command.runId(),command.leaseGeneration(),command.operatorEpoch(),command.commandId(),command.manifestSha256(),command.imageDigest(),command.expiresAt(),state,state.equals("RUNNING")||state.equals("RESULT"),!notIsolated,healthyRuns.contains(command.runId()),command.action().equals("REQUEST")?(nativeObservations?observation(command):"Fixture operation completed"):"","Controlled protocol fixture");
         byte[] output=oversized?"x".repeat(20000).getBytes(java.nio.charset.StandardCharsets.UTF_8):json.writeValueAsBytes(result);exchange.getResponseHeaders().set("Content-Type","application/json");exchange.sendResponseHeaders(200,output.length);if(slowBody)try{Thread.sleep(3000);}catch(InterruptedException interrupted){Thread.currentThread().interrupt();}exchange.getResponseBody().write(output);
       }catch(Exception error){exchange.sendResponseHeaders(500,-1);}finally{exchange.close();}
     });server.start();
   }catch(Exception failure){throw new IllegalStateException(failure);}}
+  private String observation(LabProviderClient.Command command)throws Exception{
+    int last=observationCursors.merge(command.runId(),2,Integer::sum),first=replayedObservation?1:last-1;String source=foreignObservation?"b".repeat(64):"a".repeat(64);String at=Instant.now().toString();
+    return json.writeValueAsString(Map.of("runId",command.runId(),"sourceHash",source,"requestId",command.commandId(),"pattern","cache","status",200,"durationMs",3,
+      "state",Map.of("cache","MISS","storeReads",1,"ttlMs",2000),"events",List.of(
+      Map.of("runId",command.runId(),"sourceHash",source,"requestId",command.commandId(),"sequence",first,"type","CACHE_MISS","edge","service-redis","recordedAt",at,"summary","Controlled cache miss."),
+      Map.of("runId",command.runId(),"sourceHash",source,"requestId",command.commandId(),"sequence",first+1,"type","STORE_READ","edge","service-store","recordedAt",at,"summary","Controlled store read."))));
+  }
+  public LabManifest.Certification certification(String version){return new LabManifest.Certification(version,"controlled-fixture-maintainer",Instant.now().minusSeconds(1),true,true,true,true,"f".repeat(64));}
   public String origin(){return "http://127.0.0.1:"+server.getAddress().getPort();}
   public String publicKey(){return Base64.getEncoder().encodeToString(key.getPublic().getEncoded());}
   public String sign(String payload){try{var signer=Signature.getInstance("Ed25519");signer.initSign(key.getPrivate());signer.update(payload.getBytes(java.nio.charset.StandardCharsets.UTF_8));return Base64.getEncoder().encodeToString(signer.sign());}catch(Exception failure){throw new IllegalStateException(failure);}}
@@ -49,7 +57,7 @@ public final class LabProtocolFixture implements AutoCloseable {
       "Greenhouse protocol fixture","Controlled HTTP admission fixture; no broker, native runtime or physical proof is supplied.","JavaScript","Node MQTT protocol",base.setup(),128,base.maxCostMicros(),base.approvedUntil(),base.evidenceSha256(),
       List.of(new LabManifest.Scenario("greenhouse-monitor","Greenhouse telemetry","Bounded synthetic protocol simulation; no physical device control.",
       List.of(new LabManifest.Input("temperatureC","Temperature C","INTEGER",true,4,-20,80,List.of()),new LabManifest.Input("humidityPercent","Humidity percent","INTEGER",true,3,0,100,List.of()),new LabManifest.Input("thresholdC","Threshold C","INTEGER",true,2,0,60,List.of()),new LabManifest.Input("topic","Run topic","TEXT",false,80,0,0,List.of())),
-      List.of(new LabManifest.Operation("publish","Publish telemetry"),new LabManifest.Operation("connect","Connect"),new LabManifest.Operation("disconnect","Disconnect"),new LabManifest.Operation("reset","Reset")))),"IOT_SIMULATION",new LabManifest.Adapter("node","22.18.0","ACTIVE"));}
-  public void reset(){failStart=failStop=failRequest=wrongBinding=redirect=oversized=notIsolated=slowBody=confirmedRequestFailure=false;commands.clear();leases.clear();healthyRuns.clear();}
+      List.of(new LabManifest.Operation("publish","Publish telemetry"),new LabManifest.Operation("connect","Connect"),new LabManifest.Operation("disconnect","Disconnect"),new LabManifest.Operation("reset","Reset")))),"IOT_SIMULATION",new LabManifest.Adapter("node","22.18.0","ACTIVE"),certification("22.18.0"));}
+  public void reset(){failStart=failStop=failRequest=wrongBinding=redirect=oversized=notIsolated=slowBody=confirmedRequestFailure=nativeObservations=foreignObservation=replayedObservation=false;commands.clear();leases.clear();healthyRuns.clear();observationCursors.clear();}
   @Override public void close(){server.stop(0);try{Files.deleteIfExists(evidence);}catch(Exception ignored){}}
 }

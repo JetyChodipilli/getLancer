@@ -66,6 +66,8 @@ public class ModerationService {
                   target,
                   user)
               > 0;
+      case "COMPONENT" ->
+          db.queryForObject("SELECT count(*) FROM component_entries WHERE id=? AND owner_id=?",Integer.class,target,user)>0;
       case "REVIEW" ->
           db.queryForObject(
                   "SELECT count(*) FROM reviews r JOIN inquiries i ON i.id=r.inquiry_id LEFT JOIN"
@@ -97,6 +99,7 @@ public class ModerationService {
         r,
         "SELECT m.id,m.target_type,m.target_id,m.action,m.reason,m.created_at FROM"
             + " moderation_actions m WHERE (m.target_type IN ('USER','ACCOUNT') AND m.target_id=?)"
+            + " OR (m.target_type='COMPONENT' AND m.target_id IN (SELECT id FROM component_entries WHERE owner_id=?))"
             + " OR (m.target_type='PRODUCT' AND m.target_id IN (SELECT id FROM products WHERE"
             + " owner_user_id=?)) OR (m.target_type='INQUIRY' AND m.target_id IN (SELECT i.id FROM"
             + " inquiries i WHERE i.developer_user_id=? OR i.client_email=(SELECT email FROM users"
@@ -104,6 +107,7 @@ public class ModerationService {
             + " m.target_id IN (SELECT v.id FROM reviews v JOIN inquiries i ON i.id=v.inquiry_id"
             + " WHERE v.developer_user_id=? OR i.client_email=(SELECT email FROM users WHERE id=?"
             + " AND email_verified_at IS NOT NULL))) ORDER BY m.created_at DESC,m.id",
+        user,
         user,
         user,
         user,

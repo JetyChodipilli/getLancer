@@ -60,7 +60,8 @@ public record AccountExportResponse(Account account,
     List<ComponentSlotLedger> componentSlotLedger,
     HostedDemos hostedDemos,
     List<LabRun> labRuns,
-    List<LabRequest> labRequests) {
+    List<LabRequest> labRequests,
+    List<Report> reports) {
   public static AccountExportResponse from(Map<String, Object> source, ObjectMapper mapper) {
     return new AccountExportResponse(Account.from(ResponseRows.row(source, "account"), mapper),
         Profile.from(ResponseRows.row(source, "profile"), mapper),
@@ -106,7 +107,8 @@ public record AccountExportResponse(Account account,
         ResponseRows.rows(source, "componentSlotLedger", row -> ComponentSlotLedger.from(row, mapper)),
         HostedDemos.from(ResponseRows.row(source, "hostedDemos"), mapper),
         ResponseRows.rows(source, "labRuns", row -> LabRun.from(row, mapper)),
-        ResponseRows.rows(source, "labRequests", row -> LabRequest.from(row, mapper)));
+        ResponseRows.rows(source, "labRequests", row -> LabRequest.from(row, mapper)),
+        ResponseRows.rows(source,"reports", Report::from));
   }
 
   public record LabRun(UUID id, String manifest_id, String scenario_id, String status,
@@ -201,6 +203,10 @@ public record AccountExportResponse(Account account,
           ResponseRows.string(row,"review_reason"),ResponseRows.timestamp(row,"submitted_at"),ResponseRows.timestamp(row,"reviewed_at"),ResponseRows.timestamp(row,"created_at"),ResponseRows.timestamp(row,"updated_at"),
           ResponseRows.string(row,"institution"),ResponseRows.string(row,"academic_year"),ResponseRows.string(row,"branch"),ResponseRows.bool(row,"share_academic_details"),ResponseRows.integer64(row,"academic_revision"));
     }
+  }
+
+  public record Report(UUID id,String target_type,UUID target_id,String reason,String detail,String status,String resolution,Timestamp created_at,Timestamp updated_at,UUID education_release_id,String source_hash,Long component_revision,String component_version,String component_source_hash) {
+    public static Report from(Map<String,Object> row) {return new Report(ResponseRows.uuid(row,"id"),ResponseRows.string(row,"target_type"),ResponseRows.uuid(row,"target_id"),ResponseRows.string(row,"reason"),ResponseRows.string(row,"detail"),ResponseRows.string(row,"status"),ResponseRows.string(row,"resolution"),ResponseRows.timestamp(row,"created_at"),ResponseRows.timestamp(row,"updated_at"),ResponseRows.uuid(row,"education_release_id"),ResponseRows.string(row,"source_hash"),row.get("component_revision")==null?null:((Number)row.get("component_revision")).longValue(),ResponseRows.string(row,"component_version"),ResponseRows.string(row,"component_source_hash"));}
   }
 
   public record Account(UUID id,

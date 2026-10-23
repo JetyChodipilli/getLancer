@@ -4,6 +4,7 @@ import static com.getlancer.shared.Support.id;
 import static com.getlancer.shared.Support.text;
 
 import com.getlancer.notifications.Mail;
+import com.getlancer.components.ComponentService;
 import com.getlancer.products.ProductRepository;
 import com.getlancer.products.ProductService;
 import com.getlancer.responses.AdminResponses;
@@ -34,6 +35,7 @@ public class AdminService {
   final Mail mail;
   final MarketplaceMetrics marketplaceMetrics;
   final OperationsMetrics operationsMetrics;
+  final ComponentService components;
 
   public AdminService(
       JdbcTemplate db,
@@ -41,13 +43,14 @@ public class AdminService {
       ProductService products,
       Mail mail,
       MarketplaceMetrics marketplaceMetrics,
-      OperationsMetrics operationsMetrics) {
+      OperationsMetrics operationsMetrics, ComponentService components) {
     this.db = db;
     this.security = security;
     this.products = products;
     this.mail = mail;
     this.marketplaceMetrics = marketplaceMetrics;
     this.operationsMetrics = operationsMetrics;
+    this.components = components;
   }
 
   public OperationsResponse operations(HttpServletRequest request) {
@@ -80,7 +83,7 @@ public class AdminService {
 
   public PageResponse<AdminResponses.Report> reports(HttpServletRequest r) {
     security.admin(r);
-    String sql = "SELECT id,reporter_id,target_type,target_id,reason,detail,status,resolution,created_at,severity,triage_note,updated_at,enforcement_action,education_release_id,source_hash,education_snapshot FROM reports WHERE 1=1";
+    String sql = "SELECT id,reporter_id,target_type,target_id,reason,detail,status,resolution,created_at,severity,triage_note,updated_at,enforcement_action,education_release_id,source_hash,education_snapshot,component_revision,component_version,component_source_hash,component_snapshot FROM reports WHERE 1=1";
     List<Object> values = new ArrayList<>();
     for (String key : List.of("status", "reason", "severity")) {
       String value = r.getParameter(key);
@@ -181,7 +184,7 @@ public class AdminService {
 
   public Map<String, Object> reportDetail(UUID id, HttpServletRequest request) {
     UUID actor = security.admin(request);
-    var rows = db.queryForList("SELECT id,reporter_id,target_type,target_id,reason,detail,status,resolution,created_at,severity,triage_note,updated_at,enforcement_action,education_release_id,source_hash,education_snapshot FROM reports WHERE id=?", id);
+    var rows = db.queryForList("SELECT id,reporter_id,target_type,target_id,reason,detail,status,resolution,created_at,severity,triage_note,updated_at,enforcement_action,education_release_id,source_hash,education_snapshot,component_revision,component_version,component_source_hash,component_snapshot FROM reports WHERE id=?", id);
     if (rows.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Report not found.");
     var report = rows.get(0);
     if (report.get("target_type").equals("INQUIRY"))
@@ -214,6 +217,7 @@ public class AdminService {
               db.queryForList(
                   "SELECT description,current_status FROM inquiries WHERE id=?",
                   report.get("target_id"));
+      case "COMPONENT" -> targets = db.queryForList("SELECT id,slug,status,revision,review_reason FROM component_entries WHERE id=?",report.get("target_id"));
       default -> targets = List.of();
     }
     return Map.of("report", AdminResponses.Report.from(report), "target", targets.isEmpty() ? Map.of() : targets.get(0));
@@ -224,7 +228,7 @@ public class AdminService {
       UUID id, Map<String, Object> body, HttpServletRequest request) {
     UUID admin = security.admin(request);
     String reason = text(body, "reason", 3, 2000), action = text(body, "targetAction", 0, 20);
-    var reports = db.queryForList("SELECT id,reporter_id,target_type,target_id,reason,detail,status,resolution,created_at,severity,triage_note,updated_at,enforcement_action,education_release_id,source_hash,education_snapshot FROM reports WHERE id=? FOR UPDATE", id);
+    var reports = db.queryForList("SELECT id,reporter_id,target_type,target_id,reason,detail,status,resolution,created_at,severity,triage_note,updated_at,enforcement_action,education_release_id,source_hash,education_snapshot,component_revision,component_version,component_source_hash,component_snapshot FROM reports WHERE id=? FOR UPDATE", id);
     if (reports.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Report not found.");
     var report = reports.get(0);
     if (report.get("status").equals("RESOLVED")) return Map.of("ok", true);
@@ -232,6 +236,8 @@ public class AdminService {
     String type = (String) report.get("target_type");
     if (action.equals("SUSPEND") && type.equals("PRODUCT"))
       productAction(target, "suspend", Map.of("reason", reason), request);
+    else if (action.equals("SUSPEND") && type.equals("COMPONENT"))
+      components.suspendReported(target, ((Number)report.get("component_revision")).longValue(), (String)report.get("component_source_hash"), (String)report.get("component_version"), reason, request);
     else if (action.equals("SUSPEND") && type.equals("USER"))
       accountAction(target, "suspend", Map.of("reason", reason), request);
     else if (action.equals("HIDE") && type.equals("REVIEW"))

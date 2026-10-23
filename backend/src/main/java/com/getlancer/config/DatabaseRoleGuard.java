@@ -68,7 +68,7 @@ public class DatabaseRoleGuard implements ApplicationRunner {
         """, Integer.class, schema);
     Integer unsafeLocks = db.queryForObject("""
         SELECT count(*) FROM (VALUES ('user_roles','user_id'),('sessions','token_hash'),
-          ('business_members','business_id'),('lab_manifests','id')) AS lock_requirement(table_name,column_name)
+          ('business_members','business_id')) AS lock_requirement(table_name,column_name)
         LEFT JOIN pg_namespace n ON n.nspname=?
         LEFT JOIN pg_class c ON c.relnamespace=n.oid AND c.relname=lock_requirement.table_name AND c.relkind='r'
         WHERE c.oid IS NULL OR has_table_privilege(current_user,c.oid,'UPDATE')
@@ -138,9 +138,24 @@ public class DatabaseRoleGuard implements ApplicationRunner {
             AND a.attname<>'expires_at' AND has_column_privilege(current_user,c.oid,a.attnum,'UPDATE'))
         """, Integer.class, schema);
     if (unsafeMediaWrites == null || unsafeMediaWrites != 0) reject("media_write_intent_permissions");
-    Boolean unsafeManifests = db.queryForObject("SELECT has_table_privilege(current_user,?,'INSERT') OR has_table_privilege(current_user,?,'DELETE')", Boolean.class,
-        schema+".lab_manifests", schema+".lab_manifests");
-    if (!Boolean.FALSE.equals(unsafeManifests)) reject("manifest_certification_permissions");
+    Integer unsafeManifests = db.queryForObject("""
+        SELECT count(*) FROM (VALUES ('lab_manifests')) required(name)
+        LEFT JOIN pg_namespace n ON n.nspname=?
+        LEFT JOIN pg_class c ON c.relnamespace=n.oid AND c.relname=required.name
+        WHERE c.oid IS NULL OR NOT has_table_privilege(current_user,c.oid,'INSERT')
+          OR has_table_privilege(current_user,c.oid,'DELETE') OR has_table_privilege(current_user,c.oid,'UPDATE')
+          OR NOT has_column_privilege(current_user,c.oid,'revoked_at','UPDATE')
+          OR EXISTS(SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+            AND a.attname<>'revoked_at' AND has_column_privilege(current_user,c.oid,a.attnum,'UPDATE'))
+          OR NOT EXISTS(SELECT 1 FROM pg_policy p WHERE p.polrelid=c.oid
+            AND p.polname='getlancer_service_update' AND p.polcmd='w' AND p.polpermissive
+            AND p.polroles=ARRAY[(SELECT oid FROM pg_roles WHERE rolname=current_user)]
+            AND pg_get_expr(p.polqual,p.polrelid)='true' AND pg_get_expr(p.polwithcheck,p.polrelid)='true')
+          OR EXISTS(SELECT 1 FROM pg_policy p WHERE p.polrelid=c.oid AND p.polpermissive
+            AND p.polcmd IN ('*','w') AND p.polname<>'getlancer_service_update'
+            AND (0::oid=ANY(p.polroles) OR (SELECT oid FROM pg_roles WHERE rolname=current_user)=ANY(p.polroles)))
+        """,Integer.class,schema);
+    if (unsafeManifests == null || unsafeManifests != 0) reject("manifest_certification_permissions");
   }
 
   private static void reject(String check) {

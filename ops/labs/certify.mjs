@@ -76,11 +76,12 @@ function evidencePath(root, name) {
   return resolve(root, name);
 }
 
-export function verifyBundle({admissionPath, inventoryPath, publicKeyPath, publicKeyBytes, operatorEpoch, now = Date.now()}) {
+export function verifyBundle({admissionPath, inventoryPath, publicKeyPath, publicKeyBytes, operatorEpoch, expectedAdmissionSha256, expectedInventorySha256, now = Date.now()}) {
   if (!UUID.test(operatorEpoch || '')) fail('Supply the external restore epoch.');
-  const inventoryBytes = bounded(inventoryPath), key = publicKeyBytes ?? bounded(publicKeyPath);
+  const inventoryBytes = bounded(inventoryPath), admissionBytes = bounded(admissionPath), key = publicKeyBytes ?? bounded(publicKeyPath);
+  pinned(inventoryBytes,expectedInventorySha256); pinned(admissionBytes,expectedAdmissionSha256);
   if (!Buffer.isBuffer(key) || key.length === 0 || key.length > 16384) fail('Use bounded operator public-key bytes.');
-  const admission = verifiedPayload(bounded(admissionPath), key);
+  const admission = verifiedPayload(admissionBytes, key);
   if (admission.operatorEpoch !== operatorEpoch || !UUID.test(admission.operatorEpoch)) fail('Admission belongs to another restore epoch.');
   if (typeof admission.provider !== 'string' || admission.provider.length < 2 || admission.provider.length > 100 || admission.isolation !== 'KVM') fail('A named independently verified KVM provider is required.');
   currentApproval(admission.approvedUntil, now);
@@ -100,11 +101,48 @@ export function verifyBundle({admissionPath, inventoryPath, publicKeyPath, publi
   return {provider:admission.provider, operatorEpoch, approvedUntil:admission.approvedUntil, evidenceSha256:admission.evidenceSha256, controls:CONTROLS};
 }
 
+function pinned(bytes,expected) {
+  if(expected!==undefined&&(!HASH.test(expected)||sha256(bytes)!==expected))fail('Captured evidence does not match its expected digest.');
+}
+
+/** Bind exact native review facts to the same trusted host inventory and reproduction artifact. */
+export function verifyManifestBundle({manifestPath,expectedManifestSha256,...options}) {
+  const key=options.publicKeyBytes??bounded(options.publicKeyPath);
+  const host=verifyBundle({...options,publicKeyBytes:key});
+  const bytes=bounded(manifestPath); pinned(bytes,expectedManifestSha256);
+  const manifest=verifiedPayload(bytes,key), now=options.now??Date.now();
+  if(manifest.evidenceSha256!==host.evidenceSha256)fail('Manifest host inventory changed.');
+  currentApproval(manifest.approvedUntil,now);
+  if(Date.parse(manifest.approvedUntil)>Date.parse(host.approvedUntil))fail('Manifest approval exceeds host approval.');
+  if(!UUID.test(manifest.componentId||'')||!Number.isSafeInteger(manifest.revision)||manifest.revision<1)fail('Manifest component revision is invalid.');
+  for(const field of ['sourceSha256','archiveSha256','manifestSha256','buildSourceSha256'])if(!HASH.test(manifest[field]||''))fail('Manifest source digest is invalid.');
+  if(manifest.archiveSha256!==manifest.buildSourceSha256||!/^sha256:[a-f0-9]{64}$/.test(manifest.imageDigest||'')||manifest.protocolVersion!=='getlancer-lab-v1')fail('Manifest build or image identity is invalid.');
+  const adapter=manifest.adapter, certificate=manifest.certification;
+  if(!adapter||Object.keys(adapter).sort().join(',')!=='runtime,state,version'||adapter.state!=='ACTIVE'||!/^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(adapter.version||''))fail('Exact active native adapter is required.');
+  const runtime=new Map([['java','jdk'],['typescript','node'],['javascript','node'],['python','python'],['go','go'],['c#','dotnet'],['.net','dotnet'],['c# / .net','dotnet'],['dotnet','dotnet'],['php','php']]).get(String(manifest.language).toLowerCase());
+  const [major,minor]=adapter.version.split('.').map(Number);
+  const family=runtime==='jdk'?major===17:runtime==='node'?major===22&&minor>=18:runtime==='python'?major===3&&minor===12:runtime==='go'?major===1&&minor===24:runtime==='dotnet'?major===8:runtime==='php'?major===8&&minor===3:false;
+  const iot=manifest.resourceClass==='IOT_SIMULATION';
+  if(adapter.runtime!==runtime||!family||iot&&runtime!=='node'||manifest.framework!==(iot?'Node MQTT protocol':'Standard library'))fail('Framework and runtime combination is not reviewed.');
+  if(!certificate||Object.keys(certificate).sort().join(',')!=='frameworkVersion,isolationVerified,licenceReviewed,maintainer,reproductionSha256,reproductionVerified,resourcesVerified,reviewedAt'||certificate.frameworkVersion!==adapter.version||!/^([A-Za-z0-9][A-Za-z0-9._@+-]{2,99})$/.test(certificate.maintainer||'')||!HASH.test(certificate.reproductionSha256||''))fail('Exact maintainer and reproduction certification is required.');
+  for(const field of ['licenceReviewed','reproductionVerified','resourcesVerified','isolationVerified'])if(certificate[field]!==true)fail('Every certification attestation is required.');
+  const reviewed=Date.parse(certificate.reviewedAt);
+  if(!Number.isFinite(reviewed)||new Date(reviewed).toISOString()!==certificate.reviewedAt||reviewed>now||reviewed<now-31*86400000)fail('Certification review must be canonical and current.');
+  // Inventory was already captured and hashed by verifyBundle. Re-read through its pinned digest
+  // so a replacement cannot introduce a different reproduction artifact.
+  const inventoryBytes=bounded(options.inventoryPath);pinned(inventoryBytes,host.evidenceSha256);
+  const inventory=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(inventoryBytes));
+  const build=inventory.records.find(x=>x.control==='build');
+  if(!build||certificate.reproductionSha256!==build.artifactSha256||reviewed<Date.parse(build.recordedAt)||sha256(bounded(evidencePath(dirname(resolve(options.inventoryPath)),build.evidencePath)))!==certificate.reproductionSha256)fail('Reviewed reproduction artifact changed.');
+  return {...host,manifestId:manifest.id,componentId:manifest.componentId,revision:manifest.revision,language:manifest.language,runtime:adapter.runtime,runtimeVersion:adapter.version,sourceSha256:manifest.sourceSha256,imageDigest:manifest.imageDigest,certification:certificate};
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   try {
-    const [admissionPath, inventoryPath, publicKeyPath, operatorEpoch] = process.argv.slice(2);
-    if (!admissionPath || !inventoryPath || !publicKeyPath || !operatorEpoch || process.argv.length !== 6) fail('Usage: node ops/labs/certify.mjs admission-envelope.json evidence-inventory.json operator-public.pem restore-epoch');
-    const result = verifyBundle({admissionPath, inventoryPath, publicKeyPath, operatorEpoch});
-    process.stdout.write(JSON.stringify({result:'ADMISSION_ARTIFACTS_VERIFIED', ...result})+'\n');
+    const [admissionPath, inventoryPath, publicKeyPath, operatorEpoch, manifestPath] = process.argv.slice(2);
+    if (!admissionPath || !inventoryPath || !publicKeyPath || !operatorEpoch || ![6,7].includes(process.argv.length)) fail('Usage: node ops/labs/certify.mjs admission-envelope.json evidence-inventory.json operator-public.pem restore-epoch [manifest-envelope.json]');
+    const options={admissionPath, inventoryPath, publicKeyPath, operatorEpoch};
+    const result = manifestPath?verifyManifestBundle({...options,manifestPath}):verifyBundle(options);
+    process.stdout.write(JSON.stringify({result:manifestPath?'NATIVE_MANIFEST_ARTIFACTS_VERIFIED':'ADMISSION_ARTIFACTS_VERIFIED', ...result})+'\n');
   } catch {process.stderr.write('Admission artifacts rejected. Check the signature, epoch, dated inventory and artifact digests.\n'); process.exitCode = 1;}
 }

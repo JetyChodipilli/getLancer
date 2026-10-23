@@ -34,6 +34,7 @@ public class ComponentService {
   final ProductService products;
   final List<Map<String,Object>> recipes;
   final String catalogSources;
+  final String reportSources;
   static final Set<String> CATEGORIES=Set.of("NAVBAR","SIDEBAR","FORM","CARD","AUTH","DASHBOARD");
   static final Set<String> COLLEGE=Set.of("FULL_STACK","DATA_ANALYTICS","AI_ML","IOT");
   static final String JOIN=" FROM component_entries c JOIN users u ON u.id=c.owner_id JOIN developer_profiles d ON d.user_id=u.id";
@@ -61,6 +62,7 @@ public class ComponentService {
         metadata.put(recipe.get("slug").toString(),fields);
       }
       catalogSources=encode(metadata);
+      reportSources=encode(recipes.stream().map(recipe->Map.of("recipe_slug",recipe.get("slug"),"source_sha256",recipe.get("sha256"))).toList());
     }
   }
   Map<String,Object> recipe(String slug) {
@@ -187,7 +189,7 @@ public class ComponentService {
     if(page<0||page>10000||!category.isBlank()&&!CATEGORIES.contains(category)||!Set.of("FRONTEND","BACKEND").contains(kind)) throw new ApiError(400,"VALIDATION_ERROR","Choose valid component filters.");
     if(kind.equals("BACKEND"))return Map.of("items",List.of(),"totalItems",0,"totalPages",0,"size",12,"hasMore",false,"page",page,"executionMode","Source only");
     var all=new ArrayList<Map<String,Object>>();
-    if(builder.isBlank())all.addAll(recipes);
+    if(builder.isBlank())all.addAll(availableRecipes());
     // ponytail: bounded recipe catalogue plus paginated database remixes; no separate search infrastructure.
     // Match the same released source shown by detail; private drafts never influence counts.
     String source="COALESCE(released.filter_metadata,c.published_filter_metadata,seed.value)";
@@ -241,10 +243,65 @@ public class ComponentService {
   }
   public Map<String,Object> detail(String slug) {
     var seed=recipes.stream().filter(x->slug.equals(x.get("slug"))).findFirst();
-    if(seed.isPresent())return seed.get();
+    if(seed.isPresent()){
+      if(recipeSuspended(seed.get()))throw new ApiError(404,"NOT_FOUND","Component not found.");
+      var out=new LinkedHashMap<>(seed.get());out.put("reportTargetId",recipeReportId(slug));out.put("reportRevision",1L);out.put("related",relatedRecipes(slug));return out;
+    }
     var rows=db.queryForList("SELECT c.id,c.recipe_slug,c.slug,c.title,c.summary,c.contribution,c.revision,c.status,c.review_reason,c.published_at,c.published_source,c.published_context,c.draft_source,c.submitted_source,c.submitted_context,c.withdrawn_at,d.display_name AS creator,d.slug AS builder_slug"+JOIN+" WHERE c.slug=? AND c.withdrawn_at IS NULL AND c.published_at IS NOT NULL AND c.status IN ('ACTIVE','ARCHIVED','DRAFT','PENDING') AND "+ELIGIBLE,slug);
     if(rows.isEmpty())throw new ApiError(404,"NOT_FOUND","Component not found.");
-    return publicEntry(rows.get(0));
+    var out=publicEntry(rows.get(0));out.put("reportTargetId",out.get("id"));out.put("reportRevision",out.get("revision"));out.put("related",relatedRecipes(Objects.toString(out.get("recipeSlug"),slug)));return out;
+  }
+  private List<Map<String,Object>> availableRecipes(){
+    var blocked=db.queryForList("SELECT e.recipe_slug FROM component_recipe_enforcement e JOIN jsonb_to_recordset(?::jsonb) AS candidate(recipe_slug text,source_sha256 text) ON candidate.recipe_slug=e.recipe_slug AND candidate.source_sha256=e.source_sha256 WHERE e.suspended",String.class,reportSources);
+    return recipes.stream().filter(recipe->!blocked.contains(recipe.get("slug"))).toList();
+  }
+  private List<Map<String,Object>> relatedRecipes(String slug){return availableRecipes().stream().filter(recipe->!slug.equals(recipe.get("slug"))).limit(3).map(ComponentService::card).toList();}
+  private static UUID recipeReportId(String slug){return UUID.nameUUIDFromBytes(("getlancer:curated-component:"+slug).getBytes(java.nio.charset.StandardCharsets.UTF_8));}
+  private boolean recipeSuspended(Map<String,Object> recipe){return db.queryForObject("SELECT count(*) FROM component_recipe_enforcement WHERE recipe_slug=? AND source_sha256=? AND suspended",Integer.class,recipe.get("slug"),recipe.get("sha256"))>0;}
+  private void lockRecipeReport(String slug){db.queryForObject("SELECT pg_advisory_xact_lock(hashtextextended(?,0))",Object.class,"component-recipe-report:"+slug);}
+  private Map<String,Object> reportSnapshot(UUID id,long revision,Map<String,Object> source,Map<String,Object> context){
+    var metadata=new LinkedHashMap<String,Object>(sourceProjection(source));metadata.remove("files");
+    return Map.of("componentId",id,"revision",revision,"version",source.get("version"),"sourceHash",source.get("sha256"),"source",metadata,"context",context);
+  }
+  /** Freeze server-derived published facts, not caller-supplied source or moderator fields. */
+  @Transactional public Map<String,Object> reportArtifact(UUID id,long expectedRevision,String expectedSha){
+    var curated=recipes.stream().filter(recipe->recipeReportId(recipe.get("slug").toString()).equals(id)).findFirst();
+    if(curated.isPresent()){
+      var source=curated.get();lockRecipeReport(source.get("slug").toString());
+      if(recipeSuspended(source))throw new ApiError(404,"NOT_FOUND","Component not found.");
+      if(expectedRevision!=1||!Objects.equals(source.get("sha256"),expectedSha))throw new ApiError(409,"REPORT_ARTIFACT_CHANGED","Refresh the component before reporting this source version.");
+      return Map.of("componentId",id,"revision",1L,"version",source.get("version"),"sourceHash",source.get("sha256"),"snapshot",reportSnapshot(id,1L,source,Map.of("title",source.get("title"),"summary",source.get("summary"),"curated",true)));
+    }
+    var owners=db.queryForList("SELECT owner_id FROM component_entries WHERE id=?",UUID.class,id);
+    if(owners.isEmpty())throw new ApiError(404,"NOT_FOUND","Component not found.");
+    slots.lockAuthority(owners.get(0));
+    var rows=db.queryForList("SELECT c.id,c.recipe_slug,c.revision,c.published_source,c.published_context"+JOIN+" WHERE c.id=? AND c.withdrawn_at IS NULL AND c.published_at IS NOT NULL AND c.status IN ('ACTIVE','ARCHIVED','DRAFT','PENDING') AND "+ELIGIBLE+" FOR SHARE OF c",id);
+    if(rows.isEmpty())throw new ApiError(404,"NOT_FOUND","Component not found.");
+    var row=rows.get(0);var source=publishedSource(row);long revision=((Number)row.get("revision")).longValue();
+    if(revision!=expectedRevision||!Objects.equals(source.get("sha256"),expectedSha))throw new ApiError(409,"REPORT_ARTIFACT_CHANGED","Refresh the component before reporting this source version.");
+    return Map.of("componentId",id,"revision",revision,"version",source.get("version"),"sourceHash",source.get("sha256"),"snapshot",reportSnapshot(id,revision,source,snapshot(row.get("published_context"))));
+  }
+  /** Current source authority closes fresh admissions and current run routes after this commits. */
+  @Transactional public Map<String,Object> suspendReported(UUID id,long expectedRevision,String expectedSourceHash,String expectedVersion,String reason,HttpServletRequest request){
+    UUID admin=security.admin(request);slots.lockAuthority(admin);security.admin(request);
+    if(reason==null||reason.strip().length()<3||reason.length()>2000)throw new ApiError(400,"VALIDATION_ERROR","Record an enforcement reason.");
+    var curated=recipes.stream().filter(recipe->recipeReportId(recipe.get("slug").toString()).equals(id)).findFirst();
+    if(curated.isPresent()){
+      var source=curated.get();lockRecipeReport(source.get("slug").toString());
+      if(expectedRevision!=1||!Objects.equals(source.get("sha256"),expectedSourceHash)||!Objects.equals(source.get("version"),expectedVersion))throw new ApiError(409,"REPORTED_COMPONENT_CHANGED","The published component source changed. Review the current version before enforcing this report.");
+      db.update("INSERT INTO component_recipe_enforcement(recipe_slug,source_sha256,suspended,actor_id,reason) VALUES(?,?,true,?,?) ON CONFLICT(recipe_slug,source_sha256) DO UPDATE SET suspended=true,actor_id=EXCLUDED.actor_id,reason=EXCLUDED.reason,updated_at=now()",source.get("slug"),expectedSourceHash,admin,reason);
+    }else{
+      var owners=db.queryForList("SELECT owner_id FROM component_entries WHERE id=?",UUID.class,id);if(owners.isEmpty())throw new ApiError(404,"NOT_FOUND","Component not found.");
+      slots.lock(owners.get(0));
+      var row=db.queryForMap("SELECT id,owner_id,recipe_slug,revision,status,published_at,published_source,published_context FROM component_entries WHERE id=? FOR UPDATE",id);security.admin(request);
+      if(row.get("published_at")==null)throw new ApiError(404,"NOT_FOUND","Published component not found.");
+      var source=publishedSource(row);
+      if(((Number)row.get("revision")).longValue()!=expectedRevision||!Objects.equals(source.get("sha256"),expectedSourceHash)||!Objects.equals(source.get("version"),expectedVersion))throw new ApiError(409,"REPORTED_COMPONENT_CHANGED","The published component source changed. Review the current version before enforcing this report.");
+      if(!"SUSPENDED".equals(row.get("status")))db.update("UPDATE component_entries SET status='SUSPENDED',revision=revision+1,submitted_source=?::jsonb,submitted_context=?::jsonb,review_reason=?,updated_at=now() WHERE id=?",encode(source),Objects.toString(row.get("published_context")),reason,id);
+    }
+    slots.audit(admin,id,"REPORT_SUSPEND",reason);
+    db.update("INSERT INTO moderation_actions(id,admin_id,target_type,target_id,action,reason) VALUES(?,?,'COMPONENT',?,'suspend',?)",id(),admin,id,reason);
+    return Map.of("status","SUSPENDED");
   }
   @Transactional(readOnly=true)
   public org.springframework.http.ResponseEntity<byte[]> source(String slug,String sha256) {
@@ -260,7 +317,7 @@ public class ComponentService {
   }
   public Map<String,Object> own(HttpServletRequest r) {
     UUID owner=security.developer(r,false);
-    return Map.of("items",db.queryForList("SELECT c.id,c.recipe_slug,c.slug,c.title,c.summary,c.contribution,c.revision,c.status,c.review_reason,c.published_at,c.published_source,c.published_context,c.draft_source,c.submitted_source,c.submitted_context,c.withdrawn_at,d.display_name AS creator,d.slug AS builder_slug"+JOIN+" WHERE c.owner_id=? ORDER BY c.created_at DESC LIMIT 100",owner).stream().map(this::privateEntry).map(ComponentService::card).toList(),"capacity",slots.capacity(owner),"pricing",slots.pricing(),"recipes",recipes.stream().map(ComponentService::card).toList());
+    return Map.of("items",db.queryForList("SELECT c.id,c.recipe_slug,c.slug,c.title,c.summary,c.contribution,c.revision,c.status,c.review_reason,c.published_at,c.published_source,c.published_context,c.draft_source,c.submitted_source,c.submitted_context,c.withdrawn_at,d.display_name AS creator,d.slug AS builder_slug"+JOIN+" WHERE c.owner_id=? ORDER BY c.created_at DESC LIMIT 100",owner).stream().map(this::privateEntry).map(ComponentService::card).toList(),"capacity",slots.capacity(owner),"pricing",slots.pricing(),"recipes",availableRecipes().stream().map(ComponentService::card).toList());
   }
   public Object preview(String slug){return previews.publicPreview(slug);}
   public Object publishPreview(UUID id,HttpServletRequest r){return previews.publish(id,r);}
@@ -275,7 +332,7 @@ public class ComponentService {
     security.developer(r,true);
     if(db.queryForObject("SELECT count(*) FROM component_entries WHERE owner_id=?",Integer.class,owner)>=100)throw new ApiError(409,"DRAFT_LIMIT","Manage your existing 100 component records before adding more.");
     String recipe=text(b,"recipeSlug",3,100);
-    recipe(recipe);
+    if(recipeSuspended(recipe(recipe)))throw new ApiError(409,"COMPONENT_RECIPE_UNAVAILABLE","This recipe is unavailable for new submissions. Choose another reviewed source.");
     if(!Boolean.TRUE.equals(b.get("rightsConsent")))throw new ApiError(400,"RIGHTS_CONSENT_REQUIRED","Confirm the MIT licence and your attribution.");
     UUID id=id();
     String title=text(b,"title",3,100),summary=text(b,"summary",10,240),contribution=text(b,"contribution",20,2000);
@@ -312,7 +369,7 @@ public class ComponentService {
     var c=rows.get(0);
     if(!Set.of("DRAFT","ARCHIVED").contains(c.get("status")))throw new ApiError(409,"INVALID_COMPONENT_STATE","Archive an active component before editing its context.");
     String recipe=text(b,"recipeSlug",3,100);
-    recipe(recipe);
+    if(recipeSuspended(recipe(recipe)))throw new ApiError(409,"COMPONENT_RECIPE_UNAVAILABLE","This recipe is unavailable for new submissions. Choose another reviewed source.");
     if((c.get("published_at")!=null||c.get("draft_source")!=null)&&!recipe.equals(c.get("recipe_slug")))throw new ApiError(409,"PUBLISHED_SOURCE_IMMUTABLE","A published recipe stays pinned. Create a separate component to use another source.");
     if(!Boolean.TRUE.equals(b.get("rightsConsent")))throw new ApiError(400,"RIGHTS_CONSENT_REQUIRED","Confirm the original licence and contribution.");
     db.update("UPDATE component_entries SET draft_source=CASE WHEN recipe_slug<>? THEN NULL ELSE draft_source END,recipe_slug=?,title=?,summary=?,contribution=?,status='DRAFT',revision=revision+1,updated_at=now() WHERE id=?",recipe,recipe,text(b,"title",3,100),text(b,"summary",10,240),text(b,"contribution",20,2000),id);

@@ -35,9 +35,30 @@ node scripts/v52-evidence.mjs inspect --file /restricted/evidence/load-final.jso
 
 Use the commit actually serving the endpoint; `git rev-parse HEAD` is appropriate only when that exact checkout is deployed. The `.jsonl` is a hash chained raw observation journal; `.json` is its unsigned manifest. Output files are exclusive creations and have mode `0600`. Use new filenames for every run.
 
-Both collectors accept only `--catalogue products|components|college-projects`, record that target in the journal, and keep the existing `products` default. Run a separate declared profile for each new catalogue. Older logs without a selector remain inspectable as product measurements; product-only load evidence cannot pass the new-catalogue release gate. Catalogue probes do not measure source-download availability, which needs separate operational evidence.
+Both collectors accept only `--catalogue products|components|college-projects`, record that target in the journal, and keep the existing `products` default. Run a separate declared profile for each new catalogue. Older logs without a selector remain inspectable as product measurements; product-only load evidence cannot pass the new-catalogue release gate. The monitor accepts `--sources FILE` for independent source-service availability. Catalogue-only logs remain inspectable but cannot satisfy the new source coverage gates.
 
 Client round-trip p95 and server application p95 are separate values. Successful catalogue responses provide `Server-Timing: app;dur=...`, measured by the Java server using a monotonic clock through metadata serialization; network transfer is outside that server measurement. The server gate requires p95 at most 300 ms and complete request-local timing. If an ingress removes the header, the tool reports server timing as **UNMET**. It does not substitute browser/network latency for server latency. Record observed failures rather than removing slow or failed samples. This finite profile does not certify arbitrary concurrency, a million users, source downloads, writes or provider execution capacity.
+
+## Independent anonymous source lanes
+
+Provide a restricted JSON array through `--sources /restricted/evidence/source-probes.json`. It contains exactly one `component-source` and one `education-source` for full source coverage. Every target has exactly `id`, `path`, `sha256`, `sizeBytes`. Use the actual reviewed archive SHA-256 and byte count of small published free archives. This template is intentionally invalid until placeholders are replaced:
+
+```json
+[
+  {"id":"component-source","path":"/api/v1/components/REPLACE_SLUG/source?sha256=REPLACE_ARCHIVE_SHA256","sha256":"REPLACE_ARCHIVE_SHA256","sizeBytes":0},
+  {"id":"education-source","path":"/api/v1/education-releases/REPLACE_FREE_RELEASE_UUID/source","sha256":"REPLACE_ARCHIVE_SHA256","sizeBytes":0}
+]
+```
+
+Only these fixed public route shapes are allowed. Component query and archive hashes must agree. Arbitrary origins, capability tokens, extra query fields, duplicate services and archives outside 4 bytes–32 MiB are refused before requests begin. Source requests are same-origin anonymous GETs with redirects and credentials disabled. Success requires HTTP 200, ZIP MIME/prefix, exact streamed SHA-256 and exact byte count. An HTML fallback, changed archive, unavailable endpoint or body timeout remains a failure; raw archive bytes and private failure bodies are never journaled.
+
+```bash
+node scripts/v52-monitor.mjs --origin https://staging.example.test --catalogue components --sources /restricted/evidence/source-probes.json --environment staging --revision "$task_revision" --profile /restricted/evidence/profile.json --out /restricted/evidence/soak-services --duration-ms 604860000
+```
+
+Run a separate campaign for `college-projects` discovery. Catalogue and source services retain independent success counts, conservative outage intervals and sampled availability percentages. The new gates require a new discovery catalogue, both source lanes and at least 99.5% observed availability for discovery and each source service. They never claim calendar-month certification: `monthlyAvailabilityCertified` remains false and production monthly service/ingress metrics are still required. Without source pins, legacy journals stay inspectable with source gates unmet.
+
+Both source probes run alongside the catalogue and optional runtime observation. Operator cookies are sent only to the metrics endpoint. Pins and their order cannot change between combined segments. Choose small representative archives and account for one full source transfer per cadence in the approved monitoring budget. A source pin change starts a new campaign; do not edit away failed observations.
 
 ## Seven real elapsed days
 
@@ -66,7 +87,7 @@ For rotation or restart, use distinct segment filenames and collect them in chro
 node scripts/v52-evidence.mjs collect --logs /restricted/evidence/soak-01.jsonl,/restricted/evidence/soak-02.jsonl --out /restricted/evidence/soak-combined.json --environment staging --revision "$task_revision"
 ```
 
-The maximum cohort is 25,000 observations and 32 MiB, with at most 100 segments. Requests time out within 10 seconds, JSON responses are bounded to 64 KiB, load concurrency is capped at 10, and collector duration is explicit. A process crash leaves its raw journal; a torn final line is rejected. Preserve it for investigation and start a new evidence sequence rather than editing failed observations away. Graceful completion produces a manifest; the `collect` command can recover a fully written, untruncated journal.
+The maximum cohort is 25,000 observations and 32 MiB, with at most 100 segments. Requests time out within 10 seconds, JSON responses are bounded to 64 KiB, each source archive is bounded to 32 MiB, load concurrency is capped at 10, and collector duration is explicit. A process crash leaves its raw journal; a torn final line is rejected. Preserve it for investigation and start a new evidence sequence rather than editing failed observations away. Graceful completion produces a manifest; the `collect` command can recover a fully written, untruncated journal.
 
 ## Review, sign and verify
 
@@ -80,3 +101,5 @@ node scripts/v52-evidence.mjs verify --file /restricted/evidence/soak-signed.jso
 Verification rejects altered hashes/signatures, unknown fields, duplicate JSON keys, future/stale dates, linked files, conflicting times, compressed wall/monotonic clocks, incomplete denominator coverage, missing provider authority and unmet release gates. A signature proves that the trusted operator attested the captured provenance. It cannot mathematically prove that a dishonest signer did not fabricate every timestamp and trace. The operator must retain independent provider/ingress/CI logs and reconcile their digests before signing; unit-test fixtures are explicitly excluded.
 
 See [INCIDENTS.md](INCIDENTS.md) for the drill procedures and [RELEASE_EVIDENCE.md](RELEASE_EVIDENCE.md) for the fixed proof schema, independent activation lanes, accountable ownership and launch decision.
+
+Programmatic callers may pass `expectedSha256` to `verifyReportFile`. Its hash, signature and JSON validation use one captured bounded read. HANDOVER dependency digests use that same API, so a pathname replacement cannot substitute a different report after its hash has been checked.

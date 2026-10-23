@@ -6,6 +6,7 @@ import {mkdtempSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {readEnvironment} from './local-config.mjs';
+import {restoreFixture,seedRestoreSql,restoreSnapshotSql,verifyNewDomainRestore} from './acceptance-restore.mjs';
 assert.equal(process.env.CI,'true');
 assert.match(process.env.COMPOSE_PROJECT_NAME||'',/^getlancer-ci-[0-9]+$/);
 assert.equal(readEnvironment().ADMIN_EMAIL,'ci-admin@example.test');
@@ -13,6 +14,10 @@ const command=(args,input)=>execFileSync('docker',['compose','exec','-T','db',..
 const query=(database,sql)=>command(['psql','-U','postgres','-d',database,'-At','--set','ON_ERROR_STOP=1','-c',sql]).toString().trim();
 const target='getlancer_restore_ci';
 assert.equal(query('postgres',`SELECT count(*) FROM pg_database WHERE datname='${target}'`),'0','Refuse to overwrite an existing restore target.');
+const fixture=restoreFixture();
+query('getLancer',seedRestoreSql(fixture));
+const domainSql=restoreSnapshotSql(),domainBefore=JSON.parse(query('getLancer',domainSql));
+verifyNewDomainRestore(domainBefore,domainBefore,fixture);
 const countsSql="SELECT (SELECT count(*) FROM getlancer.users),(SELECT count(*) FROM getlancer.products),(SELECT count(*) FROM getlancer.product_media),(SELECT count(*) FROM getlancer.inquiries),(SELECT count(*) FROM getlancer.reviews),(SELECT count(*) FROM getlancer.moderation_actions),(SELECT count(*) FROM getlancer.delivery_engagements),(SELECT count(*) FROM getlancer.delivery_agreements),(SELECT count(*) FROM getlancer.delivery_milestones),(SELECT count(*) FROM getlancer.delivery_disputes),(SELECT count(*) FROM getlancer.payment_attempts),(SELECT count(*) FROM getlancer.payment_ledger),(SELECT count(*) FROM getlancer.source_templates),(SELECT count(*) FROM getlancer.source_versions),(SELECT count(*) FROM getlancer.template_purchases),(SELECT count(*) FROM getlancer.commerce_ledger),(SELECT count(*) FROM getlancer.commerce_audit),(SELECT count(*) FROM getlancer.maintenance_offers),(SELECT count(*) FROM getlancer.maintenance_subscriptions),(SELECT count(*) FROM getlancer.maintenance_periods),(SELECT count(*) FROM getlancer.maintenance_requests),(SELECT count(*) FROM getlancer.maintenance_provider_disputes),(SELECT count(*) FROM getlancer.maintenance_refunds),(SELECT count(*) FROM getlancer.maintenance_ledger),(SELECT count(*) FROM getlancer.maintenance_webhook_events),(SELECT count(*) FROM getlancer.maintenance_audit),(SELECT count(*) FROM getlancer.hosted_demos),(SELECT count(*) FROM getlancer.hosting_audit),(SELECT count(*) FROM getlancer.flyway_schema_history WHERE success)";
 const before=query('getLancer',countsSql);
 // Service smoke tests and each viewport create independent outcome records.
@@ -39,6 +44,7 @@ try{
  command(['createdb','-U','postgres',target]);created=true;
  command(['pg_restore','-U','postgres','-d',target,'--no-owner','--no-acl','--exit-on-error'],restoredArchive);
  assert.equal(query(target,countsSql),before);
+ const domains=verifyNewDomainRestore(domainBefore,JSON.parse(query(target,domainSql)),fixture);
  assert.equal(query(target,"SELECT count(*) FROM getlancer.user_roles WHERE role='ADMIN'"),'1');
  for(const outcome of outcomes)assert.equal(query(target,outcome.sql),outcome.count,'Restored '+outcome.name+' must match the source database.');
  assert.equal(query(target,"SELECT count(*) FROM getlancer.maintenance_periods WHERE provider_invoice_id='inv_ci_fixture123' AND refunded_minor=0 AND transfer_state='CONFIRMED'"),'1');
@@ -48,7 +54,7 @@ try{
  assert.equal(query(target,"SELECT count(*) FROM getlancer.maintenance_webhook_events WHERE event_id='ci-retained-refund-event' AND refund_id='rfnd_ciRetained123' AND payment_id='pay_ci_care123' AND processed_at IS NULL"),'1');
  assert.ok(Number(query(target,"SELECT count(*) FROM getlancer.hosted_demos"))>0);
  assert.ok(Number(query(target,"SELECT count(*) FROM getlancer.hosting_audit"))>0);
- console.log(`Disposable encrypted database restore passed: application row counts, migrations, sole admin, completed inquiry, published review and suspension; restore ${Date.now()-started}ms.`);
+ console.log(`Disposable encrypted database restore passed: application row counts, migrations, sole admin, completed inquiry, published review and suspension; exact new-domain package/licence/purchase/outbox/withdrawal bindings, archive SHA-256 ${domains.archiveSha256}; restore ${Date.now()-started}ms. External object recovery and production RPO/RTO remain unaccepted.`);
 }finally{
  if(created)command(['dropdb','-U','postgres',target]);
  key.fill(0);rmSync(directory,{recursive:true,force:true});

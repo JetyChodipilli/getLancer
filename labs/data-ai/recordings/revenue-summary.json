@@ -6,7 +6,7 @@
   "dataSha256": "e279aeac207560bc1d8b6590c0e9f91db4420a7d987fa6f662521338e686b10a",
   "modelSha256": null,
   "evaluationSha256": null,
-  "recordedAt": "2026-10-14T09:50:33.787Z",
+  "recordedAt": "2026-10-23T04:41:53.533Z",
   "runs": [
     {
       "dataSha256": "e279aeac207560bc1d8b6590c0e9f91db4420a7d987fa6f662521338e686b10a",
@@ -87,11 +87,11 @@
         ]
       },
       "resultSha256": "ba2f21a5796f5d1b316ff69f62bea5897c717b06298375b208650027ee740613",
-      "runId": "88f0941f-ace4-4380-9c1c-98753135f8dc",
+      "runId": "70efb991-f041-4399-9e17-8d99dc8e0c8f",
       "scenarioId": "revenue-summary",
       "schemaVersion": "getlancer-data-ai-result-v1",
       "sourceSha256": "e2e8512dfe9133a0e5d6e3ff8dcae2662cdd624a6c97b455c189bf3f4d3910f4",
-      "startedAt": "2026-10-14T09:50:33.774Z"
+      "startedAt": "2026-10-23T04:41:53.523Z"
     },
     {
       "dataSha256": "e279aeac207560bc1d8b6590c0e9f91db4420a7d987fa6f662521338e686b10a",
@@ -172,11 +172,11 @@
         ]
       },
       "resultSha256": "001a905fb08c811e67b717347816c0ec8ac1504cc0fde386ef0e6d2261274147",
-      "runId": "88f0941f-ace4-4380-9c1c-98753135f8dc",
+      "runId": "70efb991-f041-4399-9e17-8d99dc8e0c8f",
       "scenarioId": "revenue-summary",
       "schemaVersion": "getlancer-data-ai-result-v1",
       "sourceSha256": "e2e8512dfe9133a0e5d6e3ff8dcae2662cdd624a6c97b455c189bf3f4d3910f4",
-      "startedAt": "2026-10-14T09:50:33.783Z"
+      "startedAt": "2026-10-23T04:41:53.531Z"
     }
   ]
 }

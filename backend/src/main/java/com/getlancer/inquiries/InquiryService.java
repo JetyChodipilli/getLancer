@@ -9,6 +9,7 @@ import static com.getlancer.shared.Support.uuid;
 import com.getlancer.analytics.AnalyticsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.getlancer.education.EducationService;
+import com.getlancer.components.ComponentService;
 import com.getlancer.notifications.Mail;
 import com.getlancer.products.ProductRepository;
 import com.getlancer.security.Security;
@@ -38,18 +39,20 @@ public class InquiryService {
   final Mail mail;
   final EducationService education;
   final ObjectMapper json;
+  final ComponentService components;
 
   public InquiryService(JdbcTemplate db, Security security, Mail mail) {
-    this(db, security, mail, null, new ObjectMapper());
+    this(db, security, mail, null, new ObjectMapper(), null);
   }
 
   @Autowired
-  public InquiryService(JdbcTemplate db, Security security, Mail mail, EducationService education, ObjectMapper json) {
+  public InquiryService(JdbcTemplate db, Security security, Mail mail, EducationService education, ObjectMapper json, ComponentService components) {
     this.db = db;
     this.security = security;
     this.mail = mail;
     this.education = education;
     this.json = json;
+    this.components = components;
   }
 
   @Transactional
@@ -286,7 +289,7 @@ public class InquiryService {
   @Transactional
   public Map<String, Object> report(Map<String, Object> b, HttpServletRequest request) {
     String reason = text(b, "reason", 1, 40), type = text(b, "targetType", 1, 30);
-    if (!Set.of("PRODUCT", "USER", "REVIEW", "INQUIRY").contains(type)
+    if (!Set.of("PRODUCT", "USER", "REVIEW", "INQUIRY", "COMPONENT").contains(type)
         || !Set.of(
                 "FAKE_PRODUCT",
                 "STOLEN_WORK",
@@ -312,6 +315,18 @@ public class InquiryService {
             : Set.of("STOLEN_WORK", "IMPERSONATION", "COPYRIGHT_IP").contains(reason)
                 ? "HIGH"
                 : "MEDIUM";
+    if (type.equals("COMPONENT")) {
+      if (b.get("educationReleaseId") != null || !(b.get("componentRevision") instanceof Number revision)
+          || !(revision instanceof Integer || revision instanceof Long) || revision.longValue() < 1
+          || !(b.get("componentSourceHash") instanceof String sourceHash) || !sourceHash.matches("[a-f0-9]{64}"))
+        throw new ApiError(400,"VALIDATION_ERROR","Identify the exact component revision and source hash.");
+      var artifact=components.reportArtifact(uuid(b.get("targetId")),revision.longValue(),sourceHash);
+      db.update("INSERT INTO reports(id,target_type,target_id,reason,detail,reporter_id,severity,component_revision,component_version,component_source_hash,component_snapshot) VALUES(?,?,?,?,?,?,?,?,?,?,?::jsonb)",
+          id,type,artifact.get("componentId"),reason,text(b,"detail",10,3000),reporter,severity,artifact.get("revision"),artifact.get("version"),artifact.get("sourceHash"),encodeArtifact(artifact.get("snapshot")));
+      return Map.of("reference",id);
+    }
+    if (b.get("componentRevision") != null || b.get("componentSourceHash") != null)
+      throw new ApiError(400,"VALIDATION_ERROR","Component evidence must identify a component report.");
     if (b.get("educationReleaseId") != null) {
       if (!"PRODUCT".equals(type)) throw new ApiError(400,"VALIDATION_ERROR","Education reports must identify their project.");
       var artifact = education.frozenReportArtifact(uuid(b.get("educationReleaseId")));
@@ -334,6 +349,11 @@ public class InquiryService {
         reporter,
         severity);
     return Map.of("reference", id);
+  }
+
+  private String encodeArtifact(Object artifact) {
+    try {return json.writeValueAsString(artifact);}
+    catch (java.io.IOException invalid) {throw new IllegalStateException("Invalid reviewed component evidence",invalid);}
   }
 
   public Map<String, Object> analytics(HttpServletRequest r) {

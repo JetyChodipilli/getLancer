@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {labApplyEvents,labAttempt,labCanRequest,labCanStop,labEventsPath,labExpired,labExpiryText,labFieldErrors,labRunResponse,labSourceUrl,labTerminal,parseLabEvents} from '../lib/labs.ts';
+import {labObservation,labMergeObservations,labApplyEvents,labAttempt,labCanRequest,labCanStop,labEventsPath,labExpired,labExpiryText,labFieldErrors,labRunResponse,labSourceUrl,labTerminal,parseLabEvents} from '../lib/labs.ts';
 const id='11111111-1111-4111-8111-111111111111',now=Date.parse('2026-10-09T04:30:00Z');
 const running={id,manifestId:'reviewed-manifest',scenarioId:'inspect',status:'RUNNING',executionMode:'ISOLATED',verified:true,requestedAt:'2026-10-09T04:29:00Z',expiresAt:'2026-10-09T04:34:00Z',reason:'Isolated worker is healthy.',eventsUrl:'/api/v1/lab-runs/'+id+'/events'};
 const field=(name,type,extra={})=>({name,label:name,type,required:true,maxLength:30,min:1,max:10,choices:['one','two'],...extra});
@@ -46,4 +46,19 @@ test('terminal status cannot be resurrected by replay and malformed successful r
  const stopped={...running,status:'CANCELLED'};assert.equal(labApplyEvents(stopped,[envelope(2)]).status,'CANCELLED');assert.equal(labApplyEvents(running,[envelope(3,{status:'SUCCEEDED',reason:'Finished.'})]).status,'SUCCEEDED');assert.throws(()=>labApplyEvents(running,[envelope(4,{}, {runId:'other'})]));
  assert.deepEqual(labRunResponse({...running,eventsUrl:'https://worker.test/private'}),running);
  for(const change of [{status:'WAITING'},{verified:'true'},{expiresAt:'invalid'},{id:'arbitrary-worker'},{requestedAt:'bad'},{reason:'x'.repeat(2001)}])assert.throws(()=>labRunResponse({...running,...change}));
+});
+
+const sourceHash='a'.repeat(64),nativeRequest='22222222-2222-4222-8222-222222222222';
+const observed=()=>({runId:id,sourceHash,requestId:nativeRequest,pattern:'cache',status:200,durationMs:3,state:{cache:'MISS',storeReads:1,ttlMs:2000},events:[{runId:id,sourceHash,requestId:nativeRequest,sequence:1,type:'CACHE_MISS',edge:'service-redis',recordedAt:'2026-10-22T00:00:00Z',summary:'Actually observed cache miss.'},{runId:id,sourceHash,requestId:nativeRequest,sequence:2,type:'STORE_READ',edge:'service-store',recordedAt:'2026-10-22T00:00:00Z',summary:'Actually observed store read.'}]});
+test('native observations reject foreign identities, incoherent state, unsupported edges and nonmonotonic evidence',()=>{
+ const value=observed();assert.equal(labObservation(value,id,sourceHash).events[1].edge,'service-store');
+ const mutations=[v=>v.runId='33333333-3333-4333-8333-333333333333',v=>v.sourceHash='b'.repeat(64),v=>v.requestId='33333333-3333-4333-8333-333333333333',v=>v.state.private='secret',v=>v.state.cache='HIT',v=>v.events[1].sequence=1,v=>v.events[1].edge='service-redis',v=>v.events[1].requestId='33333333-3333-4333-8333-333333333333',v=>v.events[1].sequence=true,v=>v.events[1].summary='x'.repeat(241),v=>v.events[1].recordedAt='not-a-date',v=>v.sourceHash+='a',v=>v.status=401,v=>v.durationMs=30001];
+ for(const mutation of mutations){const bad=observed();mutation(bad);assert.throws(()=>labObservation(bad,id,sourceHash));}
+});
+test('operation and SSE observations merge idempotently and reject whole malformed batches without advancing caller history',()=>{
+ const observation=labObservation(observed(),id,sourceHash),previous=labMergeObservations([],[observation],id,sourceHash);assert.equal(labMergeObservations(previous,[observation],id,sourceHash).length,1);
+ const altered=structuredClone(observation);altered.state.ttlMs=1000;assert.throws(()=>labMergeObservations(previous,[altered],id,sourceHash));assert.deepEqual(previous,[observation]);
+ const stale=structuredClone(observation);stale.requestId='33333333-3333-4333-8333-333333333333';stale.events.forEach(event=>event.requestId=stale.requestId);assert.throws(()=>labMergeObservations(previous,[stale],id,sourceHash));
+ const text=sse(envelope(1,{status:'RUNNING',observation}));assert.equal(parseLabEvents(text,id,0,sourceHash)[0].data.observation.events.length,2);
+ const bad=structuredClone(observation);bad.sourceHash='b'.repeat(64);assert.throws(()=>parseLabEvents(text+sse(envelope(2,{status:'RUNNING',observation:bad})),id,0,sourceHash));assert.deepEqual(previous,[observation]);
 });

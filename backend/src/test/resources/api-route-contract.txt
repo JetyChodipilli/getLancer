@@ -154,6 +154,8 @@ POST /api/v1/admin/hosting/{id}/reconcile
 POST /api/v1/admin/hosting/{id}/review
 POST /api/v1/admin/hosting/{id}/withdraw
 POST /api/v1/admin/inquiries/{id}/{action}
+POST /api/v1/admin/labs/certifications
+POST /api/v1/admin/labs/limits
 POST /api/v1/admin/labs/pause-admissions
 POST /api/v1/admin/maintenance/{id}/{action}
 POST /api/v1/admin/payments/accounts

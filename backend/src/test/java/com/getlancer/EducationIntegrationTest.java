@@ -17,6 +17,13 @@ import com.getlancer.shared.ApiError;
 import com.getlancer.shared.Support;
 import com.getlancer.testing.TestDatabaseGuard;
 import jakarta.servlet.http.Cookie;
+import com.getlancer.trust.DemoHealth;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -293,5 +300,87 @@ class EducationIntegrationTest {
     ok(body(patch("/api/v1/me/education-releases/"+id+"/academic"),"owner",Map.of("revision",1,"institution","Private paid college","shareAcademicDetails",false)));var ownExport=ok(as(get("/api/v1/me/export"),"owner")).path("educationReleases").get(0);assertEquals(sourceId,ownExport.path("source_version_id").asText());assertEquals(templateId,ownExport.path("snapshot").path("sourceBinding").path("templateId").asText());assertEquals(approved.path("sourceHash").asText(),ownExport.path("source_hash").asText());assertEquals("Private paid college",ownExport.path("institution").asText());var foreign=ok(as(get("/api/v1/me/export"),"other"));assertEquals(0,foreign.path("educationReleases").size());assertFalse(foreign.toString().contains(sourceId));assertFalse(foreign.toString().contains("Private paid college"));
     var offer=ok(get("/api/v1/education-releases/"+id+"/source-offer"));assertFalse(offer.path("available").asBoolean());assertFalse(offer.path("checkoutAvailable").asBoolean());assertFalse(offer.path("paidEnabled").asBoolean());mvc.perform(get("/api/v1/education-releases/"+id+"/source")).andExpect(status().isNotFound());mvc.perform(body(post("/api/v1/templates/"+templateId+"/orders"),"other",Map.of("versionId",sourceId,"educationReleaseId",id,"licenseConsent",true)).header("Idempotency-Key",UUID.randomUUID().toString())).andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.error.code").value("EDUCATION_PAID_UNAVAILABLE"));assertEquals(0,db.queryForObject("SELECT count(*) FROM template_purchases",Integer.class));verify(provider,never()).createOrder(any(UUID.class),anyLong(),anyString());
     var next=submit(ok(body(post("/api/v1/me/college-projects/"+product+"/releases"),"owner",command)));db.update("UPDATE source_templates SET price_minor=13000 WHERE id=?",UUID.fromString(templateId));mvc.perform(body(post("/api/v1/admin/education-releases/"+next.path("id").asText()+"/review"),"admin",review(next,"APPROVE"))).andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("EDUCATION_SOURCE_CHANGED"));
+  }
+
+  /** Frozen historical fixture isolates health projection from live external DNS/publication I/O. */
+  JsonNode externalFixture(String url)throws Exception{
+    approve(submit(create("SHOWCASE",0)));
+    var draft=create("SHOWCASE",0);var snapshot=json.convertValue(draft.path("snapshot"),new TypeReference<LinkedHashMap<String,Object>>(){});
+    snapshot.put("demoMode","EXTERNAL");snapshot.put("demoUrl",url);var pending=historicalFixture(draft,snapshot);
+    db.update("UPDATE education_releases SET status='APPROVED',reviewed_at=clock_timestamp() WHERE id=?",UUID.fromString(pending.path("id").asText()));
+    return ok(get("/api/v1/college-projects/"+product)).path("education").path("release");
+  }
+  void health(JsonNode release,String status,String url,String hash,String age){
+    db.update("UPDATE education_releases SET demo_health=?,demo_checked_at=clock_timestamp()+(?*interval '1 second'),demo_checked_url=?,demo_checked_source_hash=? WHERE id=?",status,Long.parseLong(age),url,hash,UUID.fromString(release.path("id").asText()));
+  }
+  @Test void currentExternalHealthLabelsBrokenReachableAndRestrictedWithoutChangingFrozenTerms()throws Exception{
+    String url="https://example.org/college-demo";var release=externalFixture(url);String id=release.path("id").asText(),hash=release.path("sourceHash").asText(),snapshot=release.path("snapshot").toString();
+    for(String state:List.of("UNREACHABLE","REACHABLE","BLOCKED")){
+      health(release,state,url,hash,"-60");var current=ok(get("/api/v1/college-projects/"+product)).path("education");
+      assertEquals(state,current.path("demoHealth").asText());assertEquals(url,current.path("demoCheckedUrl").asText());assertFalse(current.path("demoCheckedAt").asText().isBlank());
+      assertEquals(state.equals("UNREACHABLE")?"Broken external link":state.equals("REACHABLE")?"External link reachable":"External link blocked or restricted",current.path("demoAvailability").asText());
+      var offered=ok(get("/api/v1/education-releases/"+id+"/source-offer")).path("release");assertEquals(state,offered.path("demoHealth").asText());assertEquals(hash,offered.path("sourceHash").asText());assertEquals(snapshot,offered.path("snapshot").toString());
+      assertFalse(offered.path("demoAvailability").asText().toLowerCase().contains("verified"));
+    }
+  }
+  @Test void uncheckedStaleFutureWrongUrlAndWrongHashExternalObservationsRemainUnverified()throws Exception{
+    String url="https://example.org/college-demo";var release=externalFixture(url);String hash=release.path("sourceHash").asText();
+    assertEquals("UNKNOWN",release.path("demoHealth").asText());assertFalse(release.has("demoCheckedAt"));
+    for(String age:List.of("-86401","60")){health(release,"UNREACHABLE",url,hash,age);var current=ok(get("/api/v1/college-projects/"+product)).path("education").path("release");assertEquals("UNKNOWN",current.path("demoHealth").asText());assertEquals("Unverified external link",current.path("demoAvailability").asText());assertFalse(current.has("demoCheckedAt"));}
+    health(release,"UNREACHABLE",url+"?old",hash,"-60");assertEquals("UNKNOWN",ok(get("/api/v1/college-projects/"+product)).path("education").path("demoHealth").asText());
+    health(release,"UNREACHABLE",url,"b".repeat(64),"-60");assertEquals("UNKNOWN",ok(get("/api/v1/college-projects/"+product)).path("education").path("demoHealth").asText());
+    var next=create("SHOWCASE",0);health(next,"UNREACHABLE",url,hash,"-60");assertEquals("UNKNOWN",ok(as(get("/api/v1/me/education-releases/"+next.path("id").asText()),"owner")).path("demoHealth").asText("UNKNOWN"));
+    db.update("UPDATE products SET visibility='PRIVATE' WHERE id=?",product);mvc.perform(get("/api/v1/college-projects/"+product)).andExpect(status().isNotFound());mvc.perform(get("/api/v1/education-releases/"+release.path("id").asText()+"/source-offer")).andExpect(status().isConflict());
+  }
+  @Test void scheduledExternalHealthReusesExactCurrentUrlAndSkipsPrivateAndSupersededReleases()throws Exception{
+    String url="https://example.org/college-demo";var release=externalFixture(url);UUID id=UUID.fromString(release.path("id").asText());
+    db.update("UPDATE products SET live_url=?,demo_health='UNREACHABLE',demo_checked_at=clock_timestamp()-interval '2 minutes',demo_checked_url=? WHERE id=?",url,url,product);
+    Object checked=db.queryForObject("SELECT demo_checked_at FROM products WHERE id=?",Object.class,product);
+    new DemoHealth(db,true).check();assertEquals("UNREACHABLE",db.queryForObject("SELECT demo_health FROM education_releases WHERE id=?",String.class,id));assertEquals(checked,db.queryForObject("SELECT demo_checked_at FROM education_releases WHERE id=?",Object.class,id));assertEquals(release.path("sourceHash").asText(),db.queryForObject("SELECT demo_checked_source_hash FROM education_releases WHERE id=?",String.class,id));
+    var next=create("SHOWCASE",0);var nextSnapshot=json.convertValue(next.path("snapshot"),new TypeReference<LinkedHashMap<String,Object>>(){});nextSnapshot.put("demoMode","EXTERNAL");nextSnapshot.put("demoUrl",url+"?new");var pending=historicalFixture(next,nextSnapshot);UUID nextId=UUID.fromString(pending.path("id").asText());
+    health(pending,"UNREACHABLE",url,release.path("sourceHash").asText(),"-60");assertEquals("UNKNOWN",ok(as(get("/api/v1/me/education-releases/"+nextId),"owner")).path("demoHealth").asText());
+    db.update("UPDATE education_releases SET status='APPROVED',reviewed_at=clock_timestamp() WHERE id=?",nextId);
+    assertEquals("UNKNOWN",ok(get("/api/v1/college-projects/"+product)).path("education").path("demoHealth").asText());
+    db.update("UPDATE products SET visibility='PRIVATE' WHERE id=?",product);new DemoHealth(db,true).check();assertEquals(url,db.queryForObject("SELECT demo_checked_url FROM education_releases WHERE id=?",String.class,nextId));
+    db.update("UPDATE products SET visibility='PUBLIC',live_url=?,demo_checked_url=? WHERE id=?",url+"?new",url+"?new",product);
+    new DemoHealth(db,true).check();assertEquals(url+"?new",db.queryForObject("SELECT demo_checked_url FROM education_releases WHERE id=?",String.class,nextId));assertEquals(url,db.queryForObject("SELECT demo_checked_url FROM education_releases WHERE id=?",String.class,id));
+  }
+
+  @Test void unknownBoundedCollegeLanguageStaysPendingAndUnlistedUntilAdministratorApproval()throws Exception{
+    String language="Uncatalogued ResearchLang "+"x".repeat(74);assertEquals(100,language.length());
+    var command=new LinkedHashMap<String,Object>(Map.of("category","FULL_STACK","language",language,"problem","A new language still needs ordinary contribution review.","outcome","An inspectable original project implemented in the new language.","prerequisites","Install the documented research compiler.","contribution","I built and reproduced the original project with this compiler.","rightsConsent",true));
+    assertEquals("PENDING",ok(body(put("/api/v1/me/college-projects/"+product),"owner",command)).path("status").asText());
+    assertEquals(language,db.queryForObject("SELECT language FROM college_project_metadata WHERE product_id=?",String.class,product));assertEquals("PENDING",db.queryForObject("SELECT status FROM college_project_metadata WHERE product_id=?",String.class,product));assertEquals(0,ok(get("/api/v1/college-projects").param("language",language)).path("totalItems").asInt());mvc.perform(get("/api/v1/college-projects/"+product)).andExpect(status().isNotFound());
+    command.put("language",language+"x");mvc.perform(body(put("/api/v1/me/college-projects/"+product),"owner",command)).andExpect(status().isBadRequest());assertEquals(language,db.queryForObject("SELECT language FROM college_project_metadata WHERE product_id=?",String.class,product));
+    long revision=db.queryForObject("SELECT revision FROM college_project_metadata WHERE product_id=?",Long.class,product);ok(body(post("/api/v1/admin/college-projects/"+product+"/review"),"admin",Map.of("revision",revision,"decision","APPROVED","reason","Reviewed the bounded new language and independently reproduced this contribution.")));
+    assertEquals(1,ok(get("/api/v1/college-projects").param("language",language)).path("totalItems").asInt());assertEquals(language,ok(get("/api/v1/college-projects/"+product)).path("education").path("language").asText());
+  }
+  @Test void collegeInquiryUsesOriginalProductAndRechecksAcceptingWorkAndOwnerBeforeEmailConfirmation()throws Exception{
+    approve(submit(create("SHOWCASE",0)));db.update("UPDATE developer_profiles SET availability_status='AVAILABLE_NOW' WHERE user_id=?",owner);
+    var college=ok(get("/api/v1/college-projects/"+product));assertEquals(product.toString(),college.path("id").asText());
+    var command=Map.of("referenceProductId",college.path("id").asText(),"clientEmail","other@example.test","clientName","College visitor","description","Please build an original implementation with similar documented capabilities.","budgetBand","NEED_ESTIMATE","timelineBand","FLEXIBLE","requestType","SIMILAR_BUILD");
+    var created=json.readTree(mvc.perform(body(post("/api/v1/inquiries"),null,command).header("Idempotency-Key",UUID.randomUUID().toString())).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());UUID inquiry=UUID.fromString(created.path("id").asText());assertTrue(created.path("confirmationRequired").asBoolean());assertEquals(product,db.queryForObject("SELECT reference_product_id FROM inquiries WHERE id=?",UUID.class,inquiry));assertEquals(owner,db.queryForObject("SELECT developer_user_id FROM inquiries WHERE id=?",UUID.class,inquiry));
+    String email=db.queryForObject("SELECT body FROM email_outbox WHERE recipient='other@example.test' AND body LIKE '%/confirm#token=%' ORDER BY created_at DESC LIMIT 1",String.class);String token=email.substring(email.indexOf("#token=")+7).split("\\s",2)[0];int notifications=db.queryForObject("SELECT count(*) FROM notifications WHERE user_id=?",Integer.class,owner);
+    db.update("UPDATE products SET available_for_similar_work=false WHERE id=?",product);mvc.perform(body(post("/api/v1/inquiries"),null,command).header("Idempotency-Key",UUID.randomUUID().toString())).andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.error.code").value("PRODUCT_NOT_AVAILABLE"));
+    mvc.perform(body(post("/api/v1/inquiries/confirm-email"),null,Map.of("token",token))).andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("PRODUCT_NOT_AVAILABLE"));
+    db.update("UPDATE products SET available_for_similar_work=true WHERE id=?",product);db.update("UPDATE users SET account_status='SUSPENDED' WHERE id=?",owner);mvc.perform(body(post("/api/v1/inquiries/confirm-email"),null,Map.of("token",token))).andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("PRODUCT_NOT_AVAILABLE"));
+    assertEquals("CREATED_UNVERIFIED",db.queryForObject("SELECT current_status FROM inquiries WHERE id=?",String.class,inquiry));assertNull(db.queryForObject("SELECT email_confirmed_at FROM inquiries WHERE id=?",Object.class,inquiry));assertNull(db.queryForObject("SELECT used_at FROM account_tokens WHERE token_hash=?",Object.class,Support.hash(token)));assertEquals(notifications,db.queryForObject("SELECT count(*) FROM notifications WHERE user_id=?",Integer.class,owner));
+    db.update("UPDATE users SET account_status='ACTIVE' WHERE id=?",owner);ok(body(post("/api/v1/inquiries/confirm-email"),null,Map.of("token",token)));assertEquals("INQUIRY_RECEIVED",db.queryForObject("SELECT current_status FROM inquiries WHERE id=?",String.class,inquiry));assertNotNull(db.queryForObject("SELECT email_confirmed_at FROM inquiries WHERE id=?",Object.class,inquiry));assertEquals(notifications+1,db.queryForObject("SELECT count(*) FROM notifications WHERE user_id=?",Integer.class,owner));
+  }
+  byte[] sourceWithReviewFindings()throws Exception{
+    var bytes=new ByteArrayOutputStream();try(var out=new ZipOutputStream(bytes,StandardCharsets.UTF_8);var in=new ZipInputStream(new ByteArrayInputStream(archive(2)),StandardCharsets.UTF_8)){
+      for(ZipEntry entry;(entry=in.getNextEntry())!=null;){out.putNextEntry(new ZipEntry(entry.getName()));in.transferTo(out);out.closeEntry();}
+      for(var finding:Map.of("unsupported-accuracy.md","This model claims 99.99% real-world accuracy without a held-out evaluation or supporting evidence.","remote_loader.py","# Reviewer fixture only; this file is never executed.\nfrom transformers import AutoModel\nmodel = AutoModel.from_pretrained('unreviewed/model', trust_remote_code=True)\n").entrySet()){out.putNextEntry(new ZipEntry(finding.getKey()));out.write(finding.getValue().getBytes(StandardCharsets.UTF_8));out.closeEntry();}
+    }return bytes.toByteArray();
+  }
+  @Test void reviewerRequestsChangesForActualUnsupportedModelClaimsAndRemoteLoaderAtExactSourceHash()throws Exception{
+    byte[] bytes=sourceWithReviewFindings();var uploaded=ok(upload(create("FREE",2),bytes,true));var pending=submit(uploaded);String id=pending.path("id").asText(),hash=pending.path("sourceHash").asText();assertEquals(SourceArchive.inspect(bytes).sha256(),pending.path("snapshot").path("sourceBinding").path("sha256").asText());assertTrue(pending.path("snapshot").path("dataAiEvidence").path("noRemoteCode").asBoolean());
+    // Archive structure/rights attestations are automated; arbitrary-code semantics require a human decision.
+    byte[] inspected=mvc.perform(body(post("/api/v1/admin/education-releases/"+id+"/package"),"admin",Map.of())).andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray();assertArrayEquals(bytes,inspected);
+    var content=new LinkedHashMap<String,String>();try(var zip=new ZipInputStream(new ByteArrayInputStream(inspected),StandardCharsets.UTF_8)){for(ZipEntry entry;(entry=zip.getNextEntry())!=null;)content.put(entry.getName(),new String(zip.readAllBytes(),StandardCharsets.UTF_8));}assertTrue(content.get("unsupported-accuracy.md").contains("99.99%"));assertTrue(content.get("remote_loader.py").contains("trust_remote_code=True"));
+    var decision=new LinkedHashMap<String,Object>(review(pending,"CHANGES_REQUESTED"));decision.put("reason","The inspected source claims unsupported accuracy and enables a remote loader. Provide a reproduced evaluation and a frozen non-executable model.");
+    db.update("UPDATE sessions SET issued_at=now()-interval '1 hour' WHERE user_id=?",admin);mvc.perform(body(post("/api/v1/admin/education-releases/"+id+"/review"),"admin",decision)).andExpect(status().isForbidden());assertEquals("PENDING",db.queryForObject("SELECT status FROM education_releases WHERE id=?",String.class,UUID.fromString(id)));
+    db.update("UPDATE sessions SET issued_at=clock_timestamp(),mfa_verified=true WHERE user_id=?",admin);decision.put("sourceHash","b".repeat(64));mvc.perform(body(post("/api/v1/admin/education-releases/"+id+"/review"),"admin",decision)).andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("EDUCATION_HASH_CONFLICT"));decision.put("sourceHash",hash);
+    var reviewed=ok(body(post("/api/v1/admin/education-releases/"+id+"/review"),"admin",decision));assertEquals("CHANGES_REQUESTED",reviewed.path("status").asText());assertEquals(hash,reviewed.path("sourceHash").asText());assertEquals(1,db.queryForObject("SELECT count(*) FROM education_audit WHERE release_id=? AND actor_id=? AND action='CHANGES_REQUESTED' AND source_hash=? AND reason=?",Integer.class,UUID.fromString(id),admin,hash,decision.get("reason")));assertEquals(0,ok(get("/api/v1/college-projects")).path("totalItems").asInt());mvc.perform(get("/api/v1/education-releases/"+id+"/source-offer")).andExpect(status().isNotFound());
   }
 }

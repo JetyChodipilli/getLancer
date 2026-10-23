@@ -4,6 +4,10 @@ Every report is tied to the expected deployment environment and exact reviewed G
 
 LOAD/SOAK manifests are produced from actual collectors. The first journal line contains environment, commit, origin, declared deployment profile, segment UUID, actual start timestamp and finite collector configuration. Each observation contains sequence, actual timestamp, monotonic elapsed, fixed sanitized probe/count fields, previous hash and its own SHA-256. The manifest binds the complete file hash; an Ed25519 envelope binds the manifest to the independently trusted operator key.
 
+New SOAK journal headers bind optional `config.sources` to ordered archive pins (`id`, `path`, `sha256`, `sizeBytes`). Every configured lane has one aligned `sourceProbes` outcome (`id`, `status`, `outcome`, `durationMs`, `bodySha256`, `sizeBytes`). OK requires matching pinned bytes and size; failures retain sanitized status/timing and null byte/hash fields. Missing or swapped outcomes reject the journal. Legacy source-less journals remain readable but fail source acceptance. Discovery and both source lanes have separate sampled 99.5% SLI gates; monthly availability remains uncertified.
+
+Report file verification captures bounded bytes once. An optional expected file SHA-256 is checked against that same capture before signature and JSON parsing; HANDOVER dependency verification supplies each signed dependency hash through this path. Reopening a pathname between hashing and parsing is not allowed.
+
 DRILL and ACTIVATION reports contain exactly their required controls. HANDOVER contains its own fixed controls plus four `reports` entries referencing one signed LOAD, SOAK, DRILL and ACTIVATION report by kind, sibling filename and file SHA-256. Release verification recursively verifies those independent reports against the same already trusted key, environment, revision and current time. Passing manual handover labels cannot bypass a failed load, soak, drill or merchant/provider gate.
 
 ## Fixed control attachments
