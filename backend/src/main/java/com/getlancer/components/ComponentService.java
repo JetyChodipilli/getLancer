@@ -263,6 +263,11 @@ public class ComponentService {
     var metadata=new LinkedHashMap<String,Object>(sourceProjection(source));metadata.remove("files");
     return Map.of("componentId",id,"revision",revision,"version",source.get("version"),"sourceHash",source.get("sha256"),"source",metadata,"context",context);
   }
+  private UUID reportModerator(HttpServletRequest request){
+    UUID actor=security.admin(request);var principal=security.loadPrincipal(request);
+    if(principal==null||!principal.recentMfa())throw new ApiError(403,"FORBIDDEN","Recent administrator MFA is required for component report enforcement.");
+    return actor;
+  }
   /** Freeze server-derived published facts, not caller-supplied source or moderator fields. */
   @Transactional public Map<String,Object> reportArtifact(UUID id,long expectedRevision,String expectedSha){
     var curated=recipes.stream().filter(recipe->recipeReportId(recipe.get("slug").toString()).equals(id)).findFirst();
@@ -283,17 +288,17 @@ public class ComponentService {
   }
   /** Current source authority closes fresh admissions and current run routes after this commits. */
   @Transactional public Map<String,Object> suspendReported(UUID id,long expectedRevision,String expectedSourceHash,String expectedVersion,String reason,HttpServletRequest request){
-    UUID admin=security.admin(request);slots.lockAuthority(admin);security.admin(request);
+    UUID admin=reportModerator(request);slots.lockAuthority(admin);reportModerator(request);
     if(reason==null||reason.strip().length()<3||reason.length()>2000)throw new ApiError(400,"VALIDATION_ERROR","Record an enforcement reason.");
     var curated=recipes.stream().filter(recipe->recipeReportId(recipe.get("slug").toString()).equals(id)).findFirst();
     if(curated.isPresent()){
-      var source=curated.get();lockRecipeReport(source.get("slug").toString());
+      var source=curated.get();lockRecipeReport(source.get("slug").toString());reportModerator(request);
       if(expectedRevision!=1||!Objects.equals(source.get("sha256"),expectedSourceHash)||!Objects.equals(source.get("version"),expectedVersion))throw new ApiError(409,"REPORTED_COMPONENT_CHANGED","The published component source changed. Review the current version before enforcing this report.");
       db.update("INSERT INTO component_recipe_enforcement(recipe_slug,source_sha256,suspended,actor_id,reason) VALUES(?,?,true,?,?) ON CONFLICT(recipe_slug,source_sha256) DO UPDATE SET suspended=true,actor_id=EXCLUDED.actor_id,reason=EXCLUDED.reason,updated_at=now()",source.get("slug"),expectedSourceHash,admin,reason);
     }else{
       var owners=db.queryForList("SELECT owner_id FROM component_entries WHERE id=?",UUID.class,id);if(owners.isEmpty())throw new ApiError(404,"NOT_FOUND","Component not found.");
       slots.lock(owners.get(0));
-      var row=db.queryForMap("SELECT id,owner_id,recipe_slug,revision,status,published_at,published_source,published_context FROM component_entries WHERE id=? FOR UPDATE",id);security.admin(request);
+      var row=db.queryForMap("SELECT id,owner_id,recipe_slug,revision,status,published_at,published_source,published_context FROM component_entries WHERE id=? FOR UPDATE",id);reportModerator(request);
       if(row.get("published_at")==null)throw new ApiError(404,"NOT_FOUND","Published component not found.");
       var source=publishedSource(row);
       if(((Number)row.get("revision")).longValue()!=expectedRevision||!Objects.equals(source.get("sha256"),expectedSourceHash)||!Objects.equals(source.get("version"),expectedVersion))throw new ApiError(409,"REPORTED_COMPONENT_CHANGED","The published component source changed. Review the current version before enforcing this report.");

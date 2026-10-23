@@ -1,0 +1,55 @@
+name: Verify production acceptance evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: Exact current main commit already deployed and independently measured
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-acceptance-evidence
+  cancel-in-progress: false
+
+jobs:
+  validate-request:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Refuse stale revisions and non-main workflow code
+        env:
+          REQUESTED_REVISION: ${{ inputs.revision }}
+          EXPECTED_REVISION: ${{ github.sha }}
+        run: |
+          if [ "$GITHUB_REF" != refs/heads/main ] || [ "$REQUESTED_REVISION" != "$EXPECTED_REVISION" ]; then
+            echo 'Production qualification requires the exact current main revision.'
+            exit 1
+          fi
+  verify:
+    needs: validate-request
+    if: github.ref == 'refs/heads/main' && inputs.revision == github.sha
+    runs-on: [self-hosted, linux, getlancer-evidence-observer]
+    environment: production-acceptance
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          clean: true
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Verify immutable evidence without deployment credentials
+        env:
+          EXPECTED_REVISION: ${{ github.sha }}
+        run: >-
+          node scripts/qualify-production.mjs verify
+          --revision "$EXPECTED_REVISION"
+          --target /etc/getlancer-qualification/target.json
+          --public-key /etc/getlancer-qualification/operator-public.pem
+          --bundle /var/lib/getlancer-qualification/bundle-signed.json

@@ -19,3 +19,7 @@ Validation results and immutable CI/head identity are recorded in VALIDATION.md 
 ## Clause review update — 22 October 2026
 
 The source-review pass now covers all 68 requirements and 246 obligations. It found confirmed defects and additional implementation/test gaps, so delivery through V5.2 is not a claim that all original requirements are implemented or accepted. See [the requirements review](REQUIREMENTS_REVIEW.md) and its machine-readable evidence. The register uses `CLAUSE_REVIEWED`, which never closes owner or launch acceptance. Real infrastructure, production and human gates remain open.
+
+## Coding follow-up, 23 October 2026
+
+The five remaining implementation areas have been coded with targeted verification. See [implementation completion and coverage](IMPLEMENTATION_COMPLETION.md). Historical clause-review findings remain as baseline evidence; exact revised-head CI governs the software merge, and actual infrastructure/human acceptance remains open.

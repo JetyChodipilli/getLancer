@@ -126,10 +126,15 @@ export function labObservation(value:unknown,runId:string,sourceHash?:string):La
  });return {runId,sourceHash,requestId:root.requestId as string,pattern,status,durationMs,state,events};
 }
 /** Duplicate exact results are idempotent; new stale or altered batches fail before caller cursors advance. */
-export function labMergeObservations(previous:LabObservation[],incoming:LabObservation[],runId:string,sourceHash?:string):LabObservation[]{
- const result=[...previous];let cursor=result.at(-1)?.events.at(-1)?.sequence??0;
+export function labMergeObservations(previous:LabObservation[],incoming:LabObservation[],runId:string,sourceHash?:string,replayAfter?:number):LabObservation[]{
+ const result=[...previous];let cursor=replayAfter??result.at(-1)?.events.at(-1)?.sequence??0;
  for(const raw of incoming){const observation=labObservation(raw,runId,sourceHash),existing=result.find(item=>item.requestId===observation.requestId);
-  if(existing){if(JSON.stringify(existing)!==JSON.stringify(observation))throw Error('Observed response identity changed.');continue;}
-  if(observation.events[0].sequence<=cursor)throw Error('Observed activity arrived out of order.');cursor=observation.events.at(-1)!.sequence;result.push(observation);
- }return result.slice(-25);
+  if(existing&&JSON.stringify(existing)!==JSON.stringify(observation))throw Error('Observed response identity changed.');
+  if(existing&&replayAfter===undefined)continue;
+  if(observation.events[0].sequence<=cursor)throw Error('Observed activity arrived out of order.');cursor=observation.events.at(-1)!.sequence;
+  if(!existing)result.push(observation);
+ }
+ result.sort((a,b)=>a.events[0].sequence-b.events[0].sequence);
+ let previousEnd=0;for(const observation of result){if(observation.events[0].sequence<=previousEnd)throw Error('Observed activity overlaps another response.');previousEnd=observation.events.at(-1)!.sequence;}
+ return result.slice(-25);
 }

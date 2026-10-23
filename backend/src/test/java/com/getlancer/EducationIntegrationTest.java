@@ -330,7 +330,7 @@ class EducationIntegrationTest {
     health(release,"UNREACHABLE",url+"?old",hash,"-60");assertEquals("UNKNOWN",ok(get("/api/v1/college-projects/"+product)).path("education").path("demoHealth").asText());
     health(release,"UNREACHABLE",url,"b".repeat(64),"-60");assertEquals("UNKNOWN",ok(get("/api/v1/college-projects/"+product)).path("education").path("demoHealth").asText());
     var next=create("SHOWCASE",0);health(next,"UNREACHABLE",url,hash,"-60");assertEquals("UNKNOWN",ok(as(get("/api/v1/me/education-releases/"+next.path("id").asText()),"owner")).path("demoHealth").asText("UNKNOWN"));
-    db.update("UPDATE products SET visibility='PRIVATE' WHERE id=?",product);mvc.perform(get("/api/v1/college-projects/"+product)).andExpect(status().isNotFound());mvc.perform(get("/api/v1/education-releases/"+release.path("id").asText()+"/source-offer")).andExpect(status().isConflict());
+    db.update("UPDATE products SET visibility='PRIVATE_CASE_STUDY' WHERE id=?",product);mvc.perform(get("/api/v1/college-projects/"+product)).andExpect(status().isNotFound());mvc.perform(get("/api/v1/education-releases/"+release.path("id").asText()+"/source-offer")).andExpect(status().isConflict());
   }
   @Test void scheduledExternalHealthReusesExactCurrentUrlAndSkipsPrivateAndSupersededReleases()throws Exception{
     String url="https://example.org/college-demo";var release=externalFixture(url);UUID id=UUID.fromString(release.path("id").asText());
@@ -341,9 +341,20 @@ class EducationIntegrationTest {
     health(pending,"UNREACHABLE",url,release.path("sourceHash").asText(),"-60");assertEquals("UNKNOWN",ok(as(get("/api/v1/me/education-releases/"+nextId),"owner")).path("demoHealth").asText());
     db.update("UPDATE education_releases SET status='APPROVED',reviewed_at=clock_timestamp() WHERE id=?",nextId);
     assertEquals("UNKNOWN",ok(get("/api/v1/college-projects/"+product)).path("education").path("demoHealth").asText());
-    db.update("UPDATE products SET visibility='PRIVATE' WHERE id=?",product);new DemoHealth(db,true).check();assertEquals(url,db.queryForObject("SELECT demo_checked_url FROM education_releases WHERE id=?",String.class,nextId));
+    db.update("UPDATE products SET visibility='PRIVATE_CASE_STUDY' WHERE id=?",product);new DemoHealth(db,true).check();assertEquals(url,db.queryForObject("SELECT demo_checked_url FROM education_releases WHERE id=?",String.class,nextId));
     db.update("UPDATE products SET visibility='PUBLIC',live_url=?,demo_checked_url=? WHERE id=?",url+"?new",url+"?new",product);
     new DemoHealth(db,true).check();assertEquals(url+"?new",db.queryForObject("SELECT demo_checked_url FROM education_releases WHERE id=?",String.class,nextId));assertEquals(url,db.queryForObject("SELECT demo_checked_url FROM education_releases WHERE id=?",String.class,id));
+  }
+
+  @Test void externalProbeResultIsDiscardedIfNewUrlReleasePublishesOrOwnerIsRevokedDuringIo()throws Exception{
+    String oldUrl="https://example.org/old-demo",newUrl="https://example.org/new-demo";var old=externalFixture(oldUrl);UUID oldId=UUID.fromString(old.path("id").asText());
+    var draft=create("SHOWCASE",0);var snapshot=json.convertValue(draft.path("snapshot"),new TypeReference<LinkedHashMap<String,Object>>(){});snapshot.put("demoMode","EXTERNAL");snapshot.put("demoUrl",newUrl);var next=historicalFixture(draft,snapshot);UUID nextId=UUID.fromString(next.path("id").asText());
+    new DemoHealth(db,true){@Override protected String probe(String url){assertEquals(oldUrl,url);EducationIntegrationTest.this.db.update("UPDATE education_releases SET status='APPROVED',reviewed_at=clock_timestamp() WHERE id=?",nextId);return "REACHABLE";}}.check();
+    assertEquals("UNKNOWN",db.queryForObject("SELECT demo_health FROM education_releases WHERE id=?",String.class,oldId));assertEquals("UNKNOWN",db.queryForObject("SELECT demo_health FROM education_releases WHERE id=?",String.class,nextId));
+    new DemoHealth(db,true){@Override protected String probe(String url){assertEquals(newUrl,url);EducationIntegrationTest.this.db.update("UPDATE users SET account_status='SUSPENDED' WHERE id=?",owner);return "UNREACHABLE";}}.check();
+    assertNull(db.queryForObject("SELECT demo_checked_at FROM education_releases WHERE id=?",Object.class,nextId));
+    db.update("UPDATE users SET account_status='ACTIVE' WHERE id=?",owner);new DemoHealth(db,true){@Override protected String probe(String url){assertEquals(newUrl,url);return "UNREACHABLE";}}.check();
+    assertEquals("UNREACHABLE",db.queryForObject("SELECT demo_health FROM education_releases WHERE id=?",String.class,nextId));assertEquals(next.path("sourceHash").asText(),db.queryForObject("SELECT demo_checked_source_hash FROM education_releases WHERE id=?",String.class,nextId));assertEquals(newUrl,db.queryForObject("SELECT demo_checked_url FROM education_releases WHERE id=?",String.class,nextId));
   }
 
   @Test void unknownBoundedCollegeLanguageStaysPendingAndUnlistedUntilAdministratorApproval()throws Exception{
@@ -368,7 +379,10 @@ class EducationIntegrationTest {
     db.update("UPDATE users SET account_status='ACTIVE' WHERE id=?",owner);ok(body(post("/api/v1/inquiries/confirm-email"),null,Map.of("token",token)));assertEquals("INQUIRY_RECEIVED",db.queryForObject("SELECT current_status FROM inquiries WHERE id=?",String.class,inquiry));assertNotNull(db.queryForObject("SELECT email_confirmed_at FROM inquiries WHERE id=?",Object.class,inquiry));assertEquals(notifications+1,db.queryForObject("SELECT count(*) FROM notifications WHERE user_id=?",Integer.class,owner));
   }
   byte[] sourceWithReviewFindings()throws Exception{
-    var bytes=new ByteArrayOutputStream();try(var out=new ZipOutputStream(bytes,StandardCharsets.UTF_8);var in=new ZipInputStream(new ByteArrayInputStream(archive(2)),StandardCharsets.UTF_8)){
+    // This PAID illustrative seed intentionally has no previewPackageUrl; use its local original fixture.
+    byte[] original=Files.readAllBytes(Path.of("..","public","education","ai-ml.zip"));
+    assertEquals(json.valueToTree(examples.get(2)).path("packageAudit").path("sha256").asText(),SourceArchive.inspect(original).sha256());
+    var bytes=new ByteArrayOutputStream();try(var out=new ZipOutputStream(bytes,StandardCharsets.UTF_8);var in=new ZipInputStream(new ByteArrayInputStream(original),StandardCharsets.UTF_8)){
       for(ZipEntry entry;(entry=in.getNextEntry())!=null;){out.putNextEntry(new ZipEntry(entry.getName()));in.transferTo(out);out.closeEntry();}
       for(var finding:Map.of("unsupported-accuracy.md","This model claims 99.99% real-world accuracy without a held-out evaluation or supporting evidence.","remote_loader.py","# Reviewer fixture only; this file is never executed.\nfrom transformers import AutoModel\nmodel = AutoModel.from_pretrained('unreviewed/model', trust_remote_code=True)\n").entrySet()){out.putNextEntry(new ZipEntry(finding.getKey()));out.write(finding.getValue().getBytes(StandardCharsets.UTF_8));out.closeEntry();}
     }return bytes.toByteArray();

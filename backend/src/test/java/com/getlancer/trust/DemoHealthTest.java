@@ -60,14 +60,14 @@ class DemoHealthTest {
   @Test void educationBatchReusesExactFreshProductFactWithoutRefreshingItsClock(){
     var db=mock(JdbcTemplate.class);Instant checked=Instant.now().minusSeconds(120);UUID id=UUID.randomUUID();
     when(db.queryForList(anyString())).thenReturn(List.of(Map.of("id",id,"source_hash",HASH,"demo_url",URL,"product_demo_health","UNREACHABLE","product_demo_checked_at",Timestamp.from(checked),"product_demo_checked_url",URL)));
-    var worker=new DemoHealth(db){@Override String probe(String url){fail("Fresh exact URL fact should be reused");return "UNKNOWN";}};
+    var worker=new DemoHealth(db){@Override protected String probe(String url){fail("Fresh exact URL fact should be reused");return "UNKNOWN";}};
     try{worker.checkEducation();verify(db).update(contains("UPDATE education_releases"),eq("UNREACHABLE"),eq(Timestamp.from(checked)),eq(URL),eq(HASH),eq(id),eq(HASH),eq(URL));
       var sql=ArgumentCaptor.forClass(String.class);verify(db).queryForList(sql.capture());assertTrue(sql.getValue().contains("LIMIT 10"));assertTrue(sql.getValue().contains("cm.status='APPROVED'"));assertTrue(sql.getValue().contains("latest.status='APPROVED'"));
     }finally{worker.close();}
   }
   @Test void educationResultWriteRechecksAuthorityAndExactSourceAfterNetworkIo(){
     var db=mock(JdbcTemplate.class);UUID id=UUID.randomUUID();when(db.queryForList(anyString())).thenReturn(List.of(Map.of("id",id,"source_hash",HASH,"demo_url",URL)));
-    var worker=new DemoHealth(db){@Override String probe(String url){assertEquals(URL,url);return "REACHABLE";}};
+    var worker=new DemoHealth(db){@Override protected String probe(String url){assertEquals(URL,url);return "REACHABLE";}};
     try{worker.checkEducation();var sql=ArgumentCaptor.forClass(String.class);verify(db).update(sql.capture(),eq("REACHABLE"),any(Timestamp.class),eq(URL),eq(HASH),eq(id),eq(HASH),eq(URL));String update=sql.getValue();for(String expected:List.of("e.source_hash=?","e.snapshot->>'demoUrl'=?","e.status='APPROVED'","u.account_status='ACTIVE'","ur.role='DEVELOPER'","latest.id","cm.status='APPROVED'"))assertTrue(update.contains(expected),expected);}finally{worker.close();}
   }
 }

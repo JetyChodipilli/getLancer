@@ -117,7 +117,11 @@ class AcceptanceCompletionIntegrationTest {
     mvc.perform(body(post("/api/v1/admin/labs/limits"),"acceptance-admin",Map.of("dailyRunLimit",5,"maxActiveRuns",10,"maxMemoryMiB",memory,"dailyBudgetMicros",daily,"monthlyBudgetMicros",monthly,"reason","Disposable concurrent admission acceptance."))).andExpect(status().isOk());
   }
   void budgetHistory(String timestamp,int count,long cost){
-    db.update("INSERT INTO lab_runs(id,owner_id,manifest_id,scenario_id,request_hash,idempotency_key,inputs,manifest_sha256,image_digest,operator_epoch,status,requested_at,expires_at,healthy_at,cleanup_confirmed_at,memory_mib,cost_micros,quota_counted) SELECT md5('acceptance-history-'||n::text)::uuid,?,'protocol-fixture','request',?,'history-'||n::text,'{}'::jsonb,?,?,?,'SUCCEEDED',"+timestamp+","+timestamp+"+interval '5 minutes',"+timestamp+","+timestamp+",64,?,true FROM generate_series(1,?) n",owner,"a".repeat(64),manifestHash,"sha256:"+"b".repeat(64),fixture.epoch,cost,count);
+    for(int n=0;n<count;n++){
+      // Budget history must also respect the five-per-account daily reservation limit.
+      UUID historicalOwner=count<=5?owner:user("acceptance-history-"+n,false);
+      db.update("INSERT INTO lab_runs(id,owner_id,manifest_id,scenario_id,request_hash,idempotency_key,inputs,manifest_sha256,image_digest,operator_epoch,status,requested_at,expires_at,healthy_at,cleanup_confirmed_at,memory_mib,cost_micros,quota_counted) VALUES(?,?,'protocol-fixture','request',?,?,'{}'::jsonb,?,?,?,'SUCCEEDED',"+timestamp+","+timestamp+"+interval '5 minutes',"+timestamp+","+timestamp+",64,?,true)",UUID.randomUUID(),historicalOwner,"a".repeat(64),"history-"+n,manifestHash,"sha256:"+"b".repeat(64),fixture.epoch,cost);
+    }
   }
   @Test void fiftySameAccountAdmissionsCannotRacePastItsLastDailyReservation()throws Exception{
     budgetHistory("now()",4,1000);admitted(fifty(true,false),1,"LAB_QUOTA_EXHAUSTED");assertEquals(5,db.queryForObject("SELECT count(*) FROM lab_runs WHERE owner_id=? AND quota_counted",Integer.class,owner));

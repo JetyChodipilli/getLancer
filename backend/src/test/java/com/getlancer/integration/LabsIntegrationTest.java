@@ -362,4 +362,33 @@ class LabsIntegrationTest {
     fixture.foreignObservation=true;mvc.perform(body(post("/api/v1/lab-runs/"+id+"/requests"),"lab-owner",Map.of("operationId","echo","inputs",Map.of("message","Foreign"))).header("Idempotency-Key","observed-foreign-result")).andExpect(status().isBadGateway()).andExpect(jsonPath("$.error.code").value("LAB_EVIDENCE_UNCONFIRMED"));assertEquals(2,db.queryForObject("SELECT observation_sequence FROM lab_runs WHERE id=?",Integer.class,id));fixture.foreignObservation=false;fixture.replayedObservation=true;
     mvc.perform(body(post("/api/v1/lab-runs/"+id+"/requests"),"lab-owner",Map.of("operationId","echo","inputs",Map.of("message","Replay"))).header("Idempotency-Key","observed-replayed-result")).andExpect(status().isBadGateway());assertEquals(2,db.queryForObject("SELECT observation_sequence FROM lab_runs WHERE id=?",Integer.class,id));assertEquals(1,db.queryForObject("SELECT count(*) FROM lab_requests WHERE response IS NOT NULL",Integer.class));assertEquals(1,db.queryForObject("SELECT count(*) FROM lab_events WHERE command_id IS NOT NULL",Integer.class));
   }
+  @Autowired javax.sql.DataSource labConnections;
+  /** Real target-row waits after the initial MFA check, with natural clock expiry and unchanged credentials. */
+  private void certificationAfterTargetWait(String action,boolean expires)throws Exception{
+    String identity=action.equals("REVOKE")?"protocol-fixture":"queued-native-certificate";
+    String payload=nativeCertificate(identity).toString();var input=action.equals("REVOKE")?Map.of("action",action,"manifestId",identity,"reason","Queued certificate review must use current MFA after target locking."):Map.of("action",action,"manifestId",identity,"payload",payload,"signature",fixture.sign(payload),"reason","Queued certificate review must use current MFA after source locking.");
+    int auditBefore=db.queryForObject("SELECT count(*) FROM lab_operator_audit",Integer.class),manifestsBefore=db.queryForObject("SELECT count(*) FROM lab_manifests",Integer.class);
+    var executor=Executors.newSingleThreadExecutor();
+    try(var holder=labConnections.getConnection()){
+      holder.setAutoCommit(false);int holderPid;try(var statement=holder.createStatement();var result=statement.executeQuery("SELECT pg_backend_pid()")){assertTrue(result.next());holderPid=result.getInt(1);}
+      String table=action.equals("REVOKE")?"lab_manifests":"users";
+      try(var lock=holder.prepareStatement("SELECT id FROM "+table+" WHERE id=? FOR UPDATE")){lock.setObject(1,action.equals("REVOKE")?identity:sourceOwner);try(var result=lock.executeQuery()){assertTrue(result.next());}}
+      try{
+        db.update("UPDATE sessions SET issued_at=clock_timestamp()-"+(expires?"interval '894 seconds'":"interval '60 seconds'")+" WHERE user_id=?",admin);
+        var deadline=db.queryForObject("SELECT issued_at+interval '15 minutes' FROM sessions WHERE user_id=?",java.sql.Timestamp.class,admin);
+        var builder=body(post("/api/v1/admin/labs/certifications"),"lab-admin",input);var response=executor.submit(()->mvc.perform(builder).andReturn());
+        boolean blocked=false;long stop=System.nanoTime()+java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
+        while(System.nanoTime()<stop){int waits=db.queryForObject("SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND ?=ANY(pg_blocking_pids(pid)) AND xact_start<? AND query LIKE ?",Integer.class,holderPid,deadline,"%FROM "+table+"%FOR UPDATE%");if(waits>0){blocked=true;break;}java.util.concurrent.locks.LockSupport.parkNanos(java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(20));}
+        assertTrue(blocked,"The certification must pass initial MFA then wait on its real target/source row");assertTrue(db.queryForObject("SELECT clock_timestamp()<?",Boolean.class,deadline));
+        if(expires){db.queryForObject("SELECT pg_sleep(GREATEST(0,extract(epoch FROM (?::timestamptz-clock_timestamp()))+0.2))",Object.class,deadline);assertTrue(db.queryForObject("SELECT clock_timestamp()>=?",Boolean.class,deadline));}
+        holder.commit();var result=response.get(10,java.util.concurrent.TimeUnit.SECONDS);
+        if(expires){assertEquals(403,result.getResponse().getStatus(),result.getResponse().getContentAsString());assertEquals(auditBefore,db.queryForObject("SELECT count(*) FROM lab_operator_audit",Integer.class));assertEquals(manifestsBefore,db.queryForObject("SELECT count(*) FROM lab_manifests",Integer.class));assertNull(db.queryForObject("SELECT revoked_at FROM lab_manifests WHERE id='protocol-fixture'",java.sql.Timestamp.class));}
+        else{assertEquals(200,result.getResponse().getStatus(),result.getResponse().getContentAsString());assertEquals(auditBefore+1,db.queryForObject("SELECT count(*) FROM lab_operator_audit",Integer.class));if(action.equals("REVOKE"))assertNotNull(db.queryForObject("SELECT revoked_at FROM lab_manifests WHERE id='protocol-fixture'",java.sql.Timestamp.class));else assertEquals(manifestsBefore+1,db.queryForObject("SELECT count(*) FROM lab_manifests",Integer.class));}
+      }finally{holder.rollback();}
+    }finally{executor.shutdownNow();assertTrue(executor.awaitTermination(15,java.util.concurrent.TimeUnit.SECONDS));}
+  }
+  @org.junit.jupiter.params.ParameterizedTest @org.junit.jupiter.params.provider.ValueSource(strings={"REVOKE","PUBLISH"})
+  void expiredMfaAfterManifestOrSourceWaitCannotCommitCertificationOrAudit(String action)throws Exception{certificationAfterTargetWait(action,true);}
+  @org.junit.jupiter.params.ParameterizedTest @org.junit.jupiter.params.provider.ValueSource(strings={"REVOKE","PUBLISH"})
+  void currentMfaAfterManifestOrSourceWaitCanCommitCertificationAndAudit(String action)throws Exception{certificationAfterTargetWait(action,false);}
 }

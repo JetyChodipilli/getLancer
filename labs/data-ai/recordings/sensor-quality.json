@@ -6,7 +6,7 @@
   "dataSha256": "b66c21d2e7d0ee93533bfde8b56bcbae06ea1e72397803c5c5e2ed433d59e599",
   "modelSha256": null,
   "evaluationSha256": null,
-  "recordedAt": "2026-10-23T04:41:53.540Z",
+  "recordedAt": "2026-10-23T09:39:29.432Z",
   "runs": [
     {
       "dataSha256": "b66c21d2e7d0ee93533bfde8b56bcbae06ea1e72397803c5c5e2ed433d59e599",
@@ -90,11 +90,11 @@
         ]
       },
       "resultSha256": "95cefd27a5b930a9f9d0505aa3f5fabae39d38f7c92b75b2223d0399eaf27b4d",
-      "runId": "70efb991-f041-4399-9e17-8d99dc8e0c8f",
+      "runId": "0be65ad2-f161-4e7e-995d-27d482766729",
       "scenarioId": "sensor-quality",
       "schemaVersion": "getlancer-data-ai-result-v1",
       "sourceSha256": "e2e8512dfe9133a0e5d6e3ff8dcae2662cdd624a6c97b455c189bf3f4d3910f4",
-      "startedAt": "2026-10-23T04:41:53.535Z"
+      "startedAt": "2026-10-23T09:39:29.423Z"
     },
     {
       "dataSha256": "b66c21d2e7d0ee93533bfde8b56bcbae06ea1e72397803c5c5e2ed433d59e599",
@@ -172,11 +172,11 @@
         ]
       },
       "resultSha256": "8d35a83d7a1dd4c6bf3c31f7164f7f03a9d9cc61004397965b8075cf48ada883",
-      "runId": "70efb991-f041-4399-9e17-8d99dc8e0c8f",
+      "runId": "0be65ad2-f161-4e7e-995d-27d482766729",
       "scenarioId": "sensor-quality",
       "schemaVersion": "getlancer-data-ai-result-v1",
       "sourceSha256": "e2e8512dfe9133a0e5d6e3ff8dcae2662cdd624a6c97b455c189bf3f4d3910f4",
-      "startedAt": "2026-10-23T04:41:53.538Z"
+      "startedAt": "2026-10-23T09:39:29.428Z"
     }
   ]
 }

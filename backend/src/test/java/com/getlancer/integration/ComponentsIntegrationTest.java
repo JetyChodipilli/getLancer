@@ -195,8 +195,8 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
       db.execute("GRANT USAGE ON SCHEMA getlancer_test TO "+reader);
       db.execute("GRANT SELECT (id,owner_id,recipe_slug,status,withdrawn_at,published_filter_metadata) ON component_entries TO "+reader);
       db.execute("GRANT SELECT (component_id,revision,filter_metadata) ON component_releases TO "+reader);
-      for(String table:List.of("users","developer_profiles","user_roles"))db.execute("GRANT SELECT ON "+table+" TO "+reader);
-      for(String table:List.of("component_entries","component_releases","users","developer_profiles","user_roles"))db.execute("CREATE POLICY "+reader+" ON "+table+" FOR SELECT TO "+reader+" USING (true)");
+      for(String table:List.of("users","developer_profiles","user_roles","component_recipe_enforcement"))db.execute("GRANT SELECT ON "+table+" TO "+reader);
+      for(String table:List.of("component_entries","component_releases","users","developer_profiles","user_roles","component_recipe_enforcement"))db.execute("CREATE POLICY "+reader+" ON "+table+" FOR SELECT TO "+reader+" USING (true)");
       db.execute("SET LOCAL ROLE "+reader);
       assertFalse(db.queryForObject("SELECT has_column_privilege(current_user,'getlancer_test.component_releases','source','SELECT')",Boolean.class));
       assertFalse(db.queryForObject("SELECT has_column_privilege(current_user,'getlancer_test.component_entries','published_source','SELECT')",Boolean.class));

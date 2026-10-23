@@ -50,4 +50,8 @@ class AccountExportResponseTest {
     var exported=new com.fasterxml.jackson.databind.ObjectMapper().valueToTree(AccountExportResponse.Report.from(row));
     assertEquals("My report",exported.path("detail").asText());assertFalse(exported.toString().contains("canary"));assertFalse(exported.has("triage_note"));assertFalse(exported.has("component_snapshot"));
   }
+  @Test void clientWithoutBuilderProfileStillHasAValidExportProjection() {
+    var projection=new ObjectMapper().valueToTree(AccountExportResponse.Profile.from(Map.of(),new ObjectMapper()));
+    assertTrue(projection.path("user_id").isNull());assertTrue(projection.path("display_name").isNull());
+  }
 }

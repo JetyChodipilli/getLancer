@@ -75,7 +75,7 @@ public class DemoHealth {
     try {
       URI u = URI.create(raw);
       String h = u.getHost();
-      if (h != null) h = h.toLowerCase(Locale.ROOT);
+      if (h != null) h = h.toLowerCase(Locale.ROOT).replaceFirst("\\.$", "");
       if (!"https".equalsIgnoreCase(u.getScheme())
           || h == null
           || u.getRawUserInfo() != null
@@ -134,7 +134,7 @@ public class DemoHealth {
     }
   }
 
-  String probe(String raw) {
+  protected String probe(String raw) {
     try {
       URI u = target(raw);
       for (int hop = 0; hop < 3; hop++) {

@@ -62,3 +62,6 @@ test('operation and SSE observations merge idempotently and reject whole malform
  const text=sse(envelope(1,{status:'RUNNING',observation}));assert.equal(parseLabEvents(text,id,0,sourceHash)[0].data.observation.events.length,2);
  const bad=structuredClone(observation);bad.sourceHash='b'.repeat(64);assert.throws(()=>parseLabEvents(text+sse(envelope(2,{status:'RUNNING',observation:bad})),id,0,sourceHash));assert.deepEqual(previous,[observation]);
 });
+test('finite control replay recovers older observations after direct responses while retaining its own monotonic cursor',()=>{
+ const early=labObservation(observed(),id,sourceHash),later=structuredClone(early);later.requestId='33333333-3333-4333-8333-333333333333';later.events.forEach((event,index)=>{event.requestId=later.requestId;event.sequence=3+index;});const direct=labMergeObservations([],[later],id,sourceHash),recovered=labMergeObservations(direct,[early,later],id,sourceHash,0);assert.deepEqual(recovered.map(item=>item.events[0].sequence),[1,3]);assert.equal(labMergeObservations(recovered,[later],id,sourceHash).length,2);assert.throws(()=>labMergeObservations(recovered,[early],id,sourceHash,2));assert.throws(()=>labMergeObservations(recovered,[later,early],id,sourceHash,0));assert.equal(direct.length,1);
+});

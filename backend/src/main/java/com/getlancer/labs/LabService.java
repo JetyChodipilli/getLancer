@@ -178,6 +178,7 @@ public class LabService {
   public LabResponses.Admin certify(LabRequests.Certification input,HttpServletRequest request){tx(()->{settings();UUID admin=actor(request,true);
     if(input.action().equals("REVOKE")){
       var rows=db.queryForList("SELECT payload_sha256 FROM lab_manifests WHERE id=? FOR UPDATE",String.class,input.manifestId());if(rows.isEmpty())throw absent();
+      actor(request,true); // Recheck current MFA after the target manifest row wait.
       db.update("UPDATE lab_manifests SET revoked_at=coalesce(revoked_at,now()) WHERE id=?",input.manifestId());audit(admin,"CERTIFICATION_REVOKED",input.reason(),Map.of("manifestId",input.manifestId(),"manifestSha256",rows.get(0)));
     }else{
       if(input.payload()==null||input.signature()==null)throw new ApiError(400,"INVALID_CERTIFICATION","Supply the immutable operator-signed manifest payload and signature.");
@@ -186,6 +187,7 @@ public class LabService {
       if(publish&&(manifest.adapter()==null||manifest.certification()==null))throw new ApiError(400,"INVALID_CERTIFICATION","New certifications require explicit versioned adapter and review attestations.");
       if(publish)for(var scenario:manifest.scenarios())requirePolicies(manifest,scenario.id(),true);source(manifest,true);
       if(!db.queryForList("SELECT id FROM lab_manifests WHERE id=?",String.class,manifest.id()).isEmpty())throw new ApiError(409,"CERTIFICATION_EXISTS","Manifest identities are immutable. Publish a new identity for re-certification.");
+      actor(request,true); // Source/publisher locks may have crossed the MFA deadline.
       db.update("INSERT INTO lab_manifests(id,payload_text,payload_sha256,signature,execution_approved) VALUES(?,?,?,?,?)",manifest.id(),input.payload(),sha,input.signature(),publish);
       audit(admin,publish?"CERTIFICATION_PUBLISHED":"SOURCE_REGISTERED",input.reason(),Map.of("manifestId",manifest.id(),"manifestSha256",sha,"executionApproved",publish));
     }return true;});return admin(request);

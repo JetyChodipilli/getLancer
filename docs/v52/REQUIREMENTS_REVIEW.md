@@ -16,9 +16,9 @@ Authority: `GetLancer_V4_5_to_V5_2_Full_Plan.pdf`, pages 18–30. The audit reco
 
 Existing paid creator publishing slots remain separate from free consumer source and standard demo policy; no paid publishing feature was removed.
 
-## Remaining implementation and verification work
+## Baseline implementation and verification gaps
 
-These are acceptance gaps found by review, not speculative exploits:
+These are the gaps recorded at the audit baseline. The five coding areas now have implementations and regression coverage in [the coding follow-up](IMPLEMENTATION_COMPLETION.md); the table and per-clause source record remain historical evidence. Exact revised-head CI and external acceptance are tracked separately.
 
 | Area | Required next evidence or implementation |
 |---|---|

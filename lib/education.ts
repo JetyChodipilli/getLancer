@@ -39,11 +39,12 @@ export function educationSubmissionIssues(d:EducationDraft,source?:EducationBind
 
 /** Current health is an observation, never an endorsement of external content. */
 export function externalDemoHealth(release:EducationRelease,now=Date.now()){
- const url=release.demoUrl??release.snapshot.demoUrl??'';
- let safe=false;try{const parsed=new URL(url),host=parsed.hostname.toLowerCase();safe=parsed.protocol==='https:'&&!parsed.username&&!parsed.password&&(!parsed.port||parsed.port==='443')&&host.includes('.')&&!host.includes(':')&&!/^[0-9.]+$/.test(host)&&!['.local','.internal','.localhost'].some(suffix=>host.endsWith(suffix));}catch{}
+ const url=release.demoUrl??release.snapshot.demoUrl??'',boundUrl=release.snapshot.demoUrl??url;
+ let safe=false;try{const parsed=new URL(url),host=parsed.hostname.toLowerCase().replace(/\.$/,'');safe=parsed.protocol==='https:'&&!parsed.username&&!parsed.password&&(!parsed.port||parsed.port==='443')&&host.includes('.')&&!host.includes(':')&&!/^[0-9.]+$/.test(host)&&!['.local','.internal','.localhost'].some(suffix=>host.endsWith(suffix));}catch{}
  const checked=Date.parse(release.demoCheckedAt||''),age=now-checked;
- const current=release.status==='APPROVED'&&safe&&release.demoCheckedUrl===url&&Number.isFinite(checked)&&age>=0&&age<86400000;
- const status=current&&['REACHABLE','UNREACHABLE','BLOCKED'].includes(release.demoHealth||'')?release.demoHealth!:'UNKNOWN';
+ const matches=url===boundUrl||url===''&&release.demoHealth==='BLOCKED';
+ const current=release.status==='APPROVED'&&matches&&release.demoCheckedUrl===boundUrl&&Number.isFinite(checked)&&age>=0&&age<86400000;
+ const status=current&&(safe||release.demoHealth==='BLOCKED')&&['REACHABLE','UNREACHABLE','BLOCKED'].includes(release.demoHealth||'')?release.demoHealth!:'UNKNOWN';
  const label=status==='UNREACHABLE'?'Broken external link':status==='BLOCKED'?'External link blocked or restricted':status==='REACHABLE'?'External link reachable':'Unverified external link';
  return {status,label,url:safe&&status!=='UNREACHABLE'&&status!=='BLOCKED'?url:'',checkedAt:current&&status!=='UNKNOWN'?release.demoCheckedAt:undefined};
 }

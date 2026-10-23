@@ -40,7 +40,8 @@ public class AccountService {
     result.put(
         "account",
         db.queryForMap("SELECT id,email,email_verified_at,created_at FROM users WHERE id=?", id));
-    result.put("profile", db.queryForMap("SELECT user_id,slug,display_name,headline,bio,technology,category,availability_status,booked_until,github_url,linkedin_url,approval_status,moderation_reason,updated_at,website_url,country,time_zone,languages,availability_confirmed_at FROM developer_profiles WHERE user_id=?", id));
+    var profiles=db.queryForList("SELECT user_id,slug,display_name,headline,bio,technology,category,availability_status,booked_until,github_url,linkedin_url,approval_status,moderation_reason,updated_at,website_url,country,time_zone,languages,availability_confirmed_at FROM developer_profiles WHERE user_id=?", id);
+    result.put("profile",profiles.isEmpty()?Map.of():profiles.get(0));
     result.put(
         "products",
         db.queryForList(
