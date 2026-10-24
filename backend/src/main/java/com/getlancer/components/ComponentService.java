@@ -259,6 +259,15 @@ public class ComponentService {
   private static UUID recipeReportId(String slug){return UUID.nameUUIDFromBytes(("getlancer:curated-component:"+slug).getBytes(java.nio.charset.StandardCharsets.UTF_8));}
   private boolean recipeSuspended(Map<String,Object> recipe){return db.queryForObject("SELECT count(*) FROM component_recipe_enforcement WHERE recipe_slug=? AND source_sha256=? AND suspended",Integer.class,recipe.get("slug"),recipe.get("sha256"))>0;}
   private void lockRecipeReport(String slug){db.queryForObject("SELECT pg_advisory_xact_lock(hashtextextended(?,0))",Object.class,"component-recipe-report:"+slug);}
+  private void requireAvailableRecipeSource(UUID componentId,String slug,Map<String,Object> source){
+    lockRecipeReport(slug); // Serialize fresh publication with exact-hash curated enforcement.
+    if(db.queryForObject("SELECT count(*) FROM component_recipe_enforcement WHERE recipe_slug=? AND source_sha256=? AND suspended",Integer.class,slug,source.get("sha256"))>0){
+      var released=db.queryForList("SELECT source FROM component_releases WHERE component_id=? ORDER BY revision DESC LIMIT 1",componentId);
+      // An independently published artifact stays available; an old hash cannot admit a new version.
+      if(released.isEmpty()||!canonical(snapshot(released.get(0).get("source"))).equals(canonical(source)))
+        throw new ApiError(409,"COMPONENT_RECIPE_UNAVAILABLE","This recipe source is unavailable for new submissions. Choose another reviewed source.");
+    }
+  }
   private Map<String,Object> reportSnapshot(UUID id,long revision,Map<String,Object> source,Map<String,Object> context){
     var metadata=new LinkedHashMap<String,Object>(sourceProjection(source));metadata.remove("files");
     return Map.of("componentId",id,"revision",revision,"version",source.get("version"),"sourceHash",source.get("sha256"),"source",metadata,"context",context);
@@ -396,6 +405,7 @@ public class ComponentService {
     else if(Set.of("archive","withdraw").contains(action)&&!"SUSPENDED".equals(c.get("status")))next="ARCHIVED";
     else throw new ApiError(409,"INVALID_COMPONENT_STATE","This component cannot take that action.");
     var candidate=c.get("draft_source")==null?publishedSource(c):snapshot(c.get("draft_source"));
+    if(next.equals("PENDING")){requireAvailableRecipeSource(id,c.get("recipe_slug").toString(),candidate);security.developer(r,true);}
     if(next.equals("PENDING")&&db.queryForObject("SELECT count(*) FROM component_releases WHERE component_id=?",Integer.class,id)>=100&&!canonical(candidate).equals(canonical(publishedSource(c))))throw new ApiError(409,"VERSION_LIMIT","A component supports up to 100 reviewed releases.");
     if(next.equals("PENDING")&&db.queryForObject("SELECT count(*) FROM component_entries WHERE owner_id=? AND status='PENDING'",Integer.class,owner)>=3)throw new ApiError(409,"PENDING_LIMIT","Wait for review of your three pending submissions.");
     db.update("UPDATE component_entries SET status=?,revision=revision+1,submitted_source=CASE WHEN ?='PENDING' THEN ?::jsonb ELSE submitted_source END,submitted_context=CASE WHEN ?='PENDING' THEN ?::jsonb ELSE submitted_context END,withdrawn_at=CASE WHEN ?='withdraw' THEN now() ELSE withdrawn_at END,updated_at=now() WHERE id=?",next,next,encode(c.get("draft_source")==null?publishedSource(c):snapshot(c.get("draft_source"))),next,encode(Map.of("title",c.get("title"),"summary",c.get("summary"),"contribution",c.get("contribution"))),action,id);
@@ -448,6 +458,7 @@ public class ComponentService {
     if(!reviewHash(c,submitted).equals(b.get("sourceHash")))throw new ApiError(409,"REVIEW_SOURCE_CHANGED","The reviewed source hash does not match this submission.");
     String decision=text(b,"decision",3,30),reason=text(b,"reason",20,2000),next;
     if(decision.equals("APPROVE")&&Set.of("PENDING","SUSPENDED").contains(c.get("status"))){
+      requireAvailableRecipeSource(id,c.get("recipe_slug").toString(),submitted);security.admin(r);
       if(db.queryForObject("SELECT count(*) FROM users u JOIN developer_profiles d ON d.user_id=u.id WHERE u.id=? AND "+ELIGIBLE,Integer.class,owner)==0)throw new ApiError(409,"BUILDER_NOT_ELIGIBLE","The builder must have an active account and approved profile.");
       var capacity=slots.capacity(owner);
       if(((Number)capacity.get("used")).intValue()>=((Number)capacity.get("limit")).intValue())throw new ApiError(409,"COMPONENT_CAPACITY_REACHED","Archive a component or purchase another publishing slot before approval.");

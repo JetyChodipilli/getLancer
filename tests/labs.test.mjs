@@ -42,6 +42,15 @@ test('bounded SSE replay verifies owner identity, increasing cursor, safe fields
  assert.throws(()=>parseLabEvents(sse(envelope(1)),id,1));assert.throws(()=>parseLabEvents(sse(envelope(1)).replace('id: 1','id: 2'),id));assert.throws(()=>parseLabEvents('data: invalid\n\n',id));
  assert.throws(()=>parseLabEvents('x'.repeat(65537),id));assert.throws(()=>parseLabEvents(Array.from({length:101},(_,index)=>sse(envelope(index+1))).join(''),id));
 });
+test('event replay clears current verification after cancellation without manufacturing authority',()=>{
+ for(const status of ['CANCELLING','CANCELLED','FAILED','SUCCEEDED','EXPIRED']){
+  const applied=labApplyEvents(running,[envelope(2,{status})]);assert.equal(applied.status,status);assert.equal(applied.verified,false);assert.equal(running.verified,true);
+ }
+ const history=[envelope(1,{status:'QUEUED'}),envelope(2,{status:'STARTING'}),envelope(3,{status:'RUNNING'})];
+ assert.equal(labApplyEvents(running,history).verified,true);
+ assert.equal(labApplyEvents({...running,status:'STARTING',verified:false},history).verified,false);
+ const stopped=labApplyEvents(running,[envelope(4,{status:'CANCELLED'})]);assert.equal(labApplyEvents(stopped,[envelope(5)]).verified,false);
+});
 test('terminal status cannot be resurrected by replay and malformed successful responses never establish verified runs',()=>{
  const stopped={...running,status:'CANCELLED'};assert.equal(labApplyEvents(stopped,[envelope(2)]).status,'CANCELLED');assert.equal(labApplyEvents(running,[envelope(3,{status:'SUCCEEDED',reason:'Finished.'})]).status,'SUCCEEDED');assert.throws(()=>labApplyEvents(running,[envelope(4,{}, {runId:'other'})]));
  assert.deepEqual(labRunResponse({...running,eventsUrl:'https://worker.test/private'}),running);

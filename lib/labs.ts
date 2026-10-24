@@ -87,7 +87,7 @@ export function parseLabEvents(text:string,runId:string,lastSequence=0,sourceHas
 export function labApplyEvents(run:LabRun,events:LabEvent[]):LabRun{
  let current={...run};
  for(const event of events){if(event.runId!==current.id)throw Error('Activity belongs to a different run.');if(event.data.status&&!(labTerminal(current.status)&&!labTerminal(event.data.status)))current={...current,status:event.data.status,reason:event.data.reason??current.reason};}
- return current;
+ return {...current,verified:run.verified&&current.status==='RUNNING'};
 }
 export function labMoney(micros:number){return new Intl.NumberFormat('en-GB',{maximumFractionDigits:2}).format(micros/1000000);}
 

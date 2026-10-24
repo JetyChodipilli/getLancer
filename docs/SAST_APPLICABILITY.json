@@ -239,7 +239,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/components/ComponentService.java",
-      "sha256": "3c1b2258fe82a25fcbcc5d6f26e042da43cddbf4d908a798591d082f22aa122c"
+      "sha256": "49c2566113e12c43d9c5d54937f25e603f95b9515c6246b023d46ebeef08cfae"
     },
     {
       "path": "backend/src/main/java/com/getlancer/components/ComponentSlotService.java",
@@ -1117,7 +1117,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/ComponentReportingIntegrationTest.java",
-      "sha256": "5ea0dc0d22a64d6cf73a0e2d70a1f0956c54fb586d19438cb235053d489451d4"
+      "sha256": "5820ba923f7025668f6879258ca97a620a18814ee25be59a4eebbfda09bcb7b8"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java",
