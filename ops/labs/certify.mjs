@@ -6,9 +6,16 @@ import {pathToFileURL} from 'node:url';
 const MAX_BYTES = 1024 * 1024;
 const HASH = /^[a-f0-9]{64}$/;
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
+// Java String.isBlank uses Character.isWhitespace, which differs from JavaScript trim.
+const JAVA_BLANK = /^[\u0009-\u000d\u001c-\u0020\u1680\u2000-\u2006\u2008-\u200a\u2028\u2029\u205f\u3000]*$/u;
 const CONTROLS = ['isolation', 'network', 'cleanup', 'restore', 'licence', 'cost', 'build'];
 const fail = message => {throw new Error(message);};
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
+
+// Match the backend's strict record deserialization without making optional fields mandatory.
+function allowedFields(value, fields, label) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(field => !fields.includes(field))) fail('Unexpected ' + label + ' fields.');
+}
 
 function openUnlinked(path) {
   if (process.platform !== 'linux') fail('Verify evidence on Linux with descriptor-relative file access.');
@@ -56,14 +63,38 @@ function base64(value) {
   return bytes;
 }
 
-export function verifiedPayload(envelopeBytes, keyBytes) {
+function validateRecordTokens(source) {
+  // JSON.parse already validated the grammar. Preserve only facts it normalizes away:
+  // duplicate decoded object keys and floating numeric tokens forbidden by strict Jackson.
+  const stack = [];
+  for (const [token] of source.matchAll(/"(?:\\[\s\S]|[^"\\])*"|[{}\[\],:]|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null/g)) {
+    if (token === '{' || token === '[') {stack.push(token === '{' ? {keys:new Set(), expectKey:true} : null); continue;}
+    if (token === '}' || token === ']') {stack.pop(); continue;}
+    const object = stack.at(-1);
+    if (token === ',') {if (object) object.expectKey = true; continue;}
+    if (token[0] === '"') {
+      if (object?.expectKey) {
+        const key = JSON.parse(token);
+        if (object.keys.has(key)) fail('Duplicate signed record field.');
+        object.keys.add(key); object.expectKey = false;
+      }
+      continue;
+    }
+    if ((token[0] === '-' || token[0] >= '0' && token[0] <= '9') && /[.eE]/.test(token)) fail('Signed records require integer JSON tokens.');
+  }
+}
+
+export function verifiedPayload(envelopeBytes, keyBytes, maxPayloadBytes = MAX_BYTES, strictRecordTokens = false) {
   if (envelopeBytes.length > MAX_BYTES || keyBytes.length > 16384) fail('Signed input exceeded the size limit.');
   const envelope = JSON.parse(new TextDecoder('utf-8', {fatal:true}).decode(envelopeBytes));
   if (Object.keys(envelope).sort().join(',') !== 'payload,signature') fail('Unexpected signed envelope fields.');
   const payload = base64(envelope.payload), signature = base64(envelope.signature);
+  if (payload.length > maxPayloadBytes) fail('Signed payload exceeded the backend size limit.');
   const key = createPublicKey(keyBytes);
   if (key.asymmetricKeyType !== 'ed25519' || signature.length !== 64 || !verify(null, payload, key, signature)) fail('Operator signature did not verify.');
-  return JSON.parse(new TextDecoder('utf-8', {fatal:true}).decode(payload));
+  const source = new TextDecoder('utf-8', {fatal:true}).decode(payload), parsed = JSON.parse(source);
+  if (strictRecordTokens) validateRecordTokens(source);
+  return parsed;
 }
 
 function currentApproval(value, now) {
@@ -93,9 +124,11 @@ export function verifyBundle({admissionPath, inventoryPath, publicKeyPath, publi
   const inventoryBytes = bounded(inventoryPath), admissionBytes = bounded(admissionPath), key = publicKeyBytes ?? bounded(publicKeyPath);
   pinned(inventoryBytes,expectedInventorySha256); pinned(admissionBytes,expectedAdmissionSha256);
   if (!Buffer.isBuffer(key) || key.length === 0 || key.length > 16384) fail('Use bounded operator public-key bytes.');
-  const admission = verifiedPayload(admissionBytes, key);
+  if (admissionBytes.length > 65536) fail('Admission envelope exceeded the backend size limit.');
+  const admission = verifiedPayload(admissionBytes, key, 32768, true);
+  allowedFields(admission, ['provider','isolation','licenceReviewed','budgetApproved','networkVerified','cleanupVerified','restoreVerified','approvedUntil','evidenceSha256','operatorEpoch'], 'admission');
   if (admission.operatorEpoch !== operatorEpoch || !UUID.test(admission.operatorEpoch)) fail('Admission belongs to another restore epoch.');
-  if (typeof admission.provider !== 'string' || admission.provider.length < 2 || admission.provider.length > 100 || admission.isolation !== 'KVM') fail('A named independently verified KVM provider is required.');
+  if (typeof admission.provider !== 'string' || JAVA_BLANK.test(admission.provider) || admission.provider.length < 2 || admission.provider.length > 100 || admission.isolation !== 'KVM') fail('A named independently verified KVM provider is required.');
   currentApproval(admission.approvedUntil, now);
   for (const field of ['licenceReviewed','budgetApproved','networkVerified','cleanupVerified','restoreVerified']) if (admission[field] !== true) fail('Every admission approval is required.');
   if (!HASH.test(admission.evidenceSha256 || '') || admission.evidenceSha256 !== sha256(inventoryBytes)) fail('Admission evidence inventory changed.');
@@ -119,6 +152,7 @@ function pinned(bytes,expected) {
 
 // Keep required artifact bounds aligned with LabManifest and the reviewed native policies.
 function nativeContract(manifest) {
+  allowedFields(manifest, ['id','componentId','revision','sourceSha256','imageDigest','archiveSha256','manifestSha256','buildSourceSha256','protocolVersion','title','summary','language','framework','setup','memoryMiB','maxCostMicros','approvedUntil','evidenceSha256','scenarios','resourceClass','adapter','certification'], 'manifest');
   const reject=()=>fail('Native manifest resource and scenario contract is invalid.');
   const integer=(value,min,max)=>Number.isSafeInteger(value)&&value>=min&&value<=max;
   const text=(value,min,max)=>typeof value==='string'&&value.length>=min&&value.length<=max;
@@ -130,17 +164,19 @@ function nativeContract(manifest) {
       ||!Array.isArray(manifest.scenarios)||manifest.scenarios.length<1||manifest.scenarios.length>20)reject();
   const seen=new Set();
   for(const scenario of manifest.scenarios){
+    allowedFields(scenario, ['id','title','description','inputs','operations'], 'scenario');
     if(!scenario||!slug(scenario.id)||seen.has(scenario.id)||!text(scenario.title,3,100)||!text(scenario.description,10,1000)
         ||!Array.isArray(scenario.inputs)||scenario.inputs.length>20||!Array.isArray(scenario.operations)||scenario.operations.length<1||scenario.operations.length>10)reject();
     seen.add(scenario.id);const names=new Set(),operations=new Set();
     for(const input of scenario.inputs){
+      allowedFields(input, ['name','label','type','required','maxLength','min','max','choices'], 'input');
       if(!input||typeof input.name!=='string'||!/^[a-z][a-zA-Z0-9]{0,39}$/.test(input.name)||names.has(input.name)||!text(input.label,1,80)
           ||!['TEXT','INTEGER','BOOLEAN','ENUM'].includes(input.type)||typeof input.required!=='boolean'||!integer(input.maxLength,1,4096)
           ||!Number.isSafeInteger(input.min)||!Number.isSafeInteger(input.max)||input.min>input.max||!Array.isArray(input.choices)||input.choices.length>30
           ||input.choices.some(choice=>!text(choice,1,input.maxLength))||input.type==='ENUM'&&input.choices.length===0)reject();
       names.add(input.name);
     }
-    for(const operation of scenario.operations){if(!operation||!slug(operation.id)||operations.has(operation.id)||!text(operation.label,1,80))reject();operations.add(operation.id);}
+    for(const operation of scenario.operations){allowedFields(operation, ['id','label'], 'operation');if(!operation||!slug(operation.id)||operations.has(operation.id)||!text(operation.label,1,80))reject();operations.add(operation.id);}
   }
   const iot=manifest.resourceClass==='IOT_SIMULATION'||manifest.id.startsWith('iot-')||seen.has('greenhouse-monitor');
   if(iot){
@@ -159,21 +195,21 @@ export function verifyManifestBundle({manifestPath,expectedManifestSha256,...opt
   const key=options.publicKeyBytes??bounded(options.publicKeyPath);
   const host=verifyBundle({...options,publicKeyBytes:key});
   const bytes=bounded(manifestPath); pinned(bytes,expectedManifestSha256);
-  const manifest=verifiedPayload(bytes,key), now=options.now??Date.now();
+  const manifest=verifiedPayload(bytes,key,65536,true), now=options.now??Date.now();
   const iot=nativeContract(manifest);
   if(manifest.evidenceSha256!==host.evidenceSha256)fail('Manifest host inventory changed.');
   const manifestExpiry=currentApproval(manifest.approvedUntil,now);
   if(manifestExpiry>currentApproval(host.approvedUntil,now))fail('Manifest approval exceeds host approval.');
-  if(!UUID.test(manifest.componentId||'')||!Number.isSafeInteger(manifest.revision)||manifest.revision<1)fail('Manifest component revision is invalid.');
-  for(const field of ['sourceSha256','archiveSha256','manifestSha256','buildSourceSha256'])if(!HASH.test(manifest[field]||''))fail('Manifest source digest is invalid.');
-  if(manifest.archiveSha256!==manifest.buildSourceSha256||!/^sha256:[a-f0-9]{64}$/.test(manifest.imageDigest||'')||manifest.protocolVersion!=='getlancer-lab-v1')fail('Manifest build or image identity is invalid.');
+  if(typeof manifest.componentId!=='string'||!UUID.test(manifest.componentId)||!Number.isSafeInteger(manifest.revision)||manifest.revision<1)fail('Manifest component revision is invalid.');
+  for(const field of ['sourceSha256','archiveSha256','manifestSha256','buildSourceSha256'])if(typeof manifest[field]!=='string'||!HASH.test(manifest[field]))fail('Manifest source digest is invalid.');
+  if(manifest.archiveSha256!==manifest.buildSourceSha256||typeof manifest.imageDigest!=='string'||!/^sha256:[a-f0-9]{64}$/.test(manifest.imageDigest)||manifest.protocolVersion!=='getlancer-lab-v1')fail('Manifest build or image identity is invalid.');
   const adapter=manifest.adapter, certificate=manifest.certification;
   if(!adapter||Object.keys(adapter).sort().join(',')!=='runtime,state,version'||adapter.state!=='ACTIVE'||!/^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(adapter.version||''))fail('Exact active native adapter is required.');
   const runtime=new Map([['java','jdk'],['typescript','node'],['javascript','node'],['python','python'],['go','go'],['c#','dotnet'],['.net','dotnet'],['c# / .net','dotnet'],['dotnet','dotnet'],['php','php']]).get(String(manifest.language).toLowerCase());
   const [major,minor]=adapter.version.split('.').map(Number);
   const family=runtime==='jdk'?major===17:runtime==='node'?major===22&&minor>=18:runtime==='python'?major===3&&minor===12:runtime==='go'?major===1&&minor===24:runtime==='dotnet'?major===8:runtime==='php'?major===8&&minor===3:false;
   if(adapter.runtime!==runtime||!family||iot&&runtime!=='node'||manifest.framework!==(iot?'Node MQTT protocol':'Standard library'))fail('Framework and runtime combination is not reviewed.');
-  if(!certificate||Object.keys(certificate).sort().join(',')!=='frameworkVersion,isolationVerified,licenceReviewed,maintainer,reproductionSha256,reproductionVerified,resourcesVerified,reviewedAt'||certificate.frameworkVersion!==adapter.version||!/^([A-Za-z0-9][A-Za-z0-9._@+-]{2,99})$/.test(certificate.maintainer||'')||!HASH.test(certificate.reproductionSha256||''))fail('Exact maintainer and reproduction certification is required.');
+  if(!certificate||Object.keys(certificate).sort().join(',')!=='frameworkVersion,isolationVerified,licenceReviewed,maintainer,reproductionSha256,reproductionVerified,resourcesVerified,reviewedAt'||certificate.frameworkVersion!==adapter.version||typeof certificate.maintainer!=='string'||!/^([A-Za-z0-9][A-Za-z0-9._@+-]{2,99})$/.test(certificate.maintainer)||!HASH.test(certificate.reproductionSha256||''))fail('Exact maintainer and reproduction certification is required.');
   for(const field of ['licenceReviewed','reproductionVerified','resourcesVerified','isolationVerified'])if(certificate[field]!==true)fail('Every certification attestation is required.');
   const reviewed=Date.parse(certificate.reviewedAt);
   if(!Number.isFinite(reviewed)||new Date(reviewed).toISOString()!==certificate.reviewedAt||reviewed>now||reviewed<now-31*86400000)fail('Certification review must be canonical and current.');

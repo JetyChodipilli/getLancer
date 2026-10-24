@@ -17,7 +17,7 @@ function fixture(t){
  const saveAdmission=()=>writeFileSync(admissionPath,envelope(admission));saveAdmission();
  const manifest={id:'native-java',componentId:randomUUID(),revision:1,sourceSha256:'a'.repeat(64),archiveSha256:'b'.repeat(64),buildSourceSha256:'b'.repeat(64),manifestSha256:'c'.repeat(64),imageDigest:'sha256:'+'d'.repeat(64),protocolVersion:'getlancer-lab-v1',approvedUntil,evidenceSha256,language:'Java',framework:'Standard library',resourceClass:'GENERAL',title:'Reviewed native lab',summary:'A complete bounded native certification fixture.',setup:'Build the exact reviewed source and execute the reviewed scenario.',memoryMiB:128,maxCostMicros:100,scenarios:[{id:'cache',title:'Cache request',description:'Execute the reviewed cache scenario.',inputs:[],operations:[{id:'read',label:'Read cache'}]}],adapter:{runtime:'jdk',version:'17.0.12',state:'ACTIVE'},certification:{frameworkVersion:'17.0.12',maintainer:'maintainer@example.test',reviewedAt:new Date(now-1000).toISOString(),licenceReviewed:true,reproductionVerified:true,resourcesVerified:true,isolationVerified:true,reproductionSha256:records.find(x=>x.control==='build').artifactSha256}};
  const manifestPath=join(root,'manifest.json'),save=()=>writeFileSync(manifestPath,envelope(manifest));save();
- return {manifest,save,admission,saveAdmission,args:{admissionPath,inventoryPath,manifestPath,publicKeyBytes:Buffer.from(publicKey.export({type:'spki',format:'pem'})),operatorEpoch:epoch,now}};
+ return {manifest,save,admission,saveAdmission,privateKey,args:{admissionPath,inventoryPath,manifestPath,publicKeyBytes:Buffer.from(publicKey.export({type:'spki',format:'pem'})),operatorEpoch:epoch,now}};
 }
 test('native certification binds the reviewed combination and all reproduction attestations',t=>{
  const f=fixture(t);assert.equal(verifyManifestBundle(f.args).runtimeVersion,'17.0.12');
@@ -38,4 +38,60 @@ test('manifest expiry cannot exceed host expiry by even one nanosecond',t=>{
  f.manifest.approvedUntil=date+'.123000000Z';f.save();assert.equal(verifyManifestBundle(f.args).manifestId,'native-java');
  f.manifest.approvedUntil=date+'.123000001Z';f.save();assert.throws(()=>verifyManifestBundle(f.args),/exceeds host/);
  f.manifest.approvedUntil=date+'.122999999Z';f.save();assert.equal(verifyManifestBundle(f.args).manifestId,'native-java');
+});
+
+test('operator-signed native records reject unknown fields at every backend record level',t=>{
+ const f=fixture(t);f.manifest.scenarios[0].inputs=[{name:'key',label:'Cache key',type:'TEXT',required:false,maxLength:32,min:0,max:0,choices:[]}];f.save();
+ assert.equal(verifyManifestBundle(f.args).manifestId,'native-java');
+ // resourceClass is a nullable optional backend record component, unlike an unknown field.
+ delete f.manifest.resourceClass;f.save();assert.equal(verifyManifestBundle(f.args).manifestId,'native-java');
+ f.manifest.resourceClass=null;f.save();assert.equal(verifyManifestBundle(f.args).manifestId,'native-java');
+ f.manifest.resourceClass='GENERAL';
+ for(const [label,select] of [['manifest',m=>m],['scenario',m=>m.scenarios[0]],['input',m=>m.scenarios[0].inputs[0]],['operation',m=>m.scenarios[0].operations[0]]]){
+  const record=select(f.manifest);record.unexpectedField='operator-signed extra metadata';f.save();
+  assert.throws(()=>verifyManifestBundle(f.args),new RegExp('Unexpected '+label+' fields'));
+  delete record.unexpectedField;f.save();assert.equal(verifyManifestBundle(f.args).manifestId,'native-java');
+ }
+});
+
+test('signed native payload padding cannot exceed the backend 64 KiB decoded bound',t=>{
+ const f=fixture(t),encoded=Buffer.from(JSON.stringify(f.manifest));
+ const writePayload=length=>{const payload=Buffer.concat([encoded,Buffer.alloc(length-encoded.length,32)]);assert.deepEqual(JSON.parse(payload),f.manifest);writeFileSync(f.args.manifestPath,JSON.stringify({payload:payload.toString('base64'),signature:sign(null,payload,f.privateKey).toString('base64')}));};
+ writePayload(65536);assert.equal(verifyManifestBundle(f.args).manifestId,'native-java');
+ writePayload(65537);assert.throws(()=>verifyManifestBundle(f.args),/Signed payload exceeded/);
+});
+
+test('signed native identity fields cannot use arrays that coerce to valid strings',t=>{
+ const f=fixture(t),original=structuredClone(f.manifest);
+ const changes=[m=>m.componentId=[m.componentId],m=>m.sourceSha256=[m.sourceSha256],m=>m.manifestSha256=[m.manifestSha256],m=>m.imageDigest=[m.imageDigest],m=>m.certification.maintainer=[m.certification.maintainer]];
+ for(const change of changes){Object.assign(f.manifest,structuredClone(original));change(f.manifest);f.save();assert.throws(()=>verifyManifestBundle(f.args));}
+ Object.assign(f.manifest,original);f.save();assert.equal(verifyManifestBundle(f.args).manifestId,'native-java');
+});
+
+test('signed native integers reject floating JSON tokens and duplicate decoded keys',t=>{
+ const f=fixture(t);f.manifest.scenarios[0].inputs=[{name:'key',label:'Cache key',type:'INTEGER',required:false,maxLength:32,min:-10,max:100,choices:[]}];f.save();
+ const original=JSON.stringify(f.manifest),writePayload=text=>{const payload=Buffer.from(text);writeFileSync(f.args.manifestPath,JSON.stringify({payload:payload.toString('base64'),signature:sign(null,payload,f.privateKey).toString('base64')}));};
+ assert.equal(verifyManifestBundle(f.args).manifestId,'native-java');
+ for(const [field,value] of [['revision',1],['memoryMiB',128],['maxCostMicros',100],['maxLength',32],['min',-10],['max',100]]){
+  for(const token of [value+'.0',value+'e0',value+'E+0']){
+   const text=original.replace('"'+field+'":'+value,'"'+field+'":'+token);assert.notEqual(text,original);assert.deepEqual(JSON.parse(text),f.manifest);writePayload(text);
+   assert.throws(()=>verifyManifestBundle(f.args),/integer JSON tokens/);
+  }
+ }
+ writePayload(original.replace('"memoryMiB":128','"memoryMiB":128.0,"memoryMiB":128'));assert.throws(()=>verifyManifestBundle(f.args),/integer JSON tokens/);
+ for(const [field,replacement] of [
+  ['"revision":1','"revision":0,"revision":1'],
+  ['"memoryMiB":128','"memoryMiB":513,"\\u006demoryMiB":128'],
+  ['"id":"cache"','"id":"unreviewed","id":"cache"'],
+  ['"name":"key"','"name":"9invalid","name":"key"'],
+  ['"id":"read"','"id":"unreviewed","id":"read"'],
+  ['"runtime":"jdk"','"runtime":"unsupported","runtime":"jdk"'],
+  ['"maintainer":"maintainer@example.test"','"maintainer":"  ","maintainer":"maintainer@example.test"'],
+ ]){
+  const text=original.replace(field,replacement);assert.notEqual(text,original);assert.deepEqual(JSON.parse(text),f.manifest);writePayload(text);
+  assert.throws(()=>verifyManifestBundle(f.args),/Duplicate signed record field/);
+ }
+ f.manifest.title='Keep 128.0, 1e0, "memoryMiB":513 and braces { [ ] } inside text.';
+ f.manifest.scenarios[0].inputs[0].label='Cache "key": 1e0 \\ [true,null]';
+ f.manifest.scenarios[0].inputs.push({...f.manifest.scenarios[0].inputs[0],name:'otherKey'});f.save();assert.equal(verifyManifestBundle(f.args).manifestId,'native-java');
 });

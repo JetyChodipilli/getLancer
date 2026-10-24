@@ -147,3 +147,53 @@ test('approval horizon preserves nanosecond precision at its exact boundary',t=>
  f.admission.approvedUntil=limit;f.save();assert.equal(verifyBundle(f.args).provider,'test-provider');
  f.admission.approvedUntil=limit.replace('Z','000001Z');f.save();assert.throws(()=>verifyBundle(f.args),/ISO instant/);
 });
+
+test('operator-signed admission rejects fields outside the backend Evidence record',t=>{
+ const f=fixture(t);assert.equal(verifyBundle(f.args).provider,'test-provider');
+ for(const field of ['unexpectedField','resourceClass']){
+  f.admission[field]='signed additional metadata';f.save();
+  assert.throws(()=>verifyBundle(f.args),/Unexpected admission fields/);
+  delete f.admission[field];f.save();assert.equal(verifyBundle(f.args).provider,'test-provider');
+ }
+});
+
+test('signed admission providers obey Java isBlank semantics with matching inventory',t=>{
+ const f=fixture(t);
+ const check=(provider,blank)=>{
+  f.admission.provider=provider;f.inventory.provider=provider;f.save();
+  if(blank)assert.throws(()=>verifyBundle(f.args),/named independently verified KVM provider/);
+  else assert.equal(verifyBundle(f.args).provider,provider);
+ };
+ // Character.isWhitespace includes these controls and Unicode spaces, including U+001C–001F.
+ const javaWhitespace=[...Array.from({length:5},(_,i)=>0x0009+i),...Array.from({length:5},(_,i)=>0x001c+i),0x1680,...Array.from({length:7},(_,i)=>0x2000+i),0x2008,0x2009,0x200a,0x2028,0x2029,0x205f,0x3000];
+ for(const point of javaWhitespace)check(String.fromCodePoint(point).repeat(2),true);
+ check('\t\u001c\u1680\u2000\u2028\u3000',true);
+ // Java deliberately excludes non-breaking spaces, BOM and NEXT LINE from isWhitespace.
+ for(const point of [0x00a0,0x2007,0x202f,0xfeff,0x0085])check(String.fromCodePoint(point).repeat(2),false);
+ check(' \tverified-provider\u3000',false);
+ check('test-provider',false);
+});
+
+test('signed admission rejects duplicate decoded record keys without scanning string contents',t=>{
+ const f=fixture(t),original=JSON.stringify(f.admission);
+ const writePayload=text=>{const payload=Buffer.from(text);writeFileSync(f.args.admissionPath,JSON.stringify({payload:payload.toString('base64'),signature:sign(null,payload,f.privateKey).toString('base64')}));};
+ for(const replacement of ['"provider":"  ","provider":"test-provider"','"\\u0070rovider":"hidden-provider","provider":"test-provider"']){
+  writePayload(original.replace('"provider":"test-provider"',replacement));assert.throws(()=>verifyBundle(f.args),/Duplicate signed record field/);
+ }
+ writePayload(original.replace('"licenceReviewed":true','"licenceReviewed":false,"licenceReviewed":true'));assert.throws(()=>verifyBundle(f.args),/Duplicate signed record field/);
+ const provider='Provider "1e0": {"provider":128.0} \\ [true,null]';f.admission.provider=provider;f.inventory.provider=provider;f.save();assert.equal(verifyBundle(f.args).provider,provider);
+ // Benchmark and other generic signed reports retain their original numeric parsing contract.
+ const payload=Buffer.from('{"value":1.25,"nested":[{"number":1e2}]}'),envelope=Buffer.from(JSON.stringify({payload:payload.toString('base64'),signature:sign(null,payload,f.privateKey).toString('base64')}));
+ assert.deepEqual(verifiedPayload(envelope,readEvidence(f.args.publicKeyPath)),{value:1.25,nested:[{number:100}]});
+});
+
+test('signed host envelopes and decoded payloads obey the exact backend byte limits',t=>{
+ const f=fixture(t),path=f.args.admissionPath,original=fs.readFileSync(path);
+ // Envelope whitespace changes no signed payload facts, but still counts toward the file bound.
+ writeFileSync(path,Buffer.concat([original,Buffer.alloc(65536-original.length,32)]));assert.equal(verifyBundle(f.args).provider,'test-provider');
+ writeFileSync(path,Buffer.concat([original,Buffer.alloc(65537-original.length,32)]));assert.throws(()=>verifyBundle(f.args),/Admission envelope exceeded/);
+ const encoded=Buffer.from(JSON.stringify(f.admission));
+ const writePayload=length=>{const payload=Buffer.concat([encoded,Buffer.alloc(length-encoded.length,32)]);assert.deepEqual(JSON.parse(payload),f.admission);writeFileSync(path,JSON.stringify({payload:payload.toString('base64'),signature:sign(null,payload,f.privateKey).toString('base64')}));};
+ writePayload(32768);assert.equal(verifyBundle(f.args).provider,'test-provider');
+ writePayload(32769);assert.ok(fs.statSync(path).size<65536);assert.throws(()=>verifyBundle(f.args),/Signed payload exceeded/);
+});
