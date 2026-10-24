@@ -78,6 +78,7 @@ test('built source download and genuine recorded evidence retain their hashes an
 
 test('source-only eighteen-lab catalogue filters with native keyboard controls and keeps free source when APIs fail', async ({page}) => {
   const effects = await noExecution(page); await index(page); await page.goto('/labs/scenarios');
+  await expect(page.locator('#scenario-inspector-heading')).toHaveText('Browser fixture Java cache');
   await expect(page.locator('.scenario-lab-card')).toHaveCount(18); await expect(page.locator('.scenario-lab-card').getByText('Source only', {exact: true})).toHaveCount(18);
   await expect(page.getByText('Hosted runtime unavailable', {exact: true})).toHaveCount(2);
   const language = page.getByLabel('Language', {exact: true}); await language.focus(); await expect(language).toBeFocused();
@@ -94,7 +95,8 @@ test('source-only eighteen-lab catalogue filters with native keyboard controls a
 
 for (const pattern of patterns) test(`${pattern} recorded browser fixture preserves original evidence and highlights only the selected observed transition`, async ({page}) => {
   const effects = await noExecution(page); await index(page, true); await page.route(`**/labs/recordings/java-${pattern}.json`, route => json(route, recording(pattern)));
-  await page.goto('/labs/scenarios'); await page.getByLabel('Language', {exact: true}).selectOption('java'); await page.getByLabel('Pattern', {exact: true}).selectOption(pattern);
+  await page.goto('/labs/scenarios'); await expect(page.locator('#scenario-inspector-heading')).toHaveText('Browser fixture Java cache');
+  await page.getByLabel('Language', {exact: true}).selectOption('java'); await page.getByLabel('Pattern', {exact: true}).selectOption(pattern);
   await noHighlight(page); await page.getByRole('button', {name: 'Recorded evidence', exact: true}).click();
   await expect(page.getByText('Replay · Recorded local execution', {exact: true})).toBeVisible();
   await expect(page.locator('.scenario-metadata').getByText(recordedAt, {exact: true})).toBeVisible(); await expect(page.locator('.scenario-metadata').getByText(sourceHash, {exact: true})).toBeVisible();
@@ -144,7 +146,8 @@ for (const defect of ['stale source', 'foreign event', 'non-monotonic events', '
     }
     return json(route, value);
   });
-  await page.goto('/labs/scenarios'); await expect(page.locator('.scenario-lab-card')).toHaveCount(18); await page.getByRole('button', {name: 'Recorded evidence', exact: true}).click();
+  await page.goto('/labs/scenarios'); await expect(page.locator('#scenario-inspector-heading')).toHaveText('Browser fixture Java cache');
+  await expect(page.locator('.scenario-lab-card')).toHaveCount(18); await page.getByRole('button', {name: 'Recorded evidence', exact: true}).click();
   await expect(page.getByRole('alert')).toContainText('Recording rejected or unavailable'); await expect(page.getByRole('alert')).toBeFocused(); await noHighlight(page);
   await expect(page.getByRole('button', {name: 'Next response', exact: true})).toHaveCount(0); await expect(page.locator('.scenario-lab-card').first()).toContainText('Source only');
   await page.getByRole('button', {name: 'Retry recording', exact: true}).click(); await expect(page.getByText('Replay · Recorded local execution', {exact: true})).toBeVisible();
