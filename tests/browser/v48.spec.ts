@@ -154,7 +154,12 @@ for (const defect of ['stale source', 'foreign event', 'non-monotonic events', '
 test('switching labs while a recording loads cannot apply evidence to another lab', async ({page}) => {
   await index(page, true); let release: (() => void) | undefined; const pending = new Promise<void>(resolve => {release = resolve;});
   await page.route('**/labs/recordings/java-cache.json', async route => {await pending; await json(route, recording());});
-  await page.goto('/labs/scenarios'); await expect(page.locator('.scenario-lab-card')).toHaveCount(18); await page.getByRole('button', {name: 'Recorded evidence', exact: true}).click();
+  await page.goto('/labs/scenarios'); await expect(page.locator('.scenario-lab-card')).toHaveCount(18);
+  // The server-rendered fallback also has eighteen cards. Wait for the client
+  // fixture before clicking, then prove the held recording request has started.
+  await expect(page.locator('#scenario-inspector-heading')).toHaveText('Browser fixture Java cache');
+  const requested = page.waitForRequest('**/labs/recordings/java-cache.json');
+  await page.getByRole('button', {name: 'Recorded evidence', exact: true}).click(); await requested;
   await expect(page.getByText('Loading original recorded evidence…', {exact: true})).toBeVisible(); await page.getByLabel('Pattern', {exact: true}).selectOption('payment'); release!();
   await expect(page.getByRole('heading', {name: 'Browser fixture Java payment', exact: true})).toHaveCount(2); await noHighlight(page);
   await expect(page.getByText('Replay · Recorded local execution', {exact: true})).toHaveCount(0); await reflow(page);
