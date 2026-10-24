@@ -192,8 +192,10 @@ test('E2E-02 publishes a new draft with a real screenshot, live URL, review and 
   await mutation(page,'/developer/products/'+created.id+'/activate',()=>card(page,title).getByRole('button',{name:'Activate',exact:true}).click(),204);
   await page.getByRole('tab',{name:'Active (1)',exact:true}).click();await expect(card(page,title)).toBeVisible();
   await search(visitor.page,title);
-  await visitor.page.getByLabel('Project demos',{exact:true}).getByRole('heading',{name:title,exact:true}).getByRole('link').click();
-  await expect(visitor.page.getByRole('heading',{name:title,exact:true})).toBeVisible();
+  const detailLink=visitor.page.getByLabel('Project demos',{exact:true}).getByRole('heading',{name:title,exact:true}).getByRole('link');
+  const detailPath=await detailLink.getAttribute('href');assert.match(detailPath||'',/^\/products\/[a-z0-9-]+$/);
+  await detailLink.click();await expect(visitor.page).toHaveURL(detailPath!);
+  await expect(visitor.page.getByRole('heading',{name:title,level:1,exact:true})).toBeVisible();
   await expect(visitor.page.getByRole('img',{name:title+' project screenshot',exact:true})).toHaveJSProperty('naturalWidth',2);
   await expect(visitor.page.getByRole('link',{name:'Open live demo',exact:true})).toHaveAttribute('href','https://example.com/getlancer-v1-demo');
   await reflow(visitor.page);await visitor.page.screenshot({path:info.outputPath('v1-publication.png'),fullPage:true});expect(failures).toEqual([]);
