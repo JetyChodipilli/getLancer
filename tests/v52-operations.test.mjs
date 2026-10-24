@@ -1,5 +1,7 @@
 /** Synthetic TEST controls only: these fixtures are not deployed measurements or release certificates. */
 import test from 'node:test';
+import nativeFs from 'node:fs';
+import {syncBuiltinESMExports} from 'node:module';
 import assert from 'node:assert/strict';
 import {generateKeyPairSync, randomUUID} from 'node:crypto';
 import {mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync} from 'node:fs';
@@ -7,20 +9,23 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createServer} from 'node:http';
 import {spawn,spawnSync} from 'node:child_process';
-import {ACTIVATION_CONTROLS, appendObservation, boundedFile, canonical, CONTROL_FACTS, DRILL_CONTROLS, HANDOVER_CONTROLS, envelope, hash, journalReport, LIMITS, openReport, parse, readJournal, validateReport, verifyReportFile} from '../ops/v52/evidence.mjs';
-import {argumentsFor, load, monitor, numberArg, requestProbe} from '../ops/v52/collector.mjs';
+import {ACTIVATION_CONTROLS, appendObservation, boundedFile, canonical, CONTROL_FACTS, DRILL_CONTROLS, HANDOVER_CONTROLS, envelope, hash, journalReport, LIMITS, openReport, parse, readJournal, sourceTargets, validateReport, verifyReportFile} from '../ops/v52/evidence.mjs';
+import {argumentsFor, load, monitor, numberArg, requestProbe, requestSourceProbe} from '../ops/v52/collector.mjs';
 
 const revision = '1'.repeat(40), environment = 'synthetic-test', now = Date.parse('2026-10-13T12:00:00.000Z'), start = now - LIMITS.sevenDaysMs, epoch = new Date(start - 86400000).toISOString();
 const serverProfile = {cpuCores: 4, memoryMiB: 8192, postgresMajor: 16, replicas: 1, storage: 'SSD', clientLocation: 'LOOPBACK'};
 const okay = () => ({status: 200, outcome: 'OK', durationMs: 10, bodySha256: 'a'.repeat(64), serverDurationMs: 2, eligibleRows: 10000});
+const sourceZip = Buffer.from('PK\x03\x04synthetic-reviewed-archive');
+const sourcePins = () => [{id:'component-source',path:'/api/v1/components/reviewed-source/source?sha256='+hash(sourceZip),sha256:hash(sourceZip),sizeBytes:sourceZip.length},{id:'education-source',path:'/api/v1/education-releases/11111111-1111-4111-8111-111111111111/source',sha256:hash(sourceZip),sizeBytes:sourceZip.length}];
+const sourceOkay = target => ({id:target.id,status:200,outcome:'OK',durationMs:10,bodySha256:target.sha256,sizeBytes:target.sizeBytes});
 const unavailable = () => ({status: 503, outcome: 'HTTP_ERROR', durationMs: 10, bodySha256: null, serverDurationMs: null, eligibleRows: null});
 function directory(t) {const dir = mkdtempSync(join(tmpdir(), 'v52-test-')); t.after(() => rmSync(dir, {recursive: true, force: true})); return dir;}
 function snapshot(at, admitted = 10, failures = 0) {return {observedAt: new Date(at).toISOString(), counterEpoch: epoch, operatorEpoch: '11111111-1111-4111-8111-111111111111', measuredFrom: epoch, admitted, healthy: admitted - failures, pending: 0, completed: admitted, infraFailures: failures, scenarioFailures: 3, quotaDenials: 5, validationDenials: 7};}
 function fixture(t, kind = 'SOAK', changes = {}) {
   const dir = directory(t), path = join(dir, 'observations.jsonl'), duration = kind === 'SOAK' ? LIMITS.sevenDaysMs : 60000;
-  const header = {version: 1, kind, purpose: 'TEST', environment, revision, origin: 'https://test.example', startedAt: new Date(now - duration).toISOString(), segmentId: randomUUID(), serverProfile, config: kind === 'SOAK' ? {catalogue: 'components', cadenceMs: 60000, timeoutMs: 5000} : {catalogue: 'components', rate: 20, concurrency: 10, durationMs: 60000, timeoutMs: 5000}};
+  const header = {version: 1, kind, purpose: 'TEST', environment, revision, origin: 'https://test.example', startedAt: new Date(now - duration).toISOString(), segmentId: randomUUID(), serverProfile, config: kind === 'SOAK' ? {catalogue: 'components', sources: sourcePins(), cadenceMs: 60000, timeoutMs: 5000} : {catalogue: 'components', rate: 20, concurrency: 10, durationMs: 60000, timeoutMs: 5000}};
   const records = [];
-  if (kind === 'SOAK') for (let i = 0; i <= duration / 60000; i++) {const at = start + i * 60000, admitted = 10 + Math.floor(i * 100 / (duration / 60000)), failures = admitted === 110 ? 1 : 0; records.push({sequence: i + 1, sampledAt: new Date(at).toISOString(), elapsedMs: i * 60000, publicProbe: okay(), runtimeProbe: {status: 200, outcome: 'OK', durationMs: 10, snapshot: snapshot(at, admitted, failures)}});}
+  if (kind === 'SOAK') for (let i = 0; i <= duration / 60000; i++) {const at = start + i * 60000, admitted = 10 + Math.floor(i * 100 / (duration / 60000)), failures = admitted === 110 ? 1 : 0; records.push({sequence: i + 1, sampledAt: new Date(at).toISOString(), elapsedMs: i * 60000, publicProbe: okay(), sourceProbes: header.config.sources.map(sourceOkay), runtimeProbe: {status: 200, outcome: 'OK', durationMs: 10, snapshot: snapshot(at, admitted, failures)}});}
   else for (let i = 0; i < 1200; i++) {const scheduledElapsedMs = i * 50, elapsedMs = scheduledElapsedMs + 10; records.push({sequence: i + 1, sampledAt: new Date(now - duration + elapsedMs).toISOString(), elapsedMs, scheduledElapsedMs, response: okay()});}
   const save = () => {const lines = [canonical(header)], writer = {previous: hash(lines[0]), append: line => lines.push(line.trimEnd())}; for (const record of records) appendObservation(writer, record); writeFileSync(path, lines.join('\n') + '\n'); const journal = readJournal(path), report = journalReport([journal]); return report;};
   changes.header?.(header); changes.records?.(records); return {dir, path, header, records, save, report: save()};
@@ -32,6 +37,11 @@ function controlFixture(t, kind = 'DRILL') {
   const report = {version: 1, kind, purpose: 'TEST', environment, revision, startedAt: new Date(now - 60000).toISOString(), endedAt: new Date(now).toISOString(), collector: 'getlancer-v52-ops-1', controls: []};
   for (const control of controls) {const proof = {version: 1, kind: 'CONTROL_OBSERVATION', purpose: 'TEST', environment, revision, control, observedAt: report.endedAt, outcome: 'PASS', method: 'CI', evidenceSha256: 'b'.repeat(64), facts: Object.fromEntries(Object.entries(CONTROL_FACTS[control]).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value]))}; const file = control + '.json', bytes = canonical(proof); writeFileSync(join(dir, file), bytes); report.controls.push({control, outcome: 'PASS', owner: 'test-operator', observedAt: report.endedAt, file, sha256: hash(bytes)});}
   return {dir, report};
+}
+function handoverFixture(t) {
+  const handover = controlFixture(t, 'HANDOVER'), pair = keys(), fixtures = [fixture(t, 'LOAD'), fixture(t, 'SOAK'), controlFixture(t, 'DRILL'), controlFixture(t, 'ACTIVATION')]; handover.report.reports = [];
+  for (const f of fixtures) {const report = structuredClone(f.report), prefix = report.kind.toLowerCase(); if (report.logs) {for (const log of report.logs) {const bytes = readFileSync(join(f.dir, log.file)), file = prefix + '-' + log.file; writeFileSync(join(handover.dir, file), bytes); log.file = file;}} else for (const record of report.controls) {writeFileSync(join(handover.dir, record.file), readFileSync(join(f.dir, record.file)));} const file = prefix + '-signed.json', bytes = canonical(envelope(report, pair.privateKey)); writeFileSync(join(handover.dir, file), bytes); handover.report.reports.push({kind: report.kind, file, sha256: hash(bytes)});}
+  return {handover,pair};
 }
 test('seven-day TEST controls reconcile admitted infrastructure denominator and remain uncertifying', t => {const result = inspect(fixture(t)); assert.equal(result.admitted, 100); assert.equal(result.healthy, 99); assert.equal(result.infraFailures, 1); assert.equal(result.infraSuccessPercent, 99); assert.equal(result.runtimeElapsedMs, LIMITS.sevenDaysMs); assert.equal(result.monthlyAvailabilityCertified, false); assert.equal(result.releaseEligible, false); assert(Object.values(result.gates).every(Boolean));});
 test('TEST purpose cannot certify a release even with a valid operator signature', t => {const f = fixture(t, 'LOAD'), pair = keys(), signed = envelope(f.report, pair.privateKey), path = join(f.dir, 'signed.json'); writeFileSync(path, canonical(signed)); assert.equal(openReport(Buffer.from(canonical(signed)), pair.publicKey).kind, 'LOAD'); assert.throws(() => verifyReportFile(path, {environment, revision, publicKeyBytes: pair.publicKey, now}), /TEST/);});
@@ -73,8 +83,7 @@ test('PASS cannot contradict restore facts or contain arbitrary private fields',
 test('production runtime and commerce activation proofs are independent and never change flags', t => {const f = controlFixture(t, 'ACTIVATION'); const result = inspect(f); assert.equal(result.runtimeAndCommerceIndependent, true); assert.equal(result.changesActivationFlags, false); assert(result.gates.RUNTIME_ISOLATION && result.gates.MERCHANT_LIVE); const record = f.report.controls.find(c => c.control === 'MERCHANT_LIVE'), proof = JSON.parse(readFileSync(join(f.dir, record.file), 'utf8')); proof.outcome = 'UNMET'; proof.facts.merchantLive = false; record.outcome = 'UNMET'; writeFileSync(join(f.dir, record.file), canonical(proof)); record.sha256 = hash(canonical(proof)); assert.equal(inspect(f).gates.MERCHANT_LIVE, false);});
 test('actual deployment and manual gates cannot use CI-only proof labels', t => {const f = controlFixture(t, 'ACTIVATION'); f.report.purpose = 'MEASUREMENT'; for (const record of f.report.controls) {const path = join(f.dir, record.file), proof = JSON.parse(readFileSync(path, 'utf8')); proof.purpose = 'MEASUREMENT'; writeFileSync(path, canonical(proof)); record.sha256 = hash(canonical(proof));} assert.throws(() => inspect(f), /operator observation/);});
 test('handover recursively verifies independent reports and rejects a missing or altered lane', t => {
-  const handover = controlFixture(t, 'HANDOVER'), pair = keys(), fixtures = [fixture(t, 'LOAD'), fixture(t, 'SOAK'), controlFixture(t, 'DRILL'), controlFixture(t, 'ACTIVATION')]; handover.report.reports = [];
-  for (const f of fixtures) {const report = structuredClone(f.report), prefix = report.kind.toLowerCase(); if (report.logs) {for (const log of report.logs) {const bytes = readFileSync(join(f.dir, log.file)), file = prefix + '-' + log.file; writeFileSync(join(handover.dir, file), bytes); log.file = file;}} else for (const record of report.controls) {writeFileSync(join(handover.dir, record.file), readFileSync(join(f.dir, record.file)));} const file = prefix + '-signed.json', bytes = canonical(envelope(report, pair.privateKey)); writeFileSync(join(handover.dir, file), bytes); handover.report.reports.push({kind: report.kind, file, sha256: hash(bytes)});}
+  const {handover,pair}=handoverFixture(t);
   const result = validateReport(handover.report, {baseDir: handover.dir, environment, revision, now, release: false, publicKeyBytes: pair.publicKey}); assert.equal(result.gates.dependentLaunchGates, true); assert.equal(result.releaseEligible, false); const missing = structuredClone(handover.report); missing.reports.pop(); assert.throws(() => inspect({...handover, report: missing})); writeFileSync(join(handover.dir, handover.report.reports[0].file), '{}'); assert.throws(() => validateReport(handover.report, {baseDir: handover.dir, environment, revision, now, release: false, publicKeyBytes: pair.publicKey}));
 });
 test('CLI failure remains concise and never echoes secret-bearing arguments', () => {const result = spawnSync(process.execPath, ['scripts/v52-monitor.mjs', '--origin', 'https://synthetic-secret@test.example', '--environment', environment, '--revision', revision, '--out', '/unused', '--duration-ms', '100'], {encoding: 'utf8'}); assert.equal(result.status, 1); assert(!result.stderr.includes('synthetic-secret')); assert(!result.stdout.includes('synthetic-secret'));});
@@ -102,4 +111,69 @@ test('collector CLIs read the supplied profile with both default and explicit ca
   assert.equal(result.code,0,result.stderr);const output=JSON.parse(result.stdout);assert.equal(readJournal(output.logFile).header.config.catalogue,explicit?'components':'products');
   assert(seen.slice(-2).every(path=>path==='/api/v1/'+(explicit?'components':'products')));
  }
+});
+
+
+test('source pins accept only public immutable routes without secret or foreign destinations', () => {
+ const target=sourcePins()[0];assert.equal(sourceTargets(sourcePins()).length,2);
+ for(const patch of [{path:'https://other.example'+target.path},{path:target.path+'&token=PRIVATE'},{path:'/api/v1/admin/source'},{path:target.path.replace('reviewed-source','..%2freviewed-source')},{sha256:'b'.repeat(64)},{sizeBytes:LIMITS.sourceBytes+1},{id:'private-source'}])assert.throws(()=>sourceTargets([{...target,...patch}]));
+ assert.throws(()=>sourceTargets([target,target]));assert.throws(()=>sourceTargets([{...target,authorization:'PRIVATE'}]));
+});
+test('anonymous source probes require ZIP MIME, prefix, hash and size without credentials or redirects', async () => {
+ const target=sourcePins()[0],seen=[];
+ const result=await requestSourceProbe('https://test.example',target,{timeoutMs:500,fetchImpl:async(url,options)=>{seen.push({url,options});return new Response(sourceZip,{headers:{'Content-Type':'application/zip'}});}});
+ assert.equal(result.outcome,'OK');assert.equal(result.bodySha256,target.sha256);assert.equal(result.sizeBytes,sourceZip.length);assert.equal(seen[0].url,'https://test.example'+target.path);assert.equal(seen[0].options.redirect,'error');assert.equal(seen[0].options.credentials,'omit');assert.deepEqual(seen[0].options.headers,{Accept:'application/zip'});
+ for(const [body,type,outcome] of [[sourceZip,'text/html','INVALID_RESPONSE'],[Buffer.from('<html>fallback</html>'),'application/zip','INVALID_RESPONSE'],[Buffer.from('PK\x03\x04changed-archive'),'application/zip','INTEGRITY_ERROR']]){const bad=await requestSourceProbe('https://test.example',target,{timeoutMs:500,fetchImpl:async()=>new Response(body,{headers:{'Content-Type':type}})});assert.equal(bad.outcome,outcome);assert.equal(bad.bodySha256,null);assert.equal(bad.sizeBytes,null);}
+ const bad=await requestSourceProbe('https://test.example',target,{timeoutMs:500,fetchImpl:async()=>new Response('private failure',{status:503})});assert.equal(bad.status,503);assert.equal(bad.outcome,'HTTP_ERROR');
+});
+test('source body timeout retains status and discards partial bytes', async t => {
+ const server=createServer((req,res)=>{res.writeHead(200,{'Content-Type':'application/zip'});res.write('PK\x03\x04');});await new Promise(done=>server.listen(0,'127.0.0.1',done));t.after(()=>{server.closeAllConnections();server.close();});
+ const result=await requestSourceProbe('http://127.0.0.1:'+server.address().port,sourcePins()[0],{timeoutMs:100});assert.equal(result.outcome,'TIMEOUT');assert.equal(result.status,200);assert.equal(result.bodySha256,null);
+});
+test('source outage measurements are independent of discovery and operator credentials', async t => {
+ const dir=directory(t),targets=sourcePins(),seen=[],cookie=join(dir,'source-cookie');writeFileSync(cookie,'synthetic-source-session=PRIVATE');
+ const server=createServer((req,res)=>{seen.push(req.url);if(req.url==='/api/v1/admin/operations'){assert.equal(req.headers.cookie,'synthetic-source-session=PRIVATE');const observed=new Date().toISOString();res.setHeader('Content-Type','application/json');res.end(JSON.stringify({window:{to:observed},runtime:snapshot(Date.parse(observed))}));return;}assert.equal(req.headers.cookie,undefined);if(req.url===targets[0].path){res.writeHead(503);res.end('PRIVATE_RESPONSE');}else if(req.url===targets[1].path){res.setHeader('Content-Type','application/zip');res.end(sourceZip);}else{assert.equal(new URL(req.url,'http://localhost').pathname,'/api/v1/components');res.setHeader('Content-Type','application/json');res.end(JSON.stringify({items:[],totalItems:24}));}});
+ await new Promise(done=>server.listen(0,'127.0.0.1',done));t.after(()=>server.close());
+ const captured=await monitor({origin:'http://127.0.0.1:'+server.address().port,catalogue:'components',sources:targets,environment,revision,serverProfile,out:join(dir,'source-services'),adminCookieFile:cookie,adminConfigured:true,purpose:'TEST',durationMs:200,cadenceMs:100,timeoutMs:500});
+ const journal=readJournal(captured.logFile),report=JSON.parse(readFileSync(captured.reportFile,'utf8')),result=validateReport(report,{baseDir:dir,environment,revision,now:Date.now()+1000,release:false});
+ assert.equal(journal.observations.length,3);assert.equal(seen.length,12);assert(journal.observations.every(o=>o.sourceProbes.length===2));assert.equal(result.failedPublicProbes,0);assert.equal(result.sourceServices[0].failedProbes,3);assert.equal(result.sourceServices[1].failedProbes,0);assert.equal(result.sourceServices[0].observedAvailabilityPercent,0);assert.equal(result.sourceServices[1].observedAvailabilityPercent,100);assert.equal(result.gates.sourceServicesCovered,true);assert.equal(result.gates.observedSourceAvailability995,false);assert.equal(result.monthlyAvailabilityCertified,false);assert(!readFileSync(captured.logFile,'utf8').includes('PRIVATE'));assert(!readFileSync(captured.logFile,'utf8').includes('synthetic-source-session'));
+});
+test('legacy catalogue-only logs and missing source lanes remain inspectable but cannot certify source acceptance', t => {
+ const old=fixture(t,'SOAK',{header:h=>{delete h.config.sources;delete h.config.catalogue;},records:records=>records.forEach(r=>delete r.sourceProbes)}),result=inspect(old);assert.equal(result.gates.sourceServicesCovered,false);assert.equal(result.gates.observedSourceAvailability995,false);assert.equal(result.gates.newDiscoveryServiceMeasured,false);assert.deepEqual(result.sourceServices,[]);
+ const one=fixture(t,'SOAK',{header:h=>h.config.sources.pop(),records:records=>records.forEach(r=>r.sourceProbes.pop())});assert.equal(inspect(one).gates.sourceServicesCovered,false);
+});
+test('source outage intervals remain visible despite successful catalogue requests', t => {
+ const f=fixture(t);f.records[1].sourceProbes[0]={id:'component-source',status:503,outcome:'HTTP_ERROR',durationMs:10,bodySha256:null,sizeBytes:null};f.report=f.save();const result=inspect(f);assert.equal(result.failedPublicProbes,0);assert.equal(result.sourceServices[0].failedProbes,1);assert.equal(result.sourceServices[0].observedOutageMs,120000);assert.equal(result.sourceServices[1].observedOutageMs,0);
+ for(const record of f.records)record.sourceProbes[0]={id:'component-source',status:503,outcome:'HTTP_ERROR',durationMs:10,bodySha256:null,sizeBytes:null};f.report=f.save();assert.equal(inspect(f).gates.observedSourceAvailability995,false);
+});
+test('source observations cannot omit a lane, swap identities or claim unbound bytes', t => {
+ for(const mutate of [r=>r.sourceProbes.pop(),r=>r.sourceProbes.reverse(),r=>r.sourceProbes[0].bodySha256='b'.repeat(64),r=>r.sourceProbes[0].sizeBytes++])assert.throws(()=>fixture(t,'SOAK',{records:records=>mutate(records[0])}));
+});
+test('collector provenance refuses changed source pins for the same catalogue', t => {
+ const f=fixture(t),first=readJournal(f.path),other=structuredClone(first);other.header.config.sources[0].sizeBytes++;assert.throws(()=>journalReport([first,other]),/source service targets/);
+});
+test('load rejects 301ms server time while retaining successful responses and valid concurrency', t => {
+ const f=fixture(t,'LOAD');for(const record of f.records){record.elapsedMs+=300;record.sampledAt=new Date(Date.parse(record.sampledAt)+300).toISOString();record.response.durationMs=310;record.response.serverDurationMs=301;}f.report=f.save();const result=validateReport(f.report,{baseDir:f.dir,environment,revision,now:now+1000,release:false});assert.equal(result.successfulRequests,1200);assert.equal(result.serverP95Ms,301);assert.equal(result.gates.serverP95AtMost300Ms,false);
+});
+test('monitor CLI reads source pins and captures real HTTP archive outcomes', async t => {
+ const dir=directory(t),profile=join(dir,'profile.json'),pins=join(dir,'sources.json'),targets=sourcePins(),seen=[];writeFileSync(profile,JSON.stringify(serverProfile));writeFileSync(pins,JSON.stringify(targets));
+ const server=createServer((req,res)=>{seen.push(req.url);if(targets.some(target=>target.path===req.url)){assert.equal(req.headers.cookie,undefined);res.setHeader('Content-Type','application/zip');res.end(sourceZip);}else{res.setHeader('Content-Type','application/json');res.end(JSON.stringify({items:[],totalItems:24}));}});await new Promise(done=>server.listen(0,'127.0.0.1',done));t.after(()=>server.close());
+ const args=['scripts/v52-monitor.mjs','--origin','http://127.0.0.1:'+server.address().port,'--catalogue','components','--environment',environment,'--revision',revision,'--profile',profile,'--sources',pins,'--out',join(dir,'cli-sources'),'--duration-ms','100','--cadence-ms','100'];
+ const result=await new Promise((resolve,reject)=>{const child=spawn(process.execPath,args,{stdio:['ignore','pipe','pipe']});let stdout='',stderr='';child.stdout.on('data',b=>stdout+=b);child.stderr.on('data',b=>stderr+=b);child.on('error',reject);child.on('close',code=>resolve({code,stdout,stderr}));});assert.equal(result.code,0,result.stderr);const captured=JSON.parse(result.stdout),journal=readJournal(captured.logFile);assert.deepEqual(journal.header.config.sources,targets);assert.equal(seen.length,6);assert(journal.observations.every(r=>r.sourceProbes.length===2&&r.sourceProbes.every(p=>p.outcome==='OK')));
+});
+/** Replace the pathname after its original descriptor opens, exercising a real deterministic substitution race. */
+function replaceAfterCapture(path, replacement, run) {
+ const sibling=path+'.replacement';writeFileSync(sibling,replacement);const open=nativeFs.openSync,name=path.split('/').at(-1);let captures=0;
+ nativeFs.openSync=function(file,...args){const descriptor=open(file,...args);if(String(file).endsWith('/'+name)){captures++;if(captures===1)nativeFs.renameSync(sibling,path);}return descriptor;};syncBuiltinESMExports();
+ try{return {value:run(),captures};}finally{nativeFs.openSync=open;syncBuiltinESMExports();}
+}
+test('verifyReportFile binds expected hash to the same captured bytes during pathname replacement', t => {
+ const f=controlFixture(t),pair=keys(),path=join(f.dir,'captured-report.json'),bytes=Buffer.from(canonical(envelope(f.report,pair.privateKey)));writeFileSync(path,bytes);
+ const options={environment,revision,now,release:false,publicKeyBytes:pair.publicKey,expectedSha256:hash(bytes)};
+ assert.throws(()=>verifyReportFile(path,{...options,expectedSha256:'a'.repeat(64)}),/Expected report hash/);
+ const other=canonical(envelope({...f.report,environment:'foreign'},pair.privateKey)),captured=replaceAfterCapture(path,other,()=>verifyReportFile(path,options));assert.equal(captured.captures,1);assert.equal(captured.value.kind,'DRILL');assert.equal(captured.value.environment,environment);assert.throws(()=>verifyReportFile(path,options),/Expected report hash/);
+});
+test('HANDOVER hashes and verifies each dependency from one captured read despite pathname replacement', t => {
+ const {handover,pair}=handoverFixture(t),dependency=handover.report.reports.find(report=>report.kind==='LOAD'),path=join(handover.dir,dependency.file),original=openReport(readFileSync(path),pair.publicKey),replacement=canonical(envelope({...original,environment:'foreign'},pair.privateKey));
+ const captured=replaceAfterCapture(path,replacement,()=>validateReport(handover.report,{baseDir:handover.dir,environment,revision,now,release:false,publicKeyBytes:pair.publicKey}));assert.equal(captured.captures,1);assert.equal(captured.value.gates.dependentLaunchGates,true);
 });

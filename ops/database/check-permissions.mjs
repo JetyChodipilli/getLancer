@@ -16,10 +16,10 @@ const tables=new Set([...sql.matchAll(/\bCREATE TABLE\s+([a-z_]+)/gi)].map(match
 for(const table of tables)assert.ok(known.has(table),'Review runtime permission classification for new table '+table);
 for(const file of readdirSync(java,{recursive:true}).filter(file=>file.endsWith('.java'))){
  const source=readFileSync(new URL(file,java),'utf8');
- for(const line of source.split('\n').filter(value=>value.includes('FOR SHARE')))for(const match of line.matchAll(/\b(?:FROM|JOIN)\s+([a-z_]+)/gi)){const table=match[1];if(tables.has(table))assert.ok(updates.has(table)||locks.has(table),'Missing row-lock UPDATE permission for '+table+' used by '+file);}
+ for(const line of source.split('\n').filter(value=>value.includes('FOR SHARE')))for(const match of line.matchAll(/\b(?:FROM|JOIN)\s+([a-z_]+)/gi)){const table=match[1];if(tables.has(table))assert.ok(updates.has(table)||locks.has(table)||table==='lab_manifests','Missing row-lock UPDATE permission for '+table+' used by '+file);}
  for(const match of source.matchAll(/\b(INSERT INTO|UPDATE|DELETE FROM)\s+([a-z_]+)/gi)){
   const [,operation,table]=match;if(!tables.has(table))continue;
-  if(operation.toUpperCase()==='UPDATE')assert.ok(updates.has(table)||webhookUpdates.has(table)||table==='media_write_intents','Missing UPDATE permission for '+table+' used by '+file);
+  if(operation.toUpperCase()==='UPDATE')assert.ok(updates.has(table)||webhookUpdates.has(table)||table==='media_write_intents'||table==='lab_manifests','Missing UPDATE permission for '+table+' used by '+file);
   else if(operation.toUpperCase()==='DELETE FROM')assert.ok(deletes.has(table),'Missing DELETE permission for '+table+' used by '+file);
   else assert.ok(!readOnly.has(table),'Missing INSERT permission for '+table+' used by '+file);
  }
@@ -29,7 +29,7 @@ for(const table of ['categories','technologies','product_access_grants','request
 for(const table of ['security_audit_events','inquiry_events','moderation_actions','delivery_activity','payment_ledger','payment_account_audit','commerce_ledger','commerce_audit','maintenance_ledger','maintenance_audit','hosting_audit','component_audit','component_releases','component_slot_ledger','component_slot_events','publishing_capacity_grants','lab_events','lab_operator_audit','education_audit','education_free_packages']){
  assert.ok(known.has(table),'Missing immutable table '+table);assert.ok(!updates.has(table)&&!deletes.has(table),'Immutable history grants mutation for '+table);
 }
-assert.deepEqual([...locks],['user_roles','sessions','business_members','lab_manifests']);
+assert.deepEqual([...locks],['user_roles','sessions','business_members']);
 for(const table of locks)assert.ok(!updates.has(table),'Lock-only table must not receive full UPDATE: '+table);
 assert.ok(known.has('media_write_intents')&&deletes.has('media_write_intents')&&!updates.has('media_write_intents'));
 assert.ok(permissions.includes('GRANT UPDATE (expires_at) ON'));
@@ -37,3 +37,6 @@ const roles=readFileSync(new URL('./00_roles.sql',import.meta.url),'utf8');
 assert.ok(roles.includes('ALTER DEFAULT PRIVILEGES FOR ROLE getlancer_migration REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC'),'Global function PUBLIC defaults must be revoked');
 assert.ok(!permissions.includes('GRANT ALL'),'Runtime permissions must enumerate operations');
 console.log('Database permission source coverage passed; '+tables.size+' migration tables classified. Real-role PostgreSQL tests are still required.');
+
+assert.ok(!readOnly.has('lab_manifests')&&!updates.has('lab_manifests')&&!deletes.has('lab_manifests')&&permissions.includes('GRANT UPDATE (revoked_at) ON'));
+assert.ok(known.has('component_recipe_enforcement')&&updates.has('component_recipe_enforcement')&&!deletes.has('component_recipe_enforcement'));

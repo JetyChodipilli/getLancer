@@ -82,16 +82,12 @@ public class AnalyticsService {
       version=db.queryForObject("SELECT payload_sha256 FROM lab_manifests WHERE id=? AND revoked_at IS NULL",String.class,slug);
     } else if (!Set.of("home_view", "search_performed").contains(event)) {
       entity = uuid(body.get("entityId"));
+      List<Map<String,Object>> publicRows;
       if (event.equals("builder_profile_view")) {
-        if (db.queryForObject(
-                "SELECT count(*) FROM developer_profiles d JOIN users u ON u.id=d.user_id WHERE"
-                    + " d.user_id=? AND d.approval_status='APPROVED' AND u.account_status='ACTIVE'",
-                Integer.class,
-                entity)
-            == 0) throw new ApiError(404, "NOT_FOUND", "Builder unavailable.");
-      } else if (db.queryForList(
-              ProductRepository.SELECT + " WHERE p.id=? AND " + ProductRepository.PUBLIC, entity)
-          .isEmpty()) throw new ApiError(404, "NOT_FOUND", "Project unavailable.");
+        publicRows=db.queryForList("SELECT d.updated_at FROM developer_profiles d JOIN users u ON u.id=d.user_id WHERE d.user_id=? AND d.approval_status='APPROVED' AND u.account_status='ACTIVE'",entity);
+      } else publicRows=db.queryForList(ProductRepository.SELECT+" WHERE p.id=? AND "+ProductRepository.PUBLIC,entity);
+      if(publicRows.isEmpty())throw new ApiError(404,"NOT_FOUND","Public artifact unavailable.");
+      version=observedVersion(event.equals("builder_profile_view")?"PROFILE":"PROJECT",entity,publicRows.get(0).get("updated_at"));
     }
     if(body.get("eventId")==null)throw new ApiError(400,"VALIDATION_ERROR","Supply a stable observation identity.");
     UUID eventId = uuid(body.get("eventId"));
@@ -133,6 +129,12 @@ public class AnalyticsService {
         java.sql.Timestamp.from(at));
     if(recorded==1)counters.observation(event,mode,version);
     return Map.of("ok", true,"recorded",recorded==1);
+  }
+
+  static String observedVersion(String kind,UUID entity,Object updatedAt) {
+    java.time.Instant at=updatedAt instanceof java.sql.Timestamp t?t.toInstant():updatedAt instanceof java.time.OffsetDateTime t?t.toInstant():updatedAt instanceof java.time.Instant t?t:null;
+    if(at==null)throw new ApiError(503,"ARTIFACT_UNAVAILABLE","Public revision metadata is unavailable.");
+    return "observed-"+hash(kind+":"+entity+":"+at);
   }
 
   private static String artifactSlug(Map<String,Object> body) {

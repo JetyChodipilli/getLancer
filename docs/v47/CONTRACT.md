@@ -35,3 +35,11 @@ Add `/labs` workbench and operator workspace using existing 16px fields, 44px co
 ## Release evidence
 
 Record source-tree tests, typed route/database grants, concurrent quota races, stale cancellation/lease/restore, gateway negative controls, privacy, responsive keyboard/error behavior and published CI separately. Nine educational scenario labs and event-driven teaching diagrams belong to V4.8. Deployment/provider approval and seven-day soak remain explicit external evidence, not local test results.
+
+## Native observations and operator workflows
+
+Active native requests validate the complete bounded state/event batch before advancing the monotonic per-run cursor. SSE events refer to the command's ephemeral observation projection; architecture links are derived from observed event participants. The UI exposes current state, event order and accessible status alongside existing replay controls. Protocol operations without native output say that no native observations are available. Retained request inputs/output and state observations are redacted once their 24-hour creation-age deadline passes and provider cleanup is confirmed.
+
+`POST /api/v1/admin/labs/limits` accepts bounded daily/account/global memory/cost settings with a reason. `POST /api/v1/admin/labs/certifications` accepts `{action,manifestId,payload?,signature?,reason}` with REGISTER_SOURCE, PUBLISH or REVOKE. Every write requires current operator MFA and appends the safe audit projection. Native Live additionally requires an ACTIVE exact adapter version, reviewed framework combination and current signed certification `{frameworkVersion,maintainer,reviewedAt,licenceReviewed,reproductionVerified,resourcesVerified,isolationVerified,reproductionSha256}`. Source-only registrations cannot be converted into execution approvals; publish a distinct signed immutable manifest. Permanent revocation gates new runs and current access, then fenced cleanup follows.
+
+The operator CLI validates dated production inventory and the exact reproduction artifact using the same trusted Ed25519 key. It does not run KVM drills or replace human certification. Framework support is deliberately limited to the implemented Standard library adapters and Node MQTT protocol; other combinations remain free Source only.

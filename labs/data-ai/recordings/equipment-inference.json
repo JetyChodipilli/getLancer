@@ -6,7 +6,7 @@
   "dataSha256": "1597e2a1ecc97e4f2d376cfc3a8f97128ec61b3b836006d11d6978cee20fecc0",
   "modelSha256": "7529dd9ed5627ce4f62d8c9b924d148d650b812c1aaebe9cfb510a2110a25e30",
   "evaluationSha256": "b77c2d8e2636e87fe7a5ecd2099835fd3c9878ad54d2630974d0b528a2db7937",
-  "recordedAt": "2026-10-14T09:50:33.808Z",
+  "recordedAt": "2026-10-24T03:58:37.006Z",
   "runs": [
     {
       "dataSha256": "1597e2a1ecc97e4f2d376cfc3a8f97128ec61b3b836006d11d6978cee20fecc0",
@@ -78,11 +78,11 @@
         ]
       },
       "resultSha256": "fceb03ad64953a8a623edf194ff07ac75fa7d2646b56745f3fd6cefb41efdd84",
-      "runId": "88f0941f-ace4-4380-9c1c-98753135f8dc",
+      "runId": "7142ac2f-9877-4dc9-88b9-96303595440e",
       "scenarioId": "equipment-inference",
       "schemaVersion": "getlancer-data-ai-result-v1",
       "sourceSha256": "e2e8512dfe9133a0e5d6e3ff8dcae2662cdd624a6c97b455c189bf3f4d3910f4",
-      "startedAt": "2026-10-14T09:50:33.802Z"
+      "startedAt": "2026-10-24T03:58:36.996Z"
     },
     {
       "dataSha256": "1597e2a1ecc97e4f2d376cfc3a8f97128ec61b3b836006d11d6978cee20fecc0",
@@ -154,11 +154,11 @@
         ]
       },
       "resultSha256": "fbce556d725b7222f616676ae84731641d4f475b829883e59110e6f8c5fc87ea",
-      "runId": "88f0941f-ace4-4380-9c1c-98753135f8dc",
+      "runId": "7142ac2f-9877-4dc9-88b9-96303595440e",
       "scenarioId": "equipment-inference",
       "schemaVersion": "getlancer-data-ai-result-v1",
       "sourceSha256": "e2e8512dfe9133a0e5d6e3ff8dcae2662cdd624a6c97b455c189bf3f4d3910f4",
-      "startedAt": "2026-10-14T09:50:33.805Z"
+      "startedAt": "2026-10-24T03:58:37.001Z"
     }
   ]
 }

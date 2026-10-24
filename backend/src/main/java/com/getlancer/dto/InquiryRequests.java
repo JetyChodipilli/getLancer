@@ -33,11 +33,13 @@ public final class InquiryRequests {
       @Size(min = 3, max = 3) @Pattern(regexp = "[A-Za-z]{3}") String currency) {}
 
   public record Report(
-      @NotBlank @Pattern(regexp = "PRODUCT|USER|REVIEW|INQUIRY") String targetType,
+      @NotBlank @Pattern(regexp = "PRODUCT|USER|REVIEW|INQUIRY|COMPONENT") String targetType,
       @NotNull UUID targetId,
       @NotBlank @Pattern(regexp = "FAKE_PRODUCT|STOLEN_WORK|IMPERSONATION|MALICIOUS_LINK|PHISHING|SPAM|HARASSMENT|COPYRIGHT_IP|CONFIDENTIAL_DATA|MISLEADING_CLAIM|FAKE_REVIEW|CLIENT_SPAM|APPEAL|OTHER") String reason,
       @NotBlank @Size(min = 10, max = 3000) String detail,
-      UUID educationReleaseId) {}
+      UUID educationReleaseId,
+      @Min(1) Long componentRevision,
+      @Pattern(regexp = "[a-f0-9]{64}") String componentSourceHash) {}
 
   public record Decision(
       @NotBlank @Pattern(regexp = "HIRE_CONFIRMATION|COMPLETION_CONFIRMATION") String kind,

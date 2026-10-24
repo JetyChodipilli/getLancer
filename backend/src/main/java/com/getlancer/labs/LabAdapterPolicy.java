@@ -26,14 +26,18 @@ public final class LabAdapterPolicy {
     if(manifest.scenarios().stream().anyMatch(item->iot?!item.id().equals(LabIotPolicy.SCENARIO):!PATTERNS.contains(item.id())))
       throw unavailable(admission,"LAB_SCENARIO_UNSUPPORTED","This adapter has no reviewed coverage for the signed scenario combination. Free source remains available.");
     if(adapter==null){
-      // Pre-V5.1 Java, TypeScript and Python certificates remain authoritative only for their reviewed three patterns.
-      if(!iot&&Set.of("jdk","node","python").contains(runtime))return;
       throw unavailable(admission,"LAB_ADAPTER_UNCERTIFIED","This native adapter needs an explicit signed runtime and version. Free source remains available.");
     }
     if(!adapter.state().equals("ACTIVE"))throw unavailable(admission,"LAB_ADAPTER_"+adapter.state(),
         "This native adapter is "+adapter.state().toLowerCase(Locale.ROOT)+". Free source remains available.");
     if(!runtime.equals(adapter.runtime())||!supportedVersion(runtime,adapter.version())||iot&&!runtime.equals("node"))
       throw unavailable(admission,"LAB_ADAPTER_UNSUPPORTED","This language and runtime version have no reviewed adapter coverage. Free source remains available.");
+    var certificate=manifest.certification();
+    if(certificate==null||!certificate.licenceReviewed()||!certificate.reproductionVerified()||!certificate.resourcesVerified()||!certificate.isolationVerified()
+        ||certificate.reviewedAt().isAfter(java.time.Instant.now())||certificate.reviewedAt().isBefore(java.time.Instant.now().minusSeconds(31L*86400)))
+      throw unavailable(admission,"LAB_ADAPTER_UNCERTIFIED","Current licence, maintainer, reproduction, resource and isolation attestations are required. Free source remains available.");
+    if(!manifest.framework().equals(iot?"Node MQTT protocol":"Standard library")||!certificate.frameworkVersion().equals(adapter.version()))
+      throw unavailable(admission,"LAB_FRAMEWORK_UNSUPPORTED","This exact framework and runtime combination is not reviewed. Free source remains available.");
   }
   static boolean supportedVersion(String runtime,String version){
     String[] parts=version.split("\\.");int major=Integer.parseInt(parts[0]),minor=Integer.parseInt(parts[1]);

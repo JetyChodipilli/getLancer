@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "environment": "production",
+  "revision": "",
+  "provider": "",
+  "operatorEpoch": "",
+  "hostIdSha256": "",
+  "appOrigin": "",
+  "gatewayOrigin": "",
+  "providerFiles": {
+    "firecracker": {"path": "", "sha256": ""},
+    "jailer": {"path": "", "sha256": ""},
+    "kernel": {"path": "", "sha256": ""}
+  },
+  "adapters": [
+    {"language": "java", "runtime": "jdk", "version": "", "framework": "Standard library", "sourceSha256": "", "imageDigest": ""},
+    {"language": "typescript", "runtime": "node", "version": "", "framework": "Standard library", "sourceSha256": "", "imageDigest": ""},
+    {"language": "python", "runtime": "python", "version": "", "framework": "Standard library", "sourceSha256": "", "imageDigest": ""},
+    {"language": "go", "runtime": "go", "version": "", "framework": "Standard library", "sourceSha256": "", "imageDigest": ""},
+    {"language": "dotnet", "runtime": "dotnet", "version": "", "framework": "Standard library", "sourceSha256": "", "imageDigest": ""},
+    {"language": "php", "runtime": "php", "version": "", "framework": "Standard library", "sourceSha256": "", "imageDigest": ""}
+  ],
+  "sources": [
+    {"id": "component-source", "path": "", "sha256": "", "sizeBytes": 0},
+    {"id": "education-source", "path": "", "sha256": "", "sizeBytes": 0}
+  ]
+}

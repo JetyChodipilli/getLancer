@@ -6,6 +6,8 @@ A proof-of-work marketplace connecting clients with the builders behind working 
 
 ## Current implementation status
 
+The five follow-up coding areas and their test coverage are recorded in [implementation completion](docs/v52/IMPLEMENTATION_COMPLETION.md). Production and human acceptance remain independently gated.
+
 **V5.2 adds measurement and operational release control:** privacy-safe mode/version observations, authoritative funnel denominators, MFA operations alerts, twelve original learning projects, repeatable load/soak evidence and incident handover. The software and independently unmet production/research gates are recorded in [V5.2 implementation and launch status](docs/v52/README.md). A green software merge does not replace seven real days of admitted runtime evidence or hosting/merchant activation.
 
 **V5.1 implements protocol simulation and six-language coverage:** eighteen native core labs, free IoT telemetry/recovery with firmware/BOM/wiring source, and original Vue/Svelte/Angular components compiled into isolated static previews. Signed adapter runtime/version/retirement metadata makes unavailable execution explicit while preserving eligible free source. All eight S07 slices and verification boundaries are recorded in [V5.1 implementation and acceptance](docs/v51/README.md). Hosted execution remains independently disabled by default.

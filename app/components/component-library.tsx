@@ -1,12 +1,13 @@
 'use client';
-import {useEffect,useState} from 'react';
+import {useEffect,useId,useRef,useState} from 'react';
+import {api} from '@/lib/api';
 import {observeArtifact} from '@/lib/analytics';
 import ComponentSaveButton from './component-save-button';
 import ComponentVersionHistory from './component-version-history';
 import Link from 'next/link';
 import {ArrowUpRight,Code2,Copy,Download,Monitor,Smartphone,Tablet,RotateCcw,Check} from 'lucide-react';
 import {Tabs,TabsContent,TabsList,TabsTrigger} from '@/components/ui/tabs';
-import {componentLabel,componentSeeds,componentZip,type ComponentEntry} from '@/lib/components';
+import {componentLabel,componentSeeds,componentZip,componentReportBody,type ComponentEntry} from '@/lib/components';
 import {componentPreviewDocument} from '@/lib/component-preview';
 
 export function ComponentArtwork({item}:{item:ComponentEntry}){
@@ -27,5 +28,19 @@ export default function ComponentDetailView({item,preview}:{item:ComponentEntry;
  <TabsContent value="preview"><section className="kit-preview-panel"><div className="kit-preview-toolbar"><span>Working browser preview</span><div className="kit-device-controls" role="group" aria-label="Preview viewport">{[['desktop','Desktop',Monitor],['tablet','Tablet',Tablet],['phone','Phone',Smartphone]].map(([key,label,Icon])=>{const DeviceIcon=Icon as typeof Monitor;return <button key={key as string} aria-label={label as string} aria-pressed={size===key} onClick={()=>setSize(key as string)}><DeviceIcon size={18}/><span>{label as string}</span></button>;})}<button aria-label="Reset preview" onClick={()=>setGeneration(n=>n+1)}><RotateCcw size={17}/></button></div></div><div className={'kit-preview-stage '+size}>{(item.uploaded?hosted:html)?<iframe key={generation} title={item.title+' working preview'} sandbox="allow-scripts allow-forms" referrerPolicy="no-referrer" srcDoc={item.uploaded?hosted:html}/>:<p role="status">A reviewed hosted preview is unavailable for this version. Source and setup remain free.</p>}</div><div className="kit-preview-note"><Code2 size={18}/><div><strong>Try it: {item.scenario}</strong><p>Synthetic data only. Changes reset with the preview. No account or payment service is contacted.</p></div></div></section>{item.contribution&&<section className="kit-info-panel"><h2>Creator contribution</h2><p>{item.contribution}</p></section>}</TabsContent>
  <TabsContent value="source"><section className="kit-source-panel"><div className="kit-source-toolbar"><div role="group" aria-label="Source files">{Object.keys(files||{}).map(name=><button key={name} className={file===name?'selected':''} aria-pressed={file===name} onClick={()=>{setFile(name);setCopied(false);}}>{name}</button>)}</div><button className="button" onClick={copy}>{copied?<Check size={16}/>:<Copy size={16}/>} {copied?'Copied':'Copy file'}</button></div><pre tabIndex={0} aria-label={file+' source'}><code>{files?.[file]}</code></pre><p className="kit-source-hash">index.html SHA-256: <code>{item.sha256}</code></p></section></TabsContent>
  <TabsContent value="setup"><div className="kit-setup-grid"><section className="kit-info-panel"><h2>Open it. Make it yours.</h2><p>No dependencies, API keys or build tools are required. Download the ZIP, extract it and open <code>index.html</code> in your browser.</p><p>Optional local server:</p><pre><code>python3 -m http.server 8000</code></pre><h3>Version {item.version}</h3><p>Read the included setup and licence, and test keyboard controls, focus and responsive behavior before using this source.</p></section><section className="kit-info-panel"><h2>MIT licence</h2><p>Use and modify the component for personal or commercial projects. Keep the copyright and licence notices in redistributed source.</p><details><summary>Read the full licence</summary><pre className="kit-license">{files?.LICENSE}</pre></details><p className="kit-credit">No external fonts, images or packages. Source and standard preview stay free.</p></section></div></TabsContent><TabsContent value="history"><ComponentVersionHistory slug={item.slug} preview={preview} version={item.version} sha256={item.sha256}/></TabsContent></Tabs>{error&&<p className="error" role="alert">{error}</p>}
- <section className="kit-related"><h2>Keep building.</h2><div className="kit-grid related">{componentSeeds.filter(c=>c.slug!==(item.recipeSlug||item.slug)).slice(0,3).map(c=><ComponentCard key={c.slug} item={c}/>)}</div></section></main>;
+ {!preview&&(item.reportTargetId||item.id)&&<ComponentReport key={(item.reportTargetId||item.id)+':'+(item.reportRevision??item.revision)+':'+item.sha256} item={item}/>}
+ <section className="kit-related"><h2>Keep building.</h2><div className="kit-grid related">{(item.related??(preview?componentSeeds:[])).filter(c=>c.slug!==(item.recipeSlug||item.slug)).slice(0,3).map(c=><ComponentCard key={c.slug} item={c}/>)}</div></section></main>;
+}
+
+function ComponentReport({item}:{item:ComponentEntry}){
+ const id=useId(),[busy,setBusy]=useState(false),[error,setError]=useState(''),[receipt,setReceipt]=useState('');
+ const alert=useRef<HTMLParagraphElement>(null),generation=useRef(0),pending=useRef(false);
+ useEffect(()=>()=>{generation.current++;},[]);
+ useEffect(()=>{if(error)alert.current?.focus();},[error]);
+ return <details className="kit-info-panel"><summary style={{minHeight:44}}>Report this exact component</summary><p>Report source abuse, ownership concerns, or a misleading execution claim.</p><p>Version {item.version} · revision {item.reportRevision??item.revision}</p><p className="kit-source-hash">Reported source SHA-256: {item.sha256}</p>{receipt?<p role="status">Report received. Reference: {receipt}</p>:<form className="form" onSubmit={async event=>{
+  event.preventDefault();if(pending.current)return;pending.current=true;setBusy(true);setError('');const current=generation.current;
+  try{const data=new FormData(event.currentTarget);const body=componentReportBody(item,String(data.get('reason')||''),String(data.get('detail')||''));const result=await api('/reports',{method:'POST',body:JSON.stringify(body)});if(current!==generation.current)return;if(typeof result.reference!=='string'||! /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(result.reference))throw Error('The report receipt is unavailable. Try again.');setReceipt(result.reference);}
+  catch(problem){if(current===generation.current)setError((problem as Error).message);}
+  finally{pending.current=false;if(current===generation.current)setBusy(false);}
+ }}><label htmlFor={id+'-reason'}>Report reason</label><select id={id+'-reason'} name="reason" defaultValue="MISLEADING_CLAIM"><option value="MISLEADING_CLAIM">Misleading claim</option><option value="COPYRIGHT_IP">Copyright or intellectual property</option><option value="STOLEN_WORK">Stolen work</option><option value="MALICIOUS_LINK">Malicious link</option><option value="CONFIDENTIAL_DATA">Confidential data</option><option value="OTHER">Other</option></select><label htmlFor={id+'-detail'}>What happened?</label><textarea id={id+'-detail'} name="detail" required minLength={10} maxLength={3000}/>{error&&<p ref={alert} role="alert" tabIndex={-1} className="error">{error}</p>}<button className="button" disabled={busy}>{busy?'Sending report…':'Submit component report'}</button></form>}</details>;
 }

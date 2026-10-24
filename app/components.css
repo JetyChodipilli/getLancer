@@ -56,3 +56,6 @@
 .kit-release-list strong,.kit-release-list span,.kit-release-list code { display:block; }
 .kit-release-list code { font-size:12px; overflow-wrap:anywhere; margin-top:6px; }
 @media(max-width:540px){.kit-detail-tabs [role=tablist]{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}.kit-detail-tabs [role=tab]{min-width:0;white-space:normal}}
+/* College metadata sits near a one-row wrap boundary on phones. Keep its
+   two pairs in stable rows while the web font loads, without clipping labels. */
+@media(max-width:540px){.kit-college-badges{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.kit-college-badges>span{min-width:0;overflow-wrap:anywhere}}

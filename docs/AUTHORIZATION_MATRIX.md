@@ -510,3 +510,7 @@ This document does not certify database RLS, reverse-proxy isolation, production
 | GET | `/api/v1/components/{slug}/source` | Public entry (PUBLIC) | A | — | — | — | — | — | D | DENY; N | Current published, nonwithdrawn component and eligible creator; original reviewed upload; exact requested archive SHA-256 | [ComponentService.source][ComponentService] |
 
 This anonymous free route returns the approved uploaded ZIP with `Cache-Control: no-store`. It adds one route to the published application inventory; the source contract verifier reconciles the current complete inventory. Raw archive base64 remains outside public JSON projections.
+
+## Lab operator completion
+
+`POST /api/v1/admin/labs/limits` and `POST /api/v1/admin/labs/certifications` require ADMIN_MFA, the same current fifteen-minute MFA check, exact Origin and X-Requested-With mutation protections as pause-admissions. Limits remain bounded by platform ceilings. Certification changes preserve signed immutable payloads: REGISTER_SOURCE inserts an immutable source-only record; PUBLISH validates the exact reviewed native signature/host/source combination; REVOKE permanently sets revoked_at. Run admissions and active request/event access recheck current component and manifest authority. Runtime SQL privileges permit INSERT and UPDATE(revoked_at) only, with immutable triggers rejecting resurrection.

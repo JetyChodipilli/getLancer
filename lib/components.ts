@@ -1,11 +1,23 @@
 import seeds from '../backend/src/main/resources/catalog/components.metadata.json' with {type: 'json'};
-export type ComponentEntry = { revision?: number; uploaded?: boolean; previewUrl?: string; previewExpiresAt?: string; archiveSha256?: string; manifestSha256?: string; sourceHash?: string; withdrawn?: boolean; published?: boolean; id?: string; slug: string; recipeSlug?: string; title: string; summary: string; category: string; kind: string; language?: string; framework: string; executionMode: string; creator: string; builderSlug?: string; contribution?: string; license: string; version: string; sha256: string; scenario: string; status?: string; reviewReason?: string; files?: Record<string, string> };
+export type ComponentEntry = { related?: ComponentEntry[]; reportTargetId?: string; reportRevision?: number; revision?: number; uploaded?: boolean; previewUrl?: string; previewExpiresAt?: string; archiveSha256?: string; manifestSha256?: string; sourceHash?: string; withdrawn?: boolean; published?: boolean; id?: string; slug: string; recipeSlug?: string; title: string; summary: string; category: string; kind: string; language?: string; framework: string; executionMode: string; creator: string; builderSlug?: string; contribution?: string; license: string; version: string; sha256: string; scenario: string; status?: string; reviewReason?: string; files?: Record<string, string> };
 export type ComponentPage = { items: ComponentEntry[]; totalItems: number; page: number; size: number; totalPages: number; hasMore: boolean };
 export type ComponentFilters = { q: string; category: string; kind: string; builder: string; language: string; framework: string; license: string; mode: string; page: number };
 export type Capacity = { free: number; purchased: number; used: number; limit: number };
 export type SlotPricing = { amountMinor: number | null; enabled: boolean; salesEnabled: boolean; configured: boolean; currency: string; mode: string; reason: string };
 export type SlotPurchase = { id: string; amountMinor: number; mode: string; status: string; orderId?: string; keyId?: string; refundedMinor: number; grantsSlot: boolean };
 export const componentSeeds: ComponentEntry[] = seeds;
+/** Send only the binding supplied by the current public detail response. The server rechecks it. */
+export function componentReportBody(item: ComponentEntry, reason: string, detail: string) {
+  const targetId = item.reportTargetId ?? item.id, revision = item.reportRevision ?? item.revision;
+  if (!targetId || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(targetId)
+    || !Number.isSafeInteger(revision) || revision! < 1 || !/^[a-f0-9]{64}$/.test(item.sha256))
+    throw Error('Refresh the component before reporting this source version.');
+  if (!['FAKE_PRODUCT','STOLEN_WORK','IMPERSONATION','MALICIOUS_LINK','PHISHING','SPAM','HARASSMENT','COPYRIGHT_IP','CONFIDENTIAL_DATA','MISLEADING_CLAIM','FAKE_REVIEW','CLIENT_SPAM','APPEAL','OTHER'].includes(reason))
+    throw Error('Select a valid report reason.');
+  const message = detail.trim();
+  if (message.length < 10 || message.length > 3000) throw Error('Describe the issue in 10 to 3000 characters.');
+  return {targetType: 'COMPONENT', targetId, componentRevision: revision!, componentSourceHash: item.sha256, reason, detail: message};
+}
 export const componentCategories = [['NAVBAR', 'Navigation bars'], ['SIDEBAR', 'Sidebars'], ['FORM', 'Forms'], ['CARD', 'Cards'], ['AUTH', 'Login & auth'], ['DASHBOARD', 'Dashboards']] as const;
 export const componentLanguages = [['HTML', 'HTML'], ['CSS', 'CSS'], ['JavaScript', 'JavaScript']] as const;
 export const componentFrameworks = [['VANILLA', 'Plain browser (no framework)']] as const;

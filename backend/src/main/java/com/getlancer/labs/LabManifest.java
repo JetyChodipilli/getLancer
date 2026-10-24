@@ -11,18 +11,30 @@ import java.util.UUID;
 /** Operator-signed immutable manifest. Infrastructure fields never enter the public projection. */
 public record LabManifest(String id,UUID componentId,long revision,String sourceSha256,String imageDigest,
     String archiveSha256,String manifestSha256,String buildSourceSha256,String protocolVersion,String title,String summary,String language,String framework,String setup,
-    int memoryMiB,long maxCostMicros,Instant approvedUntil,String evidenceSha256,List<Scenario> scenarios,String resourceClass,Adapter adapter) {
+    int memoryMiB,long maxCostMicros,Instant approvedUntil,String evidenceSha256,List<Scenario> scenarios,String resourceClass,Adapter adapter,Certification certification) {
   /** Historical operator manifests retain their shape; curated identities still require their independent policy. */
   public LabManifest(String id,UUID componentId,long revision,String sourceSha256,String imageDigest,
       String archiveSha256,String manifestSha256,String buildSourceSha256,String protocolVersion,String title,String summary,String language,String framework,String setup,
       int memoryMiB,long maxCostMicros,Instant approvedUntil,String evidenceSha256,List<Scenario> scenarios){
-    this(id,componentId,revision,sourceSha256,imageDigest,archiveSha256,manifestSha256,buildSourceSha256,protocolVersion,title,summary,language,framework,setup,memoryMiB,maxCostMicros,approvedUntil,evidenceSha256,scenarios,null,null);
+    this(id,componentId,revision,sourceSha256,imageDigest,archiveSha256,manifestSha256,buildSourceSha256,protocolVersion,title,summary,language,framework,setup,memoryMiB,maxCostMicros,approvedUntil,evidenceSha256,scenarios,null,null,null);
   }
   public LabManifest(String id,UUID componentId,long revision,String sourceSha256,String imageDigest,
       String archiveSha256,String manifestSha256,String buildSourceSha256,String protocolVersion,String title,String summary,String language,String framework,String setup,
       int memoryMiB,long maxCostMicros,Instant approvedUntil,String evidenceSha256,List<Scenario> scenarios,String resourceClass){
-    this(id,componentId,revision,sourceSha256,imageDigest,archiveSha256,manifestSha256,buildSourceSha256,protocolVersion,title,summary,language,framework,setup,memoryMiB,maxCostMicros,approvedUntil,evidenceSha256,scenarios,resourceClass,null);
+    this(id,componentId,revision,sourceSha256,imageDigest,archiveSha256,manifestSha256,buildSourceSha256,protocolVersion,title,summary,language,framework,setup,memoryMiB,maxCostMicros,approvedUntil,evidenceSha256,scenarios,resourceClass,null,null);
   }
+  public LabManifest(String id,UUID componentId,long revision,String sourceSha256,String imageDigest,
+      String archiveSha256,String manifestSha256,String buildSourceSha256,String protocolVersion,String title,String summary,String language,String framework,String setup,
+      int memoryMiB,long maxCostMicros,Instant approvedUntil,String evidenceSha256,List<Scenario> scenarios,String resourceClass,Adapter adapter){
+    this(id,componentId,revision,sourceSha256,imageDigest,archiveSha256,manifestSha256,buildSourceSha256,protocolVersion,title,summary,language,framework,setup,memoryMiB,maxCostMicros,approvedUntil,evidenceSha256,scenarios,resourceClass,adapter,null);
+  }
+  /** Signed review facts; omission leaves historical native metadata source-only. */
+  public record Certification(String frameworkVersion,String maintainer,Instant reviewedAt,boolean licenceReviewed,
+      boolean reproductionVerified,boolean resourcesVerified,boolean isolationVerified,String reproductionSha256) {public Certification {
+    if(frameworkVersion==null||!frameworkVersion.matches("[0-9]{1,4}\\.[0-9]{1,4}\\.[0-9]{1,4}")
+        ||maintainer==null||!maintainer.matches("[A-Za-z0-9][A-Za-z0-9._@+-]{2,99}")||reviewedAt==null
+        ||reproductionSha256==null||!reproductionSha256.matches("[a-f0-9]{64}"))throw invalid();
+  }}
   /** Runtime and retirement state are immutable signed facts, never request-selectable options. */
   public record Adapter(String runtime,String version,String state) {public Adapter {
     if(runtime==null||!runtime.matches("[a-z][a-z0-9-]{0,29}")||version==null||!version.matches("[0-9]{1,4}\\.[0-9]{1,4}\\.[0-9]{1,4}")

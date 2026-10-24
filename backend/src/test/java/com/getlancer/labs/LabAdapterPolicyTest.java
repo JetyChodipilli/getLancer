@@ -11,7 +11,7 @@ class LabAdapterPolicyTest {
   private LabManifest manifest(LabProtocolFixture fixture,String language,String runtime,String version,String state,String scenario){
     var node=(ObjectNode)fixture.json.valueToTree(fixture.manifest(UUID.randomUUID()));node.put("language",language).put("framework","Standard library");
     ((ObjectNode)node.path("scenarios").get(0)).put("id",scenario);
-    if(runtime!=null)node.set("adapter",fixture.json.valueToTree(new LabManifest.Adapter(runtime,version,state)));
+    if(runtime!=null){node.set("adapter",fixture.json.valueToTree(new LabManifest.Adapter(runtime,version,state)));node.set("certification",fixture.json.valueToTree(fixture.certification(version)));}
     return fixture.json.convertValue(node,LabManifest.class);
   }
   @Test void exactSignedFamilyVersionsCoverAllEighteenNativePatternCombinations(){try(var fixture=new LabProtocolFixture()){
@@ -36,9 +36,9 @@ class LabAdapterPolicyTest {
     assertEquals("LAB_ADAPTER_UNCERTIFIED",assertThrows(ApiError.class,()->policy.require(manifest(fixture,"Go",null,null,null,"cache"),"cache",true)).code);
     assertEquals("LAB_ADAPTER_UNSUPPORTED",assertThrows(ApiError.class,()->policy.require(manifest(fixture,"Ruby",null,null,null,"cache"),"cache",true)).code);
   }}
-  @Test void historicalCertificatesKeepTheirBoundedProtocolAndVersionedDataHasCoverage(){try(var fixture=new LabProtocolFixture()){
+  @Test void historicalNativeSourceRequiresExactRecertificationButControlledProtocolsRemainCompatible(){try(var fixture=new LabProtocolFixture()){
     var policy=new LabAdapterPolicy();assertDoesNotThrow(()->policy.require(fixture.manifest(UUID.randomUUID()),"request",true));
-    for(String language:List.of("Java","TypeScript","Python"))assertDoesNotThrow(()->policy.require(manifest(fixture,language,null,null,null,"cache"),"cache",true));
+    for(String language:List.of("Java","TypeScript","Python"))assertEquals("LAB_ADAPTER_UNCERTIFIED",assertThrows(ApiError.class,()->policy.require(manifest(fixture,language,null,null,null,"cache"),"cache",true)).code);
     var data=(ObjectNode)fixture.json.valueToTree(fixture.manifest(UUID.randomUUID()));data.put("id","data-ai-original");
     assertDoesNotThrow(()->policy.require(fixture.json.convertValue(data,LabManifest.class),"request",true));
     data.set("adapter",fixture.json.valueToTree(new LabManifest.Adapter("go","1.24.13","ACTIVE")));data.put("language","Go");
@@ -58,5 +58,17 @@ class LabAdapterPolicyTest {
     var expired=(ObjectNode)fixture.json.valueToTree(manifest);expired.put("approvedUntil",java.time.Instant.now().minusSeconds(1).toString());String old=expired.toString();
     assertEquals("Go",fixture.config().sourceManifest(old,LabConfiguration.hex(old.getBytes(java.nio.charset.StandardCharsets.UTF_8)),fixture.sign(old),fixture.json).language());
     assertThrows(ApiError.class,()->fixture.config().manifest(old,LabConfiguration.hex(old.getBytes(java.nio.charset.StandardCharsets.UTF_8)),fixture.sign(old),fixture.json));
+  }}
+  @Test void certificationRejectsEveryMissingReviewAndNonexactFramework() {try(var fixture=new LabProtocolFixture()){
+    var policy=new LabAdapterPolicy();var complete=manifest(fixture,"Go","go","1.24.13","ACTIVE","cache");assertDoesNotThrow(()->policy.require(complete,"cache",true));
+    for(String missing:List.of("licenceReviewed","reproductionVerified","resourcesVerified","isolationVerified")){
+      var node=(ObjectNode)fixture.json.valueToTree(complete);((ObjectNode)node.path("certification")).put(missing,false);
+      assertEquals("LAB_ADAPTER_UNCERTIFIED",assertThrows(ApiError.class,()->policy.require(fixture.json.convertValue(node,LabManifest.class),"cache",true)).code);
+    }
+    for(String time:List.of(java.time.Instant.now().plusSeconds(60).toString(),java.time.Instant.now().minusSeconds(32L*86400).toString())){
+      var node=(ObjectNode)fixture.json.valueToTree(complete);((ObjectNode)node.path("certification")).put("reviewedAt",time);assertThrows(ApiError.class,()->policy.require(fixture.json.convertValue(node,LabManifest.class),"cache",true));
+    }
+    var node=(ObjectNode)fixture.json.valueToTree(complete);node.put("framework","Unknown framework");assertEquals("LAB_FRAMEWORK_UNSUPPORTED",assertThrows(ApiError.class,()->policy.require(fixture.json.convertValue(node,LabManifest.class),"cache",true)).code);
+    node.put("framework","Standard library");((ObjectNode)node.path("certification")).put("frameworkVersion","1.24.12");assertEquals("LAB_FRAMEWORK_UNSUPPORTED",assertThrows(ApiError.class,()->policy.require(fixture.json.convertValue(node,LabManifest.class),"cache",true)).code);
   }}
 }

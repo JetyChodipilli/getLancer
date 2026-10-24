@@ -33,4 +33,6 @@ public class LabController {
   @GetMapping("/lab-runs/{id}/events") public ResponseEntity<String> events(@PathVariable UUID id,@RequestHeader(value="Last-Event-ID",required=false) String cursor,HttpServletRequest request){return ResponseEntity.ok().header("Content-Type","text/event-stream; charset=UTF-8").header("Cache-Control","private, no-store").header("X-Accel-Buffering","no").body(service.events(id,cursor,request));}
   @GetMapping("/admin/labs") public LabResponses.Admin admin(HttpServletRequest request){return service.admin(request);}
   @PostMapping("/admin/labs/pause-admissions") public LabResponses.Admin pause(@Valid @RequestBody LabRequests.Pause input,HttpServletRequest request){return service.pause(input,request);}
+  @PostMapping("/admin/labs/limits") public LabResponses.Admin limits(@Valid @RequestBody LabRequests.Limits input,HttpServletRequest request){return service.limits(input,request);}
+  @PostMapping("/admin/labs/certifications") public LabResponses.Admin certify(@Valid @RequestBody LabRequests.Certification input,HttpServletRequest request){return service.certify(input,request);}
 }

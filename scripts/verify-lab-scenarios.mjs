@@ -95,6 +95,12 @@ async function verifyLanguage(language){
   await request(app,'security','reset');const allowed=(await request(app,'security','authorize',{identity:'editor'})).body;assert.equal(allowed.state.decision,'ALLOW');
   for(const [identity,reason,status] of [['viewer','ROLE',403],['other-tenant','TENANT',403],['expired','EXPIRED',401],['tampered','SIGNATURE',401]]){const denied=(await request(app,'security','authorize',{identity},status)).body;assert.equal(denied.state.decision,'DENY');assert.equal(denied.state.reason,reason);}
   await request(app,'security','revoke');const revoked=(await request(app,'security','authorize',{identity:'editor'},403)).body;assert.equal(revoked.state.reason,'REVOKED');await request(app,'security','reset');assert.equal((await request(app,'security','authorize',{identity:'editor'})).body.state.decision,'ALLOW');
+  await request(other,'security','revoke',{},200,false);
+  assert.equal((await request(other,'security','authorize',{identity:'editor'},403,false)).body.state.reason,'REVOKED');
+  await request(app,'security','reset');
+  assert.equal((await request(other,'security','authorize',{identity:'editor'},403,false)).body.state.reason,'REVOKED','Security reset affected another run');
+  await request(other,'security','reset',{},200,false);
+  assert.equal((await request(other,'security','authorize',{identity:'editor'},200,false)).body.state.decision,'ALLOW');
   await denial(new URLSearchParams({runId:app.runId,pattern:'security',operationId:'authorize',identity:'editor',token:'platform-token-positive-control'}).toString(),400);
   await request(app,'payment','reset');const paidBody='evt-1|order-1|payment.succeeded',refundBody='evt-2|order-1|refund.succeeded';
   const paid=(await request(app,'payment','deliver',{eventBody:paidBody,signature:signature(paidBody)})).body;assert.deepEqual(paid.state,{payment:'PAID',entitlements:1,processedEvents:1});

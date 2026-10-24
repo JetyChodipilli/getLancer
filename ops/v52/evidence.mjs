@@ -5,7 +5,7 @@ import {closeSync, constants, fstatSync, openSync, readSync, writeFileSync} from
 import {basename, dirname, resolve} from 'node:path';
 import {parseStrictJson} from '../../scripts/build-data-ai-material.mjs';
 
-export const LIMITS = Object.freeze({fileBytes: 32 * 1024 * 1024, lineBytes: 65536, observations: 25000, timeoutMs: 10000, cadenceMs: 60000, sevenDaysMs: 7 * 86400000, freshnessMs: 86400000, loadRate: 20, loadConcurrency: 10, loadDurationMs: 60000, eligibleRows: 10000});
+export const LIMITS = Object.freeze({fileBytes: 32 * 1024 * 1024, lineBytes: 65536, observations: 25000, timeoutMs: 10000, cadenceMs: 60000, sevenDaysMs: 7 * 86400000, freshnessMs: 86400000, loadRate: 20, loadConcurrency: 10, loadDurationMs: 60000, eligibleRows: 10000, sourceBytes: 32 * 1024 * 1024});
 export const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 export const canonical = value => JSON.stringify(value);
 export function exact(value, keys) {assert(value && typeof value === 'object' && !Array.isArray(value), 'Object required'); assert.deepEqual(Object.keys(value).sort(), [...keys].sort(), 'Unsupported evidence fields');}
@@ -14,6 +14,17 @@ export function timestamp(value) {assert(typeof value === 'string' && /^\d{4}-\d
 export function origin(value) {const url = new URL(value); assert(['http:', 'https:'].includes(url.protocol) && !url.username && !url.password && !url.search && !url.hash && url.pathname === '/', 'Use an origin without credentials or paths'); assert(url.protocol === 'https:' || ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname), 'Plain HTTP is restricted to loopback'); return url.origin;}
 export function serverProfile(value) {exact(value, ['cpuCores', 'memoryMiB', 'postgresMajor', 'replicas', 'storage', 'clientLocation']); integer(value.cpuCores, 1, 256); integer(value.memoryMiB, 512, 1048576); integer(value.postgresMajor, 16, 30); integer(value.replicas, 1, 100); assert(['SSD', 'HDD', 'MANAGED'].includes(value.storage)); assert(['SAME_REGION', 'OTHER_REGION', 'LOOPBACK'].includes(value.clientLocation)); return value;}
 const digest = value => assert(typeof value === 'string' && /^[a-f0-9]{64}$/.test(value), 'Invalid evidence hash');
+/** Fixed public archive routes: no capabilities, arbitrary origins or credential-bearing query parameters. */
+export function sourceTargets(value) {
+  assert(Array.isArray(value) && value.length <= 2, 'Provide at most one public target per source service'); const seen = new Set();
+  for (const target of value) {
+    exact(target, ['id', 'path', 'sha256', 'sizeBytes']); assert(['component-source', 'education-source'].includes(target.id) && !seen.has(target.id), 'Foreign or duplicate source service'); seen.add(target.id); digest(target.sha256); integer(target.sizeBytes, 4, LIMITS.sourceBytes);
+    assert(typeof target.path === 'string' && target.path.length <= 300, 'Bound the source route');
+    const pattern = target.id === 'component-source' ? /^\/api\/v1\/components\/[a-z0-9][a-z0-9-]{0,119}\/source\?sha256=([a-f0-9]{64})$/ : /^\/api\/v1\/education-releases\/[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}\/source$/;
+    const match = pattern.exec(target.path); assert(match, 'Use an exact approved anonymous source route'); if (target.id === 'component-source') assert.equal(match[1], target.sha256, 'Source URL and archive pin differ');
+  }
+  return value;
+}
 const owner = value => assert(typeof value === 'string' && /^[a-z][a-z0-9_.-]{1,63}$/.test(value) && !['pending', 'unassigned', 'unknown'].includes(value), 'Name an accountable operator handle');
 const uuid = value => assert(typeof value === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(value), 'Invalid collector segment identity');
 const safeName = value => assert(typeof value === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,159}$/.test(value) && !value.includes('..'), 'Evidence references must be sibling regular files');
@@ -45,7 +56,8 @@ function header(value) {
   exact(value, ['version', 'kind', 'purpose', 'environment', 'revision', 'origin', 'startedAt', 'segmentId', 'serverProfile', 'config']);
   assert.equal(value.version, 1); assert(['LOAD', 'SOAK'].includes(value.kind)); assert(['MEASUREMENT', 'TEST'].includes(value.purpose));
   assert(typeof value.environment === 'string' && /^[a-z][a-z0-9-]{1,63}$/.test(value.environment)); assert(/^[a-f0-9]{40}$/.test(value.revision)); origin(value.origin); timestamp(value.startedAt); uuid(value.segmentId); serverProfile(value.serverProfile);
-  const configKeys = value.kind === 'SOAK' ? ['cadenceMs', 'timeoutMs'] : ['rate', 'concurrency', 'durationMs', 'timeoutMs']; exact(value.config, [...configKeys, ...(value.config.catalogue === undefined ? [] : ['catalogue'])]);
+  const configKeys = value.kind === 'SOAK' ? ['cadenceMs', 'timeoutMs'] : ['rate', 'concurrency', 'durationMs', 'timeoutMs']; exact(value.config, [...configKeys, ...(value.config.catalogue === undefined ? [] : ['catalogue']), ...(value.kind === 'SOAK' && value.config.sources !== undefined ? ['sources'] : [])]);
+  if (value.config.sources !== undefined) sourceTargets(value.config.sources);
   if(value.config.catalogue !== undefined) assert(['products','components','college-projects'].includes(value.config.catalogue));
   integer(value.config.timeoutMs, 1, LIMITS.timeoutMs);
   if (value.kind === 'SOAK') integer(value.config.cadenceMs, 100, LIMITS.cadenceMs);
@@ -63,6 +75,14 @@ function probe(value) {
   if (value.outcome === 'CAPACITY_SKIP') assert.equal(value.status, 0);
   if (value.outcome === 'HTTP_ERROR') assert(value.status >= 100 && value.status !== 200, 'HTTP failure must retain a non-success status');
 }
+function sourceProbe(value, target) {
+  exact(value, ['id', 'status', 'outcome', 'durationMs', 'bodySha256', 'sizeBytes']); assert.equal(value.id, target.id); integer(value.status, 0, 599);
+  assert(['OK', 'HTTP_ERROR', 'TIMEOUT', 'INVALID_RESPONSE', 'INTEGRITY_ERROR'].includes(value.outcome)); assert(Number.isFinite(value.durationMs) && value.durationMs >= 0 && value.durationMs <= LIMITS.timeoutMs + 3000);
+  if (value.outcome === 'OK') {assert.equal(value.status, 200); assert.equal(value.bodySha256, target.sha256, 'Source archive hash differs'); assert.equal(value.sizeBytes, target.sizeBytes, 'Source archive size differs');}
+  else {assert.equal(value.bodySha256, null); assert.equal(value.sizeBytes, null);}
+  if (value.outcome === 'HTTP_ERROR') assert(value.status >= 100 && value.status !== 200, 'HTTP source error requires its actual non-success status');
+  if (value.outcome === 'INTEGRITY_ERROR') assert.equal(value.status, 200, 'Integrity failure requires delivered bytes');
+}
 export function runtimeSnapshot(value) {
   exact(value, ['observedAt', 'counterEpoch', 'operatorEpoch', 'measuredFrom', 'admitted', 'healthy', 'pending', 'completed', 'infraFailures', 'scenarioFailures', 'quotaDenials', 'validationDenials']);
   if (value.operatorEpoch !== null) uuid(value.operatorEpoch);
@@ -76,11 +96,11 @@ export function readJournal(path) {
   assert(lines.length >= 2 && lines.length <= LIMITS.observations + 1, 'Empty or oversized observation cohort'); const first = parse(Buffer.from(lines[0])); header(first); let previous = hash(lines[0]), lastAt = timestamp(first.startedAt), lastElapsed = 0;
   const observations = [];
   for (let i = 1; i < lines.length; i++) {
-    const value = parse(Buffer.from(lines[i])); exact(value, ['sequence', 'sampledAt', 'elapsedMs', 'previousSha256', 'sha256', ...(first.kind === 'SOAK' ? ['publicProbe', 'runtimeProbe'] : ['scheduledElapsedMs', 'response'])]);
+    const value = parse(Buffer.from(lines[i])); exact(value, ['sequence', 'sampledAt', 'elapsedMs', 'previousSha256', 'sha256', ...(first.kind === 'SOAK' ? ['publicProbe', 'runtimeProbe', ...(first.config.sources === undefined ? [] : ['sourceProbes'])] : ['scheduledElapsedMs', 'response'])]);
     assert.equal(value.sequence, i); digest(value.sha256); assert.equal(value.previousSha256, previous, 'Broken observation hash chain'); const {sha256, ...signed} = value; assert.equal(hash(canonical(signed)), sha256, 'Observation content was changed');
     const at = timestamp(value.sampledAt); integer(value.elapsedMs, 0, LIMITS.sevenDaysMs + 86400000);
     assert(at >= lastAt && value.elapsedMs >= lastElapsed, 'Observation clocks moved backwards'); assert(Math.abs((at - timestamp(first.startedAt)) - value.elapsedMs) <= 2000, 'Wall time and monotonic elapsed time disagree');
-    if (first.kind === 'SOAK') {probe(value.publicProbe); runtimeProbe(value.runtimeProbe); assert(value.publicProbe.outcome !== 'CAPACITY_SKIP'); assert(at - lastAt <= first.config.cadenceMs + first.config.timeoutMs * 2 + 3000, 'Missing soak interval'); if (value.runtimeProbe?.snapshot) {const observedAt = timestamp(value.runtimeProbe.snapshot.observedAt); assert(observedAt <= at + 2000 && observedAt >= at - first.config.timeoutMs - 2000, 'Stale backend observation');}}
+    if (first.kind === 'SOAK') {if (first.config.sources !== undefined) {assert(Array.isArray(value.sourceProbes) && value.sourceProbes.length === first.config.sources.length, 'Every configured source service needs an outcome'); first.config.sources.forEach((target, index) => sourceProbe(value.sourceProbes[index], target));} probe(value.publicProbe); runtimeProbe(value.runtimeProbe); assert(value.publicProbe.outcome !== 'CAPACITY_SKIP'); assert(at - lastAt <= first.config.cadenceMs + first.config.timeoutMs * 2 + 3000, 'Missing soak interval'); if (value.runtimeProbe?.snapshot) {const observedAt = timestamp(value.runtimeProbe.snapshot.observedAt); assert(observedAt <= at + 2000 && observedAt >= at - first.config.timeoutMs - 2000, 'Stale backend observation');}}
     else {integer(value.scheduledElapsedMs, 0, first.config.durationMs); probe(value.response); assert(value.elapsedMs >= value.scheduledElapsedMs, 'A load observation predates its scheduled request'); if (value.response.outcome !== 'CAPACITY_SKIP') {const requestStart = value.elapsedMs - value.response.durationMs; assert(requestStart >= value.scheduledElapsedMs - 2 && requestStart <= value.scheduledElapsedMs + 1000, 'Load request did not follow its declared cadence');}}
     previous = sha256; lastAt = at; lastElapsed = value.elapsedMs; observations.push(value);
   }
@@ -89,7 +109,7 @@ export function readJournal(path) {
 export function appendObservation(writer, value) {const record = {...value, previousSha256: writer.previous}; const signed = {...record, sha256: hash(canonical(record))}; writer.append(canonical(signed) + '\n'); writer.previous = signed.sha256; return signed;}
 export function journalReport(journals, kind = journals[0]?.header.kind) {
   assert(journals.length > 0 && journals.length <= 100, 'Provide bounded collector segments'); const first = journals[0].header;
-  for (const journal of journals) {assert.equal(journal.header.kind, kind); for (const key of ['purpose', 'environment', 'revision', 'origin']) assert.equal(journal.header[key], first[key], 'Mixed collector provenance'); assert.equal(journal.header.config.catalogue ?? 'products', first.config.catalogue ?? 'products', 'Mixed catalogue targets');}
+  for (const journal of journals) {assert.equal(journal.header.kind, kind); for (const key of ['purpose', 'environment', 'revision', 'origin']) assert.equal(journal.header[key], first[key], 'Mixed collector provenance'); assert.equal(journal.header.config.catalogue ?? 'products', first.config.catalogue ?? 'products', 'Mixed catalogue targets'); assert.equal(canonical(journal.header.config.sources ?? []), canonical(first.config.sources ?? []), 'Mixed source service targets');}
   return {version: 1, kind, purpose: first.purpose, environment: first.environment, revision: first.revision, startedAt: first.startedAt, endedAt: new Date(journals.at(-1).lastAt).toISOString(), collector: 'getlancer-v52-ops-1', logs: journals.map(journal => ({file: journal.file, sha256: journal.sha256}))};
 }
 const percentile = values => [...values].sort((a, b) => a - b)[Math.ceil(values.length * .95) - 1];
@@ -102,10 +122,14 @@ function soakSummary(journals) {
     assert.equal(canonical(journal.header.config), canonical(journals[0].header.config), 'Soak sampling profile changed'); assert.equal(canonical(journal.header.serverProfile), canonical(journals[0].header.serverProfile), 'Declared deployment profile changed'); observations.push(...journal.observations); previous = journal;
   }
   const started = timestamp(journals[0].header.startedAt), ended = journals.at(-1).lastAt, elapsedMs = ended - started;
-  const success = observations.filter(o => o.publicProbe.outcome === 'OK').length;
-  // Sampling establishes a conservative observed interval SLI, not a monthly uptime certification.
-  let outageMs = 0, previousAt = started, previousFailed = false;
-  for (const observation of observations) {const at = timestamp(observation.sampledAt), failed = observation.publicProbe.outcome !== 'OK'; if (failed || previousFailed) outageMs += at - previousAt; previousAt = at; previousFailed = failed;}
+  // Each service keeps its own sampled denominator; healthy discovery cannot hide broken source delivery.
+  const interval = select => {
+    let outageMs = 0, previousAt = started, previousFailed = false, successfulProbes = 0;
+    for (const observation of observations) {const at = timestamp(observation.sampledAt), failed = select(observation)?.outcome !== 'OK'; if (failed || previousFailed) outageMs += at - previousAt; previousAt = at; previousFailed = failed; if (!failed) successfulProbes++;}
+    return {samples: observations.length, successfulProbes, failedProbes: observations.length - successfulProbes, observedOutageMs: outageMs, observedAvailabilityPercent: elapsedMs > 0 ? (elapsedMs - outageMs) / elapsedMs * 100 : null};
+  };
+  const discovery = interval(observation => observation.publicProbe), sourceServices = (journals[0].header.config.sources ?? []).map((target, index) => ({...target, ...interval(observation => observation.sourceProbes?.[index])}));
+  const sourceCoverage = sourceServices.length === 2 && ['component-source', 'education-source'].every(id => sourceServices.some(service => service.id === id));
   const runtime = observations.filter(o => o.runtimeProbe?.outcome === 'OK'); const baseline = runtime[0]?.runtimeProbe.snapshot, ending = runtime.at(-1)?.runtimeProbe.snapshot;
   let admitted = null, healthy = null, infraFailures = null, scenarioFailures = null, quotaDenials = null, validationDenials = null;
   if (baseline && ending) {
@@ -117,7 +141,7 @@ function soakSummary(journals) {
   const endpointCoverage = Boolean(baseline && ending && timestamp(baseline.observedAt) - started <= LIMITS.cadenceMs && ended - timestamp(ending.observedAt) <= LIMITS.cadenceMs);
   const settled = Boolean(baseline && ending && baseline.pending === 0 && ending.pending === 0 && healthy + infraFailures === admitted);
   const infraSuccessPercent = admitted > 0 && settled ? healthy / admitted * 100 : null;
-  return {elapsedMs, runtimeElapsedMs, samples: observations.length, successfulPublicProbes: success, failedPublicProbes: observations.length - success, observedOutageMs: outageMs, observedAvailabilityPercent: elapsedMs > 0 ? (elapsedMs - outageMs) / elapsedMs * 100 : null, monthlyAvailabilityCertified: false, admitted, healthy, infraFailures, scenarioFailures, quotaDenials, validationDenials, infraSuccessPercent, gates: {sevenElapsedDays: elapsedMs >= LIMITS.sevenDaysMs, sevenRuntimeElapsedDays: runtimeElapsedMs !== null && runtimeElapsedMs >= LIMITS.sevenDaysMs, continuousPublicCoverage: observations.length >= Math.floor(elapsedMs / LIMITS.cadenceMs), authoritativeRuntimeEndpoints: endpointCoverage, verifiedRuntimeAuthorityEpoch: Boolean(baseline?.operatorEpoch), allAdmittedSettled: settled, infrastructureSuccess99: infraSuccessPercent !== null && infraSuccessPercent >= 99}};
+  return {elapsedMs, runtimeElapsedMs, samples: observations.length, successfulPublicProbes: discovery.successfulProbes, failedPublicProbes: discovery.failedProbes, observedOutageMs: discovery.observedOutageMs, observedAvailabilityPercent: discovery.observedAvailabilityPercent, discoveryService: {catalogue: journals[0].header.config.catalogue ?? 'products', ...discovery}, sourceServices, monthlyAvailabilityCertified: false, admitted, healthy, infraFailures, scenarioFailures, quotaDenials, validationDenials, infraSuccessPercent, gates: {newDiscoveryServiceMeasured: ['components', 'college-projects'].includes(journals[0].header.config.catalogue), sourceServicesCovered: sourceCoverage, observedDiscoveryAvailability995: discovery.observedAvailabilityPercent !== null && discovery.observedAvailabilityPercent >= 99.5, observedSourceAvailability995: sourceCoverage && sourceServices.every(service => service.observedAvailabilityPercent !== null && service.observedAvailabilityPercent >= 99.5), sevenElapsedDays: elapsedMs >= LIMITS.sevenDaysMs, sevenRuntimeElapsedDays: runtimeElapsedMs !== null && runtimeElapsedMs >= LIMITS.sevenDaysMs, continuousPublicCoverage: observations.length >= Math.floor(elapsedMs / LIMITS.cadenceMs), authoritativeRuntimeEndpoints: endpointCoverage, verifiedRuntimeAuthorityEpoch: Boolean(baseline?.operatorEpoch), allAdmittedSettled: settled, infrastructureSuccess99: infraSuccessPercent !== null && infraSuccessPercent >= 99}};
 }
 function loadSummary(journals) {
   assert.equal(journals.length, 1, 'Load profile must run as one collector segment'); const journal = journals[0], config = journal.header.config, observations = journal.observations, scheduled = new Set();
@@ -186,11 +210,17 @@ export function validateReport(report, {baseDir, environment, revision, now = Da
     summary = controlSummary(report, baseDir);
     if (report.kind === 'HANDOVER') {
       assert(Array.isArray(report.reports) && report.reports.length === 4, 'Handover must reference each independent launch lane'); const seen = new Set();
-      const dependencies = report.reports.map(dependency => {exact(dependency, ['kind', 'file', 'sha256']); assert(['LOAD', 'SOAK', 'DRILL', 'ACTIVATION'].includes(dependency.kind) && !seen.has(dependency.kind)); seen.add(dependency.kind); safeName(dependency.file); digest(dependency.sha256); const path = resolve(baseDir, dependency.file); assert.equal(hash(boundedFile(path, 131072)), dependency.sha256); const result = verifyReportFile(path, {environment, revision, now, release, publicKeyBytes}); assert.equal(result.kind, dependency.kind); return result;});
+      const dependencies = report.reports.map(dependency => {exact(dependency, ['kind', 'file', 'sha256']); assert(['LOAD', 'SOAK', 'DRILL', 'ACTIVATION'].includes(dependency.kind) && !seen.has(dependency.kind)); seen.add(dependency.kind); safeName(dependency.file); digest(dependency.sha256); const path = resolve(baseDir, dependency.file); const result = verifyReportFile(path, {environment, revision, now, release, publicKeyBytes, expectedSha256: dependency.sha256}); assert.equal(result.kind, dependency.kind); return result;});
       summary.dependencies = dependencies.map(({kind, releaseEligible}) => ({kind, releaseEligible})); summary.gates.dependentLaunchGates = dependencies.every(result => Object.values(result.gates).every(Boolean));
     }
   }
   const met = Object.values(summary.gates).every(Boolean); if (release) assert(met, 'Required release evidence gates are UNMET');
   return {result: release ? 'RELEASE_FACTS_VALIDATED' : 'MEASUREMENT_ONLY', kind: report.kind, purpose: report.purpose, environment, revision, startedAt: report.startedAt, endedAt: report.endedAt, releaseEligible: false, ...summary};
 }
-export function verifyReportFile(path, options) {const release = options.release !== false, report = openReport(boundedFile(path, 131072), options.publicKeyBytes, release), summary = validateReport(report, {...options, baseDir: dirname(resolve(path))}); return {...summary, result: release ? 'SIGNED_OPERATOR_EVIDENCE_VERIFIED' : 'MEASUREMENT_ONLY', releaseEligible: release};}
+export function verifyReportFile(path, options = {}) {
+  // Hash, signature and parser operate on one captured descriptor-bound read, even if the pathname is replaced later.
+  const bytes = boundedFile(path, 131072), release = options.release !== false;
+  if (options.expectedSha256 !== undefined) {digest(options.expectedSha256); assert.equal(hash(bytes), options.expectedSha256, 'Expected report hash differs from captured bytes');}
+  const report = openReport(bytes, options.publicKeyBytes, release), summary = validateReport(report, {...options, baseDir: dirname(resolve(path))});
+  return {...summary, result: release ? 'SIGNED_OPERATOR_EVIDENCE_VERIFIED' : 'MEASUREMENT_ONLY', releaseEligible: release};
+}
