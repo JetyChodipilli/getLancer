@@ -20,6 +20,13 @@ BEGIN
 END $$;
 CREATE TRIGGER component_report_identity BEFORE UPDATE ON reports FOR EACH ROW EXECUTE FUNCTION component_report_identity();
 
+-- Existing append-only action protection freezes this exact report and enforcement generation.
+ALTER TABLE moderation_actions ADD COLUMN component_report_id uuid REFERENCES reports(id);
+ALTER TABLE moderation_actions ADD COLUMN component_enforcement_revision bigint CHECK(component_enforcement_revision>0);
+ALTER TABLE moderation_actions ADD CONSTRAINT component_report_action_evidence CHECK(
+ (component_report_id IS NULL AND component_enforcement_revision IS NULL)
+ OR (component_report_id IS NOT NULL AND component_enforcement_revision IS NOT NULL AND target_type='COMPONENT' AND action='suspend'));
+
 -- File-backed curated recipes are moderated by exact hash. Independent remixes keep their own authority.
 CREATE TABLE component_recipe_enforcement (
  recipe_slug varchar(140) NOT NULL,

@@ -23,7 +23,7 @@ export default function LabOperator(){
   catch(problem){if(alive.current&&token===generation.current){if(problem instanceof ApiError&&[401,403].includes(problem.status))operatorDenied();setError((problem as Error).message+' Refresh admission status to verify this decision before retrying. The reason has been kept.');}}
   finally{if(alive.current&&token===generation.current)setBusy(false);}
  }
- const operatorDenied=()=>{generation.current++;setRecord(null);setLoading(false);setBusy(false);setNotice('');};
+ const operatorDenied=(message='Current operator authority is unavailable. Sign in with current administrator MFA, then retry the operator connection.')=>{generation.current++;setRecord(null);setLoading(false);setBusy(false);setNotice('');setError(message);};
  const metrics=record?[{value:record.queued,label:'Queued'},{value:record.starting,label:'Starting'},{value:record.running,label:'Running'},{value:record.cancelling,label:'Cancelling'},{value:record.attention,label:'Cleanup attention'},{value:record.activeReservations,label:'Active reservations'},{value:record.memoryReservedMiB+' MiB',label:'Reserved memory'}]:[];
  return <WorkspaceFrame section="labs" title="Lab operations" description="Inspect admission, bounded reservations and unresolved cleanup through the real control plane." actions={<Link className="button" href="/labs">Open lab workbench</Link>}><div className="lab-operator">
   {error&&<p ref={summary} tabIndex={-1} role="alert" className="lab-notice lab-error">{error}</p>}{notice&&<p className="lab-notice" role="status">{notice}</p>}{loading&&<p className="lab-notice" role="status">Checking current operator authority…</p>}

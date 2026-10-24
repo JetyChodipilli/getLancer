@@ -21,11 +21,19 @@ async function reflow(page:Page){
 }
 async function unobscured(control:Locator){
  await control.focus();await expect(control).toBeFocused();
- // Full inset-point visibility is stronger than the AA "not entirely obscured" minimum.
- expect(await control.evaluate(element=>{
-  const box=element.getBoundingClientRect();if(box.width<=0||box.height<=0||box.top<0||box.left<0||box.bottom>innerHeight+1||box.right>innerWidth+1)return false;
-  return [[box.left+3,box.top+3],[box.right-3,box.top+3],[box.left+3,box.bottom-3],[box.right-3,box.bottom-3],[box.left+box.width/2,box.top+box.height/2]].every(([x,y])=>{const hit=document.elementFromPoint(x,y);return hit!==null&&(element===hit||element.contains(hit));});
- })).toBe(true);
+ const result=await control.evaluate(element=>{
+  const box=element.getBoundingClientRect(),cx=box.left+box.width/2,cy=box.top+box.height/2;
+  const dx=Math.min(3,box.width/4),dy=Math.min(3,box.height/4);
+  const describe=(node:Element|null)=>node?{tag:node.tagName,id:node.id,className:node.getAttribute('class')}:null;
+  // Edge midpoints lie inside rounded controls; transparent corners are not painted targets.
+  const probes=[{edge:'top',x:cx,y:box.top+dy},{edge:'right',x:box.right-dx,y:cy},{edge:'bottom',x:cx,y:box.bottom-dy},{edge:'left',x:box.left+dx,y:cy},{edge:'center',x:cx,y:cy}].map(point=>{
+   const hit=document.elementFromPoint(point.x,point.y);return {...point,owned:hit!==null&&(element===hit||element.contains(hit)),hit:describe(hit)};
+  });
+  const inViewport=box.width>0&&box.height>0&&box.top>=0&&box.left>=0&&box.bottom<=innerHeight+1&&box.right<=innerWidth+1;
+  return {clear:inViewport&&probes.every(point=>point.owned),path:location.pathname,control:describe(element),name:(element.getAttribute('aria-label')||element.textContent||'').trim().replace(/\s+/g,' ').slice(0,100),bounds:{x:box.x,y:box.y,width:box.width,height:box.height},viewport:{width:innerWidth,height:innerHeight},inViewport,probes};
+ });
+ // Full bounds and edge/center clearance exceed the AA not-entirely-obscured minimum.
+ expect(result.clear,'Focused control must be fully visible: '+JSON.stringify(result)).toBe(true);
 }
 async function unchanged(before:{width:number;height:number}|null,control:Locator){const after=await control.boundingBox();expect(before).not.toBeNull();expect(after).not.toBeNull();expect(Math.abs(after!.width-before!.width)).toBeLessThanOrEqual(1);expect(Math.abs(after!.height-before!.height)).toBeLessThanOrEqual(1);}
 async function reducedMotion(page:Page){

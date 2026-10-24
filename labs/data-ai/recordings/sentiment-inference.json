@@ -6,7 +6,7 @@
   "dataSha256": "c92ee885de9d1667d2f1173d059c8224124028bc00b4a94921859888205896fe",
   "modelSha256": "c5f504c7579f9a692d9e687bea8249a406bd15a57d6ceda0c83a5f0a92294391",
   "evaluationSha256": "b335cd11f7de48de238c97ff5201151f34f85beca37b78d7c30edd776b5f5e73",
-  "recordedAt": "2026-10-23T09:39:29.440Z",
+  "recordedAt": "2026-10-24T03:58:36.995Z",
   "runs": [
     {
       "dataSha256": "c92ee885de9d1667d2f1173d059c8224124028bc00b4a94921859888205896fe",
@@ -77,11 +77,11 @@
         ]
       },
       "resultSha256": "79c086ec93185e926b060dcfa1e41cbefd86069e089d6786012d79e9797698bf",
-      "runId": "0be65ad2-f161-4e7e-995d-27d482766729",
+      "runId": "7142ac2f-9877-4dc9-88b9-96303595440e",
       "scenarioId": "sentiment-inference",
       "schemaVersion": "getlancer-data-ai-result-v1",
       "sourceSha256": "e2e8512dfe9133a0e5d6e3ff8dcae2662cdd624a6c97b455c189bf3f4d3910f4",
-      "startedAt": "2026-10-23T09:39:29.433Z"
+      "startedAt": "2026-10-24T03:58:36.986Z"
     },
     {
       "dataSha256": "c92ee885de9d1667d2f1173d059c8224124028bc00b4a94921859888205896fe",
@@ -152,11 +152,11 @@
         ]
       },
       "resultSha256": "1c3f105a153581e0ad544f08c2892e987da06579a7fa5753537cb4b1e1eedd38",
-      "runId": "0be65ad2-f161-4e7e-995d-27d482766729",
+      "runId": "7142ac2f-9877-4dc9-88b9-96303595440e",
       "scenarioId": "sentiment-inference",
       "schemaVersion": "getlancer-data-ai-result-v1",
       "sourceSha256": "e2e8512dfe9133a0e5d6e3ff8dcae2662cdd624a6c97b455c189bf3f4d3910f4",
-      "startedAt": "2026-10-23T09:39:29.438Z"
+      "startedAt": "2026-10-24T03:58:36.991Z"
     }
   ]
 }

@@ -5,6 +5,7 @@ import static com.getlancer.shared.Support.text;
 import static com.getlancer.shared.Support.uuid;
 
 import com.getlancer.admin.AdminService;
+import com.getlancer.components.ComponentService;
 import com.getlancer.notifications.Mail;
 import com.getlancer.security.Security;
 import com.getlancer.shared.ApiError;
@@ -15,6 +16,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,12 +26,18 @@ public class ModerationService {
   final Security security;
   final AdminService admin;
   final Mail mail;
+  final ComponentService components;
 
   public ModerationService(JdbcTemplate db, Security security, AdminService admin, Mail mail) {
+    this(db,security,admin,mail,null);
+  }
+  @Autowired
+  public ModerationService(JdbcTemplate db, Security security, AdminService admin, Mail mail, ComponentService components) {
     this.db = db;
     this.security = security;
     this.admin = admin;
     this.mail = mail;
+    this.components = components;
   }
 
   @Transactional
@@ -183,6 +191,7 @@ public class ModerationService {
         }
         case "INQUIRY" -> admin.inquiryAction(target, "restore", Map.of("reason", reason), r);
         case "REVIEW" -> admin.reviewAction(target, "publish", Map.of("reason", reason), r);
+        case "COMPONENT" -> components.restoreReported((UUID)original.get("id"),reason,r);
         case "PRODUCT" -> {
           var owner = db.queryForList("SELECT owner_user_id FROM products WHERE id=?", target);
           if (owner.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Project not found.");

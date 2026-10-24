@@ -237,7 +237,7 @@ public class AdminService {
     if (action.equals("SUSPEND") && type.equals("PRODUCT"))
       productAction(target, "suspend", Map.of("reason", reason), request);
     else if (action.equals("SUSPEND") && type.equals("COMPONENT"))
-      components.suspendReported(target, ((Number)report.get("component_revision")).longValue(), (String)report.get("component_source_hash"), (String)report.get("component_version"), reason, request);
+      components.suspendReported(target, ((Number)report.get("component_revision")).longValue(), (String)report.get("component_source_hash"), (String)report.get("component_version"), java.util.Objects.toString(report.get("component_snapshot")), id, reason, request);
     else if (action.equals("SUSPEND") && type.equals("USER"))
       accountAction(target, "suspend", Map.of("reason", reason), request);
     else if (action.equals("HIDE") && type.equals("REVIEW"))

@@ -105,12 +105,50 @@ function pinned(bytes,expected) {
   if(expected!==undefined&&(!HASH.test(expected)||sha256(bytes)!==expected))fail('Captured evidence does not match its expected digest.');
 }
 
+// Keep required artifact bounds aligned with LabManifest and the reviewed native policies.
+function nativeContract(manifest) {
+  const reject=()=>fail('Native manifest resource and scenario contract is invalid.');
+  const integer=(value,min,max)=>Number.isSafeInteger(value)&&value>=min&&value<=max;
+  const text=(value,min,max)=>typeof value==='string'&&value.length>=min&&value.length<=max;
+  const slug=value=>typeof value==='string'&&/^[a-z0-9][a-z0-9-]{0,59}$/.test(value);
+  if(!manifest||typeof manifest!=='object'||Array.isArray(manifest)||!text(manifest.id,1,80)||!/^([a-z0-9][a-z0-9-]{0,79})$/.test(manifest.id)
+      ||!text(manifest.title,3,100)||!text(manifest.summary,10,500)||!text(manifest.setup,10,6000)
+      ||!text(manifest.language,1,50)||!text(manifest.framework,1,80)||!integer(manifest.memoryMiB,64,512)||!integer(manifest.maxCostMicros,1,1000000)
+      ||manifest.resourceClass!=null&&!['GENERAL','DATA_ANALYTICS','AI_ML','IOT_SIMULATION'].includes(manifest.resourceClass)
+      ||!Array.isArray(manifest.scenarios)||manifest.scenarios.length<1||manifest.scenarios.length>20)reject();
+  const seen=new Set();
+  for(const scenario of manifest.scenarios){
+    if(!scenario||!slug(scenario.id)||seen.has(scenario.id)||!text(scenario.title,3,100)||!text(scenario.description,10,1000)
+        ||!Array.isArray(scenario.inputs)||scenario.inputs.length>20||!Array.isArray(scenario.operations)||scenario.operations.length<1||scenario.operations.length>10)reject();
+    seen.add(scenario.id);const names=new Set(),operations=new Set();
+    for(const input of scenario.inputs){
+      if(!input||typeof input.name!=='string'||!/^[a-z][a-zA-Z0-9]{0,39}$/.test(input.name)||names.has(input.name)||!text(input.label,1,80)
+          ||!['TEXT','INTEGER','BOOLEAN','ENUM'].includes(input.type)||typeof input.required!=='boolean'||!integer(input.maxLength,1,4096)
+          ||!Number.isSafeInteger(input.min)||!Number.isSafeInteger(input.max)||input.min>input.max||!Array.isArray(input.choices)||input.choices.length>30
+          ||input.choices.some(choice=>!text(choice,1,input.maxLength))||input.type==='ENUM'&&input.choices.length===0)reject();
+      names.add(input.name);
+    }
+    for(const operation of scenario.operations){if(!operation||!slug(operation.id)||operations.has(operation.id)||!text(operation.label,1,80))reject();operations.add(operation.id);}
+  }
+  const iot=manifest.resourceClass==='IOT_SIMULATION'||manifest.id.startsWith('iot-')||seen.has('greenhouse-monitor');
+  if(iot){
+    if(manifest.resourceClass!=null&&!['GENERAL','IOT_SIMULATION'].includes(manifest.resourceClass)||manifest.memoryMiB>128||manifest.scenarios.length!==1||!seen.has('greenhouse-monitor'))reject();
+    const scenario=manifest.scenarios[0],bounds={temperatureC:[-20,80],humidityPercent:[0,100],thresholdC:[0,60]};
+    if(scenario.inputs.length<3||scenario.inputs.length>4)reject();
+    for(const [name,[min,max]] of Object.entries(bounds)){const field=scenario.inputs.find(item=>item.name===name);if(!field||!field.required||field.type!=='INTEGER'||field.min!==min||field.max!==max||field.maxLength<(name==='thresholdC'?2:3)||field.maxLength>4||field.choices.length)reject();}
+    for(const field of scenario.inputs)if(!Object.hasOwn(bounds,field.name)&&(field.name!=='topic'||field.required||field.type!=='TEXT'||field.maxLength>80||field.choices.length))reject();
+    if(scenario.operations.some(item=>!['publish','disconnect','connect','reset'].includes(item.id)))reject();
+  }else if(manifest.resourceClass!=null&&manifest.resourceClass!=='GENERAL'||manifest.scenarios.some(item=>!['cache','security','payment'].includes(item.id)))reject();
+  return iot;
+}
+
 /** Bind exact native review facts to the same trusted host inventory and reproduction artifact. */
 export function verifyManifestBundle({manifestPath,expectedManifestSha256,...options}) {
   const key=options.publicKeyBytes??bounded(options.publicKeyPath);
   const host=verifyBundle({...options,publicKeyBytes:key});
   const bytes=bounded(manifestPath); pinned(bytes,expectedManifestSha256);
   const manifest=verifiedPayload(bytes,key), now=options.now??Date.now();
+  const iot=nativeContract(manifest);
   if(manifest.evidenceSha256!==host.evidenceSha256)fail('Manifest host inventory changed.');
   currentApproval(manifest.approvedUntil,now);
   if(Date.parse(manifest.approvedUntil)>Date.parse(host.approvedUntil))fail('Manifest approval exceeds host approval.');
@@ -122,7 +160,6 @@ export function verifyManifestBundle({manifestPath,expectedManifestSha256,...opt
   const runtime=new Map([['java','jdk'],['typescript','node'],['javascript','node'],['python','python'],['go','go'],['c#','dotnet'],['.net','dotnet'],['c# / .net','dotnet'],['dotnet','dotnet'],['php','php']]).get(String(manifest.language).toLowerCase());
   const [major,minor]=adapter.version.split('.').map(Number);
   const family=runtime==='jdk'?major===17:runtime==='node'?major===22&&minor>=18:runtime==='python'?major===3&&minor===12:runtime==='go'?major===1&&minor===24:runtime==='dotnet'?major===8:runtime==='php'?major===8&&minor===3:false;
-  const iot=manifest.resourceClass==='IOT_SIMULATION';
   if(adapter.runtime!==runtime||!family||iot&&runtime!=='node'||manifest.framework!==(iot?'Node MQTT protocol':'Standard library'))fail('Framework and runtime combination is not reviewed.');
   if(!certificate||Object.keys(certificate).sort().join(',')!=='frameworkVersion,isolationVerified,licenceReviewed,maintainer,reproductionSha256,reproductionVerified,resourcesVerified,reviewedAt'||certificate.frameworkVersion!==adapter.version||!/^([A-Za-z0-9][A-Za-z0-9._@+-]{2,99})$/.test(certificate.maintainer||'')||!HASH.test(certificate.reproductionSha256||''))fail('Exact maintainer and reproduction certification is required.');
   for(const field of ['licenceReviewed','reproductionVerified','resourcesVerified','isolationVerified'])if(certificate[field]!==true)fail('Every certification attestation is required.');

@@ -268,6 +268,17 @@ public class ComponentService {
     if(principal==null||!principal.recentMfa())throw new ApiError(403,"FORBIDDEN","Recent administrator MFA is required for component report enforcement.");
     return actor;
   }
+  private static ApiError reportedComponentChanged(){return new ApiError(409,"REPORTED_COMPONENT_CHANGED","The published component source or context changed. Review the current artifact before enforcing this report.");}
+  private void requireReportedArtifact(UUID id,long revision,String hash,String version,String evidence,Map<String,Object> source,Map<String,Object> context){
+    try{
+      var frozen=json.readTree(evidence);var metadata=new LinkedHashMap<>(sourceProjection(source));metadata.remove("files");
+      if(revision<1||frozen==null||!frozen.isObject()||!id.toString().equals(frozen.path("componentId").asText())
+          ||!frozen.path("revision").isIntegralNumber()||!frozen.path("revision").canConvertToLong()||frozen.path("revision").longValue()!=revision
+          ||!Objects.equals(hash,frozen.path("sourceHash").asText())||!Objects.equals(version,frozen.path("version").asText())
+          ||!Objects.equals(hash,source.get("sha256"))||!Objects.equals(version,source.get("version"))
+          ||!json.valueToTree(metadata).equals(frozen.path("source"))||!json.valueToTree(context).equals(frozen.path("context")))throw reportedComponentChanged();
+    }catch(java.io.IOException|IllegalArgumentException invalid){throw reportedComponentChanged();}
+  }
   /** Freeze server-derived published facts, not caller-supplied source or moderator fields. */
   @Transactional public Map<String,Object> reportArtifact(UUID id,long expectedRevision,String expectedSha){
     var curated=recipes.stream().filter(recipe->recipeReportId(recipe.get("slug").toString()).equals(id)).findFirst();
@@ -287,26 +298,53 @@ public class ComponentService {
     return Map.of("componentId",id,"revision",revision,"version",source.get("version"),"sourceHash",source.get("sha256"),"snapshot",reportSnapshot(id,revision,source,snapshot(row.get("published_context"))));
   }
   /** Current source authority closes fresh admissions and current run routes after this commits. */
-  @Transactional public Map<String,Object> suspendReported(UUID id,long expectedRevision,String expectedSourceHash,String expectedVersion,String reason,HttpServletRequest request){
+  @Transactional public Map<String,Object> suspendReported(UUID id,long expectedRevision,String expectedSourceHash,String expectedVersion,String frozenSnapshot,UUID reportId,String reason,HttpServletRequest request){
     UUID admin=reportModerator(request);slots.lockAuthority(admin);reportModerator(request);
     if(reason==null||reason.strip().length()<3||reason.length()>2000)throw new ApiError(400,"VALIDATION_ERROR","Record an enforcement reason.");
+    if(db.queryForObject("SELECT count(*) FROM reports WHERE id=? AND target_type='COMPONENT' AND target_id=? AND component_revision=? AND component_source_hash=? AND component_version=? AND component_snapshot=?::jsonb",Integer.class,reportId,id,expectedRevision,expectedSourceHash,expectedVersion,frozenSnapshot)!=1)throw reportedComponentChanged();
+    long enforcementRevision;
     var curated=recipes.stream().filter(recipe->recipeReportId(recipe.get("slug").toString()).equals(id)).findFirst();
     if(curated.isPresent()){
       var source=curated.get();lockRecipeReport(source.get("slug").toString());reportModerator(request);
-      if(expectedRevision!=1||!Objects.equals(source.get("sha256"),expectedSourceHash)||!Objects.equals(source.get("version"),expectedVersion))throw new ApiError(409,"REPORTED_COMPONENT_CHANGED","The published component source changed. Review the current version before enforcing this report.");
+      if(expectedRevision!=1)throw reportedComponentChanged();
+      requireReportedArtifact(id,expectedRevision,expectedSourceHash,expectedVersion,frozenSnapshot,source,Map.of("title",source.get("title"),"summary",source.get("summary"),"curated",true));
       db.update("INSERT INTO component_recipe_enforcement(recipe_slug,source_sha256,suspended,actor_id,reason) VALUES(?,?,true,?,?) ON CONFLICT(recipe_slug,source_sha256) DO UPDATE SET suspended=true,actor_id=EXCLUDED.actor_id,reason=EXCLUDED.reason,updated_at=now()",source.get("slug"),expectedSourceHash,admin,reason);
+      enforcementRevision=1;
     }else{
       var owners=db.queryForList("SELECT owner_id FROM component_entries WHERE id=?",UUID.class,id);if(owners.isEmpty())throw new ApiError(404,"NOT_FOUND","Component not found.");
       slots.lock(owners.get(0));
       var row=db.queryForMap("SELECT id,owner_id,recipe_slug,revision,status,published_at,published_source,published_context FROM component_entries WHERE id=? FOR UPDATE",id);reportModerator(request);
       if(row.get("published_at")==null)throw new ApiError(404,"NOT_FOUND","Published component not found.");
       var source=publishedSource(row);
-      if(((Number)row.get("revision")).longValue()!=expectedRevision||!Objects.equals(source.get("sha256"),expectedSourceHash)||!Objects.equals(source.get("version"),expectedVersion))throw new ApiError(409,"REPORTED_COMPONENT_CHANGED","The published component source changed. Review the current version before enforcing this report.");
-      if(!"SUSPENDED".equals(row.get("status")))db.update("UPDATE component_entries SET status='SUSPENDED',revision=revision+1,submitted_source=?::jsonb,submitted_context=?::jsonb,review_reason=?,updated_at=now() WHERE id=?",encode(source),Objects.toString(row.get("published_context")),reason,id);
+      requireReportedArtifact(id,expectedRevision,expectedSourceHash,expectedVersion,frozenSnapshot,source,snapshot(row.get("published_context")));
+      // Private drafts cannot invalidate public evidence; each distinct suspension supersedes earlier appeals.
+      enforcementRevision=((Number)row.get("revision")).longValue()+1;
+      db.update("UPDATE component_entries SET status='SUSPENDED',revision=revision+1,submitted_source=?::jsonb,submitted_context=?::jsonb,review_reason=?,updated_at=now() WHERE id=?",encode(source),Objects.toString(row.get("published_context")),reason,id);
     }
     slots.audit(admin,id,"REPORT_SUSPEND",reason);
-    db.update("INSERT INTO moderation_actions(id,admin_id,target_type,target_id,action,reason) VALUES(?,?,'COMPONENT',?,'suspend',?)",id(),admin,id,reason);
+    db.update("INSERT INTO moderation_actions(id,admin_id,target_type,target_id,action,reason,component_report_id,component_enforcement_revision) VALUES(?,?,'COMPONENT',?,'suspend',?,?,?)",id(),admin,id,reason,reportId,enforcementRevision);
     return Map.of("status","SUSPENDED");
+  }
+  /** Restore only the exact reviewed artifact suspended by this original report decision. */
+  @Transactional public Map<String,Object> restoreReported(UUID decisionId,String reason,HttpServletRequest request){
+    UUID admin=reportModerator(request);slots.lockAuthority(admin);reportModerator(request);
+    var evidence=db.queryForList("SELECT m.target_id,m.component_enforcement_revision,r.component_revision,r.component_source_hash,r.component_version,r.component_snapshot FROM moderation_actions m JOIN reports r ON r.id=m.component_report_id AND r.target_type='COMPONENT' AND r.target_id=m.target_id WHERE m.id=? AND m.target_type='COMPONENT' AND m.action='suspend' AND r.status='RESOLVED' AND r.enforcement_action='SUSPEND'",decisionId);
+    if(evidence.isEmpty())throw new ApiError(409,"COMPONENT_APPEAL_STALE","This component decision has no current restorable report evidence.");
+    var frozen=evidence.get(0);UUID id=(UUID)frozen.get("target_id");
+    var owners=db.queryForList("SELECT owner_id FROM component_entries WHERE id=?",UUID.class,id);if(owners.isEmpty())throw new ApiError(404,"NOT_FOUND","Component not found.");
+    UUID owner=owners.get(0);slots.lock(owner);
+    var row=db.queryForMap("SELECT id,owner_id,recipe_slug,slug,title,summary,contribution,revision,status,review_reason,published_at,published_source,published_context,draft_source,submitted_source,submitted_context,withdrawn_at,created_at,updated_at FROM component_entries WHERE id=? FOR UPDATE",id);reportModerator(request);
+    if(row.get("published_at")==null||row.get("withdrawn_at")!=null)throw new ApiError(409,"COMPONENT_WITHDRAWN","Only a fresh owner submission can renew withdrawn publication.");
+    if(db.queryForObject("SELECT count(*) FROM users u JOIN developer_profiles d ON d.user_id=u.id WHERE u.id=? AND "+ELIGIBLE,Integer.class,owner)==0)throw new ApiError(409,"BUILDER_NOT_ELIGIBLE","The builder must have an active account and approved profile.");
+    var source=publishedSource(row);long revision=((Number)frozen.get("component_revision")).longValue();String hash=frozen.get("component_source_hash").toString(),version=frozen.get("component_version").toString(),frozenJson=frozen.get("component_snapshot").toString();
+    requireReportedArtifact(id,revision,hash,version,frozenJson,source,snapshot(row.get("published_context")));
+    if("ACTIVE".equals(row.get("status")))return Map.of("status","ACTIVE"); // A current independent review already restored this identical artifact.
+    if(!"SUSPENDED".equals(row.get("status"))||((Number)row.get("revision")).longValue()!=((Number)frozen.get("component_enforcement_revision")).longValue())throw new ApiError(409,"COMPONENT_APPEAL_STALE","A later component decision requires its own review.");
+    requireReportedArtifact(id,revision,hash,version,frozenJson,reviewSource(row),reviewContext(row));
+    String reviewReason="Appeal overturned: "+reason;reviewReason=reviewReason.substring(0,Math.min(2000,reviewReason.length()));
+    review(id,Map.of("revision",row.get("revision"),"sourceHash",reviewHash(row,reviewSource(row)),"decision","APPROVE","reason",reviewReason),request);
+    reportModerator(request);
+    return Map.of("status","ACTIVE");
   }
   @Transactional(readOnly=true)
   public org.springframework.http.ResponseEntity<byte[]> source(String slug,String sha256) {

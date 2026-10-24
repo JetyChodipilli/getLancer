@@ -1,6 +1,6 @@
 {
   "schema": 2,
-  "reviewedAt": "2026-10-23",
+  "reviewedAt": "2026-10-24",
   "expiresAt": "2026-11-05T00:00:00Z",
   "findings": [
     {
@@ -75,7 +75,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/admin/AdminService.java",
-      "sha256": "09446cdbddd34b4c93132bfeaa619c3bf2606f2bc80c99748bc49f608542dd5b"
+      "sha256": "7d864b988c37a1ff3dd739278277159da923c4855c71902504886813e28f2b1e"
     },
     {
       "path": "backend/src/main/java/com/getlancer/admin/MarketplaceMetrics.java",
@@ -239,7 +239,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/components/ComponentService.java",
-      "sha256": "914175a4114c4415e6ed20963ce42c2219d59fb27b1d7b2766992eb7c56741e2"
+      "sha256": "3c1b2258fe82a25fcbcc5d6f26e042da43cddbf4d908a798591d082f22aa122c"
     },
     {
       "path": "backend/src/main/java/com/getlancer/components/ComponentSlotService.java",
@@ -531,7 +531,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/moderation/ModerationService.java",
-      "sha256": "3decfbb27641be78d5ada5a02e800453b583f9d0ef3de2979d00236b8d7b2d90"
+      "sha256": "0a170ea00ec047b4b2a4cc0ad78bca32a9fee60272b8eb14694039ed5d4375d0"
     },
     {
       "path": "backend/src/main/java/com/getlancer/notifications/Mail.java",
@@ -947,7 +947,7 @@
     },
     {
       "path": "backend/src/main/resources/db/migration/V48__component_reports.sql",
-      "sha256": "9a41f264c4f2fffd5729609cc28f50ca8805c579fce82e6bf42932b158120199"
+      "sha256": "8e6be8042de1e69107b687a70348b4dbfa6200f8f759485fb584c0ab25637c5c"
     },
     {
       "path": "backend/src/main/resources/db/migration/V49__education_demo_health.sql",
@@ -1117,7 +1117,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/ComponentReportingIntegrationTest.java",
-      "sha256": "ee64354c09443165b886ea8592a9611d4653461ca3b8581a07835da2559dfa3d"
+      "sha256": "5ea0dc0d22a64d6cf73a0e2d70a1f0956c54fb586d19438cb235053d489451d4"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java",
