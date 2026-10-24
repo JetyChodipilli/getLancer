@@ -32,15 +32,17 @@ test('new component and college shells enforce sampled mobile 4G paint, layout a
     else if(path==='/college-projects')await page.getByLabel('Search college projects',{exact:true}).pressSequentially('stock',{delay:50});
     else if(path==='/components/feedback-form'){
      await page.getByRole('button',{name:'Phone',exact:true}).click();await expect(page.getByRole('button',{name:'Phone',exact:true})).toHaveAttribute('aria-pressed','true');
-     const iframe=page.locator('main iframe').first();await expect(iframe).toBeVisible();
+     const iframe=page.getByTitle('Feedback form working preview',{exact:true});await expect(iframe).toBeVisible();
      const handle=await iframe.elementHandle(),frame=await handle!.contentFrame();expect(frame).not.toBeNull();
-     await expect(frame!.getByLabel('Project name',{exact:true})).toBeVisible();
+     await expect(frame!.getByRole('heading',{name:'Feedback form',exact:true})).toBeVisible();
+     await expect(frame!.getByLabel('Sample feedback',{exact:true})).toBeVisible();
      await frame!.waitForFunction(()=>performance.getEntriesByType('paint').some(entry=>entry.name==='first-contentful-paint'));
      const readyAfterNavigationMs=performance.now()-navigationStarted;
      await frame!.evaluate(()=>addEventListener('submit',()=>{const started=performance.now();requestAnimationFrame(()=>requestAnimationFrame(()=>{(window as PreviewWindow).previewOperationMs=performance.now()-started;}));},{capture:true,once:true}));
-     await frame!.getByLabel('Project name',{exact:true}).fill('Measured synthetic project');
-     await frame!.getByLabel('What should it solve?',{exact:true}).fill('Measure the isolated original form interaction.');
-     await frame!.getByRole('button',{name:'Save brief',exact:true}).click();await expect(frame!.locator('output')).toContainText('Brief saved');
+     await frame!.getByLabel('Sample feedback',{exact:true}).fill('Measure the isolated original feedback interaction.');
+     await frame!.getByRole('button',{name:'Send feedback',exact:true}).click();
+     await expect(frame!.locator('output')).toHaveText('Sample feedback saved. No network request was made.');
+     await expect(frame!.getByRole('button',{name:'Send feedback',exact:true})).toBeEnabled();
      await frame!.waitForFunction(()=>((window as PreviewWindow).previewOperationMs||0)>0);
      previewCosts.push({route:path,sample,readyAfterNavigationMs,scope:'Separate isolated iframe navigation, paint and submit-to-paint proxy. Parent shell readiness is included in readyAfterNavigationMs.',timing:await frame!.evaluate(()=>({operationToPaintProxyMs:(window as PreviewWindow).previewOperationMs,navigation:performance.getEntriesByType('navigation').map(entry=>({duration:entry.duration,domContentLoadedEventEnd:(entry as PerformanceNavigationTiming).domContentLoadedEventEnd})),paint:performance.getEntriesByType('paint').map(entry=>({name:entry.name,startTime:entry.startTime}))}))});
     }else await page.getByRole('link',{name:'Overview',exact:true}).click();

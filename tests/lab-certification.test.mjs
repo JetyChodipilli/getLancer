@@ -135,3 +135,15 @@ test('empty and oversized regular evidence cannot satisfy admission',t=>{
   writeFileSync(path,'');assert.throws(()=>verifyBundle(f.args),/bounded regular/);
   writeFileSync(path,Buffer.alloc(1024*1024+1));assert.throws(()=>verifyBundle(f.args),/bounded regular/);
 });
+
+test('signed admission approval uses backend-compatible ISO instants, including fractional precision',t=>{
+ const f=fixture(t);f.admission.approvedUntil='2026-10-10T06:00:00.123456789Z';f.save();assert.equal(verifyBundle(f.args).provider,'test-provider');
+ f.admission.approvedUntil='2026-10-10T07:00:00+01:00';f.save();assert.equal(verifyBundle(f.args).provider,'test-provider');
+ for(const value of ['Sat, 10 Oct 2026 06:00:00 GMT','2026-10-10T06:00:00+19:00','2026-10-32T06:00:00Z']){f.admission.approvedUntil=value;f.save();assert.throws(()=>verifyBundle(f.args),/ISO instant/);}
+});
+
+test('approval horizon preserves nanosecond precision at its exact boundary',t=>{
+ const f=fixture(t),limit=new Date(f.args.now+31*86400000).toISOString();
+ f.admission.approvedUntil=limit;f.save();assert.equal(verifyBundle(f.args).provider,'test-provider');
+ f.admission.approvedUntil=limit.replace('Z','000001Z');f.save();assert.throws(()=>verifyBundle(f.args),/ISO instant/);
+});

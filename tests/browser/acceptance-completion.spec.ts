@@ -41,6 +41,23 @@ async function reducedMotion(page:Page){
  expect(await page.locator('main').evaluate(main=>main.getAnimations({subtree:true}).filter(animation=>animation.playState==='running'&&Number(animation.effect?.getComputedTiming().duration)>1).length)).toBe(0);
 }
 
+test('initial lab availability errors preserve keyboard focus and explicit retries focus recovery',async({page},info)=>{
+ await page.setViewportSize({width:768,height:1000});await page.emulateMedia({reducedMotion:'reduce'});
+ let releaseInitial!:()=>void;const initialGate=new Promise<void>(resolve=>{releaseInitial=resolve;});
+ let announceRequest!:()=>void;const initialRequest=new Promise<void>(resolve=>{announceRequest=resolve;});let catalogueCalls=0;
+ await page.route('**/api/v1/lab-manifests',async route=>{catalogueCalls++;if(catalogueCalls===1){announceRequest();await initialGate;}await route.fulfill({status:503,json:{error:{code:'LAB_UNAVAILABLE',message:'Current catalogue is unavailable.'}}});});
+ await page.route('**/api/v1/lab-quota',route=>route.fulfill({status:401,json:{error:{code:'UNAUTHORIZED',message:'Sign in to check allowance.'}}}));
+ await page.goto('/labs');await initialRequest;
+ const explorer=page.getByRole('link',{name:'Explore data & AI',exact:true}),next=page.getByRole('link',{name:'Explore backend scenarios',exact:true});
+ await explorer.focus();await page.keyboard.press('Tab');await expect(next).toBeFocused();releaseInitial();
+ const alert=page.getByRole('alert');await expect(alert).toHaveText('Current catalogue is unavailable.');await expect(page.getByText('Loading current lab availability…',{exact:true})).toHaveCount(0);
+ // Let the error commit and passive effects finish before checking focus; never re-focus to hide a loss.
+ await page.evaluate(()=>new Promise<void>(done=>requestAnimationFrame(()=>requestAnimationFrame(()=>done()))));await expect(next).toBeFocused();
+ await reflow(page);await scan(page,'main','initial-lab-error-keyboard',info);
+ const retry=page.getByRole('button',{name:'Refresh availability',exact:true});await retry.focus();await page.keyboard.press('Enter');
+ await expect(alert).toBeFocused();expect(catalogueCalls).toBe(2);await unobscured(alert);await reflow(page);await scan(page,'main','retried-lab-error-keyboard',info);
+});
+
 for(const width of widths)test('new route shells retain keyboard focus, reduced-motion evidence and reflow at '+width+'px',async({page},info)=>{
  test.setTimeout(180000);await page.setViewportSize({width,height:1000});await page.emulateMedia({reducedMotion:'reduce'});
  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));

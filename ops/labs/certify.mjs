@@ -67,8 +67,20 @@ export function verifiedPayload(envelopeBytes, keyBytes) {
 }
 
 function currentApproval(value, now) {
-  const expires = Date.parse(value);
-  if (!Number.isFinite(expires) || expires <= now || expires > now + 31 * 86400000) fail('Approval must be current and expire within 31 days.');
+  // Jackson Instant fields require an ISO instant, not Date.parse's permissive English dates.
+  const parts = typeof value === 'string' && /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?(Z|[+-]\d{2}:\d{2})$/.exec(value);
+  if (!parts) fail('Approval must be a current ISO instant and expire within 31 days.');
+  const [year, month, day, hour, minute, second] = parts.slice(1, 7).map(Number);
+  const calendar = new Date(Date.UTC(year, month - 1, day, hour, minute, second)).toISOString().slice(0, 19) === value.slice(0, 19);
+  const offset = parts[8], offsetHours = Number(offset.slice(1, 3)), offsetMinutes = Number(offset.slice(4, 6));
+  const validOffset = offset === 'Z' || offsetHours <= 18 && offsetMinutes <= 59 && (offsetHours < 18 || offsetMinutes === 0);
+  const wholeSeconds = Date.parse(value.slice(0, 19) + offset);
+  if (!calendar || !validOffset || !Number.isFinite(wholeSeconds)) fail('Approval must be a current ISO instant and expire within 31 days.');
+  // Preserve all Instant precision for host/manifest ordering and the approval horizon.
+  const expires = BigInt(wholeSeconds) * 1000000n + BigInt((parts[7] || '').padEnd(9, '0'));
+  const current = BigInt(now) * 1000000n;
+  if (expires <= current || expires > current + 31n * 86400000000000n) fail('Approval must be a current ISO instant and expire within 31 days.');
+  return expires;
 }
 
 function evidencePath(root, name) {
@@ -150,8 +162,8 @@ export function verifyManifestBundle({manifestPath,expectedManifestSha256,...opt
   const manifest=verifiedPayload(bytes,key), now=options.now??Date.now();
   const iot=nativeContract(manifest);
   if(manifest.evidenceSha256!==host.evidenceSha256)fail('Manifest host inventory changed.');
-  currentApproval(manifest.approvedUntil,now);
-  if(Date.parse(manifest.approvedUntil)>Date.parse(host.approvedUntil))fail('Manifest approval exceeds host approval.');
+  const manifestExpiry=currentApproval(manifest.approvedUntil,now);
+  if(manifestExpiry>currentApproval(host.approvedUntil,now))fail('Manifest approval exceeds host approval.');
   if(!UUID.test(manifest.componentId||'')||!Number.isSafeInteger(manifest.revision)||manifest.revision<1)fail('Manifest component revision is invalid.');
   for(const field of ['sourceSha256','archiveSha256','manifestSha256','buildSourceSha256'])if(!HASH.test(manifest[field]||''))fail('Manifest source digest is invalid.');
   if(manifest.archiveSha256!==manifest.buildSourceSha256||!/^sha256:[a-f0-9]{64}$/.test(manifest.imageDigest||'')||manifest.protocolVersion!=='getlancer-lab-v1')fail('Manifest build or image identity is invalid.');
