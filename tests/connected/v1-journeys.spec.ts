@@ -336,7 +336,7 @@ test('E2E-06 reports a public showcase, triages it, suspends it and shows the ow
   const triage=admin.page.locator('article.panel').filter({has:admin.page.getByText(detail,{exact:true})});
   await triage.getByLabel('Priority',{exact:true}).selectOption('HIGH');
   await triage.getByLabel('Review stage',{exact:true}).selectOption('UNDER_REVIEW');
-  await triage.getByLabel('Investigation note',{exact:true}).fill('Inspected this synthetic report, current public listing and builder contribution.');
+  await triage.getByLabel('Investigation note (private)',{exact:true}).fill('Inspected this synthetic report, current public listing and builder contribution.');
   await mutation(admin.page,'/admin/reports/'+report.reference+'/triage',()=>triage.getByRole('button',{name:'Record triage',exact:true}).click());
   // The default triage filter is OPEN; the updated record leaves that result set.
   await expect(triage).toHaveCount(0);
