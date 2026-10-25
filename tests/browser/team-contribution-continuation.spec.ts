@@ -35,7 +35,7 @@ async function fixture(availability='AVAILABLE_NOW'){
 }
 
 async function open(page:Page,availability?:string){await page.setContent('<div id="root"></div>');await page.addScriptTag({content:await fixture(availability)});await expect(page.getByRole('heading',{name:'Northstar Studio',exact:true})).toBeVisible()}
-async function memberProjects(page:Page){await open(page);await page.getByLabel('Preview actor',{exact:false}).selectOption('member');await expect(page.getByText('Member access',{exact:true})).toBeVisible();await page.getByRole('tab',{name:'Projects',exact:true}).click()}
+async function memberProjects(page:Page){await open(page);await page.locator('.studio-preview > summary').click();await page.getByLabel('Preview actor',{exact:false}).selectOption('member');await expect(page.getByText('Member access',{exact:true})).toBeVisible();await page.getByRole('tab',{name:'Projects',exact:true}).click()}
 const row=(page:Page,title:string)=>page.locator('.team-row').filter({has:page.getByRole('heading',{name:title,exact:true})});
 
 test('a member withdraws older consent independently and shares beyond 50 products with retry and retained selection',async({page})=>{
