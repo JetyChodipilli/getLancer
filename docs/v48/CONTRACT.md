@@ -47,7 +47,7 @@ Recordings: `{mode:"REPLAY",labId,language,pattern,runId,sourceHash,recordedAt,r
 ## Ownership and verification
 
 - Java leaf: `labs/java/**`; primary `LabServer.java`, standard-library JDK 17 HttpServer; launch `java labs/java/LabServer.java`.
-- TypeScript leaf: `labs/typescript/**`; primary `server.ts`, Node >=22.18 standard library; launch `node --experimental-strip-types labs/typescript/server.ts`.
+- TypeScript leaf: `labs/typescript/**`; primary `server.ts`, Node >=22.23.4 in the supported Node 22 LTS line, standard library; launch `node --experimental-strip-types labs/typescript/server.ts`.
 - Python leaf: `labs/python/**`; primary `server.py`, Python 3.12 standard library; launch `python3 labs/python/server.py`.
 - UI leaf: `app/labs/scenarios/**`, `components/labs/scenario-dashboard.tsx`, `components/labs/scenarios.css`, `lib/scenario-evidence.ts`, `tests/scenario-evidence.test.mjs`, `tests/browser/v48.spec.ts`, `docs/v48/License.md`; consume this fixed contract and catalogue, do not alter shared contract/build/server work.
 - Driver: all shared `labs` files excluding the language leaves, verifier/material scripts, navigation link, docs/gates, build and CI integration. Reverify each leaf and integrate before final reporting.

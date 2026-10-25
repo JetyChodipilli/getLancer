@@ -7,6 +7,7 @@ import static com.getlancer.shared.Support.uuid;
 import com.getlancer.products.ProductRepository;
 import com.getlancer.shared.ApiError;
 import com.getlancer.shared.Pages;
+import com.getlancer.teams.TeamPolicy;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -73,9 +74,13 @@ public class MatchingService {
               + " bool_or(lower(?)=ANY(regexp_split_to_array(lower(p.technology),'\\s*,\\s*'))))";
       args.add(category);
       args.add(technology);
-      if (Boolean.TRUE.equals(request.get("availableOnly")))
-        query +=
-            " AND " + (teams ? "t.availability" : "d.availability_status") + "='AVAILABLE_NOW'";
+      if (Boolean.TRUE.equals(request.get("availableOnly"))) {
+        if (teams) {
+          query += " AND lower(btrim(t.availability)) IN ("
+              + String.join(",", java.util.Collections.nCopies(TeamPolicy.AVAILABLE_NOW_ALIASES.size(), "?")) + ")";
+          args.addAll(TeamPolicy.AVAILABLE_NOW_ALIASES);
+        } else query += " AND d.availability_status='AVAILABLE_NOW'";
+      }
       if (Boolean.TRUE.equals(request.get("repositoryVerifiedOnly")))
         query += " AND bool_or(v.status='VERIFIED' AND v.repository_url=p.repository_url)";
     }
@@ -94,7 +99,9 @@ public class MatchingService {
         reasons.add("Category evidence: " + category);
       if (Boolean.TRUE.equals(c.remove("technologyMatch")))
         reasons.add("Technology evidence: " + technology);
-      if ("AVAILABLE_NOW".equals(c.get("availability")))
+      if ("AVAILABLE_NOW".equals(teams
+          ? TeamPolicy.normalizeAvailability(Objects.toString(c.get("availability"), ""))
+          : c.get("availability")))
         reasons.add("Available now (self-reported)");
       if (Boolean.TRUE.equals(c.remove("repositoryVerified")))
         reasons.add("Manually reviewed repository evidence");

@@ -9,7 +9,7 @@ export const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const base = join(root, 'labs/iot');
 export const publicBase = join(root, 'public/iot');
 export const inventory = ['BOM.md', 'License.md', 'PROTOCOL.md', 'README.md', 'WIRING.md', 'client.mjs', 'firmware/cpp/platformio.ini', 'firmware/cpp/telemetry.ino', 'firmware/micropython/main.py', 'firmware/micropython/requirements.txt', 'runtime.mjs'].sort();
-export const setup = 'Node 22.18+ standard library only. Extract free source.tar.gz; from its root run LAB_RUN_ID=00000000-0000-4000-8000-000000000001 node runtime.mjs. In a second terminal run node client.mjs 00000000-0000-4000-8000-000000000001 publish 40 70 30. Browser local and local MQTT are synthetic, with no physical proof or hardware control.';
+export const setup = 'Node 22.23.4+ in Node 22, stable releases, standard library only. Extract free source.tar.gz; from its root run LAB_RUN_ID=00000000-0000-4000-8000-000000000001 node runtime.mjs. In a second terminal run node client.mjs 00000000-0000-4000-8000-000000000001 publish 40 70 30. Browser local and local MQTT are synthetic, with no physical proof or hardware control.';
 export async function sourceFiles() {
   for (const path of [base, join(base, 'firmware'), join(base, 'firmware/cpp'), join(base, 'firmware/micropython')]) {const stat = await lstat(path); assert(stat.isDirectory() && !stat.isSymbolicLink(), 'Unsafe IoT source directory');}
   const files = []; for (const name of inventory) files.push([name, await readSourceFile(join(base, name))]);

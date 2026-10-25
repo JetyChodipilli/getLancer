@@ -5,11 +5,12 @@ import ExternalLink from '@/app/components/external-link';
 import {useEffect,useRef,useState,type FormEvent,type ReactNode} from 'react';
 import Link from 'next/link';
 import {ArrowUpRight,CheckCircle2,Clock3,FileCheck2,Plus,ShieldCheck} from 'lucide-react';
-import {api} from '@/lib/api';
-import {createDeliveryPreview,deliveryStatus,inr,rupeesToMinor,type CheckoutOrder,type Engagement,type EngagementDetail,type EngagementSource,type PaymentConfig,type PaymentSummary,type Proposal,type ProposalMilestone} from '@/lib/delivery';
+import {api,ApiError} from '@/lib/api';
+import {createDeliveryPreview,deliveryStatus,engagementPage,mergeEngagements,inr,rupeesToMinor,type CheckoutOrder,type Engagement,type EngagementDetail,type EngagementPage,type EngagementSource,type PaymentConfig,type PaymentSummary,type Proposal,type ProposalMilestone} from '@/lib/delivery';
 import {Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle} from '@/components/ui/dialog';
 import {WorkspaceFrame,PreviewControls} from './workspace-frame';
 import {Field,TeamForm} from './workspace-form';
+import MoreRecords from './more-records';
 import './teams.css';
 
 type CheckoutResult={razorpay_payment_id:string;razorpay_signature:string};
@@ -32,6 +33,7 @@ function loadCheckout():Promise<RazorpayConstructor>{
 
 const disabledConfig:PaymentConfig={enabled:false,mode:'disabled',reason:'Payments are not enabled.'};
 const records=<T,>(value:T[]|{items:T[]}):T[]=>Array.isArray(value)?value:value.items;
+const engagementRequest=async(path:string,init?:RequestInit)=>engagementPage(await api(path,init));
 const confirmedPaid=(payment:PaymentSummary|undefined)=>!!payment&&payment.status==='CAPTURED'&&payment.refundedMinor===0;
 const milestonePayment=(payments:PaymentSummary[],id:string)=>payments.find(p=>p.milestoneId===id&&confirmedPaid(p))||payments.find(p=>p.milestoneId===id&&['CREATING','UNKNOWN','ORDER_CREATED','AUTHORIZED','DISPUTED'].includes(p.status))||payments.filter(p=>p.milestoneId===id).at(-1);
 const date=(value:string)=>new Date(/^\d{4}-\d{2}-\d{2}$/.test(value)?value+'T00:00:00':value).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
@@ -39,30 +41,44 @@ const date=(value:string)=>new Date(/^\d{4}-\d{2}-\d{2}$/.test(value)?value+'T00
 export default function DeliveryWorkspace({demo=false}:{demo?:boolean}){
  const [preview]=useState(()=>demo?createDeliveryPreview():null);
  const [actor,setActor]=useState<'BUYER'|'SELLER'>('SELLER'),[items,setItems]=useState<Engagement[]>([]),[selected,setSelected]=useState(''),[detail,setDetail]=useState<EngagementDetail|null>(null),[payments,setPayments]=useState<PaymentSummary[]>([]),[config,setConfig]=useState<PaymentConfig>(disabledConfig),[authenticated,setAuthenticated]=useState(false),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[dialog,setDialog]=useState(''),[source,setSource]=useState<Partial<EngagementSource>>({}),[error,setError]=useState(''),[message,setMessage]=useState('');
- const errorSummary=useRef<HTMLDivElement>(null),generation=useRef(0),opener=useRef<HTMLElement|null>(null),paymentKeys=useRef(new Map<string,string>()),checkoutAlive=useRef(true);
+ const [page,setPage]=useState<EngagementPage>({items:[],page:0,hasMore:false}),[listVersion,setListVersion]=useState(0),[selecting,setSelecting]=useState(false);
+ const errorSummary=useRef<HTMLDivElement>(null),generation=useRef(0),listGeneration=useRef(0),selectedId=useRef(''),opener=useRef<HTMLElement|null>(null),paymentKeys=useRef(new Map<string,string>()),checkoutAlive=useRef(true);
  const side=detail?.side,base='/engagements/'+selected,blocked=!!detail&&['DISPUTED','CANCELLED','COMPLETED'].includes(detail.status),proposal=detail?.proposals.slice().sort((a,b)=>a.revision-b.revision).at(-1),milestone=detail?.milestones.find(m=>m.id===dialog.split(':')[1]);
  function showDialog(value:string){opener.current=document.activeElement as HTMLElement;setDialog(value);setError('');}
- function clearProtected(){setItems([]);setDetail(null);setPayments([]);setAuthenticated(false);setConfig(disabledConfig);setDialog('');}
+ function clearProtected(){listGeneration.current=-1;setItems([]);setDetail(null);setPayments([]);setAuthenticated(false);setConfig(disabledConfig);setDialog('');setPage({items:[],page:0,hasMore:false});setSelecting(false);}
  useEffect(()=>{if(error)errorSummary.current?.focus();},[error]);
- async function load(id=selected){
-  const run=++generation.current;setLoading(true);setError('');
+ async function engagement(id:string):Promise<[EngagementDetail,PaymentSummary[]]>{
+  if(preview)return [preview.detail(id),preview.payments(id)];
+  if(!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(id))throw new Error('This engagement link is invalid. Open a valid engagement link and retry.');
+  const path='/engagements/'+encodeURIComponent(id),[record,paymentResponse]=await Promise.all([api(path),api(path+'/payments')]);return [record,records<PaymentSummary>(paymentResponse)];
+ }
+ async function load(id=selectedId.current){
+  const run=++generation.current;listGeneration.current=run;selectedId.current=id;setSelected(id);setLoading(true);setSelecting(false);setDetail(null);setPayments([]);setError('');
   try{
-   let list:Engagement[],paymentConfig:PaymentConfig;
-   if(preview){list=preview.list();paymentConfig={enabled:false,mode:'disabled',reason:'Preview payments are local simulations. No gateway is contacted.'};}
-   else{await api('/me');const [response,paymentResponse]=await Promise.all([api('/engagements'),api('/payments/config')]);list=records<Engagement>(response);paymentConfig=paymentResponse;}
-   const next=list.find(e=>e.id===id)?.id||list[0]?.id||'';
-   let engagement:EngagementDetail|null=null,summary:PaymentSummary[]=[];
-   if(next){if(preview){engagement=preview.detail(next);summary=preview.payments(next);}else{const [engagementResponse,paymentResponse]=await Promise.all([api('/engagements/'+next),api('/engagements/'+next+'/payments')]);engagement=engagementResponse;summary=records<PaymentSummary>(paymentResponse);}}
+   let collection:EngagementPage,paymentConfig:PaymentConfig;
+   if(preview){collection=engagementPage(preview.list());paymentConfig={enabled:false,mode:'disabled',reason:'Preview payments are local simulations. No gateway is contacted.'};}
+   else{await api('/me');const [response,paymentResponse]=await Promise.all([api('/engagements'),api('/payments/config')]);collection=engagementPage(response);paymentConfig=paymentResponse;}
+   if(collection.page!==0)throw new Error('The first engagement page could not be verified. Please retry.');
+   const next=id||collection.items[0]?.id||'';
+   let record:EngagementDetail|null=null,summary:PaymentSummary[]=[];
+   if(next)[record,summary]=await engagement(next);
    if(run!==generation.current)return;
-   setItems(list);setSelected(next);setDetail(engagement);setPayments(summary);setConfig(paymentConfig);setAuthenticated(true);
+   setItems(record?mergeEngagements(collection.items,[record]):collection.items);setPage(collection);setListVersion(run);selectedId.current=next;setSelected(next);setDetail(record);setPayments(summary);setConfig(paymentConfig);setAuthenticated(true);
   }catch(e){if(run===generation.current){clearProtected();setError((e as Error).message);}}finally{if(run===generation.current)setLoading(false);}
  }
+ async function selectEngagement(id:string){
+  const run=++generation.current;selectedId.current=id;setSelected(id);setSelecting(true);setDetail(null);setPayments([]);setMessage('');setError('');
+  try{const [record,summary]=await engagement(id);if(run!==generation.current)return;setItems(current=>mergeEngagements(current,[record]));setDetail(record);setPayments(summary);}
+  catch(e){if(run===generation.current){clearProtected();setError((e as Error).message);}}
+  finally{if(run===generation.current)setSelecting(false);}
+ }
+ function pageError(e:unknown){if(listVersion===listGeneration.current&&e instanceof ApiError&&(e.status===401||e.status===403)){generation.current++;listGeneration.current++;clearProtected();setError(e.message);}}
  useEffect(()=>{
   checkoutAlive.current=true;
   const query=new URLSearchParams(window.location.search),inquiry=query.get('inquiryId'),business=query.get('businessRequestId');
   if(inquiry){setSource({inquiryId:inquiry});setDialog('source');}else if(business){setSource({businessRequestId:business,candidateKind:query.get('candidateKind')==='TEAM'?'TEAM':'BUILDER',candidateId:query.get('candidateId')||''});setDialog('source');}
   void load(query.get('engagementId')||query.get('id')||'');
-  return()=>{generation.current++;checkoutAlive.current=false;};
+  return()=>{generation.current++;listGeneration.current++;checkoutAlive.current=false;};
  },[]);
  async function change(work:()=>Promise<unknown>|unknown,note='Changes saved.',nextId=selected){
   setBusy(true);setError('');setMessage('');
@@ -103,7 +119,8 @@ export default function DeliveryWorkspace({demo=false}:{demo?:boolean}){
   {error&&<div ref={errorSummary} tabIndex={-1} className="delivery-feedback error" role="alert"><p>{error}</p><button className="button" disabled={busy} onClick={()=>load()}>Reload workspace</button></div>}
   {message&&<p className="delivery-feedback success" role="status">{message}</p>}
   {loading?<p role="status" className="delivery-loading">Loading delivery workspace…</p>:!authenticated?<Empty title="Open your delivery workspace." description="Sign in with a verified account to see engagements you can access."><Link className="button primary" href="/login">Log in</Link><button className="button" onClick={()=>load()}>Retry</button></Empty>:!items.length?<Empty title="Give an agreed project its own workspace." description="Start from a qualified inquiry or select an eligible candidate from an open business request. Your proposals and delivery records stay private to the parties."><Link className="button" href={demo?'/preview/workspace':'/workspace'}>View inquiries</Link><Link className="button" href={demo?'/preview/business':'/workspace/business'}>View business requests</Link></Empty>:<div className="delivery-grid">
-   <nav className="delivery-list" aria-label="Engagements"><div className="delivery-list-head"><h2>Engagements</h2><span>{items.length}</span></div>{items.map(item=><button key={item.id} className="delivery-list-item" aria-current={selected===item.id?'true':undefined} disabled={busy} onClick={()=>{setDetail(null);setMessage('');void load(item.id);}}><Badge status={item.status}/><strong>{item.title}</strong><span>{item.side==='SELLER'?'You are the seller':'You are the buyer'}</span></button>)}</nav>
+   <nav className="delivery-list" aria-label="Engagements"><div className="delivery-list-head"><h2>Engagements</h2><span>{items.length}</span></div>{items.map(item=><button key={item.id} className="delivery-list-item" aria-current={selected===item.id?'true':undefined} disabled={busy} onClick={()=>{void selectEngagement(item.id);}}><Badge status={item.status}/><strong>{item.title}</strong><span>{item.side==='SELLER'?'You are the seller':'You are the buyer'}</span></button>)}{!preview&&<MoreRecords<Engagement> key={listVersion} path="/engagements" request={engagementRequest} firstPage={page} label="Load more engagements" onItems={rows=>{if(listVersion===listGeneration.current)setItems(current=>mergeEngagements(current,rows));}} onError={pageError}/>}</nav>
+   {selecting&&<p role="status" className="delivery-loading">Loading engagement…</p>}
    {detail&&<div className="delivery-detail">
     <section className="delivery-section delivery-overview"><div className="delivery-section-head"><div><p className="delivery-kicker">Private engagement · {side==='SELLER'?'seller workspace':'buyer workspace'}</p><h2>{detail.title}</h2></div><Badge status={detail.status}/></div><div className="delivery-overview-facts"><span><FileCheck2 size={16} aria-hidden="true"/>{detail.agreement?inr(detail.agreement.amountMinor)+' agreed':'Scope awaiting agreement'}</span><span><CheckCircle2 size={16} aria-hidden="true"/>{completed} of {detail.milestones.length} milestones accepted</span></div>{detail.status==='DISPUTED'&&<p className="delivery-notice warning">An open dispute pauses checkout and completion. An administrator must record a resolution; opening a dispute does not issue a refund.</p>}{detail.status==='CANCELLED'&&<p className="delivery-notice">This engagement has been cancelled. Its agreement and payment history remain available.</p>}{detail.status==='COMPLETED'&&<p className="delivery-notice success">Both parties acknowledged completion. Payment capture and bank settlement are separate statuses.</p>}</section>
     {detail.agreement?<section className="delivery-section"><div className="delivery-section-head"><div><p className="delivery-kicker">Immutable accepted agreement</p><h2>Your agreed scope</h2></div><ShieldCheck size={20} aria-hidden="true"/></div><p className="delivery-prose">{detail.agreement.scope}</p><details className="delivery-agreement-details"><summary>Commercial terms and consent record</summary><p className="delivery-prose">{detail.agreement.terms}</p><dl className="delivery-facts"><div><dt>Agreed amount</dt><dd>{inr(detail.agreement.amountMinor)} · INR</dd></div><div><dt>Seller consent</dt><dd>{date(detail.agreement.sellerConsentedAt)}</dd></div><div><dt>Buyer consent</dt><dd>{date(detail.agreement.buyerConsentedAt)}</dd></div></dl><p className="delivery-digest"><strong>Agreement digest</strong><code>{detail.agreement.digest}</code></p><p className="delivery-small">A record of both parties’ consent, scope and terms. This record does not claim a certified electronic signature.</p></details></section>:<section className="delivery-section"><div className="delivery-section-head"><div><p className="delivery-kicker">Scope and commercial terms</p><h2>{proposal?'Proposal · revision '+proposal.revision:'Prepare the proposal'}</h2></div>{proposal&&<Badge status={proposal.status}/>}</div>{proposal?<><p className="delivery-prose">{proposal.scope}</p><div className="delivery-terms"><h3>Terms</h3><p className="delivery-prose">{proposal.terms}</p></div><ol className="delivery-proposal-milestones">{proposal.milestones.map((m,i)=><li key={i}><div><strong>{m.title}</strong><p>{m.description}</p><span>Due {date(m.dueDate)}</span></div><strong>{inr(m.amountMinor)}</strong></li>)}</ol><div className="delivery-proposal-total"><span>Proposal total · INR</span><strong>{inr(proposal.amountMinor)}</strong></div><p className="delivery-small">Payment follows acceptance of each milestone. No advance payment or escrow balance.</p><div className="delivery-actions">{side==='SELLER'&&!blocked&&proposal.status==='DRAFT'&&<><button className="button" disabled={busy} onClick={()=>showDialog('proposal')}>Edit proposal</button><button className="button primary" disabled={busy} onClick={()=>showDialog('send')}>Review and send proposal</button></>}{side==='SELLER'&&!blocked&&proposal.status==='SENT'&&<button className="button" disabled={busy} onClick={()=>showDialog('withdraw')}>Withdraw proposal</button>}{side==='BUYER'&&!blocked&&proposal.status==='SENT'&&<><button className="button primary" disabled={busy} onClick={()=>showDialog('accept-proposal')}>Review and accept proposal</button><button className="button" disabled={busy} onClick={()=>showDialog('reject')}>Reject proposal</button></>}{side==='SELLER'&&!blocked&&['REJECTED','WITHDRAWN'].includes(proposal.status)&&<button className="button primary" disabled={busy} onClick={()=>showDialog('proposal')}>Draft new revision</button>}{proposal.status==='SENT'&&side==='SELLER'&&<span className="delivery-small">Awaiting the buyer’s explicit acceptance.</span>}{proposal.status==='DRAFT'&&side==='BUYER'&&<span className="delivery-small">The seller is preparing this offer. Acceptance becomes available once it is sent.</span>}</div></>:<><p>The seller can propose a scope, commercial terms and payable milestones. The buyer reviews before accepting.</p>{side==='SELLER'&&!blocked&&<button className="button primary" disabled={busy} onClick={()=>showDialog('proposal')}>Draft proposal</button>}</>}{detail.proposals.length>1&&<details className="delivery-history"><summary>Earlier proposal revisions ({detail.proposals.length-1})</summary>{detail.proposals.filter(p=>p.id!==proposal?.id).sort((a,b)=>b.revision-a.revision).map(p=><article key={p.id}><div className="delivery-section-head"><strong>Revision {p.revision}</strong><Badge status={p.status}/></div><p>{p.scope}</p><p>{p.terms}</p><span>{inr(p.amountMinor)}</span></article>)}</details>}</section>}

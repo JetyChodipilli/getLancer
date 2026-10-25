@@ -124,6 +124,65 @@ class DeliveryIntegrationTest {
   }
 
   @Test
+  void boundedContinuationAndDirectOldRecordRecheckCurrentCommercialAuthority() throws Exception {
+    db.update("DELETE FROM business_members WHERE business_id=? AND user_id=?", business, manager);
+    UUID oldest = createBusiness("buyer", "TEAM", team);
+    db.update("UPDATE delivery_engagements SET updated_at='2020-01-01T00:00:00Z' WHERE id=?", oldest);
+    // More than the former 200-row ceiling, with equal timestamps to exercise the UUID tie break.
+    for (int n = 0; n < 205; n++) {
+      UUID request = UUID.randomUUID(), engagement = UUID.randomUUID();
+      db.update("INSERT INTO business_requests(id,business_id,created_by,title,description,category,technology,budget,timeline,status) VALUES(?,?,?,?,'Private delivery pagination fixture','CRM','React','1500 INR','One month','OPEN')", request, business, buyer, "Newer delivery " + n);
+      db.update("INSERT INTO delivery_engagements(id,business_request_id,business_id,team_id,title,created_by,updated_at) VALUES(?,?,?,?,?,?,'2030-01-01T00:00:00Z')", engagement, request, business, team, "Newer delivery " + n, buyer);
+    }
+    var firstResponse = mvc.perform(as(get("/api/v1/engagements"), "manager"))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(50))
+        .andExpect(jsonPath("$.page").value(0)).andExpect(jsonPath("$.size").value(50))
+        .andExpect(jsonPath("$.hasMore").value(true)).andExpect(jsonPath("$.totalItems").value(206)).andReturn();
+    var first = json.readTree(firstResponse.getResponse().getContentAsString());
+    assertFalse(first.path("items").toString().contains(oldest.toString()));
+    mvc.perform(as(get(route(oldest)), "manager")).andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(oldest.toString())).andExpect(jsonPath("$.side").value("SELLER"));
+    var seen = new ArrayList<UUID>(); first.path("items").forEach(row -> seen.add(UUID.fromString(row.path("id").asText())));
+    for (int page = 1; page <= 4; page++) {
+      var response = mvc.perform(as(get("/api/v1/engagements").param("page", String.valueOf(page)).param("size", "50"), "manager"))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.page").value(page))
+          .andExpect(jsonPath("$.hasMore").value(page < 4)).andReturn();
+      var rows = json.readTree(response.getResponse().getContentAsString()).path("items");
+      assertTrue(rows.size() <= 50);
+      rows.forEach(row -> { assertEquals("SELLER", row.path("side").asText()); seen.add(UUID.fromString(row.path("id").asText())); });
+    }
+    assertEquals(206, new HashSet<>(seen).size());
+    assertEquals(db.queryForList("SELECT id FROM delivery_engagements WHERE business_id=? ORDER BY updated_at DESC,id", UUID.class, business), seen);
+    assertEquals(oldest, seen.get(seen.size() - 1));
+    mvc.perform(as(get(route(oldest)), "outsider")).andExpect(status().isNotFound());
+    mvc.perform(as(get("/api/v1/engagements").param("page", "4"), "outsider")).andExpect(jsonPath("$.items.length()").value(0)).andExpect(jsonPath("$.totalItems").value(0));
+
+    db.update("UPDATE team_members SET role='PROJECT_MANAGER' WHERE team_id=? AND user_id=?", team, manager);
+    mvc.perform(as(get("/api/v1/engagements").param("page", "1"), "manager")).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0)).andExpect(jsonPath("$.totalItems").value(0));
+    mvc.perform(as(get(route(oldest)), "manager")).andExpect(status().isNotFound());
+    db.update("UPDATE team_members SET role='BUSINESS_MANAGER',membership_type='CONTRACT',expires_at=now()-interval '1 day' WHERE team_id=? AND user_id=?", team, manager);
+    mvc.perform(as(get("/api/v1/engagements").param("page", "1"), "manager")).andExpect(jsonPath("$.items.length()").value(0));
+    mvc.perform(as(get(route(oldest)), "manager")).andExpect(status().isNotFound());
+    db.update("UPDATE team_members SET membership_type='PERMANENT',expires_at=null WHERE team_id=? AND user_id=?", team, manager);
+    db.update("UPDATE developer_profiles SET approval_status='SUSPENDED' WHERE user_id=?", manager);
+    mvc.perform(as(get("/api/v1/engagements").param("page", "1"), "manager")).andExpect(jsonPath("$.items.length()").value(0)).andExpect(jsonPath("$.totalItems").value(0));
+    db.update("DELETE FROM business_members WHERE business_id=? AND user_id=?", business, buyer);
+    mvc.perform(as(get("/api/v1/engagements").param("page", "1"), "buyer")).andExpect(jsonPath("$.items.length()").value(0));
+    mvc.perform(as(get(route(oldest)), "buyer")).andExpect(status().isNotFound());
+    db.update("UPDATE users SET email_verified_at=null WHERE id=?", manager);
+    mvc.perform(as(get("/api/v1/engagements").param("page", "1"), "manager")).andExpect(status().isForbidden());
+  }
+
+  @Test
+  void deliveryPaginationRejectsMalformedOrUnboundedRequests() throws Exception {
+    createInquiry("seller");
+    for (String page : List.of("-1", "100001", "1.5", "oops"))
+      mvc.perform(as(get("/api/v1/engagements").param("page", page), "seller")).andExpect(status().isBadRequest());
+    for (String size : List.of("0", "101", "-1", "oops"))
+      mvc.perform(as(get("/api/v1/engagements").param("size", size), "seller")).andExpect(status().isBadRequest());
+  }
+
+  @Test
   void eligibilityAndPrivateRequestInvitationRemainCurrent() throws Exception {
     mvc.perform(body(post("/api/v1/engagements"), "seller", Map.of("businessRequestId", brief, "candidateKind", "BUILDER", "candidateId", seller))).andExpect(status().isNotFound());
     db.update("INSERT INTO request_shortlist(id,request_id,kind,builder_id,reason,source,created_by) VALUES(?,?,'BUILDER',?,'Matching public proof','BUSINESS',?)", UUID.randomUUID(), brief, seller, buyer);

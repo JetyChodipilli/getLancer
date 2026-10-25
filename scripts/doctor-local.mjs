@@ -1,12 +1,14 @@
 import net from 'node:net';
 import {spawnSync} from 'node:child_process';
 import {readEnvironment,localDatabase,placeholder} from './local-config.mjs';
+import {requireSupportedNodeVersion} from './node-version.mjs';
 
 const connect=(host,port)=>new Promise(resolve=>{
   const socket=net.createConnection({host,port});const finish=ok=>{socket.destroy();resolve(ok)};
   socket.setTimeout(2500,()=>finish(false));socket.once('connect',()=>finish(true));socket.once('error',()=>finish(false));
 });
 try {
+  requireSupportedNodeVersion();
   const values={...readEnvironment(),...process.env};const db=localDatabase(values);let failed=false;
   const report=(ok,message)=>{console.log((ok?'OK: ':'NEEDS SETUP: ')+message);if(!ok)failed=true};
   for(const key of ['DB_USERNAME','DB_PASSWORD','OBJECT_STORAGE_ACCESS_KEY','OBJECT_STORAGE_SECRET_KEY'])report(!placeholder(values[key]),key+' configured');

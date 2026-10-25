@@ -1,7 +1,9 @@
 import {spawn} from 'node:child_process';
 import {readEnvironment,localDatabase,projectRoot} from './local-config.mjs';
+import {requireSupportedNodeVersion} from './node-version.mjs';
 
 try {
+  requireSupportedNodeVersion();
   const values={...readEnvironment(),...process.env};localDatabase(values);
   const backend=process.argv[2]==='backend';
   const win=process.platform==='win32';

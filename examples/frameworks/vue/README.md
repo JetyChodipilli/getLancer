@@ -3,7 +3,7 @@
 Original MIT source. Synthetic local state only; no account, network, payment, analytics or storage integration. Framework names identify the runtime; they do not imply endorsement.
 
 ## Local setup
-Node 22.13+ and npm are required. From this extracted directory:
+Use patched Node 22.23.4 or later 22.x, or Node 24.22.1 or later 24.x, and npm. From this extracted directory:
 
     npm ci --ignore-scripts --no-audit --no-fund
     npm run build

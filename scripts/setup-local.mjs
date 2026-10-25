@@ -1,10 +1,12 @@
 import {readFileSync,openSync,closeSync,fstatSync,fchmodSync,writeSync,ftruncateSync,fsyncSync,constants} from 'node:fs';
 import {randomBytes} from 'node:crypto';
 import {parseEnvironment,localDatabase,placeholder} from './local-config.mjs';
+import {requireSupportedNodeVersion} from './node-version.mjs';
 
 const file=new URL('../.env',import.meta.url);
 let descriptor;
 try {
+  requireSupportedNodeVersion();
   if(['staging','production'].includes(process.env.APP_ENV))throw Error('Local setup cannot modify hosted configuration.');
   // One atomic open/create; never check a pathname and then reopen it for modification.
   descriptor=openSync(file,constants.O_RDWR|constants.O_CREAT|constants.O_NOFOLLOW|constants.O_NONBLOCK,0o600);

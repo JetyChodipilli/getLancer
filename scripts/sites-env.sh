@@ -2,6 +2,7 @@
 set -euo pipefail
 
 project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+node "${project_root}/scripts/node-version.mjs"
 runtime_root="${SITES_RUNTIME_ROOT:-${project_root}/.sites-runtime}"
 
 mkdir -p \

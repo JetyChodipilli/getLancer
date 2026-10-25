@@ -16,10 +16,23 @@ class LabAdapterPolicyTest {
   }
   @Test void exactSignedFamilyVersionsCoverAllEighteenNativePatternCombinations(){try(var fixture=new LabProtocolFixture()){
     var policy=new LabAdapterPolicy();
-    for(var family:List.of(new String[]{"Java","jdk","17.0.16"},new String[]{"TypeScript","node","22.18.0"},new String[]{"Python","python","3.12.8"},
+    for(var family:List.of(new String[]{"Java","jdk","17.0.16"},new String[]{"TypeScript","node","22.23.4"},new String[]{"Python","python","3.12.8"},
         new String[]{"Go","go","1.24.13"},new String[]{"C# / .NET","dotnet","8.0.22"},new String[]{"PHP","php","8.3.6"})){
       for(String scenario:List.of("cache","security","payment"))assertDoesNotThrow(()->policy.require(manifest(fixture,family[0],family[1],family[2],"ACTIVE",scenario),scenario,true));
     }
+  }}
+  @Test void nodeAdapterRejectsVulnerablePatchesAndKeepsExactCertification(){try(var fixture=new LabProtocolFixture()){
+    var policy=new LabAdapterPolicy();
+    for(String version:List.of("22.23.4","22.23.5","22.24.0"))
+      assertDoesNotThrow(()->policy.require(manifest(fixture,"TypeScript","node",version,"ACTIVE","cache"),"cache",true));
+    for(String version:List.of("22.13.0","22.18.0","22.22.99","22.23.3","23.0.0","24.22.1","26.12.1")){
+      var old=manifest(fixture,"TypeScript","node",version,"ACTIVE","cache");
+      assertEquals("LAB_ADAPTER_UNSUPPORTED",assertThrows(ApiError.class,()->policy.require(old,"cache",true)).code,version);
+      assertEquals(403,assertThrows(ApiError.class,()->policy.require(old,"cache",false)).status,version);
+    }
+    var changed=(ObjectNode)fixture.json.valueToTree(manifest(fixture,"TypeScript","node","22.23.4","ACTIVE","cache"));
+    ((ObjectNode)changed.path("certification")).put("frameworkVersion","22.23.3");
+    assertEquals("LAB_FRAMEWORK_UNSUPPORTED",assertThrows(ApiError.class,()->policy.require(fixture.json.convertValue(changed,LabManifest.class),"cache",true)).code);
   }}
   @Test void signedStateAndVersionNeverEnableUnsupportedCombinations(){try(var fixture=new LabProtocolFixture()){
     var policy=new LabAdapterPolicy();

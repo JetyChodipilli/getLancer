@@ -1,4 +1,6 @@
 import {createBuiltWorker,runtimeBindings} from './worker-runtime.mjs';
+import {requireSupportedNodeVersion} from './node-version.mjs';
+requireSupportedNodeVersion();
 const portIndex=process.argv.indexOf('--port');
 const port=Number(portIndex===-1?process.env.PORT||3000:process.argv[portIndex+1]);
 if(!Number.isInteger(port)||port<0||port>65535)throw new Error('Invalid server port.');

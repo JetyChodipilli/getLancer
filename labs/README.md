@@ -18,7 +18,7 @@ Use a disposable local instance without valuable data. Labs use only the key `ge
 
 ## Start and inspect
 
-From the extracted package root, choose the language README. Set `LAB_RUN_ID` to a fresh UUID and `LAB_PORT` to a local port. JDK 17, Node 22.18+ or Python 3.12 supplies the HTTP and cryptography standard library. No npm, pip or Maven install is needed. Request input is bounded form data, not a destination or command shell. This protocol is for local source reproduction; a future isolated provider must translate the certified gateway contract without exposing these ports publicly.
+From the extracted package root, choose the language README. Set `LAB_RUN_ID` to a fresh UUID and `LAB_PORT` to a local port. JDK 17, stable Node 22.23.4+ in Node 22 or Python 3.12 supplies the HTTP and cryptography standard library. CI and the local lab Docker image use Node 22.23.4. No npm, pip or Maven install is needed. Request input is bounded form data, not a destination or command shell. This protocol is for local source reproduction; a future isolated provider must translate the certified gateway contract without exposing these ports publicly. A patched runtime version does not certify an image: native signed manifests still require their exact image, source and current reproduction attestations.
 
 ```bash
 LAB_RUN_ID=00000000-0000-4000-8000-000000000001 LAB_PORT=8100 python3 labs/python/server.py
@@ -34,7 +34,7 @@ Payment: HMAC-SHA256 the exact UTF-8 `eventBody` with the public demonstration k
 
 ## Verify all scenarios
 
-Node 22.18+ drives the real HTTP matrix, including foreign run, malformed inputs, bounded outputs, event order, redaction and two-run reset isolation. It requires the relevant language runtime and the exact Redis binary. The suite uses no app database, session, email, object storage, browser fixture, or platform credentials.
+Stable Node 22.23.4+ in Node 22 drives the real HTTP matrix, including foreign run, malformed inputs, bounded outputs, event order, redaction and two-run reset isolation. It requires the relevant language runtime and the exact Redis binary. The suite uses no app database, session, email, object storage, browser fixture, or platform credentials.
 
 ```bash
 REDIS_SERVER="$PWD/redis-source/src/redis-server" node scripts/verify-lab-scenarios.mjs --language python

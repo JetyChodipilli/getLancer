@@ -1,6 +1,6 @@
 # Laptop testing without a cloud provider
 
-Use Docker Desktop with the WSL 2 backend on Windows, or Docker Desktop on macOS / Docker Engine with Compose v2 on Linux. Docker is the local execution environment; no Fly.io, AWS, Supabase or hosted sandbox account is needed. Install Node 22.18+ for the frontend. Docker Desktop installation: https://docs.docker.com/desktop/setup/install/windows-install/; WSL 2 setup: https://docs.docker.com/desktop/features/wsl/.
+Use Docker Desktop with the WSL 2 backend on Windows, or Docker Desktop on macOS / Docker Engine with Compose v2 on Linux. Docker is the local execution environment; no Fly.io, AWS, Supabase or hosted sandbox account is needed. Install stable Node 22.23.4+ in Node 22, or 24.22.1+ in Node 24, for the frontend. CI and Node Docker images use Node 22.23.4. Docker Desktop installation: https://docs.docker.com/desktop/setup/install/windows-install/; WSL 2 setup: https://docs.docker.com/desktop/features/wsl/.
 
 ## Run the application
 

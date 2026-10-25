@@ -3,10 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=22.13.0"
+    "node": ">=22.23.4 <23 || >=24.22.1 <25"
   },
   "scripts": {
+    "check:node": "node scripts/node-version.mjs",
     "install:ci": "bash scripts/install-ci.sh",
+    "predev": "node scripts/node-version.mjs",
     "dev": "vite",
     "build": "bash scripts/build-verified.sh",
     "start": "node scripts/start-worker.mjs",

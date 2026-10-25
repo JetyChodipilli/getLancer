@@ -85,7 +85,7 @@ public class OperationsMetrics {
         FROM lab_runs WHERE requested_at>=? AND requested_at<=? GROUP BY manifest_sha256 ORDER BY manifest_sha256 LIMIT 100
         """,start,end)) funnels.add(funnel("provisioned_run","LIVE",(String)row.get("version"),row,"All admitted server reservations for this manifest since instrumentation; pending, owner cancellation and revocation remain in this denominator."));
     var reserved=labs.reservedResources();
-    var resources=new OperationsResponse.Resources(n(reserved,"active"),n(reserved,"memory"),n(reserved,"daily"),n(reserved,"monthly"),LabService.DAILY_BUDGET_MICROS,LabService.MONTHLY_BUDGET_MICROS);
+    var resources=new OperationsResponse.Resources(n(reserved,"active"),n(reserved,"memory"),n(reserved,"daily"),n(reserved,"monthly"),n(reserved,"daily_budget"),n(reserved,"monthly_budget"));
     if(funnels.stream().filter(f->!List.of("qualified_inquiry","purchase_captured","source_download","provisioned_run").contains(f.stage())).count()>=500
         || funnels.stream().filter(f->f.stage().equals("purchase_captured")).count()>=500
         || funnels.stream().filter(f->f.stage().equals("source_download")).count()>=500

@@ -47,5 +47,5 @@ idle 500–60,000 ms. Valid traffic cannot extend total lifetime. Expiry/shutdow
 destroys sockets, clears logs/state, closes ports, and writes no runtime files.
 
 Ports are ephemeral in automated verification; CLI defaults are MQTT 18830
-and HTTP 8106. Runtime requires Node 22.18+ standard library only. It makes no
+and HTTP 8106. Runtime requires stable Node 22.23.4+ in Node 22, standard library only. It makes no
 outbound internet requests and accepts no arbitrary commands or uploaded code.

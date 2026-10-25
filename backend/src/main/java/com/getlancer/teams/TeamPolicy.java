@@ -3,10 +3,28 @@ package com.getlancer.teams;
 import com.getlancer.shared.ApiError;
 import com.getlancer.shared.Support;
 import java.time.Instant;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
 public final class TeamPolicy {
+  // Explicit legacy labels only: arbitrary free text must never imply availability.
+  public static final List<String> AVAILABLE_NOW_ALIASES =
+      List.of("available_now", "available now", "open to projects", "available");
+
+  public static String normalizeAvailability(String value) {
+    String normalized = value.trim().toLowerCase(Locale.ROOT);
+    if (AVAILABLE_NOW_ALIASES.contains(normalized)) return "AVAILABLE_NOW";
+    return switch (normalized) {
+      case "one_slot_left", "one slot left" -> "ONE_SLOT_LEFT";
+      case "limited" -> "LIMITED";
+      case "booked_until", "booked until" -> "BOOKED_UNTIL";
+      case "not_accepting", "not accepting", "unavailable" -> "NOT_ACCEPTING";
+      default -> value;
+    };
+  }
+
   static final Set<String> ROLES =
       Set.of("OWNER", "BUSINESS_MANAGER", "RECRUITER", "PROJECT_MANAGER", "MEMBER");
 

@@ -97,6 +97,89 @@ class TeamsIntegrationTest {
   }
 
   @Test
+  void expandedOwnerCatalogueAndPrivateConsentKeepOlderContributionsReachable() throws Exception {
+    db.update("UPDATE showcase_entitlements SET active_slot_limit=60 WHERE user_id=?", applicant);
+    db.update("INSERT INTO team_members(team_id,user_id,role,membership_type) VALUES(?,?,'MEMBER','PERMANENT')", team, applicant);
+    UUID teammate = user("teammate");
+    db.update("INSERT INTO team_members(team_id,user_id,role,membership_type) VALUES(?,?,'MEMBER','PERMANENT')", team, teammate);
+    db.update(
+        "INSERT INTO products(id,owner_user_id,slug,title,summary,description,project_type,category,technology,contribution_text,approval_status,lifecycle_status,visibility,created_at,updated_at)"
+            + " SELECT md5('contributor-product-'||g)::uuid,?,md5('contributor-product-'||g),'Contributed '||g,'Customer portal','A working customer portal','SAAS','CRM','React','Built it','APPROVED','ACTIVE','PUBLIC',"
+            + " TIMESTAMPTZ '2025-01-01'+g*interval '1 second',TIMESTAMPTZ '2025-01-01'+g*interval '1 second' FROM generate_series(1,57) g",
+        applicant);
+    String owned = "/api/v1/developer/products?lifecycleStatus=ACTIVE";
+    var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+    String first = mvc.perform(get(owned).cookie(new Cookie("gl_session", "applicant")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items.length()").value(50))
+        .andExpect(jsonPath("$.totalOwned").value(57))
+        .andExpect(jsonPath("$.capacity.extraLimit").value(57))
+        .andExpect(jsonPath("$.hasMore").value(true))
+        .andReturn().getResponse().getContentAsString();
+    String next = mvc.perform(get(owned + "&page=1").cookie(new Cookie("gl_session", "applicant")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items.length()").value(7))
+        .andExpect(jsonPath("$.hasMore").value(false))
+        .andReturn().getResponse().getContentAsString();
+    Set<String> seen = new HashSet<>();
+    for (var row : mapper.readTree(first).get("items")) assertTrue(seen.add(row.get("id").asText()));
+    for (var row : mapper.readTree(next).get("items")) assertTrue(seen.add(row.get("id").asText()));
+    assertEquals(57, seen.size());
+    String older = mapper.readTree(next).get("items").get(6).get("id").asText();
+    String base = "/api/v1/teams/" + team;
+    mvc.perform(json(post(base + "/projects"), "owner", "{\"productId\":\"" + product + "\"}"))
+        .andExpect(status().isOk());
+    mvc.perform(json(post(base + "/projects"), "client", "{\"productId\":\"" + older + "\"}"))
+        .andExpect(status().isForbidden());
+    mvc.perform(json(post(base + "/projects"), "applicant", "{\"productId\":\"" + older + "\"}"))
+        .andExpect(status().isOk());
+    for (String actor : List.of("applicant", "owner"))
+      mvc.perform(get(base + "/workspace?collection=projects&size=1&page=1").cookie(new Cookie("gl_session", actor)))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.projects[0].id").value(older))
+          .andExpect(jsonPath("$.projects[0].canWithdraw").value(true))
+          .andExpect(jsonPath("$.projects[0].ownerId").doesNotExist())
+          .andExpect(jsonPath("$.projects[0].owner_user_id").doesNotExist())
+          .andExpect(jsonPath("$.projects[0].consented_by").doesNotExist());
+    mvc.perform(get(base + "/workspace?collection=projects&size=1&page=1").cookie(new Cookie("gl_session", "teammate")))
+        .andExpect(jsonPath("$.projects[0].canWithdraw").value(false));
+    mvc.perform(get(base + "/workspace?collection=projects&page=1").cookie(new Cookie("gl_session", "client")))
+        .andExpect(status().isForbidden());
+    mvc.perform(get(base + "?collection=projects&size=1&page=1"))
+        .andExpect(jsonPath("$.projects[0].id").value(older))
+        .andExpect(jsonPath("$.projects[0].canWithdraw").doesNotExist());
+    for (String actor : List.of("teammate", "client"))
+      mvc.perform(json(delete(base + "/projects/" + older), actor, "{}"))
+          .andExpect(status().isForbidden());
+    assertEquals(2, db.queryForObject("SELECT count(*) FROM team_projects WHERE team_id=?", Integer.class, team));
+    mvc.perform(json(delete(base + "/projects/" + older), "applicant", "{}"))
+        .andExpect(status().isOk());
+    mvc.perform(get(base + "/workspace?collection=projects").cookie(new Cookie("gl_session", "applicant")))
+        .andExpect(jsonPath("$.projects.length()").value(1))
+        .andExpect(jsonPath("$.projects[0].canWithdraw").value(false));
+    mvc.perform(json(post(base + "/projects"), "applicant", "{\"productId\":\"" + older + "\"}"))
+        .andExpect(status().isOk());
+    mvc.perform(json(delete(base + "/projects/" + older), "owner", "{}"))
+        .andExpect(status().isOk());
+  }
+
+  @Test
+  void profileNormalizesOnlyKnownAvailabilityLabelsWithoutRestrictingFreeTextClients() throws Exception {
+    String base = "/api/v1/teams/" + team;
+    for (String value : List.of("Open to projects", "Available now", "AVAILABLE_NOW", "  available NOW  ")) {
+      String body = "{\"name\":\"Studio\",\"summary\":\"A team that builds customer software\",\"availability\":\"" + value + "\",\"projectRange\":\"5k\"}";
+      mvc.perform(json(put(base), "owner", body)).andExpect(status().isOk())
+          .andExpect(jsonPath("$.availability").value("AVAILABLE_NOW"));
+    }
+    String custom = "Ask after our R&D milestone";
+    mvc.perform(json(put(base), "owner", "{\"name\":\"Studio\",\"summary\":\"A team that builds customer software\",\"availability\":\"" + custom + "\",\"projectRange\":\"5k\"}"))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.availability").value(custom));
+    mvc.perform(get(base)).andExpect(jsonPath("$.team.availability").value(custom));
+    mvc.perform(json(post("/api/v1/teams"), "owner", "{\"name\":\"New studio\",\"summary\":\"A team that builds customer software\",\"availability\":\"Open to projects\",\"projectRange\":\"5k\"}"))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.availability").value("AVAILABLE_NOW"));
+  }
+
+  @Test
   void publicConsentRecruitmentAndExpiry() throws Exception {
     String base = "/api/v1/teams/" + team;
     mvc.perform(json(post(base + "/projects"), "owner", "{\"productId\":\"" + product + "\"}"))
