@@ -30,6 +30,12 @@ test('developer defaults, package engines, every CI Node action and Docker stage
   const pkg = JSON.parse(read('package.json')), lock = JSON.parse(read('package-lock.json'));
   assert.equal(pkg.engines.node, '>=22.23.4 <23 || >=24.22.1 <25');
   assert.deepEqual(lock.packages[''].engines, pkg.engines);
+  for (const framework of ['vue', 'svelte', 'angular']) {
+    const example = JSON.parse(read(`examples/frameworks/${framework}/package.json`));
+    const exampleLock = JSON.parse(read(`examples/frameworks/${framework}/package-lock.json`));
+    assert.equal(example.engines.node, pkg.engines.node, framework + ': source download must require a patched runtime');
+    assert.deepEqual(exampleLock.packages[''].engines, example.engines, framework + ': lock root must match the source prerequisite');
+  }
   let actions = 0;
   for (const file of readdirSync(join(root, '.github/workflows')).filter(name => /\.ya?ml$/.test(name))) {
     const source = read('.github/workflows/' + file);

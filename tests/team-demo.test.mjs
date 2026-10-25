@@ -65,7 +65,7 @@ test('open role lifecycle and search',async()=>{
 test('account compatibility, application contract terms and final decisions',async()=>{
  const d=createTeamDemo();const me=await d.request('/me');assert.equal(me.profile.approval_status,'APPROVED');assert.ok(me.roles.includes('DEVELOPER'));assert.equal((await d.request('/developer/products')).items[0].id,'product-owner');
  d.setActor('applicant');const a=await send(d,team+'/roles/role-frontend/applications',{message:'Accessible React development'});assert.equal(a.status,'APPLIED');d.setActor('owner');await send(d,team+'/applications/'+a.id+'/decision',{status:'SHORTLISTED'});await denied(send(d,team+'/applications/'+a.id+'/decision',{status:'SHORTLISTED'}),409);await send(d,team+'/applications/'+a.id+'/decision',{status:'INVITED'});d.setActor('applicant');const i=(await d.request('/me/teams')).invitations[0];assert.equal(i.membershipType,'CONTRACT');assert.ok(Date.parse(i.expiresAt)>Date.now());
- d.setActor('unverified');assert.equal((await d.request('/me')).emailVerified,false);assert.deepEqual((await d.request('/developer/products')).items,[]);
+ d.setActor('unverified');assert.equal((await d.request('/me')).emailVerified,false);await denied(d.request('/developer/products'));await denied(d.request('/developer/products?page=1'));
 });
 test('permanent invitations also expire; closed roles cannot issue invitations',async()=>{
  const d=createTeamDemo(),clock=Date.now;const i=await send(d,team+'/invitations',invitation);d.setActor('applicant');try{Date.now=()=>clock()+15*86400000;await denied(send(d,'/team-invitations/'+i.id+'/respond',{action:'ACCEPT'}),400);}finally{Date.now=clock;}

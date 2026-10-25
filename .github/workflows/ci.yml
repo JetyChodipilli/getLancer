@@ -170,18 +170,7 @@ jobs:
           retention-days: 7
       - run: npx tsc --noEmit
       - name: Rebuild original Vue, Svelte and Angular previews from pinned source
-        run: node scripts/build-framework-material.mjs --native
-      - name: Retain trusted rebuilt framework metadata for source-prerequisite repair
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: native-framework-metadata-${{ github.event.pull_request.head.sha || github.sha }}
-          path: |
-            app/components/frameworks/material.json
-            app/components/frameworks/index.json
-          if-no-files-found: error
-          retention-days: 1
-      - name: Verify rebuilt native framework sources and archives
-        run: node scripts/verify-framework-previews.mjs
+        run: node scripts/verify-framework-previews.mjs --native
       - run: npm run build
       - name: Check published frontend assets for private keys and source maps
         run: node scripts/check-frontend-security.mjs
