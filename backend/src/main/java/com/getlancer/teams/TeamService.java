@@ -235,7 +235,7 @@ public class TeamService {
         name.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "-") + "-" + t,
         name,
         text(b, "summary", 10, 3000),
-        text(b, "availability", 1, 60),
+        TeamPolicy.normalizeAvailability(text(b, "availability", 1, 60)),
         text(b, "projectRange", 0, 200),
         u);
     db.update(
@@ -311,7 +311,8 @@ public class TeamService {
 
   @Transactional
   public Map<String, Object> workspace(UUID id, HttpServletRequest r) {
-    String role = member(id, security.user(r));
+    UUID viewer = security.user(r);
+    String role = member(id, viewer);
     Map<String, Object> x = new LinkedHashMap<>();
     x.put("team", team(id));
     x.put("myRole", role);
@@ -326,7 +327,13 @@ public class TeamService {
     }
     page(x, selected, "members", r, true, MEMBERS, id);
     var projects = page(x, selected, "projects", r, true, PROJECTS, id);
-    if (projects != null) x.put("projects", products.dtos(Pages.items(projects)));
+    if (projects != null) {
+      var rows = Pages.items(projects);
+      var dtos = products.dtos(rows);
+      for (int i = 0; i < rows.size(); i++)
+        dtos.get(i).put("canWithdraw", TeamPolicy.permits(role, "owner") || viewer.equals(rows.get(i).get("owner_user_id")));
+      x.put("projects", dtos);
+    }
     page(x, selected, "invitations", r, recruit, INVITE + "WHERE i.team_id=? ORDER BY i.created_at DESC,i.id", id);
     page(x, selected, "roles", r, true, ROLE + "WHERE team_id=? ORDER BY created_at DESC,id", id);
     page(x, selected, "applications", r, recruit, APPLICATION + "WHERE a.team_id=? ORDER BY a.created_at DESC,a.id", id);
@@ -353,7 +360,7 @@ public class TeamService {
         "UPDATE teams SET name=?,summary=?,availability=?,project_range=? WHERE id=?",
         text(b, "name", 2, 120),
         text(b, "summary", 10, 3000),
-        text(b, "availability", 1, 60),
+        TeamPolicy.normalizeAvailability(text(b, "availability", 1, 60)),
         text(b, "projectRange", 0, 200),
         id);
     audit(id, u, "TEAM_UPDATED", "Team profile updated", "member");

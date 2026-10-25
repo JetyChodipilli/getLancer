@@ -1,0 +1,21 @@
+# Seven functional defect repairs and Node security
+
+This change repairs current-main defects found by the25October2026 source review. Application-code verification and production acceptance remain separate. The existing independent runtime/payment activation controls and launch gates still apply.
+
+|Defect|Result|Behavior regression|
+|---|---|---|
+|Ambiguous source upload commit|Only confirmed rollback or failure before transaction entry removes a new object. Unknown/committed exceptions retain immutable bytes for reconciliation.|CommerceUploadCommitTest; CommerceIntegrationTest.lostCommitAcknowledgementKeepsTheCommittedArchiveAndExistingPurchaseSnapshot|
+|Stale operator budgets|Operations response and budget-pressure alerts use current stored caps from the same SQL snapshot as reservations; admission remains unchanged.|OperationsIntegrationTest.currentOperatorBudgetsDrivePressureAtNinetyPercentAndReturnToNormalAtDefaults|
+|Private grant records past50|Bounded continuation preserves retries, current owner authority and exact-email revocation; stale product/mutation/page results are ignored.|PrivateAccessPaginationIntegrationTest; browser/private-access-continuation.spec.ts|
+|Trust records past100|Owner projects/awards and admin verified/pending/outcome collections retain their array keys and gain bounded stable page metadata and controls.|TrustPaginationIntegrationTest; browser/trust-continuation.spec.ts|
+|Team products past50|Owned-product continuation supports older contributions; private viewer-specific canWithdraw no longer depends on the first owner page or public ownership identifiers.|TeamsIntegrationTest.expandedOwnerCatalogueAndPrivateConsentKeepOlderContributionsReachable; browser/team-contribution-continuation.spec.ts|
+|Team availability mismatch|New forms submit canonical statuses. Known legacy labels match available-only briefs; unknown legacy text remains unchanged and never implies availability.|TeamsIntegrationTest.profileNormalizesOnlyKnownAvailabilityLabelsWithoutRestrictingFreeTextClients; BusinessIntegrationTest; tests/teams.test.mjs|
+|Delivery records past200|Bounded authorized pages replace the fixed ceiling. Explicit valid old engagement IDs open independently, remain selected and fail visibly on denial.|DeliveryIntegrationTest.boundedContinuationAndDirectOldRecordRecheckCurrentCommercialAuthority; browser/delivery-continuation.spec.ts|
+
+Pages default to50 and cap at100 through existing Pages.query. MoreRecords preserves bounded retry/focus feedback. Each page retains current server authorization. Existing initial array response keys and isolated previews remain supported. No schema migration, new dependency or production activation is introduced.
+
+Node CI, developer defaults and both Node Docker stages now pin **22.23.4 LTS**. Local tooling accepts stable patched22.x starting22.23.4 or24.x starting24.22.1; vulnerable patches, unsupported majors and prereleases are denied before setup writes. Native reviewed manifests remain in the existing Node22 family and require at least22.23.4 plus their exact current image/source/certification bindings. Old vulnerable signed versions are denied; replacing a real runtime still requires its actual image rebuild, review and certification.
+
+Primary sources: [Node security releases,21October2026](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases), [Node22.23.4 LTS](https://nodejs.org/en/blog/release/v22.23.4), [official Node image inventory](https://github.com/docker-library/official-images/blob/master/library/node). These establish release/tag provenance, not deployed image qualification.
+
+Tests exercise positive and negative boundaries, including actual Spring transaction-completion callbacks and a PostgreSQL commit whose acknowledgement is deliberately lost. Full exact-head CI remains authoritative for service/browser/native/container/restore execution; the locally available patched Node 24.22.1 ran focused pure tests and TypeScript checking. Maven/PostgreSQL/Docker are unavailable locally. Prior rejected local application/qualification destinations were not retried. No local browser, real provider, merchant transaction or production acceptance is claimed.

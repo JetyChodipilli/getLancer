@@ -51,7 +51,7 @@ test('actual builder CLI creates checked material and --verify succeeds in a cle
   for (const args of [[], ['--verify']]) {
     const result = spawnSync(process.execPath, ['scripts/build-iot-material.mjs', ...args], {cwd: temporary, encoding: 'utf8', timeout: 10000, maxBuffer: 16384}); assert.equal(result.status, 0, result.stderr); assert.equal(result.stderr, ''); assert.match(result.stdout, /^IOT_MATERIAL_OK /); const checked = JSON.parse(result.stdout.slice('IOT_MATERIAL_OK '.length)); assert.equal(checked.currentActions, 5); assert.equal(checked.cleanExtractedActions, 5); assert.equal(checked.cleanupEmpty, true);
   }
-  const index = JSON.parse(await readFile(join(temporary, 'public/iot/material-index.json'), 'utf8')); assert.equal(index.sourceLicense, 'MIT'); assert.equal(index.physicalProof, null); assert(index.setup.startsWith('Node 22.18+')); const archive = await readFile(join(temporary, 'public/iot/source.tar.gz')); const {files} = await sourceFiles(); assert.equal(unpackArchive(archive, files).size, 11);
+  const index = JSON.parse(await readFile(join(temporary, 'public/iot/material-index.json'), 'utf8')); assert.equal(index.sourceLicense, 'MIT'); assert.equal(index.physicalProof, null); assert(index.setup.startsWith('Node 22.23.4+')); const archive = await readFile(join(temporary, 'public/iot/source.tar.gz')); const {files} = await sourceFiles(); assert.equal(unpackArchive(archive, files).size, 11);
 });
 
 test('source drift during checking refuses every artifact write', async t => {

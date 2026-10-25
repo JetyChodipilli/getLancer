@@ -8,6 +8,7 @@ import com.getlancer.products.ProductRepository;
 import com.getlancer.products.ProductService;
 import com.getlancer.security.Security;
 import com.getlancer.shared.ApiError;
+import com.getlancer.shared.Pages;
 import com.getlancer.shared.Support;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
@@ -53,6 +54,7 @@ public class TrustService {
 
   public Map<String, Object> overview(HttpServletRequest r) {
     UUID u = security.developer(r, false);
+    String selected = collection(r, Set.of("projects", "awards"));
     Map<String, Object> result = new LinkedHashMap<>();
     result.put(
         "profile",
@@ -67,22 +69,37 @@ public class TrustService {
             Integer.class,
             u));
     result.put("publishingCapacity",publishing.capacity(u,"PROJECT"));
-    result.put(
-        "projects",
-        db.queryForList(
+    page(result, selected, "projects", r,
             "SELECT p.id,p.title,p.repository_url,p.demo_health,p.demo_checked_at,v.status AS"
                 + " verification_status,v.challenge,v.expires_at,v.reason FROM products p LEFT JOIN"
                 + " repository_verifications v ON v.product_id=p.id AND"
                 + " v.repository_url=p.repository_url WHERE p.owner_user_id=? ORDER BY p.updated_at"
-                + " DESC LIMIT 100",
-            u));
-    result.put(
-        "awards",
-        db.queryForList(
+                + " DESC,p.id",
+            u);
+    page(result, selected, "awards", r,
             "SELECT inquiry_id,reason,created_at FROM earned_capacity_awards WHERE user_id=? ORDER"
-                + " BY created_at DESC",
-            u));
+                + " BY created_at DESC,inquiry_id",
+            u);
     return result;
+  }
+
+  String collection(HttpServletRequest r, Set<String> allowed) {
+    String selected = r.getParameter("collection");
+    if (selected != null && !allowed.contains(selected))
+      throw new ApiError(400, "VALIDATION_ERROR", "Choose a valid collection.");
+    return selected;
+  }
+
+  void page(Map<String, Object> response, String selected, String key,
+      HttpServletRequest r, String sql, Object... args) {
+    if (selected != null && !selected.equals(key)) return;
+    var result = Pages.query(db, r, sql, args);
+    response.put(key, result.get("items"));
+    @SuppressWarnings("unchecked")
+    var metadata = (Map<String, Object>) response.computeIfAbsent("pages", unused -> new LinkedHashMap<>());
+    var summary = new LinkedHashMap<>(result);
+    summary.remove("items");
+    metadata.put(key, summary);
   }
 
   @Transactional
@@ -145,26 +162,25 @@ public class TrustService {
 
   public Map<String, Object> queue(HttpServletRequest r) {
     security.admin(r);
-    return Map.of(
-        "verified",
-        db.queryForList(
+    String selected = collection(r, Set.of("verified", "verifications", "eligibleOutcomes"));
+    Map<String, Object> result = new LinkedHashMap<>();
+    page(result, selected, "verified", r,
             "SELECT v.product_id,v.repository_url,v.reviewed_at,p.title FROM"
                 + " repository_verifications v JOIN products p ON p.id=v.product_id WHERE"
                 + " v.status='VERIFIED' AND v.repository_url=p.repository_url ORDER BY"
-                + " v.reviewed_at DESC LIMIT 100"),
-        "verifications",
-        db.queryForList(
+                + " v.reviewed_at DESC,v.product_id");
+    page(result, selected, "verifications", r,
             "SELECT v.product_id,v.repository_url,v.challenge,v.status,v.requested_at,v.expires_at,v.reviewed_at,v.reviewer_id,v.reason,p.title FROM repository_verifications v JOIN products p ON"
                 + " p.id=v.product_id WHERE v.status='PENDING' AND v.expires_at>now() AND"
-                + " v.repository_url=p.repository_url ORDER BY v.requested_at LIMIT 100"),
-        "eligibleOutcomes",
-        db.queryForList(
+                + " v.repository_url=p.repository_url ORDER BY v.requested_at,v.product_id");
+    page(result, selected, "eligibleOutcomes", r,
             "SELECT i.id,i.developer_user_id,d.display_name,p.title FROM inquiries i JOIN users u"
                 + " ON u.id=i.developer_user_id JOIN developer_profiles d ON d.user_id=u.id JOIN"
                 + " products p ON p.id=i.reference_product_id WHERE "
                 + ELIGIBLE
                 + " AND NOT EXISTS(SELECT 1 FROM earned_capacity_awards a WHERE a.inquiry_id=i.id)"
-                + " ORDER BY i.updated_at LIMIT 100"));
+                + " ORDER BY i.updated_at,i.id");
+    return result;
   }
 
   static final String ELIGIBLE =

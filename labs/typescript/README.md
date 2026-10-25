@@ -2,7 +2,7 @@
 
 These three disposable labs execute real HTTP requests and Redis commands. Authorization identities and payment events are synthetic fixtures. The payment emulator never moves money. Local evidence does not certify a hosted runtime.
 
-Use Node **22.18 or newer** and Redis **7.2.16**. No npm packages, app account, platform token, or merchant credentials are needed. The repository source package includes the shared protocol, fixture values, and verifier.
+Use stable Node **22.23.4 or later in Node 22** and Redis **7.2.16**. CI and the local lab Docker image use Node 22.23.4. No npm packages, app account, platform token, or merchant credentials are needed. The repository source package includes the shared protocol, fixture values, and verifier.
 
 Start pinned Redis locally with persistence disabled:
 

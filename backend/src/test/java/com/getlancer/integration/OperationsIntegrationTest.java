@@ -12,6 +12,7 @@ import com.getlancer.testing.TestDatabaseGuard;
 import jakarta.servlet.http.Cookie;
 import java.util.Map;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,11 +40,15 @@ class OperationsIntegrationTest {
     return id;
   }
   @BeforeEach void seed() {
+    db.execute("TRUNCATE lab_manifests CASCADE");
     db.execute("TRUNCATE users CASCADE");
     db.execute("TRUNCATE analytics_events,analytics_daily_counts,rate_buckets");
-    db.update("UPDATE lab_runtime_settings SET paused=false,pause_reason='',observed_epoch=NULL,worker_observed_at=NULL WHERE id=1");
+    db.update("UPDATE lab_runtime_settings SET paused=false,pause_reason='',observed_epoch=NULL,worker_observed_at=NULL,daily_run_limit=5,max_active_runs=10,max_memory_mib=5120,daily_budget_micros=50000000,monthly_budget_micros=1000000000 WHERE id=1");
     admin=user("operations-admin",true);
     user("operations-member",false);
+  }
+  @AfterEach void resetLimits() {
+    db.update("UPDATE lab_runtime_settings SET daily_run_limit=5,max_active_runs=10,max_memory_mib=5120,daily_budget_micros=50000000,monthly_budget_micros=1000000000 WHERE id=1");
   }
   JsonNode snapshot()throws Exception {
     String raw=mvc.perform(get("/api/v1/admin/operations").cookie(new Cookie("gl_session","operations-admin")))
@@ -54,6 +59,20 @@ class OperationsIntegrationTest {
   }
   org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder observation(Map<String,Object> body)throws Exception {
     return post("/api/v1/analytics/events").header("Origin","http://localhost:3000").header("X-Requested-With","getlancer").contentType("application/json").content(json.writeValueAsString(body));
+  }
+  boolean budgetPressure(JsonNode result) {
+    return java.util.stream.StreamSupport.stream(result.get("alerts").spliterator(),false).anyMatch(alert->alert.get("code").asText().equals("BUDGET_PRESSURE"));
+  }
+  void reserveBudget(long cost,String key) {
+    db.update("INSERT INTO lab_manifests(id,payload_text,payload_sha256,signature,execution_approved) VALUES('operations-budget-fixture','{}',?,'',false) ON CONFLICT DO NOTHING","a".repeat(64));
+    db.update("INSERT INTO lab_runs(id,owner_id,manifest_id,scenario_id,request_hash,idempotency_key,inputs,manifest_sha256,image_digest,operator_epoch,status,expires_at,healthy_at,cleanup_confirmed_at,memory_mib,cost_micros) VALUES(?,?,'operations-budget-fixture','request',?,?,'{}'::jsonb,?,?,?,'SUCCEEDED',now()+interval '5 minutes',now(),now(),64,?)",
+        UUID.randomUUID(),admin,"a".repeat(64),key,"b".repeat(64),"sha256:"+"c".repeat(64),UUID.randomUUID(),cost);
+  }
+  JsonNode limits(long daily,long monthly)throws Exception {
+    return json.readTree(mvc.perform(post("/api/v1/admin/labs/limits").cookie(new Cookie("gl_session","operations-admin"))
+        .header("Origin","http://localhost:3000").header("X-Requested-With","getlancer").contentType("application/json")
+        .content(json.writeValueAsString(Map.of("dailyRunLimit",5,"maxActiveRuns",10,"maxMemoryMiB",5120,"dailyBudgetMicros",daily,"monthlyBudgetMicros",monthly,"reason","Tighten reservation budgets for operations verification."))))
+        .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
   }
   @Test void freshMfaRequiredAndEmptyCohortsDoNotInventPerformanceOrReadiness()throws Exception {
     mvc.perform(get("/api/v1/admin/operations")).andExpect(status().isUnauthorized());
@@ -72,7 +91,35 @@ class OperationsIntegrationTest {
     assertFalse(result.at("/readiness/commerce/enabled").asBoolean());
     assertFalse(result.at("/readiness/productionCertified").asBoolean());
     assertEquals(50_000_000,result.at("/resources/dailyBudgetMicros").asLong());
+    assertEquals(1_000_000_000,result.at("/resources/monthlyBudgetMicros").asLong());
+    assertFalse(budgetPressure(result));
     assertTrue(result.get("funnels").get(0).get("ratePercent").isNull());
+  }
+  @Test void currentOperatorBudgetsDrivePressureAtNinetyPercentAndReturnToNormalAtDefaults()throws Exception {
+    reserveBudget(899_999,"budget-below-current-threshold");
+    var currentLimits=limits(1_000_000,1_000_000);
+    assertEquals(1_000_000,currentLimits.at("/limits/dailyBudgetMicros").asLong());
+    assertEquals(1_000_000,currentLimits.at("/limits/monthlyBudgetMicros").asLong());
+    var below=snapshot();
+    assertEquals(1_000_000,below.at("/resources/dailyBudgetMicros").asLong());
+    assertEquals(1_000_000,below.at("/resources/monthlyBudgetMicros").asLong());
+    assertEquals(899_999,below.at("/resources/dailyReservedMicros").asLong());
+    assertEquals(899_999,below.at("/resources/monthlyReservedMicros").asLong());
+    assertFalse(budgetPressure(below));
+    reserveBudget(1,"budget-at-current-threshold");
+    var pressure=snapshot();
+    assertEquals(900_000,pressure.at("/resources/dailyReservedMicros").asLong());
+    assertEquals(900_000,pressure.at("/resources/monthlyReservedMicros").asLong());
+    assertTrue(budgetPressure(pressure));
+    assertFalse(pressure.at("/readiness/runtime/enabled").asBoolean());
+    assertFalse(pressure.at("/readiness/productionCertified").asBoolean());
+    assertEquals(0,db.queryForObject("SELECT count(*) FROM lab_outbox",Integer.class));
+    limits(50_000_000,1_000_000_000);
+    var defaults=snapshot();
+    assertEquals(50_000_000,defaults.at("/resources/dailyBudgetMicros").asLong());
+    assertEquals(1_000_000_000,defaults.at("/resources/monthlyBudgetMicros").asLong());
+    assertEquals(900_000,defaults.at("/resources/dailyReservedMicros").asLong());
+    assertFalse(budgetPressure(defaults));
   }
   @Test void consentIdentityArtifactAuthorityAndFixedPropertiesPreventForgedLiveEvents()throws Exception {
     UUID event=UUID.randomUUID();

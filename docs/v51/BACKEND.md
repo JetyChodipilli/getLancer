@@ -9,12 +9,12 @@ New manifests carry `adapter: {runtime, version, state}` inside their existing s
 | Language | Signed runtime | Reviewed family | Scenarios |
 | --- | --- | --- | --- |
 | Java | `jdk` | 17.x | cache, security, payment |
-| TypeScript | `node` | 22.18 or later in Node 22 | cache, security, payment |
+| TypeScript | `node` | 22.23.4 or later in Node 22 | cache, security, payment |
 | Python | `python` | 3.12.x | cache, security, payment |
 | Go | `go` | 1.24.x | cache, security, payment |
 | C# / .NET | `dotnet` | 8.x | cache, security, payment |
 | PHP | `php` | 8.3.x | cache, security, payment |
-| JavaScript (IoT runtime) | `node` | 22.18 or later in Node 22 | greenhouse-monitor |
+| JavaScript (IoT runtime) | `node` | 22.23.4 or later in Node 22 | greenhouse-monitor |
 
 Versions outside the reviewed family, language/runtime mismatch, unknown scenarios or language, disabled/retired adapters and a new adapter without an explicit version fail closed. An operator signature alone does not override this allowlist. Historical signed Java/TypeScript/Python manifests retain their three-pattern contract. Existing test-only Protocol/Fixture manifests and historical Python data/CPU manifests preserve their existing signed contracts and independent data/AI gate. A general native pattern cannot be relabelled as data/AI to obtain a different resource class.
 

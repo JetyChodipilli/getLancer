@@ -226,6 +226,49 @@ class BusinessIntegrationTest {
   }
 
   @Test
+  void availableOnlyTeamMatchingRecognizesLegacyLabelsAndCanonicalProfileSubmissions() throws Exception {
+    UUID r = request("OPEN");
+    String path = root() + "/requests/" + r + "/matches";
+    for (String legacy : List.of("Open to projects", "Available now", "AVAILABLE_NOW", "  aVailable now  ")) {
+      // Existing rows have not been migrated or rewritten through the profile API.
+      db.update("UPDATE teams SET availability=? WHERE id=?", legacy, team);
+      String response = mvc.perform(as(get(path), "owner"))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.items[?(@.kind == 'TEAM')].targetId").value(org.hamcrest.Matchers.contains(team.toString())))
+          .andReturn().getResponse().getContentAsString();
+      for (var candidate : mapper.readTree(response).get("items"))
+        if (candidate.get("kind").asText().equals("TEAM"))
+          assertTrue(candidate.get("reasons").toString().contains("Available now (self-reported)"));
+      assertEquals(legacy, db.queryForObject("SELECT availability FROM teams WHERE id=?", String.class, team));
+    }
+    for (String unavailable : List.of("Unavailable", "NOT_ACCEPTING", "LIMITED", "Available after summer", "Ask after our R&D milestone")) {
+      db.update("UPDATE teams SET availability=? WHERE id=?", unavailable, team);
+      mvc.perform(as(get(path), "owner"))
+          .andExpect(jsonPath("$.items[?(@.kind == 'TEAM')]").isEmpty());
+      db.update("UPDATE business_requests SET available_only=false WHERE id=?", r);
+      String response = mvc.perform(as(get(path), "owner"))
+          .andExpect(jsonPath("$.items[?(@.kind == 'TEAM')].availability").value(org.hamcrest.Matchers.contains(unavailable)))
+          .andReturn().getResponse().getContentAsString();
+      for (var candidate : mapper.readTree(response).get("items"))
+        if (candidate.get("kind").asText().equals("TEAM"))
+          for (var reason : candidate.get("reasons"))
+            assertNotEquals("Available now (self-reported)", reason.asText());
+      db.update("UPDATE business_requests SET available_only=true WHERE id=?", r);
+    }
+    // The ordinary team form's default canonical status must reach the same matcher.
+    mvc.perform(json(put("/api/v1/teams/" + team), "builder",
+        "{\"name\":\"Studio\",\"summary\":\"Customer software studio\",\"availability\":\"AVAILABLE_NOW\",\"projectRange\":\"10k\"}"))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.availability").value("AVAILABLE_NOW"));
+    mvc.perform(as(get(path), "owner"))
+        .andExpect(jsonPath("$.items[?(@.kind == 'TEAM')].targetId").value(org.hamcrest.Matchers.contains(team.toString())));
+    mvc.perform(json(put("/api/v1/teams/" + team), "builder",
+        "{\"name\":\"Studio\",\"summary\":\"Customer software studio\",\"availability\":\"NOT_ACCEPTING\",\"projectRange\":\"10k\"}"))
+        .andExpect(status().isOk());
+    mvc.perform(as(get(path), "owner"))
+        .andExpect(jsonPath("$.items[?(@.kind == 'TEAM')]").isEmpty());
+  }
+
+  @Test
   void matchingReflectsCurrentProofMembershipAndVerification() throws Exception {
     UUID r = request("OPEN");
     String path = root() + "/requests/" + r + "/matches";

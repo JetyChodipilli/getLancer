@@ -6,7 +6,7 @@ Node standard-library MQTT broker/device/HTTP reproduction. All source is free.
 
 ## Account-free local reproduction
 
-Install Node 22.18+ separately. Extract `source.tar.gz`; in the extracted root:
+Install stable Node 22.23.4+ in Node 22 separately. CI and the local lab Docker image use Node 22.23.4. Extract `source.tar.gz`; in the extracted root:
 
 ```sh
 LAB_RUN_ID=00000000-0000-4000-8000-000000000001 node runtime.mjs

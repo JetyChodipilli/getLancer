@@ -6,6 +6,20 @@ export type DeliveryActivity = {id:string;kind?:string;action?:string;detail:str
 export type DeliveryDispute = {id:string;reason:string;status:string;resolution?:string|null;createdAt:string};
 export type Engagement = {id:string;title:string;status:string;side:'BUYER'|'SELLER';sourceInquiryId?:string|null;businessRequestId?:string|null;buyerUserId?:string|null;businessId?:string|null;builderUserId?:string|null;teamId?:string|null;createdAt:string};
 export type EngagementDetail = Engagement & {proposals:Proposal[];milestones:Milestone[];activity:DeliveryActivity[];disputes:DeliveryDispute[];agreement:Agreement|null};
+export type EngagementPage = {items:Engagement[];page:number;hasMore:boolean;size?:number};
+/** Older clients and the local preview may still supply just an array or items. */
+export function engagementPage(value:unknown):EngagementPage {
+ const data=value&&typeof value==='object'&&!Array.isArray(value)?value as Record<string,unknown>:{},items=Array.isArray(value)?value:data.items;
+ if(!Array.isArray(items)||items.some(item=>!item||typeof item!=='object'||typeof item.id!=='string'||typeof item.title!=='string'||typeof item.status!=='string'||typeof item.createdAt!=='string'||!['BUYER','SELLER'].includes(item.side)))throw new Error('The engagement list could not be verified. Please retry.');
+ if(Array.isArray(value)||data.page===undefined&&data.hasMore===undefined)return {items,page:0,hasMore:false};
+ if(!Number.isInteger(data.page)||Number(data.page)<0||typeof data.hasMore!=='boolean'||!Number.isInteger(data.size)||Number(data.size)<1||Number(data.size)>100)throw new Error('The engagement page could not be verified. Please retry.');
+ if(items.length>Number(data.size))throw new Error('The engagement page exceeded its bound. Please retry.');
+ return {items,page:Number(data.page),hasMore:data.hasMore,size:Number(data.size)};
+}
+/** Keep an independently opened engagement and deduplicate it when its page arrives. */
+export function mergeEngagements(current:Engagement[],incoming:Engagement[]):Engagement[] {
+ const rows=new Map(current.map(item=>[item.id,item]));for(const item of incoming)rows.set(item.id,item);return [...rows.values()];
+}
 export type PaymentSummary = {id:string;milestoneId:string;status:string;amountMinor:number;currency:string;orderId?:string|null;paymentId?:string|null;refundedMinor:number;transferStatus?:string|null;mode?:'test'|'live'};
 export type PaymentConfig = {enabled:boolean;keyId?:string|null;mode:'disabled'|'test'|'live';reason?:string|null};
 export type CheckoutOrder = {id:string;orderId?:string|null;amountMinor:number;currency:string;keyId?:string|null;mode:string;status:string};

@@ -6,6 +6,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.getlancer.security.Security;
 import com.getlancer.shared.ApiError;
+import com.getlancer.shared.Pages;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.List;
@@ -122,16 +123,18 @@ public class DeliveryRepository {
     return row;
   }
 
-  List<Map<String, Object>> list(UUID actor) {
-    var rows = db.queryForList(ENGAGEMENT
-        + "WHERE e.buyer_user_id=? OR e.builder_user_id=? OR EXISTS(SELECT 1 FROM business_members m WHERE m.business_id=e.business_id AND m.user_id=?) OR EXISTS(SELECT 1 FROM team_members m WHERE m.team_id=e.team_id AND m.user_id=? AND m.role IN ('OWNER','BUSINESS_MANAGER') AND (m.expires_at IS NULL OR m.expires_at>clock_timestamp())) ORDER BY e.updated_at DESC,e.id LIMIT 200",
-        actor, actor, actor, actor);
+  Map<String, Object> list(UUID actor, HttpServletRequest request) {
+    boolean builder = approvedBuilder(actor);
+    var page = Pages.query(db, request, ENGAGEMENT
+        + "WHERE (e.buyer_user_id=? AND ?) OR (e.builder_user_id=? AND ?) OR EXISTS(SELECT 1 FROM business_members m WHERE m.business_id=e.business_id AND m.user_id=? AND m.role IN ('OWNER','HIRING_MANAGER')) OR (? AND EXISTS(SELECT 1 FROM team_members m JOIN teams t ON t.id=m.team_id WHERE m.team_id=e.team_id AND m.user_id=? AND m.role IN ('OWNER','BUSINESS_MANAGER') AND (m.expires_at IS NULL OR m.expires_at>clock_timestamp()) AND t.status='ACTIVE')) ORDER BY e.updated_at DESC,e.id",
+        actor, security.role(actor, "CLIENT"), actor, builder, actor, builder, actor);
     var result = new ArrayList<Map<String, Object>>();
-    for (var row : rows) {
+    for (var row : Pages.items(page)) {
       String side = side(row, actor, false);
       if (side != null) { row.put("side", side); result.add(row); }
     }
-    return result;
+    page.put("items", result);
+    return page;
   }
 
   Map<String, Object> inquiry(UUID source) {

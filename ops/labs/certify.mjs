@@ -206,8 +206,8 @@ export function verifyManifestBundle({manifestPath,expectedManifestSha256,...opt
   const adapter=manifest.adapter, certificate=manifest.certification;
   if(!adapter||Object.keys(adapter).sort().join(',')!=='runtime,state,version'||adapter.state!=='ACTIVE'||!/^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(adapter.version||''))fail('Exact active native adapter is required.');
   const runtime=new Map([['java','jdk'],['typescript','node'],['javascript','node'],['python','python'],['go','go'],['c#','dotnet'],['.net','dotnet'],['c# / .net','dotnet'],['dotnet','dotnet'],['php','php']]).get(String(manifest.language).toLowerCase());
-  const [major,minor]=adapter.version.split('.').map(Number);
-  const family=runtime==='jdk'?major===17:runtime==='node'?major===22&&minor>=18:runtime==='python'?major===3&&minor===12:runtime==='go'?major===1&&minor===24:runtime==='dotnet'?major===8:runtime==='php'?major===8&&minor===3:false;
+  const [major,minor,patch]=adapter.version.split('.').map(Number);
+  const family=runtime==='jdk'?major===17:runtime==='node'?major===22&&(minor>23||minor===23&&patch>=4):runtime==='python'?major===3&&minor===12:runtime==='go'?major===1&&minor===24:runtime==='dotnet'?major===8:runtime==='php'?major===8&&minor===3:false;
   if(adapter.runtime!==runtime||!family||iot&&runtime!=='node'||manifest.framework!==(iot?'Node MQTT protocol':'Standard library'))fail('Framework and runtime combination is not reviewed.');
   if(!certificate||Object.keys(certificate).sort().join(',')!=='frameworkVersion,isolationVerified,licenceReviewed,maintainer,reproductionSha256,reproductionVerified,resourcesVerified,reviewedAt'||certificate.frameworkVersion!==adapter.version||typeof certificate.maintainer!=='string'||!/^([A-Za-z0-9][A-Za-z0-9._@+-]{2,99})$/.test(certificate.maintainer)||!HASH.test(certificate.reproductionSha256||''))fail('Exact maintainer and reproduction certification is required.');
   for(const field of ['licenceReviewed','reproductionVerified','resourcesVerified','isolationVerified'])if(certificate[field]!==true)fail('Every certification attestation is required.');

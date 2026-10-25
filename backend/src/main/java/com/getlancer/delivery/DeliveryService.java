@@ -35,7 +35,7 @@ public class DeliveryService {
   }
 
   public Map<String, Object> mine(HttpServletRequest request) {
-    return Map.of("items", repo.list(repo.verified(request)));
+    return repo.list(repo.verified(request), request);
   }
 
   @Transactional

@@ -19,9 +19,21 @@ test('local setup refuses remote hosts and preserves database name case',()=>{
   for(const url of ['jdbc:postgresql://db.example.com:5432/getLancer','jdbc:postgresql://user:secret@localhost:5432/getLancer','jdbc:postgresql://localhost:5432/getLancer?options=unexpected'])assert.throws(()=>localDatabase({...config,DB_URL:url}));
   assert.throws(()=>localDatabase({...config,APP_ENV:'production'}));
 });
+test('local setup rejects a vulnerable runtime before creating configuration or secrets',t=>{
+  const dir=mkdtempSync(join(tmpdir(),'getlancer-node-floor-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));mkdirSync(join(dir,'scripts'));
+  for(const file of ['setup-local.mjs','local-config.mjs','node-version.mjs'])copyFileSync(new URL('../scripts/'+file,import.meta.url),join(dir,'scripts',file));
+  writeFileSync(join(dir,'.env.example'),'APP_ENV=local\n');
+  const hook=join(dir,'runtime-version.mjs');
+  for(const version of ['v22.23.3','v24.22.0','v25.0.0']){
+    writeFileSync(hook,'Object.defineProperty(process,"version",{value:'+JSON.stringify(version)+'});\n');
+    const result=spawnSync(process.execPath,['--import',hook,join(dir,'scripts/setup-local.mjs')],{encoding:'utf8'});
+    assert.equal(result.status,1,result.stderr);assert.match(result.stderr,/Use stable Node 22\.23\.4/);
+    assert.throws(()=>statSync(join(dir,'.env')),{code:'ENOENT'});
+  }
+});
 test('setup generates missing service keys once without changing existing credentials',t=>{
   const dir=mkdtempSync(join(tmpdir(),'getlancer-setup-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));mkdirSync(join(dir,'scripts'));
-  for(const file of ['setup-local.mjs','local-config.mjs'])copyFileSync(new URL('../scripts/'+file,import.meta.url),join(dir,'scripts',file));
+  for(const file of ['setup-local.mjs','local-config.mjs','node-version.mjs'])copyFileSync(new URL('../scripts/'+file,import.meta.url),join(dir,'scripts',file));
   const file=join(dir,'.env');writeFileSync(file,'APP_ENV=local\nDB_URL=jdbc:postgresql://localhost:5432/getLancer\nDB_USERNAME=postgres\nDB_PASSWORD=existing-local-test-password\nDB_SCHEMA=getlancer\nADMIN_BOOTSTRAP_PASSWORD=existing-admin-test-password\nSMTP_HOST=localhost\nOBJECT_STORAGE_ENDPOINT=http://localhost:9000\nOBJECT_STORAGE_UPLOAD_ENDPOINT=http://localhost:9000\nOBJECT_STORAGE_ACCESS_KEY=REPLACE_WITH_LOCAL_ACCESS_KEY\n');
   const run=()=>spawnSync(process.execPath,[join(dir,'scripts/setup-local.mjs')],{encoding:'utf8'});
   const first=run();assert.equal(first.status,0,first.stderr);const values=readEnvironment(file);
@@ -38,7 +50,7 @@ test('setup generates missing service keys once without changing existing creden
 
 test('setup creates a private configuration from the example and preserves it on rerun',t=>{
  const dir=mkdtempSync(join(tmpdir(),'getlancer-new-setup-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));mkdirSync(join(dir,'scripts'));
- for(const name of ['setup-local.mjs','local-config.mjs'])copyFileSync(new URL('../scripts/'+name,import.meta.url),join(dir,'scripts',name));
+ for(const name of ['setup-local.mjs','local-config.mjs','node-version.mjs'])copyFileSync(new URL('../scripts/'+name,import.meta.url),join(dir,'scripts',name));
  const example='APP_ENV=local\nDB_URL=jdbc:postgresql://localhost:5432/getLancer\nDB_USERNAME=postgres\nDB_PASSWORD=example-fixture-private\nDB_SCHEMA=getlancer\nADMIN_EMAIL=\nSMTP_HOST=localhost\nOBJECT_STORAGE_ENDPOINT=http://localhost:9000\nOBJECT_STORAGE_UPLOAD_ENDPOINT=http://localhost:9000\nOBJECT_STORAGE_ACCESS_KEY=REPLACE_WITH_LOCAL_ACCESS_KEY\n';
  writeFileSync(join(dir,'.env.example'),example);
  const file=join(dir,'.env'),run=()=>spawnSync(process.execPath,[join(dir,'scripts/setup-local.mjs')],{encoding:'utf8'});
@@ -60,7 +72,7 @@ test('setup creates a private configuration from the example and preserves it on
 
 test('local setup refuses a symlink without touching its target',t=>{
  const dir=mkdtempSync(join(tmpdir(),'getlancer-symlink-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));mkdirSync(join(dir,'scripts'));
- for(const name of ['setup-local.mjs','local-config.mjs'])copyFileSync(new URL('../scripts/'+name,import.meta.url),join(dir,'scripts',name));
+ for(const name of ['setup-local.mjs','local-config.mjs','node-version.mjs'])copyFileSync(new URL('../scripts/'+name,import.meta.url),join(dir,'scripts',name));
  const target=join(dir,'protected-config');writeFileSync(target,'protected provider configuration',{mode:0o644});
  symlinkSync(target,join(dir,'.env'));
  const run=spawnSync(process.execPath,[join(dir,'scripts/setup-local.mjs')],{encoding:'utf8'});
@@ -70,7 +82,7 @@ test('local setup refuses a symlink without touching its target',t=>{
 
 test('local setup refuses a symlink inserted immediately before atomic configuration creation',t=>{
  const dir=mkdtempSync(join(tmpdir(),'getlancer-create-race-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));mkdirSync(join(dir,'scripts'));
- for(const name of ['setup-local.mjs','local-config.mjs'])copyFileSync(new URL('../scripts/'+name,import.meta.url),join(dir,'scripts',name));
+ for(const name of ['setup-local.mjs','local-config.mjs','node-version.mjs'])copyFileSync(new URL('../scripts/'+name,import.meta.url),join(dir,'scripts',name));
  writeFileSync(join(dir,'.env.example'),'APP_ENV=local\n');
  const file=join(dir,'.env'),target=join(dir,'protected-config');writeFileSync(target,'protected provider configuration',{mode:0o644});
  const hook=join(dir,'creation-race.mjs');
@@ -93,7 +105,7 @@ syncBuiltinESMExports();
 
 test('local setup refuses a hardlink without changing its target or permissions',t=>{
  const dir=mkdtempSync(join(tmpdir(),'getlancer-hardlink-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));mkdirSync(join(dir,'scripts'));
- for(const name of ['setup-local.mjs','local-config.mjs'])copyFileSync(new URL('../scripts/'+name,import.meta.url),join(dir,'scripts',name));
+ for(const name of ['setup-local.mjs','local-config.mjs','node-version.mjs'])copyFileSync(new URL('../scripts/'+name,import.meta.url),join(dir,'scripts',name));
  const target=join(dir,'protected-config');writeFileSync(target,'protected provider configuration',{mode:0o644});
  linkSync(target,join(dir,'.env'));
  const run=spawnSync(process.execPath,[join(dir,'scripts/setup-local.mjs')],{encoding:'utf8'});
@@ -103,7 +115,7 @@ test('local setup refuses a hardlink without changing its target or permissions'
 
 test('local setup rejects non-regular configuration without blocking or writing',t=>{
  const dir=mkdtempSync(join(tmpdir(),'getlancer-config-directory-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));mkdirSync(join(dir,'scripts'));
- for(const name of ['setup-local.mjs','local-config.mjs'])copyFileSync(new URL('../scripts/'+name,import.meta.url),join(dir,'scripts',name));
+ for(const name of ['setup-local.mjs','local-config.mjs','node-version.mjs'])copyFileSync(new URL('../scripts/'+name,import.meta.url),join(dir,'scripts',name));
  mkdirSync(join(dir,'.env'));
  const run=spawnSync(process.execPath,[join(dir,'scripts/setup-local.mjs')],{encoding:'utf8',timeout:3000});
  assert.equal(run.status,1);assert.equal(run.error,undefined);assert.equal(statSync(join(dir,'.env')).isDirectory(),true);
