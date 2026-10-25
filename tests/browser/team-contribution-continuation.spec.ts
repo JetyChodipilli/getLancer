@@ -102,6 +102,6 @@ test('ordinary team forms submit canonical availability while custom legacy text
  await page.getByText('Edit team profile',{exact:true}).click();
  await edit.getByLabel('Availability',{exact:true}).selectOption('NOT_ACCEPTING');
  await edit.getByRole('button',{name:'Save changes',exact:true}).click();
- await expect(page.locator('.studio-overview-grid aside').getByText('Not accepting',{exact:true})).toBeVisible();
+ await expect(page.locator('.studio-overview-grid aside').getByRole('paragraph').filter({hasText:/^Not accepting$/})).toBeVisible();
  expect((await page.evaluate(()=>(window as unknown as State).teamWrites)).at(-1)?.availability).toBe('NOT_ACCEPTING');
 });
