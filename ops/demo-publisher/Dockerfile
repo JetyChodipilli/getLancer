@@ -1,4 +1,4 @@
-FROM node:22.23.4-alpine3.23
+FROM node:26.12.1-alpine3.23
 # The publisher uses Node's standard library; package managers are unnecessary runtime dependencies.
 # Require Alpine's patched libc even when the Node base image still carries r23.
 RUN apk add --upgrade --no-cache flock 'musl>=1.2.5-r24' 'musl-utils>=1.2.5-r24' \
