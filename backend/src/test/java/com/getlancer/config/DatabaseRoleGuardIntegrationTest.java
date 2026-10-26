@@ -192,6 +192,12 @@ class DatabaseRoleGuardIntegrationTest {
     assertEquals(1,runtime.queryForObject("SELECT count(*) FROM component_releases WHERE component_id=?",Integer.class,component));
     assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE component_releases SET source_sha256=? WHERE component_id=?","b".repeat(64),component));
     assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("DELETE FROM component_releases WHERE component_id=?",component));
+    UUID assessment=UUID.randomUUID();
+    String checks="{\"originality\":{\"result\":\"PASS\",\"note\":\"Synthetic original source reviewed\"},\"quality\":{\"result\":\"PASS\",\"note\":\"Synthetic quality checks reviewed\"},\"license\":{\"result\":\"PASS\",\"note\":\"Synthetic MIT licence reviewed\"},\"execution\":{\"result\":\"PASS\",\"note\":\"Synthetic execution checks reviewed\"}}";
+    runtime.update("INSERT INTO component_review_assessments(id,component_id,revision,source_hash,admin_id,decision,reason,assessments) VALUES(?,?,1,?,?,'APPROVE','Synthetic reviewed source and context',?::jsonb)",assessment,component,"a".repeat(64),user,checks);
+    assertEquals(1,runtime.queryForObject("SELECT count(*) FROM component_review_assessments WHERE id=?",Integer.class,assessment));
+    assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE component_review_assessments SET reason='Changed private evidence' WHERE id=?",assessment));
+    assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("DELETE FROM component_review_assessments WHERE id=?",assessment));
     UUID preview=UUID.randomUUID();
     runtime.update("INSERT INTO component_previews(deployment_id,component_id,revision,expires_at,archive_sha256,manifest_sha256) VALUES(?,?,1,now()+interval '7 days',?,?)",preview,component,"a".repeat(64),"b".repeat(64));
     assertEquals(1,runtime.update("UPDATE component_previews SET state='READY' WHERE deployment_id=?",preview));
@@ -207,12 +213,16 @@ class DatabaseRoleGuardIntegrationTest {
     for(String directRole:List.of("anon","authenticated")) {
       try(Connection connection=DriverManager.getConnection(url,admin,adminPassword);Statement statement=connection.createStatement()) {
         statement.execute("SET ROLE "+directRole);
-        for(String table:List.of("saved_components","component_releases","component_previews"))
+        for(String table:List.of("saved_components","component_releases","component_previews","component_review_assessments"))
           assertThrows(java.sql.SQLException.class,()->statement.executeQuery("SELECT count(*) FROM "+SCHEMA+"."+table));
       }
     }
     try {
       adminSql("GRANT UPDATE ON "+SCHEMA+".component_releases TO getlancer_runtime");
+      assertRejected(runtime,"immutable_mutation");
+    } finally { provision("10_permissions.sql"); }
+    try {
+      adminSql("GRANT UPDATE ON "+SCHEMA+".component_review_assessments TO getlancer_runtime");
       assertRejected(runtime,"immutable_mutation");
     } finally { provision("10_permissions.sql"); }
   }

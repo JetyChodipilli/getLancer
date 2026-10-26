@@ -3,7 +3,7 @@
 These original dependency notices and license texts accompany the self-contained native preview. The original getLancer component remains separately licensed under LICENSE. No third-party license is replaced by that MIT grant.
 
 
-## @angular/core 20.3.33 — MIT
+## @angular/core 20.3.34 — MIT
 
 
 ### LICENSE
@@ -32,7 +32,7 @@ THE SOFTWARE.
 
 
 
-## @angular/common 20.3.33 — MIT
+## @angular/common 20.3.34 — MIT
 
 
 ### LICENSE
@@ -61,7 +61,7 @@ THE SOFTWARE.
 
 
 
-## @angular/platform-browser 20.3.33 — MIT
+## @angular/platform-browser 20.3.34 — MIT
 
 
 ### LICENSE

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.util.UUID;
@@ -23,7 +25,15 @@ public final class ComponentRequests {
       @JsonDeserialize(using = WholeNumber.class) @Min(1) @Max(2147483647) Long revision,
       @NotBlank @Pattern(regexp = "APPROVE|CHANGES_REQUESTED|SUSPEND") String decision,
       @NotBlank @Size(min = 20, max = 2000) String reason,
-      @NotBlank @Pattern(regexp = "[a-f0-9]{64}") String sourceHash) {}
+      @NotBlank @Pattern(regexp = "[a-f0-9]{64}") String sourceHash,
+      @NotNull @Valid Assessment originality,
+      @NotNull @Valid Assessment quality,
+      @NotNull @Valid Assessment license,
+      @NotNull @Valid Assessment execution) {}
+
+  public record Assessment(
+      @NotBlank @Pattern(regexp = "PASS|FAIL|NOT_APPLICABLE") String result,
+      @NotBlank @Size(min = 20, max = 1000) String note) {}
 
   public record College(
       UUID productId,

@@ -2,6 +2,8 @@ package com.getlancer.payments;
 
 import com.getlancer.responses.PaymentResponses;
 import com.getlancer.shared.ApiError;
+import com.getlancer.shared.Pages;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -103,8 +105,8 @@ public class PaymentRepository {
   void processedEvent(String id) {
     db.update("UPDATE payment_webhook_events SET processed_at=clock_timestamp() WHERE event_id=? AND processed_at IS NULL",id);
   }
-  List<PaymentResponses.Account> accounts() {
-    return db.queryForList("SELECT id,builder_user_id AS \"builderUserId\",team_id AS \"teamId\",account_id AS \"accountId\",mode,provider_status AS \"providerStatus\",verified_at AS \"verifiedAt\" FROM payment_accounts ORDER BY verified_at DESC").stream().map(PaymentResponses.Account::from).toList();
+  Map<String,Object> accounts(HttpServletRequest request) {
+    return Pages.query(db, request, "SELECT id,builder_user_id AS \"builderUserId\",team_id AS \"teamId\",account_id AS \"accountId\",mode,provider_status AS \"providerStatus\",verified_at AS \"verifiedAt\" FROM payment_accounts ORDER BY verified_at DESC,id");
   }
   void mapAccount(UUID builder,UUID team,String account,String mode,UUID admin) {
     if (builder!=null) {
@@ -123,8 +125,8 @@ public class PaymentRepository {
     else db.update("UPDATE payment_accounts SET account_id=?,mode=?,provider_status='created',activation_confirmed=true,verified_by=?,verified_at=now() WHERE id=?",account,mode,admin,id);
     db.update("INSERT INTO payment_account_audit(id,account_mapping_id,actor_id,previous_account_id,account_id) VALUES(?,?,?,?,?)",UUID.randomUUID(),id,admin,previous,account);
   }
-  List<PaymentResponses.Attention> attention() {
-    return db.queryForList("SELECT p.id,p.milestone_id AS \"milestoneId\",m.engagement_id AS \"engagementId\",p.status,p.amount_minor AS \"amountMinor\",p.currency,p.mode,p.order_id AS \"orderId\",p.account_id AS \"accountId\",p.attention_reason AS \"attentionReason\",p.transfer_status AS \"transferStatus\",p.settlement_status AS \"settlementStatus\",p.created_at AS \"createdAt\" FROM payment_attempts p JOIN delivery_milestones m ON m.id=p.milestone_id JOIN delivery_engagements e ON e.id=m.engagement_id WHERE p.status IN ('UNKNOWN','CREATING') OR p.attention_reason IS NOT NULL OR p.status='DISPUTED' OR e.status='DISPUTED' ORDER BY p.created_at").stream().map(PaymentResponses.Attention::from).toList();
+  Map<String,Object> attention(HttpServletRequest request) {
+    return Pages.query(db, request, "SELECT p.id,p.milestone_id AS \"milestoneId\",m.engagement_id AS \"engagementId\",p.status,p.amount_minor AS \"amountMinor\",p.currency,p.mode,p.order_id AS \"orderId\",p.account_id AS \"accountId\",p.attention_reason AS \"attentionReason\",p.transfer_status AS \"transferStatus\",p.settlement_status AS \"settlementStatus\",p.created_at AS \"createdAt\" FROM payment_attempts p JOIN delivery_milestones m ON m.id=p.milestone_id JOIN delivery_engagements e ON e.id=m.engagement_id WHERE p.status IN ('UNKNOWN','CREATING') OR p.attention_reason IS NOT NULL OR p.status='DISPUTED' OR e.status='DISPUTED' ORDER BY p.created_at,p.id");
   }
   static long number(Map<String,Object> row,String key) { return ((Number)row.get(key)).longValue(); }
 }

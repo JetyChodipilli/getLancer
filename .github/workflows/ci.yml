@@ -63,7 +63,7 @@ jobs:
       - name: Build and verify the three original native framework previews
         run: |
           node scripts/verify-framework-previews.mjs --native
-          for framework in vue svelte angular; do npm audit --prefix examples/frameworks/$framework --audit-level=high; done
+          for framework in vue svelte angular; do npm audit --prefix examples/frameworks/$framework --audit-level=moderate; done
       - name: Verify account-free laptop Docker environment with the full eighteen-core / data-AI / IoT matrix
         run: |
           docker compose -f compose.labs-local.yaml config --quiet
@@ -160,6 +160,7 @@ jobs:
         run: |
           mkdir -p dependency-evidence
           npm audit --omit=dev --audit-level=high --json > dependency-evidence/npm-audit.json
+          npm audit --audit-level=moderate --json > dependency-evidence/npm-full-audit.json
           npm sbom --omit=dev --sbom-format=cyclonedx > dependency-evidence/frontend-bom.json
           node scripts/audit-sbom.mjs dependency-evidence/frontend-bom.json dependency-evidence/frontend-osv.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

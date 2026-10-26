@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.getlancer.delivery.DeliveryRepository;
 import com.getlancer.responses.PaymentResponses;
+import com.getlancer.responses.PageResponse;
 import com.getlancer.security.Security;
 import com.getlancer.shared.ApiError;
 import jakarta.servlet.http.HttpServletRequest;
@@ -211,8 +212,8 @@ public class PaymentService {
     } catch (RazorpayClient.ProviderFailure ex) { throw new ApiError(502,"PAYMENT_RECONCILIATION_UNAVAILABLE","Provider status is unavailable. The stored payment has not been changed; try reconciliation later."); }
   }
 
-  public PaymentResponses.Accounts accounts(HttpServletRequest request) { security.admin(request); return new PaymentResponses.Accounts(repo.accounts()); }
-  public PaymentResponses.Accounts account(Map<String,Object> body,HttpServletRequest request) {
+  public PageResponse<PaymentResponses.Account> accounts(HttpServletRequest request) { security.admin(request); return PageResponse.from(repo.accounts(request),PaymentResponses.Account::from); }
+  public PageResponse<PaymentResponses.Account> account(Map<String,Object> body,HttpServletRequest request) {
     UUID admin=security.admin(request); provider.requireCredentials();
     boolean builder=body.get("builderUserId")!=null && !Objects.toString(body.get("builderUserId")).isBlank();
     boolean team=body.get("teamId")!=null && !Objects.toString(body.get("teamId")).isBlank();
@@ -224,7 +225,7 @@ public class PaymentService {
       var entity=provider.account(account);
       if (!account.equals(entity.path("id").asText()) || !"route".equals(entity.path("type").asText()) || !"created".equals(entity.path("status").asText()))
         throw new ApiError(409,"INVALID_LINKED_ACCOUNT","Razorpay did not confirm an available Route linked account.");
-      return tx(()->{ security.admin(request); repo.mapAccount(builderId,teamId,account,provider.mode,admin); return new PaymentResponses.Accounts(repo.accounts()); });
+      return tx(()->{ security.admin(request); repo.mapAccount(builderId,teamId,account,provider.mode,admin); return PageResponse.from(repo.accounts(request),PaymentResponses.Account::from); });
     } catch (RazorpayClient.ProviderFailure ex) { throw new ApiError(502,"ACCOUNT_VERIFICATION_UNAVAILABLE","Razorpay account verification failed. No seller mapping was saved."); }
   }
   private void reconcileDispute(Map<String,Object> row,String id) {
@@ -247,7 +248,7 @@ public class PaymentService {
     security.admin(request);
     return result;
   }
-  public PaymentResponses.AttentionItems attention(HttpServletRequest request) { security.admin(request); return new PaymentResponses.AttentionItems(repo.attention()); }
+  public PageResponse<PaymentResponses.Attention> attention(HttpServletRequest request) { security.admin(request); return PageResponse.from(repo.attention(request),PaymentResponses.Attention::from); }
   public PaymentResponses.Summary bind(UUID id,Map<String,Object> body,HttpServletRequest request) {
     security.admin(request); provider.requireCredentials();
     var row=tx(()->system(id)); mode(row);

@@ -12,7 +12,7 @@ Inputs retain visible labels, units, 16 px text, 44 px controls, linked inline e
 | --- | --- | --- |
 | Vue 3.5.43 | Project brief with validation/local save | `@vue/compiler-sfc` 3.5.43 `compileScript` with inline precompiled template; runtime-only Vue bundle |
 | Svelte 5.57.2 | Filtered build queue with completion state | `svelte/compiler` 5.57.2 client compilation |
-| Angular 20.3.33 | Release checklist with signals | `@angular/compiler-cli` 20.3.33 `ngc` AOT plus official compiler-cli Babel linker for partial-Ivy framework libraries, zoneless `bootstrapApplication`; JIT and dev mode disabled |
+| Angular 20.3.34 | Release checklist with signals | `@angular/compiler-cli` 20.3.34 `ngc` AOT plus official compiler-cli Babel linker for partial-Ivy framework libraries, zoneless `bootstrapApplication`; JIT and dev mode disabled |
 
 Each isolated package has exact direct dependencies, an integrity-pinned lockfile, original MIT license, framework-specific setup, notices and full bundled runtime license texts. Full runtime licenses also travel in inert comments inside each generated preview document. npm lifecycle scripts are disabled during installation. Sources remain anonymous/free. Framework compilers are absent from the getLancer application package. Static previews bundle their runtime locally; they are not React emulations or remote CDN embeds.
 

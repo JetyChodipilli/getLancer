@@ -2,6 +2,8 @@
 
 Software implementation and a green merge do not certify these deployment conditions.
 
+The [25 October 2026 execution record](ACCEPTANCE_EXECUTION.md) confirms that this workspace lacks the selected KVM host and external production policy/key/evidence. Local rejection and fixture checks were executed; every actual deployment/human gate below remains open pending its listed owner's real evidence.
+
 - [ ] L1: Actual seven-day admitted-runtime soak >=99% infrastructure provisioning, outages included; owner Infra.
 - [ ] L2: Declared catalogue/startup/load and mobile web performance measured on launch environment; owner Infra/QA.
 - [ ] L3: Production isolated execution account/domain/TLS, egress/resource cleanup and budget signoff; owner Infra/Security.
