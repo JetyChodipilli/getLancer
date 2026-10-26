@@ -7,7 +7,7 @@ export default function ReportTriage(){
  const generation=useRef(0),summary=useRef<HTMLParagraphElement>(null);
  useEffect(()=>{if(error)summary.current?.focus();},[error]);
  function failed(problem:unknown){setError((problem as Error).message);if(problem instanceof ApiError&&[401,403].includes(problem.status)){setItems([]);setHasMore(false);}}
- async function load(next=0){const current=++generation.current;setBusy(true);setError('');try{const data=await api('/admin/reports'+filter+'&page='+next);if(current!==generation.current)return;setItems(old=>next?[...old,...data.items]:data.items);setPage(next);setHasMore(data.hasMore===true);}catch(problem){if(current===generation.current){setItems([]);setHasMore(false);failed(problem);}}finally{if(current===generation.current)setBusy(false);}}
+ async function load(next=0){const current=++generation.current;setBusy(true);setError('');try{const data=await api('/admin/reports'+filter+'&page='+next);if(current!==generation.current)return;setItems(old=>Array.from(new Map([...(next?old:[]),...data.items].map(item=>[item.id,item])).values()));setPage(next);setHasMore(data.hasMore===true);}catch(problem){if(current===generation.current){if(!next){setItems([]);setHasMore(false);}failed(problem);}}finally{if(current===generation.current)setBusy(false);}}
  async function update(id:string,action:string,form:HTMLFormElement){const current=generation.current;if(busy)return;setBusy(true);setError('');try{await api('/admin/reports/'+id+'/'+action,{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(form)))});if(current===generation.current)await load();}catch(problem){if(current===generation.current)failed(problem);}finally{if(current===generation.current)setBusy(false);}}
  useEffect(()=>{setItems([]);void load();return()=>{generation.current++;};},[filter]);
  return <details className="panel"><summary style={{minHeight:44}}>Report priority and triage</summary>
@@ -15,6 +15,7 @@ export default function ReportTriage(){
    <label htmlFor="triage-filter-state">Stage</label><select id="triage-filter-state" name="status" defaultValue="OPEN"><option value="">All stages</option>{['OPEN','TRIAGED','UNDER_REVIEW','RESOLVED'].map(value=><option key={value}>{value}</option>)}</select>
    <label htmlFor="triage-filter-priority">Priority</label><select id="triage-filter-priority" name="severity"><option value="">All priorities</option>{['CRITICAL','HIGH','MEDIUM','LOW'].map(value=><option key={value}>{value}</option>)}</select><button className="button" disabled={busy}>Filter reports</button>
   </form>
+  <button type="button" className="button" disabled={busy} onClick={()=>void load()}>Refresh report triage</button>{busy&&<p role="status">Checking current reports…</p>}
   {error&&<p ref={summary} tabIndex={-1} role="alert" className="error">{error}</p>}
   {items.map(item=>{const frozen=item.education_snapshot?.snapshot||item.education_snapshot;return <article className="panel form" key={item.id}>
    <h3>{item.severity} · {item.reason}</h3><p>{item.detail}</p><p>{item.status}</p>

@@ -14,7 +14,7 @@ import MoreRecords from './more-records';
 import './teams.css';
 
 type CheckoutResult={razorpay_payment_id:string;razorpay_signature:string};
-type RazorpayInstance={open:()=>void;on:(event:string,handler:(value:{error?:{description?:string}})=>void)=>void};
+type RazorpayInstance={open:()=>void;close?:()=>void;on:(event:string,handler:(value:{error?:{description?:string}})=>void)=>void};
 type RazorpayConstructor=new(options:Record<string,unknown>)=>RazorpayInstance;
 declare global{interface Window{Razorpay?:RazorpayConstructor}}
 let checkoutLoading:Promise<RazorpayConstructor>|undefined;
@@ -36,24 +36,34 @@ const records=<T,>(value:T[]|{items:T[]}):T[]=>Array.isArray(value)?value:value.
 const engagementRequest=async(path:string,init?:RequestInit)=>engagementPage(await api(path,init));
 const confirmedPaid=(payment:PaymentSummary|undefined)=>!!payment&&payment.status==='CAPTURED'&&payment.refundedMinor===0;
 const milestonePayment=(payments:PaymentSummary[],id:string)=>payments.find(p=>p.milestoneId===id&&confirmedPaid(p))||payments.find(p=>p.milestoneId===id&&['CREATING','UNKNOWN','ORDER_CREATED','AUTHORIZED','DISPUTED'].includes(p.status))||payments.filter(p=>p.milestoneId===id).at(-1);
+function actionAvailable(record:EngagementDetail|null,dialog:string){
+ if(!dialog||dialog==='source')return true;if(!record)return false;
+ const [action,id]=dialog.split(':'),proposal=record.proposals.slice().sort((a,b)=>b.revision-a.revision)[0];
+ if(action==='proposal')return record.side==='SELLER'&&record.status==='OPEN'&&(!proposal||['DRAFT','WITHDRAWN','REJECTED'].includes(proposal.status));
+ if(['send','withdraw','reject','accept-proposal'].includes(action))return record.status==='OPEN'&&!!proposal&&(action==='send'?proposal.status==='DRAFT':proposal.status==='SENT');
+ if(action==='completion')return record.status===(record.side==='BUYER'?'COMPLETION_PENDING':'ACTIVE');
+ if(action==='dispute')return ['OPEN','ACTIVE','COMPLETION_PENDING','COMPLETED'].includes(record.status);
+ const milestone=record.milestones.find(item=>item.id===id);return record.status==='ACTIVE'&&!!milestone&&milestone.status===(action==='submit'?'IN_PROGRESS':'SUBMITTED');
+}
 const date=(value:string)=>new Date(/^\d{4}-\d{2}-\d{2}$/.test(value)?value+'T00:00:00':value).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
 
 export default function DeliveryWorkspace({demo=false}:{demo?:boolean}){
  const [preview]=useState(()=>demo?createDeliveryPreview():null);
  const [actor,setActor]=useState<'BUYER'|'SELLER'>('SELLER'),[items,setItems]=useState<Engagement[]>([]),[selected,setSelected]=useState(''),[detail,setDetail]=useState<EngagementDetail|null>(null),[payments,setPayments]=useState<PaymentSummary[]>([]),[config,setConfig]=useState<PaymentConfig>(disabledConfig),[authenticated,setAuthenticated]=useState(false),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[dialog,setDialog]=useState(''),[source,setSource]=useState<Partial<EngagementSource>>({}),[error,setError]=useState(''),[message,setMessage]=useState('');
  const [page,setPage]=useState<EngagementPage>({items:[],page:0,hasMore:false}),[listVersion,setListVersion]=useState(0),[selecting,setSelecting]=useState(false);
- const errorSummary=useRef<HTMLDivElement>(null),generation=useRef(0),listGeneration=useRef(0),selectedId=useRef(''),opener=useRef<HTMLElement|null>(null),paymentKeys=useRef(new Map<string,string>()),checkoutAlive=useRef(true);
+ const errorSummary=useRef<HTMLDivElement>(null),generation=useRef(0),listGeneration=useRef(0),selectedId=useRef(''),opener=useRef<HTMLElement|null>(null),paymentKeys=useRef(new Map<string,string>()),checkoutAlive=useRef(true),checkoutGeneration=useRef(0),gatewayRef=useRef<RazorpayInstance|null>(null),mutating=useRef(false);
  const side=detail?.side,base='/engagements/'+selected,blocked=!!detail&&['DISPUTED','CANCELLED','COMPLETED'].includes(detail.status),proposal=detail?.proposals.slice().sort((a,b)=>a.revision-b.revision).at(-1),milestone=detail?.milestones.find(m=>m.id===dialog.split(':')[1]);
  function showDialog(value:string){opener.current=document.activeElement as HTMLElement;setDialog(value);setError('');}
- function clearProtected(){listGeneration.current=-1;setItems([]);setDetail(null);setPayments([]);setAuthenticated(false);setConfig(disabledConfig);setDialog('');setPage({items:[],page:0,hasMore:false});setSelecting(false);}
+ function invalidateCheckout(){checkoutGeneration.current++;const previous=gatewayRef.current;gatewayRef.current=null;try{previous?.close?.();}catch{/* Ignore SDK close errors; callbacks are already invalid. */}}
+ function clearProtected(){invalidateCheckout();listGeneration.current=-1;setItems([]);setDetail(null);setPayments([]);setAuthenticated(false);setConfig(disabledConfig);setDialog('');setPage({items:[],page:0,hasMore:false});setSelecting(false);}
  useEffect(()=>{if(error)errorSummary.current?.focus();},[error]);
  async function engagement(id:string):Promise<[EngagementDetail,PaymentSummary[]]>{
   if(preview)return [preview.detail(id),preview.payments(id)];
   if(!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(id))throw new Error('This engagement link is invalid. Open a valid engagement link and retry.');
   const path='/engagements/'+encodeURIComponent(id),[record,paymentResponse]=await Promise.all([api(path),api(path+'/payments')]);return [record,records<PaymentSummary>(paymentResponse)];
  }
- async function load(id=selectedId.current){
-  const run=++generation.current;listGeneration.current=run;selectedId.current=id;setSelected(id);setLoading(true);setSelecting(false);setDetail(null);setPayments([]);setError('');
+ async function load(id=selectedId.current,keepDetail=false){
+  invalidateCheckout();const run=++generation.current;listGeneration.current=run;selectedId.current=id;setSelected(id);setLoading(true);setSelecting(false);if(!keepDetail){setDetail(null);setPayments([]);}setError('');
   try{
    let collection:EngagementPage,paymentConfig:PaymentConfig;
    if(preview){collection=engagementPage(preview.list());paymentConfig={enabled:false,mode:'disabled',reason:'Preview payments are local simulations. No gateway is contacted.'};}
@@ -63,11 +73,11 @@ export default function DeliveryWorkspace({demo=false}:{demo?:boolean}){
    let record:EngagementDetail|null=null,summary:PaymentSummary[]=[];
    if(next)[record,summary]=await engagement(next);
    if(run!==generation.current)return;
-   setItems(record?mergeEngagements(collection.items,[record]):collection.items);setPage(collection);setListVersion(run);selectedId.current=next;setSelected(next);setDetail(record);setPayments(summary);setConfig(paymentConfig);setAuthenticated(true);
-  }catch(e){if(run===generation.current){clearProtected();setError((e as Error).message);}}finally{if(run===generation.current)setLoading(false);}
+   setItems(record?mergeEngagements(collection.items,[record]):collection.items);setPage(collection);setListVersion(run);selectedId.current=next;setSelected(next);setDetail(record);setPayments(summary);setConfig(paymentConfig);setAuthenticated(true);return {record};
+  }catch(e){if(run===generation.current){clearProtected();setError((e as Error).message);return false;}}finally{if(run===generation.current)setLoading(false);}
  }
  async function selectEngagement(id:string){
-  const run=++generation.current;selectedId.current=id;setSelected(id);setSelecting(true);setDetail(null);setPayments([]);setMessage('');setError('');
+  invalidateCheckout();const run=++generation.current;selectedId.current=id;setSelected(id);setSelecting(true);setDetail(null);setPayments([]);setMessage('');setError('');setDialog('');
   try{const [record,summary]=await engagement(id);if(run!==generation.current)return;setItems(current=>mergeEngagements(current,[record]));setDetail(record);setPayments(summary);}
   catch(e){if(run===generation.current){clearProtected();setError((e as Error).message);}}
   finally{if(run===generation.current)setSelecting(false);}
@@ -78,38 +88,42 @@ export default function DeliveryWorkspace({demo=false}:{demo?:boolean}){
   const query=new URLSearchParams(window.location.search),inquiry=query.get('inquiryId'),business=query.get('businessRequestId');
   if(inquiry){setSource({inquiryId:inquiry});setDialog('source');}else if(business){setSource({businessRequestId:business,candidateKind:query.get('candidateKind')==='TEAM'?'TEAM':'BUILDER',candidateId:query.get('candidateId')||''});setDialog('source');}
   void load(query.get('engagementId')||query.get('id')||'');
-  return()=>{generation.current++;listGeneration.current++;checkoutAlive.current=false;};
+  return()=>{generation.current++;listGeneration.current++;checkoutAlive.current=false;invalidateCheckout();};
  },[]);
  async function change(work:()=>Promise<unknown>|unknown,note='Changes saved.',nextId=selected){
+  if(mutating.current)throw new Error('An update is already in progress.');mutating.current=true;let run=generation.current,saved=false;
   setBusy(true);setError('');setMessage('');
-  try{const result=await work();const resultId=typeof result==='object'&&result&&'id'in result?String(result.id):nextId;await load(nextId||resultId);setMessage(note);return result;}
-  catch(e){if(!preview)clearProtected();setError((e as Error).message);throw e;}finally{setBusy(false);}
+  try{const result=await work();if(!checkoutAlive.current||run!==generation.current)return;const resultId=typeof result==='object'&&result&&'id'in result?String(result.id):nextId;saved=true;const refresh=load(nextId||resultId,true);run=generation.current;const refreshed=await refresh;if(!checkoutAlive.current||run!==generation.current)return;if(!refreshed)throw new Error('The action was saved, but the workspace could not be refreshed. Reload to verify its current state.');setMessage(note);setDialog('');return result;}
+  catch(e){if(!checkoutAlive.current||run!==generation.current)return;if(!preview&&!saved){if(e instanceof ApiError&&[401,403,404].includes(e.status))clearProtected();else if(!(e instanceof ApiError&&[400,422].includes(e.status))){const refresh=load(nextId,true);run=generation.current;const refreshed=await refresh;if(!checkoutAlive.current||run!==generation.current)return;if(refreshed&&!actionAvailable(refreshed.record,dialog))setDialog('');}}setError((e as Error).message);throw e;}finally{mutating.current=false;if(checkoutAlive.current)setBusy(false);}
  }
  function act(work:()=>Promise<unknown>|unknown,note?:string){void change(work,note).catch(()=>{});}
  const post=(path:string,body:unknown={})=>api(path,{method:'POST',body:JSON.stringify(body)});
- async function saveSource(body:EngagementSource){const result=await change(()=>preview?preview.create(body):post('/engagements',body),'Engagement created.','');setDialog('');if(result&&typeof result==='object'&&'id'in result)await load(String(result.id));}
- async function saveProposal(body:{scope:string;terms:string;milestones:ProposalMilestone[]}){await change(()=>preview?preview.proposal(selected,body):post(base+'/proposals',body),'Proposal draft saved.');setDialog('');}
- async function proposalAction(action:string,consent=false){if(!proposal)return;await change(()=>preview?preview.proposalAction(selected,proposal.id,action,consent):post(base+'/proposals/'+proposal.id+'/'+action,consent?{consent:true}:{}),'Proposal '+action+' recorded.');setDialog('');}
- async function milestoneAction(id:string,action:string,body:Record<string,string>={}){await change(()=>preview?preview.milestoneAction(selected,id,action,body):post(base+'/milestones/'+id+'/'+action,body),'Milestone updated.');setDialog('');}
+ async function saveSource(body:EngagementSource){await change(()=>preview?preview.create(body):post('/engagements',body),'Engagement created.','');}
+ async function saveProposal(body:{scope:string;terms:string;milestones:ProposalMilestone[]}){await change(()=>preview?preview.proposal(selected,body):post(base+'/proposals',body),'Proposal draft saved.');}
+ async function proposalAction(action:string,consent=false){if(!proposal)return;await change(()=>preview?preview.proposalAction(selected,proposal.id,action,consent):post(base+'/proposals/'+proposal.id+'/'+action,consent?{consent:true}:{}),'Proposal '+action+' recorded.');}
+ async function milestoneAction(id:string,action:string,body:Record<string,string>={}){await change(()=>preview?preview.milestoneAction(selected,id,action,body):post(base+'/milestones/'+id+'/'+action,body),'Milestone updated.');}
  async function reconcile(paymentId:string){await change(()=>post('/payments/'+paymentId+'/reconcile'),'Provider payment status refreshed.');}
  async function pay(milestoneId:string){
   if(preview){act(()=>preview.simulatePayment(selected,milestoneId),'Payment simulated locally. No money moved.');return;}
   if(!config.enabled||!detail||detail.side!=='BUYER'||blocked)return;
-  setBusy(true);setError('');setMessage('');
+  invalidateCheckout();const checkoutRun=checkoutGeneration.current,currentCheckout=()=>checkoutAlive.current&&checkoutRun===checkoutGeneration.current;setBusy(true);setError('');setMessage('');
   const current=selected;
   try{
+   if(milestonePayment(payments,milestoneId)?.status==='REJECTED')paymentKeys.current.delete(milestoneId);
    const key=paymentKeys.current.get(milestoneId)||crypto.randomUUID();paymentKeys.current.set(milestoneId,key);
    const order:CheckoutOrder=await api('/milestones/'+milestoneId+'/payment-order',{method:'POST',headers:{'Idempotency-Key':key},body:'{}'});
+   if(!currentCheckout())return;
    if(order.status!=='ORDER_CREATED'||!order.orderId||!order.keyId){await load(current);setMessage('The order is pending confirmation. Reconcile its status before attempting another payment.');setBusy(false);return;}
-   const Razorpay=await loadCheckout();
+   const Razorpay=await loadCheckout();if(!currentCheckout())return;let verifying=false;
    const checkout=new Razorpay({key:order.keyId,order_id:order.orderId,amount:order.amountMinor,currency:order.currency,name:'getLancer',description:detail.title,
     handler:async(result:CheckoutResult)=>{
-     try{await post('/payments/'+order.id+'/verify',{razorpay_payment_id:result.razorpay_payment_id,razorpay_signature:result.razorpay_signature});if(checkoutAlive.current){await load(current);setMessage('Provider confirmation received. The payment status below reflects server verification.');}}
-     catch(e){if(checkoutAlive.current){clearProtected();setError((e as Error).message+' Refresh the workspace to reconcile the payment.');}}
+     if(!currentCheckout()||verifying)return;verifying=true;
+     try{await post('/payments/'+order.id+'/verify',{razorpay_payment_id:result.razorpay_payment_id,razorpay_signature:result.razorpay_signature});if(currentCheckout()&&await load(current))setMessage('Provider confirmation received. The payment status below reflects server verification.');}
+     catch(e){if(currentCheckout()){await load(current);setError((e as Error).message+' Refresh the workspace to reconcile the payment.');}}
      finally{if(checkoutAlive.current)setBusy(false);}
-    },modal:{ondismiss:()=>{if(checkoutAlive.current){setBusy(false);setMessage('Checkout closed. Refresh the provider status if you completed a payment.');void load(current);}}},theme:{color:'#175CD3'}});
-   checkout.on('payment.failed',value=>{if(checkoutAlive.current){setMessage(value.error?.description||'The payment was not completed. Refresh the provider status before retrying.');}});checkout.open();
-  }catch(e){if(checkoutAlive.current){clearProtected();setError((e as Error).message);setBusy(false);}}
+    },modal:{ondismiss:()=>{if(currentCheckout()&&!verifying){invalidateCheckout();setBusy(false);setMessage('Checkout closed. Refresh the provider status if you completed a payment.');void load(current);}}},theme:{color:'#175CD3'}});
+   gatewayRef.current=checkout;checkout.on('payment.failed',value=>{if(currentCheckout()&&!verifying){setMessage(value.error?.description||'The payment was not completed. Refresh the provider status before retrying.');}});checkout.open();
+  }catch(e){if(currentCheckout()){if(e instanceof ApiError&&e.code==='PAYMENT_ORDER_REJECTED')paymentKeys.current.delete(milestoneId);await load(current);setError((e as Error).message);setBusy(false);}}
  }
  const allPaid=!!detail?.milestones.length&&detail.milestones.every(m=>m.status==='ACCEPTED'&&confirmedPaid(milestonePayment(payments,m.id))&&(demo||milestonePayment(payments,m.id)?.mode==='live'));
  const completed=detail?.milestones.filter(m=>m.status==='ACCEPTED').length||0;
@@ -137,8 +151,8 @@ export default function DeliveryWorkspace({demo=false}:{demo?:boolean}){
    {dialog.startsWith('submit:')&&milestone&&<TeamForm busy={busy} label="Submit for buyer review" onSave={body=>milestoneAction(milestone.id,'submit',body)}><Field name="deliveryNote" label="What was delivered?" type="textarea" minLength={10} maxLength={5000} value={milestone.deliveryNote}/><Field name="deliveryUrl" label="Deliverable URL (optional, HTTPS)" type="url" required={false} maxLength={2000} value={milestone.deliveryUrl}/><p>Share a secure review link. Do not include passwords, access tokens or private credentials.</p></TeamForm>}
    {dialog.startsWith('revision:')&&milestone&&<TeamForm busy={busy} label="Send revision request" onSave={body=>milestoneAction(milestone.id,'request-revision',body)}><Field name="reason" label="What needs revision?" type="textarea" minLength={10} maxLength={2000}/></TeamForm>}
    {dialog.startsWith('accept-milestone:')&&milestone&&<><p className="delivery-small">{milestone.title} · {inr(milestone.amountMinor)}. No money moves until you explicitly pay.</p><button className="button primary" disabled={busy} onClick={()=>{void milestoneAction(milestone.id,'accept').catch(()=>{});}}>Accept deliverable</button></>}
-   {dialog==='dispute'&&<TeamForm busy={busy} label="Record dispute" onSave={async body=>{await change(()=>preview?preview.dispute(selected,body.reason):post(base+'/disputes',body),'Dispute recorded. No refund has been issued.');setDialog('');}}><Field name="reason" label="Describe the project concern" type="textarea" minLength={10} maxLength={3000}/></TeamForm>}
-   {dialog==='completion'&&<button className="button primary" disabled={busy||!allPaid} onClick={()=>{void change(()=>preview?preview.completion(selected):post(base+'/completion'),side==='SELLER'?'Completion requested. The buyer must confirm.':'Both parties acknowledged completion.').then(()=>setDialog('')).catch(()=>{});}}>{side==='SELLER'?'Request completion':'Confirm completion'}</button>}
+   {dialog==='dispute'&&<TeamForm busy={busy} label="Record dispute" onSave={body=>change(()=>preview?preview.dispute(selected,body.reason):post(base+'/disputes',body),'Dispute recorded. No refund has been issued.')}><Field name="reason" label="Describe the project concern" type="textarea" minLength={10} maxLength={3000}/></TeamForm>}
+   {dialog==='completion'&&<button className="button primary" disabled={busy||!allPaid} onClick={()=>{void change(()=>preview?preview.completion(selected):post(base+'/completion'),side==='SELLER'?'Completion requested. The buyer must confirm.':'Both parties acknowledged completion.').catch(()=>{});}}>{side==='SELLER'?'Request completion':'Confirm completion'}</button>}
   </DialogContent></Dialog>
  </WorkspaceFrame>;
 }

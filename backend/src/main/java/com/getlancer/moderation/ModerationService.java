@@ -148,7 +148,7 @@ public class ModerationService {
     return Pages.query(
         db,
         r,
-        "SELECT id,decision_id,statement,status,resolution,created_at,resolved_at FROM"
+        "SELECT id,decision_id,statement,evidence_url,status,resolution,created_at,resolved_at FROM"
             + " moderation_appeals WHERE appellant_id=? ORDER BY created_at DESC,id",
         security.user(r));
   }
@@ -229,7 +229,7 @@ public class ModerationService {
     return Pages.query(
         db,
         r,
-        "SELECT id,subject,attempts,created_at,body='[expired]' AS expired FROM email_outbox WHERE"
+        "SELECT id,subject,attempts,created_at,(body='[expired]' OR created_at<=now()-interval '24 hours') AS expired FROM email_outbox WHERE"
             + " sent_at IS NULL AND attempts>=8 ORDER BY created_at,id");
   }
 

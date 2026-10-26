@@ -17,6 +17,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -177,6 +179,7 @@ public class PaymentService {
   }
   private PaymentResponses.Summary reconcilePayment(Map<String,Object> snapshot,String payment,HttpServletRequest request) {
     try {
+      var started=java.time.Instant.now();
       mode(snapshot);
       var entity=provider.payment(payment);
       if (!payment.equals(entity.path("id").asText()) || !Objects.toString(snapshot.get("order_id")).equals(entity.path("order_id").asText())
@@ -185,6 +188,27 @@ public class PaymentService {
       if (!captured) return visibleSummary((UUID)snapshot.get("id"),request);
       long refunded=integer(entity,"amount_refunded");
       if (refunded<0 || refunded>number(snapshot,"amount_minor")) throw mismatch();
+      // Snapshot the inbox before provider reads: a later event must remain held
+      // for its own verification, even when it names an already known refund.
+      var events=repo.refundEvents(Objects.toString(snapshot.get("order_id")),payment);
+      var refunds=new HashMap<String,JsonNode>();var terminalEvents=new ArrayList<String>();
+      for(var event:events) {
+        if(java.time.Instant.now().isAfter(started.plusSeconds(90)))throw refundRecovery();
+        String refund=Objects.toString(event.get("refund_id"),"");
+        if(refund.isBlank())throw refundRecovery();
+        JsonNode verified=refunds.get(refund);
+        if(verified==null) {
+          // Keep one synchronous pass within the provider's per-request deadlines;
+          // remaining receipts stay pending and subsequent passes drain the queue.
+          if(refunds.size()>=8)break;
+          verified=provider.refund(refund);
+          if(!"refund".equals(verified.path("entity").asText())||!refund.equals(verified.path("id").asText())||!payment.equals(verified.path("payment_id").asText())||!"INR".equals(verified.path("currency").asText()))throw mismatch();
+          long amount=integer(verified,"amount");if(amount<=0||amount>number(snapshot,"amount_minor"))throw mismatch();
+          String state=verified.path("status").asText();if(!Set.of("pending","processed","failed").contains(state))throw mismatch();
+          refunds.put(refund,verified);
+        }
+        if(!verified.path("status").asText().equals("pending"))terminalEvents.add(Objects.toString(event.get("event_id")));
+      }
       TransferState transfer=new TransferState("UNKNOWN","UNKNOWN"); boolean transferUnknown=false;
       try {
         var expected=new LinkedHashMap<>(snapshot); expected.put("payment_id",payment);
@@ -195,7 +219,9 @@ public class PaymentService {
       tx(()-> {
         var current=system((UUID)snapshot.get("id"));
         if (current.get("payment_id")!=null && !payment.equals(current.get("payment_id"))) throw mismatch();
-        long previous=number(current,"refunded_minor"), total=Math.max(previous,refunded);
+        for(var refund:refunds.entrySet())repo.refund((UUID)current.get("id"),refund.getKey(),integer(refund.getValue(),"amount"),refund.getValue().path("status").asText());
+        long confirmedRefund=Math.max(refunded,repo.refunded((UUID)current.get("id")));if(confirmedRefund>number(current,"amount_minor"))throw mismatch();
+        long previous=number(current,"refunded_minor"), total=Math.max(previous,confirmedRefund);
         repo.ledger((UUID)current.get("id"),"capture:"+payment,"CAPTURE",number(current,"amount_minor"));
         if (total>previous) repo.ledger((UUID)current.get("id"),"refund-total:"+total,"REFUND",total-previous);
         boolean first=current.get("payment_id")==null;
@@ -204,6 +230,7 @@ public class PaymentService {
         var milestone=delivery.lockMilestoneSystem((UUID)current.get("milestone_id"));
         if (first) delivery.event((UUID)milestone.get("engagementId"),null,"PAYMENT_CAPTURED","Razorpay confirmed payment capture. This does not establish seller bank settlement.");
         if (total>previous) delivery.event((UUID)milestone.get("engagementId"),null,"PAYMENT_REFUNDED","Razorpay confirmed an increased refund total; milestone completion is held.");
+        for(String event:terminalEvents)repo.processedEvent(event);
         return PaymentRepository.summary(repo.attempt((UUID)current.get("id"),false));
       });
       var disputedRow=new LinkedHashMap<>(snapshot); disputedRow.put("payment_id",payment);
@@ -211,6 +238,7 @@ public class PaymentService {
       return visibleSummary((UUID)snapshot.get("id"),request);
     } catch (RazorpayClient.ProviderFailure ex) { throw new ApiError(502,"PAYMENT_RECONCILIATION_UNAVAILABLE","Provider status is unavailable. The stored payment has not been changed; try reconciliation later."); }
   }
+  private static ApiError refundRecovery(){return new ApiError(409,"REFUND_REQUIRES_RECOVERY","Refund evidence could not be fully verified. Replay original signed legacy refund events or ask the operator to reconcile provider facts. Completion remains held.");}
 
   public PageResponse<PaymentResponses.Account> accounts(HttpServletRequest request) { security.admin(request); return PageResponse.from(repo.accounts(request),PaymentResponses.Account::from); }
   public PageResponse<PaymentResponses.Account> account(Map<String,Object> body,HttpServletRequest request) {
@@ -284,14 +312,14 @@ public class PaymentService {
     if (event==null || !event.isObject()) throw new ApiError(400,"INVALID_WEBHOOK_EVENT","Invalid webhook event.");
     String kind=event.path("event").asText();
     if (kind.isBlank() || kind.length()>100) throw new ApiError(400,"INVALID_WEBHOOK_EVENT","Invalid webhook event kind.");
-    JsonNode payload=event.path("payload"); String order="",payment="",disputeId="";
+    JsonNode payload=event.path("payload"); String order="",payment="",disputeId="",refundId="";
     try {
       if (kind.startsWith("payment.dispute.")) {
         var d=payload.path("dispute").path("entity"); disputeId=RazorpayClient.providerId(d.path("id").asText(),"disp_"); payment=RazorpayClient.providerId(d.path("payment_id").asText(),"pay_");
       } else if (Set.of("payment.captured","payment.authorized","payment.failed").contains(kind)) {
         var p=payload.path("payment").path("entity"); order=p.path("order_id").asText(); payment=p.path("id").asText();
       } else if (Set.of("refund.created","refund.processed","refund.failed").contains(kind)) {
-        payment=payload.path("refund").path("entity").path("payment_id").asText();
+        var refund=payload.path("refund").path("entity");payment=RazorpayClient.providerId(refund.path("payment_id").asText(),"pay_");refundId=RazorpayClient.providerId(refund.path("id").asText(),"rfnd_");
       } else if (kind.equals("order.paid")) order=payload.path("order").path("entity").path("id").asText();
       else if (kind.startsWith("transfer.")) {
         String source=payload.path("transfer").path("entity").path("source").asText();
@@ -300,7 +328,7 @@ public class PaymentService {
       }
       if (!order.isBlank()) RazorpayClient.providerId(order,"order_");
       if (!payment.isBlank()) RazorpayClient.providerId(payment,"pay_");
-      final String orderRef=order,paymentRef=payment,disputeRef=disputeId;
+      final String orderRef=order,paymentRef=payment,disputeRef=disputeId,refundRef=refundId;
       boolean duplicate=tx(()-> {
         repo.advisoryLock(eventId);
         var existing=repo.existingEvent(eventId);
@@ -309,10 +337,10 @@ public class PaymentService {
         if (current!=null) system((UUID)current.get("id"));
         if(existing!=null) {
           // Matching authenticated replay can recover references absent in old receipts.
-          repo.recoverEvent(eventId,orderRef,paymentRef,disputeRef);
+          repo.recoverEvent(eventId,orderRef,paymentRef,disputeRef,refundRef);
           return true;
         }
-        repo.event(eventId,digest,kind,orderRef,paymentRef,disputeRef);
+        repo.event(eventId,digest,kind,orderRef,paymentRef,disputeRef,refundRef);
         return false;
       });
       if (order.isBlank() && !payment.isBlank()) {
@@ -325,7 +353,7 @@ public class PaymentService {
       var row=order.isBlank()?null:repo.byOrder(order);
       if (row!=null) {
         if (payment.isBlank()) reconcileOrder(row,null); else reconcilePayment(row,payment,null);
-        if (disputeId.isBlank()) tx(()->{repo.processedEvent(eventId);return null;});
+        if (disputeId.isBlank()&&refundId.isBlank()) tx(()->{repo.processedEvent(eventId);return null;});
       }
       return new PaymentResponses.WebhookReceipt(true,duplicate);
     } catch (RazorpayClient.ProviderFailure ex) {

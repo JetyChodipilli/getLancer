@@ -40,3 +40,7 @@ console.log('Database permission source coverage passed; '+tables.size+' migrati
 
 assert.ok(!readOnly.has('lab_manifests')&&!updates.has('lab_manifests')&&!deletes.has('lab_manifests')&&permissions.includes('GRANT UPDATE (revoked_at) ON'));
 assert.ok(known.has('component_recipe_enforcement')&&updates.has('component_recipe_enforcement')&&!deletes.has('component_recipe_enforcement'));
+
+assert.ok(known.has('payment_provider_refunds')&&!updates.has('payment_provider_refunds')&&!deletes.has('payment_provider_refunds'));
+assert.ok(permissions.includes('GRANT UPDATE (status,updated_at) ON'));
+assert.ok(permissions.includes("IF table_name='payment_webhook_events' THEN")&&permissions.includes('GRANT UPDATE (refund_id) ON'));

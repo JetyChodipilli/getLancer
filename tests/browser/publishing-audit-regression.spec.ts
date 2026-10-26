@@ -1,0 +1,53 @@
+import {test,expect,type Page} from '@playwright/test';
+import {build} from 'esbuild';
+
+const product={id:'proof-product',approvalStatus:'DRAFT',media:[{id:'stale',url:'/image.png',alt:'Old list description'}]};
+const image={id:'current-image',url:'/image.png',alt:'Current server description'};
+async function render(page:Page,component:'proof'|'templates'){
+ const entry=component==='proof'?`import Component from './app/components/proof-editor';const props={product:${JSON.stringify(product)},onChange:()=>{window.proofChanges=(window.proofChanges||0)+1;}};function Harness(){const [open,setOpen]=useState(true);return <><button onClick={()=>setOpen(false)}>Close proof editor</button>{open&&<Component {...props}/>}</>}`:`import Component from './app/components/template-workspace';function Harness(){return <Component/>;}`;
+ const result=await build({stdin:{contents:`import {useState} from 'react';import {createRoot} from 'react-dom/client';${entry}createRoot(document.getElementById('root')).render(<Harness/>);`,resolveDir:process.cwd(),loader:'tsx'},bundle:true,write:false,format:'iife',jsx:'automatic',loader:{'.css':'empty'},define:{'process.env.NODE_ENV':'"production"'},plugins:[{name:'fixture-link',setup(plugin){plugin.onResolve({filter:/^next\/link$/},()=>({path:'link',namespace:'fixture'}));plugin.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:'export default function Link({href,children,...props}){return <a href={href} {...props}>{children}</a>}',loader:'jsx',resolveDir:process.cwd()}));}}]});
+ await page.route('**/publishing-audit-fixture',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html lang="en"><head><title>Publishing recovery</title></head><body><div id="root"></div></body></html>'}));
+ await page.goto('/publishing-audit-fixture');await page.addScriptTag({content:result.outputFiles[0].text});
+}
+
+test('proof opens with current server images and retains a failed description edit for retry',async({page})=>{
+ let saves=0;const bodies:any[]=[];
+ await page.route('**/api/v1/**',route=>{const request=route.request();if(request.method()==='GET')return route.fulfill({json:{items:[image]}});bodies.push(request.postDataJSON());return ++saves===1?route.fulfill({status:409,json:{error:{code:'MEDIA_CHANGED',message:'Proof changed; check the latest images.'}}}):route.fulfill({json:{ok:true}});});
+ await render(page,'proof');const description=page.getByLabel('Image 1 description',{exact:true});await expect(description).toHaveValue(image.alt);await expect(description).toBeEnabled();await description.fill('Shows the original inventory interaction.');
+ await page.getByRole('button',{name:'Save image order and descriptions',exact:true}).click();await expect(page.getByRole('alert')).toContainText('Proof changed');await expect(description).toHaveValue('Shows the original inventory interaction.');
+ await page.getByRole('button',{name:'Save image order and descriptions',exact:true}).click();await expect(page.getByRole('status')).toContainText('descriptions saved');expect(bodies).toEqual([{items:[{id:image.id,alt:'Shows the original inventory interaction.'}]},{items:[{id:image.id,alt:'Shows the original inventory interaction.'}]}]);
+});
+
+test('an accepted image removal with failed refresh offers a read-only recovery',async({page})=>{
+ let removed=false,failed=false,deletes=0;
+ await page.route('**/api/v1/**',route=>{if(route.request().method()==='DELETE'){removed=true;deletes++;return route.fulfill({json:{ok:true}});}if(removed&&!failed){failed=true;return route.fulfill({status:503,json:{error:{message:'Proof refresh unavailable.'}}});}return route.fulfill({json:{items:removed?[]:[image]}});});
+ await render(page,'proof');const remove=page.getByRole('button',{name:'Remove image',exact:true});await expect(remove).toBeEnabled();await remove.click();await expect(page.getByRole('alert')).toContainText('Proof refresh unavailable.');await expect(remove).toBeDisabled();await page.getByRole('button',{name:'Reload proof images',exact:true}).click();await expect(page.getByLabel('Image 1 description',{exact:true})).toHaveCount(0);expect(deletes).toBe(1);
+});
+
+test('image confirmation retry reuses the uploaded ID without uploading a second image',async({page})=>{
+ let requests=0,puts=0,completions=0;const ids:string[]=[];
+ await page.route('**/proof-bytes',route=>{puts++;return route.fulfill({status:200,body:''});});
+ await page.route('**/api/v1/**',route=>{const request=route.request(),path=new URL(request.url()).pathname;if(path.endsWith('/upload-request')){requests++;return route.fulfill({json:{uploadId:'accepted-upload',url:'http://127.0.0.1:3000/proof-bytes',headers:{'Content-Type':'image/png'}}});}if(path.endsWith('/complete')){ids.push(request.postDataJSON().uploadId);return ++completions===1?route.fulfill({status:503,json:{error:{message:'Confirmation temporarily unavailable.'}}}):route.fulfill({json:{id:'uploaded-image'}});}return route.fulfill({json:{items:completions>1?[image]:[]}});});
+ await render(page,'proof');const file=page.getByLabel('Add proof image (PNG or JPEG, up to 5 MB)',{exact:true});await expect(file).toBeEnabled();await file.setInputFiles({name:'proof.png',mimeType:'image/png',buffer:Buffer.from('synthetic image bytes')});await expect(page.getByRole('alert')).toContainText('Confirmation temporarily unavailable.');await expect(file).toBeDisabled();await page.getByRole('button',{name:'Retry image confirmation',exact:true}).click();await expect(page.getByRole('status')).toContainText('Image upload confirmed.');expect({requests,puts,completions,ids}).toEqual({requests:1,puts:1,completions:2,ids:['accepted-upload','accepted-upload']});
+});
+
+test('closing proof while its upload request is pending prevents later storage writes',async({page})=>{
+ let ready!:()=>void,finish!:()=>Promise<void>,puts=0,completions=0;const requested=new Promise<void>(resolve=>{ready=resolve;});
+ await page.route('**/proof-bytes',route=>{puts++;return route.fulfill({body:''});});
+ await page.route('**/api/v1/**',route=>{const path=new URL(route.request().url()).pathname;if(path.endsWith('/upload-request')){finish=()=>route.fulfill({json:{uploadId:'closed-upload',url:'http://127.0.0.1:3000/proof-bytes',headers:{}}});ready();return;}if(path.endsWith('/complete'))completions++;return route.fulfill({json:{items:[]}});});
+ await render(page,'proof');const input=page.getByLabel('Add proof image (PNG or JPEG, up to 5 MB)',{exact:true});await expect(input).toBeEnabled();await input.setInputFiles({name:'proof.png',mimeType:'image/png',buffer:Buffer.from('synthetic image bytes')});await requested;await page.getByRole('button',{name:'Close proof editor',exact:true}).click();await finish();await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));expect({puts,completions}).toEqual({puts:0,completions:0});expect(await page.evaluate(()=>(window as Window&{proofChanges?:number}).proofChanges||0)).toBe(0);
+});
+
+const listing={id:'template-one',slug:'template-one',title:'Private source listing',summary:'A complete source starter',description:'A complete source starter with documentation.',licenseTerms:'One commercial end product with modification rights.',priceMinor:10000,status:'DRAFT',versions:[]};
+function reads(path:string){return path==='/api/v1/me'?{roles:[]}:path==='/api/v1/me/templates'?{items:[listing],page:0,size:12,hasMore:false,totalItems:1,totalPages:1}:{items:[],page:0,size:12,hasMore:false,totalItems:0,totalPages:0};}
+async function release(page:Page){await page.getByLabel('Version number',{exact:true}).fill('1.0.1');await page.getByLabel('Release notes',{exact:true}).fill('Original source and complete setup documentation.');await page.getByLabel('Private source ZIP',{exact:true}).setInputFiles({name:'release.zip',mimeType:'application/zip',buffer:Buffer.from('synthetic source ZIP')});await page.getByRole('checkbox',{name:/I have the rights to distribute/}).check();}
+
+test('template validation retains source file and accepted upload survives a failed refresh without duplication',async({page})=>{
+ let uploads=0,uploaded=false,failedRead=false;
+ await page.route('**/api/v1/**',route=>{const request=route.request(),path=new URL(request.url()).pathname;if(request.method()==='GET'){if(path==='/api/v1/me/templates'&&uploaded&&!failedRead){failedRead=true;return route.fulfill({status:503,json:{error:{message:'Release refresh unavailable.'}}});}return route.fulfill({json:reads(path)});}uploads++;expect(request.headers()['content-type']).toMatch(/^multipart\/form-data; boundary=/);if(uploads===1)return route.fulfill({status:409,json:{error:{code:'VERSION_EXISTS',message:'Use a new immutable release version.',fieldErrors:{version:'Already uploaded.'}}}});uploaded=true;return route.fulfill({json:{id:'version-one'}});});
+ await render(page,'templates');await release(page);await page.getByRole('button',{name:'Upload private version',exact:true}).click();await expect(page.getByLabel('Version number',{exact:true})).toHaveAttribute('aria-invalid','true');expect(await page.getByLabel('Private source ZIP',{exact:true}).evaluate((input:HTMLInputElement)=>input.files?.[0]?.name)).toBe('release.zip');await page.getByLabel('Version number',{exact:true}).fill('1.0.2');await page.getByRole('button',{name:'Upload private version',exact:true}).click();await expect(page.getByRole('status')).toContainText('change was accepted');await expect(page.getByRole('heading',{name:'Private source listing',exact:true})).toBeVisible();await page.getByRole('button',{name:'Reload template workspace',exact:true}).click();await expect(page.getByRole('alert')).toHaveCount(0);expect(uploads).toBe(2);
+});
+
+for(const status of [401,403])test('template upload authority denial '+status+' removes private releases',async({page})=>{
+ await page.route('**/api/v1/**',route=>route.request().method()==='GET'?route.fulfill({json:reads(new URL(route.request().url()).pathname)}):route.fulfill({status,json:{error:{message:'Current builder authority is required.'}}}));await render(page,'templates');await release(page);await page.getByRole('button',{name:'Upload private version',exact:true}).click();await expect(page.getByRole('heading',{name:'Private source listing',exact:true})).toHaveCount(0);await expect(page.getByRole('link',{name:'Log in',exact:true})).toBeVisible();
+});

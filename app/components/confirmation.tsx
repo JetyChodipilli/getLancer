@@ -46,13 +46,15 @@ export default function Confirmation() {
   const titles: Record<string,string> = {ACCOUNT_DELETION: 'Confirm account closure', EMAIL_VERIFICATION: 'Confirm your email', CLIENT_INQUIRY_CONFIRMATION: 'Send your inquiry to the builder', PASSWORD_RESET: 'Choose a new password', HIRE_CONFIRMATION: 'Confirm your hire', COMPLETION_CONFIRMATION: 'Confirm project completion', REVIEW: 'Review your experience'};
   return <main className="wrap confirmation-page" id="main"><div className="panel form" style={{margin: '20px auto'}}><h1 style={{fontSize:32}}>{titles[kind || ''] || 'Your confirmation'}</h1>
     {context?.inquiry && <div className="samplebar"><strong>{context.inquiry.projectTitle} · {context.inquiry.builder}</strong><p>{context.inquiry.description}</p></div>}
-    {message ? <div role="status" className="success">{message}</div> : context && <form className="form" onSubmit={submit}>
+    {message ? <div role="status" className="success">{message}</div> : context && <form className="form" onSubmit={submit} aria-busy={busy}>
+      <fieldset disabled={busy} style={{margin:0,padding:0,border:0}}>
       {kind === 'PASSWORD_RESET' && <><label htmlFor="new-password">New password</label><input name="password" id="new-password" type="password" autoComplete="new-password" minLength={12} maxLength={72} required/></>}
       {kind === 'REVIEW' && <ReviewFields prefix="confirmation"/>}
       {outcome && <p>{kind === 'HIRE_CONFIRMATION' ? 'Have you agreed to hire this builder for this request?' : 'Has this engagement been completed as agreed?'}</p>}
       {kind === 'ACCOUNT_DELETION' && <p>Closing your account signs you out of every device and hides your profile and showcases. Engagement and moderation records enter a retention review. Ignore this email if you did not request closure.</p>}
       <button className={kind === 'ACCOUNT_DELETION' ? 'button danger' : 'button primary'} value={kind === 'ACCOUNT_DELETION' ? 'DELETE' : 'ACCEPT'} disabled={busy}>{busy ? 'Saving…' : kind === 'ACCOUNT_DELETION' ? 'Close my account' : kind === 'REVIEW' ? 'Submit review' : 'Confirm'}</button>
       {outcome && <button className="button" value="REJECT" disabled={busy}>Not yet — {kind === 'HIRE_CONFIRMATION' ? 'continue discussion' : 'work is still in progress'}</button>}
+      </fieldset>
     </form>}
     {!context && !error && <p role="status">Checking your link…</p>}
     {error && <p role="alert" className="error">{error}</p>}

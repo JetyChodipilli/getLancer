@@ -103,12 +103,24 @@ class DatabaseRoleGuardIntegrationTest {
       String event="runtime-receipt-"+UUID.randomUUID();
       runtime.update("INSERT INTO "+table+"(event_id,payload_hash,event_kind,payment_id,dispute_id) VALUES(?,?,'payment.dispute.created','pay_rolefixture123','disp_rolefixture123')",event,"a".repeat(64));
       assertEquals(1,runtime.update("UPDATE "+table+" SET order_id='order_rolefixture123',processed_at=clock_timestamp() WHERE event_id=?",event));
+      if(table.equals("payment_webhook_events"))assertEquals(1,runtime.update("UPDATE payment_webhook_events SET refund_id='rfnd_rolefixture123' WHERE event_id=?",event));
       assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE "+table+" SET payload_hash=? WHERE event_id=?","b".repeat(64),event));
       assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE "+table+" SET event_id='changed' WHERE event_id=?",event));
       assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("DELETE FROM "+table+" WHERE event_id=?",event));
       try {adminSql("GRANT UPDATE (payload_hash) ON "+SCHEMA+"."+table+" TO getlancer_runtime");assertRejected(runtime,"webhook_receipt_permissions");}
       finally {provision("10_permissions.sql");}
     }
+  }
+  @Test void providerRefundEvidenceAllowsStatusProgressWithoutIdentityOrAmountMutation() throws Exception {
+    assertEquals(0,runtime.update("UPDATE payment_provider_refunds SET status='processed',updated_at=clock_timestamp() WHERE false"));
+    for(String column:List.of("id","attempt_id","amount_minor"))
+      assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE payment_provider_refunds SET "+column+"="+column+" WHERE false"));
+    assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("DELETE FROM payment_provider_refunds WHERE false"));
+    try {
+      adminSql("GRANT UPDATE (amount_minor) ON "+SCHEMA+".payment_provider_refunds TO getlancer_runtime");
+      assertRejected(runtime,"refund_evidence_permissions");
+    } finally {provision("10_permissions.sql");}
+    assertDoesNotThrow(()->guard(runtime));
   }
   @Test void mediaRecoveryCanChangeDeadlineWithoutRewritingObjectIdentity() throws Exception {
     UUID owner=UUID.randomUUID(), product=UUID.randomUUID(), intent=UUID.randomUUID();

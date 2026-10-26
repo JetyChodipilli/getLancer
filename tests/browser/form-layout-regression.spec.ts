@@ -70,7 +70,7 @@ test('shared form errors stay readable and linked at 200 percent text size', asy
     </form>);
   `, loader: 'tsx', resolveDir: process.cwd()}, bundle: true, write: false, platform: 'browser', format: 'iife', jsx: 'automatic', define: {'process.env.NODE_ENV': '"test"'}}).outputFiles[0].text;
   const css = readFileSync('app/form-controls.css', 'utf8');
-  await page.setContent('<style>*{box-sizing:border-box}body{margin:16px;font-family:Arial}#root{max-width:660px;margin:auto}</style><div id="root"></div>');
+  await page.setContent('<meta name="viewport" content="width=device-width,initial-scale=1"><style>*{box-sizing:border-box}body{margin:16px;font-family:Arial}#root{max-width:660px;margin:auto}</style><div id="root"></div>');
   await page.addStyleTag({content: css});
   await page.addScriptTag({content: fixture});
   const error = page.getByRole('alert', {name: 'Check these details', exact: true});
