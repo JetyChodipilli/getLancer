@@ -34,3 +34,21 @@ test('native source package advisories fail CI at moderate severity',async()=>{
  assert.match(workflow,/Require both secret scans to pass/);
  assert.match(workflow,/Block high and critical runtime image vulnerabilities/);
 });
+
+test('root build tools retain reviewed security floors and a full dependency audit',async()=>{
+ const lock=JSON.parse(await readFile('package-lock.json','utf8'));
+ const floors={vite:[8,3,5],undici:[7,30,1],'fast-uri':[3,1,9],zod:[4,6,6]};
+ for(const [name,floor] of Object.entries(floors)){
+  const entries=Object.entries(lock.packages).filter(([path])=>path.endsWith('/'+name));
+  assert(entries.length>0,name+' remains represented in the lock');
+  for(const [path,item] of entries){
+   const version=item.version.split('.').map(Number);
+   assert.equal(version[0],floor[0],path+' major changes need compatibility review');
+   assert(version[1]>floor[1]||(version[1]===floor[1]&&version[2]>=floor[2]),path+' regressed below a reviewed patch');
+   assert(item.resolved.startsWith('https://registry.npmjs.org/'),path+' registry binding');
+   assert.match(item.integrity,/^sha512-/);
+  }
+ }
+ const workflow=await readFile('.github/workflows/ci.yml','utf8');
+ assert(workflow.includes('npm audit --audit-level=moderate --json > dependency-evidence/npm-full-audit.json'));
+});

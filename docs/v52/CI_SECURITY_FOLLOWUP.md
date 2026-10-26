@@ -51,3 +51,15 @@ The previously inspected native stack identifies a socket write after peer disco
 ## Limits
 
 Hosted KVM certification, seven actual elapsed days of admitted sessions, launch-environment load/mobile measurements, live merchant transactions, production object/database recovery, human screen-reader review and named sign-off require their own real evidence. Passing this CI baseline and native dependency repair does not close those gates.
+
+## 26 October: download, keyboard and development dependency follow-up
+
+The prior PR-head workflow 40269740615 failed only its tablet uploaded-preview save assertion after backend, frontend, native and security jobs passed. Source review found a readiness gap in the connected test: it acted on server-rendered content without establishing interactive host and child readiness. The test now asserts a real host viewport state transition and the uploaded child's completed document before its one save click. Its saved-state and sandbox-isolation assertions remain.
+
+Independent review also identified two acceptance gaps. Setup tests now read actual downloads from all 24 public UI pages before independent extraction and both documented startup checks. The standalone generator labels its archive source separately. Keyboard tests now press Tab through every initially visible enabled control; a visible control excluded with tabindex=-1 is a negative control that must fail the same oracle.
+
+Runtime-only npm audit omitted affected development tools. Reviewed patches use Vite 8.3.5, Undici 7.30.1, fast-uri 3.1.9 and Zod 4.6.7. The existing ESLint consumers permit both Zod 3 and 4; current CI must verify that compatibility. See the [Vite patch release](https://github.com/vitejs/vite/releases/tag/v8.3.5), [Undici maintainer advisory](https://github.com/nodejs/undici/security/advisories/GHSA-xjj6-f33q-929c), [fast-uri advisory](https://github.com/fastify/fast-uri/security/advisories/GHSA-wjr9-j795-jxcr) and [Zod release notes](https://github.com/colinhacks/zod/releases/tag/v4.6.7).
+
+The read-only [npm resolution run 40295542595](https://github.com/JetyChodipilli/getLancer/actions/runs/40295542595) generated the exact registry/integrity metadata without lifecycle scripts or repository write credentials. Its full audit reported zero advisories. The applied package and lock Git blob IDs independently equal the runner output: package.json `6a4fd7e4791ed4c4f94afa1bdaaee9da1bb4f697`; package-lock.json `f4b548f26b86b05677475f544a49d5bd7f0c495f`. The temporary resolver workflow is removed. Normal frontend CI now audits development and runtime dependencies at moderate severity and retains the full report.
+
+These observations do not replace passing current-head and merged-main workflows or any of the seven real production acceptance gates.
