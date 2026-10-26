@@ -66,7 +66,7 @@ async function inspect(browser, item, url) {
 }
 
 /** Independently decode the actual download ZIP, then follow both documented startup paths. */
-export async function verifyComponentSetup({browser, reportPath} = {}) {
+export async function verifyComponentSetup({browser, reportPath, archiveProvider} = {}) {
   assert(browser, 'A real Playwright browser is required.');
   const seeds = validateSetupCatalog(JSON.parse(await readFile(join(root, 'backend/src/main/resources/catalog/components.json'), 'utf8')));
   const pythonVersion = execFileSync('python3', ['--version'], {encoding: 'utf8'}).trim().replace(/^Python /, '');
@@ -75,8 +75,9 @@ export async function verifyComponentSetup({browser, reportPath} = {}) {
   const temporary = await mkdtemp(join(tmpdir(), 'getlancer-component-setup-')), records = [];
   try {
     for (const item of seeds) {
-      const directory = join(temporary, item.slug), archive = componentZip(item.files);
-      execFileSync('python3', ['-c', 'import sys,io,zipfile,pathlib; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); assert sorted(z.namelist()) == ["LICENSE","README.md","index.html"]; assert z.testzip() is None; p=pathlib.Path(sys.argv[1]); p.mkdir(); z.extractall(p)', directory], {input: archive});
+      const directory = join(temporary, item.slug), archive = archiveProvider ? await archiveProvider(item) : componentZip(item.files);
+      assert(archive instanceof Uint8Array && archive.length > 0 && archive.length <= 350000, item.slug + ': invalid or oversized source ZIP');
+      execFileSync('python3', ['-c', 'import sys,io,zipfile,pathlib; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); assert sorted(z.namelist()) == ["LICENSE","README.md","index.html"]; assert all(not i.is_dir() and i.file_size <= 100000 for i in z.infolist()); assert sum(i.file_size for i in z.infolist()) <= 300000; assert z.testzip() is None; p=pathlib.Path(sys.argv[1]); p.mkdir(); z.extractall(p)', directory], {input: archive});
       for (const [name, contents] of Object.entries(item.files)) assert.equal(await readFile(join(directory, name), 'utf8'), contents);
       await inspect(browser, item, pathToFileURL(join(directory, 'index.html')).href);
       const port = await freePort(), url = `http://127.0.0.1:${port}/index.html`;
@@ -93,7 +94,7 @@ export async function verifyComponentSetup({browser, reportPath} = {}) {
         archiveSha256: createHash('sha256').update(archive).digest('hex'), fileStartup: 'passed', pythonHttpStartup: 'passed'});
     }
   } finally { await rm(temporary, {recursive: true, force: true}); }
-  const report = {schema: 1, browser: browser.version(), python: pythonVersion, packages: records,
+  const report = {schema: 1, browser: browser.version(), python: pythonVersion, archiveSource: archiveProvider ? 'supplied-archive' : 'generated-from-reviewed-source', packages: records,
     scope: 'Clean ZIP extraction, README startup by file URL and loopback Python HTTP, no browser errors or external dependencies. Interaction-state and human accessibility acceptance are separate.'};
   if (reportPath) await writeFile(reportPath, JSON.stringify(report, null, 2) + '\n');
   console.log(`COMPONENT_SETUP_VERIFIED ${records.length} packages; Chromium ${report.browser}; Python ${report.python}`);

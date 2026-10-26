@@ -50,6 +50,21 @@ export function validateStateMatrix(catalog, matrix = componentStates) {
   return matrix.length;
 }
 
+/** Verify real sequential navigation; programmatic focus would hide tabindex defects. */
+export async function verifyKeyboardFocus(page, slug) {
+  const {expect} = await import('@playwright/test');
+  const controls = page.locator('button:visible:not(:disabled),a[href]:visible,input:visible:not(:disabled),select:visible:not(:disabled),textarea:visible:not(:disabled),summary:visible');
+  expect(await controls.count(), slug + ' needs an interactive control').toBeGreaterThan(0);
+  for (const control of await controls.all()) {
+    await page.keyboard.press('Tab');
+    await expect(control, slug + ': keyboard traversal').toBeFocused();
+    const focus = await control.evaluate(element => ({visible: element.matches(':focus-visible'), width: parseFloat(getComputedStyle(element).outlineWidth), style: getComputedStyle(element).outlineStyle}));
+    expect(focus.visible, slug + ': keyboard focus indicator').toBe(true);
+    expect(focus.width).toBeGreaterThanOrEqual(2);
+    expect(focus.style).not.toBe('none');
+  }
+}
+
 /** Used by both the ordinary browser suite and the build-independent runner. */
 export async function verifyComponentStates(page, recipe) {
   const {expect} = await import('@playwright/test');
@@ -61,15 +76,7 @@ export async function verifyComponentStates(page, recipe) {
   await reset();
   const controls = page.locator('button:visible:not(:disabled),a[href]:visible,input:visible:not(:disabled),select:visible:not(:disabled),textarea:visible:not(:disabled),summary:visible');
   expect(await controls.count(), recipe.slug + ' needs an interactive control').toBeGreaterThan(0);
-  await page.keyboard.press('Tab');
-  for (const control of await controls.all()) {
-    await control.focus();
-    await expect(control).toBeFocused();
-    const focus = await control.evaluate(element => ({visible: element.matches(':focus-visible'), width: parseFloat(getComputedStyle(element).outlineWidth), style: getComputedStyle(element).outlineStyle}));
-    expect(focus.visible, recipe.slug + ': keyboard focus indicator').toBe(true);
-    expect(focus.width).toBeGreaterThanOrEqual(2);
-    expect(focus.style).not.toBe('none');
-  }
+  await verifyKeyboardFocus(page, recipe.slug);
   // Test actual computed pointer feedback rather than only finding selectors in CSS.
   const pointer = controls.first();
   await page.mouse.move(0, 0);

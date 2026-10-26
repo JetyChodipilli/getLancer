@@ -11,7 +11,7 @@ The browser command prints each passing slug and its actual Chromium version onl
 
 ## Common pointer and keyboard contract
 
-Each row includes `hover`, `focus` and `active` checks. The browser measures the computed hover ring on a representative enabled control and verifies a distinct pointer-down ring for `active`; it does not merely search for CSS selectors. `focus` checks every initially visible enabled button, link, input, select, textarea and summary: keyboard modality, actual focus and a visible outline of at least 2px. Component-specific actions below also assert selected/pressed state, expansion and focus transfer where present.
+Each row includes `hover`, `focus` and `active` checks. The browser measures the computed hover ring on a representative enabled control and verifies a distinct pointer-down ring for `active`; it does not merely search for CSS selectors. `focus` checks every initially visible enabled button, link, input, select, textarea and summary: real sequential Tab traversal without programmatic focus, actual focus and a visible outline of at least 2px. A negative browser control with tabindex=-1 must fail the same oracle. Component-specific actions below also assert selected/pressed state, expansion and focus transfer where present.
 
 `disabled` and `loading` apply to the two simulated asynchronous operations. Both are verified before advancing the browser clock through the documented 700ms delay, followed by re-enablement and the final result. Other recipes perform synchronous local actions, so disabling or a loading interval would misrepresent their behavior.
 
