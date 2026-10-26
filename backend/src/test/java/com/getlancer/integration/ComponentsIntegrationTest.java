@@ -713,7 +713,17 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
         upgrade.update("INSERT INTO users(id,email,password_hash,email_verified_at) VALUES(?,'upgrade@example.test','unused',now())",owner);
         var catalogue=json.readTree(Objects.requireNonNull(getClass().getResourceAsStream("/catalog/components.json")));
         JsonNode recipe=null;for(var entry:catalogue)if(entry.path("slug").asText().equals("portfolio-card"))recipe=entry;
-        assertNotNull(recipe);String original=json.writeValueAsString(recipe);
+        assertNotNull(recipe);
+        String legacyMigration;
+        try(var input=getClass().getResourceAsStream("/db/migration/V30__component_uploaded_source_and_previews.sql")){legacyMigration=new String(Objects.requireNonNull(input).readAllBytes(),java.nio.charset.StandardCharsets.UTF_8);}
+        String marker="$legacy_v45$";int begin=legacyMigration.indexOf(marker)+marker.length();
+        var legacyCatalogue=json.readTree(legacyMigration.substring(begin,legacyMigration.indexOf(marker,begin)));
+        JsonNode legacy=null;for(var entry:legacyCatalogue)if(entry.path("slug").asText().equals("portfolio-card"))legacy=entry;
+        assertNotNull(legacy);assertEquals("1.0.0",legacy.path("version").asText());
+        assertEquals("c17315527c1677d506d6b3947ced1a0d690c10c4a6d9a2bc7b9a1e01d22b9539",legacy.path("sha256").asText());
+        assertEquals(legacy.path("sha256").asText(),HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(legacy.path("files").path("index.html").asText().getBytes(java.nio.charset.StandardCharsets.UTF_8))));
+        assertNotEquals(recipe.path("files"),legacy.path("files"),"A new catalogue version must not rewrite frozen V4.5 source.");
+        String original=json.writeValueAsString(legacy);
         var ids=new LinkedHashMap<String,UUID>();
         for(String state:List.of("DRAFT","PENDING","ACTIVE","SUSPENDED")){
           UUID id=UUID.randomUUID();ids.put(state,id);
@@ -724,10 +734,10 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
         assertNull(upgrade.queryForObject("SELECT submitted_source FROM component_entries WHERE id=?",String.class,ids.get("DRAFT")));
         for(String state:List.of("PENDING","SUSPENDED")){
           var preserved=json.readTree(upgrade.queryForObject("SELECT submitted_source::text FROM component_entries WHERE id=?",String.class,ids.get(state)));
-          assertEquals(recipe.path("files"),preserved.path("files"));assertEquals(recipe.path("sha256"),preserved.path("sha256"));
+          assertEquals(legacy.path("files"),preserved.path("files"));assertEquals(legacy.path("sha256"),preserved.path("sha256"));assertEquals("1.0.0",preserved.path("version").asText());
         }
         var released=json.readTree(upgrade.queryForObject("SELECT source::text FROM component_releases WHERE component_id=?",String.class,ids.get("ACTIVE")));
-        assertEquals(recipe,released);assertEquals(1,upgrade.queryForObject("SELECT count(*) FROM component_releases",Integer.class));
+        assertEquals(legacy,released);assertEquals(1,upgrade.queryForObject("SELECT count(*) FROM component_releases",Integer.class));
         var publishedFilters=json.readTree(upgrade.queryForObject("SELECT published_filter_metadata::text FROM component_entries WHERE id=?",String.class,ids.get("ACTIVE")));
         var releasedFilters=json.readTree(upgrade.queryForObject("SELECT filter_metadata::text FROM component_releases WHERE component_id=?",String.class,ids.get("ACTIVE")));
         assertEquals(publishedFilters,releasedFilters);assertEquals(recipe.path("category"),releasedFilters.path("category"));assertEquals(recipe.path("framework"),releasedFilters.path("framework"));
