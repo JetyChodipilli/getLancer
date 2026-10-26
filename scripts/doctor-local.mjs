@@ -25,8 +25,8 @@ try {
     const schema=values.DB_SCHEMA||'public';
     const tables=query("SELECT to_regclass('"+schema+".user_roles') IS NOT NULL");
     if(tables.stdout?.trim()==='t'){
-      const admin=query('SELECT count(*) FROM '+schema+".user_roles r JOIN "+schema+".users u ON u.id=r.user_id WHERE r.role='ADMIN' AND u.account_status='ACTIVE' AND u.admin_totp IS NOT NULL");
-      report(admin.status===0&&admin.stdout?.trim()==='1','Exactly one active administrator with authenticator configured');
+      const admin=query('SELECT count(*)=1 AND bool_and(u.account_status=\'ACTIVE\' AND u.admin_totp_key_version IS NOT NULL AND u.admin_totp_nonce IS NOT NULL AND u.admin_totp_ciphertext IS NOT NULL) FROM '+schema+".user_roles r JOIN "+schema+".users u ON u.id=r.user_id WHERE r.role='ADMIN'");
+      report(admin.status===0&&admin.stdout?.trim()==='t','Exactly one active administrator with authenticator configured');
     }else console.log('PENDING: Start the backend to apply migrations and create the first administrator.');
   }
   const password=values.ADMIN_BOOTSTRAP_PASSWORD||'',totp=values.ADMIN_TOTP_SECRET||'';

@@ -19,6 +19,42 @@ test('local setup refuses remote hosts and preserves database name case',()=>{
   for(const url of ['jdbc:postgresql://db.example.com:5432/getLancer','jdbc:postgresql://user:secret@localhost:5432/getLancer','jdbc:postgresql://localhost:5432/getLancer?options=unexpected'])assert.throws(()=>localDatabase({...config,DB_URL:url}));
   assert.throws(()=>localDatabase({...config,APP_ENV:'production'}));
 });
+
+test('local doctor recognizes encrypted MFA and refuses absent, legacy, suspended or duplicate administrators',t=>{
+  const dir=mkdtempSync(join(tmpdir(),'getlancer-doctor-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));mkdirSync(join(dir,'scripts'));
+  for(const name of ['doctor-local.mjs','local-config.mjs','node-version.mjs'])copyFileSync(new URL('../scripts/'+name,import.meta.url),join(dir,'scripts',name));
+  writeFileSync(join(dir,'.env'),'APP_ENV=local\nDB_URL=jdbc:postgresql://localhost:5433/getLancer\nDB_USERNAME=postgres\nDB_PASSWORD=synthetic-test-database\nDB_SCHEMA=getlancer\nSMTP_HOST=localhost\nSMTP_PORT=1025\nOBJECT_STORAGE_ENDPOINT=http://localhost:9000\nOBJECT_STORAGE_ACCESS_KEY=synthetic-access\nOBJECT_STORAGE_SECRET_KEY=synthetic-storage\n');
+  const hook=join(dir,'doctor-services.mjs');
+  writeFileSync(hook,`import cp from 'node:child_process';
+import net from 'node:net';
+import {syncBuiltinESMExports} from 'node:module';
+const rows=JSON.parse(process.env.DOCTOR_TEST_ADMINS);
+cp.spawnSync=(_command,args,options)=>{
+ if(options.env.PGOPTIONS!=='-c default_transaction_read_only=on')throw Error('Doctor must stay read-only');
+ const sql=args.at(-1);let result;
+ if(sql==='SELECT current_database()')result='getLancer';
+ else if(sql.includes('to_regclass'))result='t';
+ else if(sql.includes("r.role='ADMIN'")){
+  const nonnull=[...sql.matchAll(/u\\.(admin_totp(?:_key_version|_nonce|_ciphertext)?) IS NOT NULL/g)].map(match=>match[1]);
+  const matches=row=>row.account_status==='ACTIVE'&&nonnull.length>0&&nonnull.every(column=>row[column]!=null);
+  result=sql.includes('bool_and')?String(rows.length===1&&rows.every(matches)).replace('true','t').replace('false','f'):String(rows.filter(matches).length);
+ }else throw Error('Unexpected database query');
+ return {status:0,stdout:result+'\\n',stderr:''};
+};
+net.createConnection=()=>{
+ const socket={destroy(){},setTimeout(){return socket},once(event,callback){if(event==='connect')queueMicrotask(callback);return socket}};
+ return socket;
+};
+syncBuiltinESMExports();
+`);
+  const encrypted={account_status:'ACTIVE',admin_totp:null,admin_totp_key_version:'fixture-v1',admin_totp_nonce:'synthetic-nonce',admin_totp_ciphertext:'synthetic-ciphertext'};
+  const run=rows=>spawnSync(process.execPath,['--import',hook,join(dir,'scripts/doctor-local.mjs')],{encoding:'utf8',env:{...process.env,APP_ENV:'local',DOCTOR_TEST_ADMINS:JSON.stringify(rows)}});
+  const healthy=run([encrypted]);assert.equal(healthy.status,0,healthy.stdout+healthy.stderr);assert.match(healthy.stdout,/OK: Exactly one active administrator with authenticator configured/);
+  for(const rows of [[],[{account_status:'ACTIVE',admin_totp:'legacy-plaintext'}],[{...encrypted,account_status:'SUSPENDED'}],[encrypted,{account_status:'ACTIVE',admin_totp:null}], [{...encrypted,admin_totp_ciphertext:null}]]){
+    const failed=run(rows);assert.equal(failed.status,1,failed.stdout+failed.stderr);assert.match(failed.stdout,/NEEDS SETUP: Exactly one active administrator with authenticator configured/);
+  }
+  assert.ok(!healthy.stdout.includes(encrypted.admin_totp_ciphertext));
+});
 test('local setup rejects a vulnerable runtime before creating configuration or secrets',t=>{
   const dir=mkdtempSync(join(tmpdir(),'getlancer-node-floor-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));mkdirSync(join(dir,'scripts'));
   for(const file of ['setup-local.mjs','local-config.mjs','node-version.mjs'])copyFileSync(new URL('../scripts/'+file,import.meta.url),join(dir,'scripts',file));

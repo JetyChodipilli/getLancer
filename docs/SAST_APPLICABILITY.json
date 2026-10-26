@@ -223,7 +223,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/components/ComponentArchive.java",
-      "sha256": "a8db8ee56d202f89d2ee21a84e6df152bef6c47b62936847d34795151174183a"
+      "sha256": "b8ee204eb6ce0f97107cb2ae2ca94cdf5121f3e03082d410d5dab1f9ec493ad2"
     },
     {
       "path": "backend/src/main/java/com/getlancer/components/ComponentBookmarkService.java",
@@ -239,7 +239,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/components/ComponentService.java",
-      "sha256": "e804c9d171014cb14a24c90f2cc640dc6f61d896741338d42b3380ba62620345"
+      "sha256": "c86869b572c31acd45f6a76215a6eca4997906792187257b206d18a7a2c1e2e3"
     },
     {
       "path": "backend/src/main/java/com/getlancer/components/ComponentSlotService.java",
@@ -1137,7 +1137,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java",
-      "sha256": "72961e8eee80d13598587c3db1086abc8029c2991bd7655ebbef623eac2b4e0d"
+      "sha256": "387f8e626c6dae3fa437b3e58dfefa9609f23b2260dd807aa08a3f5f995b5f10"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/DataExposureIntegrationTest.java",

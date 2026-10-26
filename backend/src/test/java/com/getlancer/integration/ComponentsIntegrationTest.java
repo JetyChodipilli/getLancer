@@ -794,7 +794,40 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
       for(String name:List.of("index.html","README.md","LICENSE")){zip.putNextEntry(new java.util.zip.ZipEntry(name));String content=seed.path(name).asText();if(name.equals("index.html"))content=content.replace("</body>","<p>"+marker+"</p></body>");zip.write(content.getBytes(java.nio.charset.StandardCharsets.UTF_8));zip.closeEntry();}
     }return output.toByteArray();
   }
-  MockHttpServletRequestBuilder sourceUpload(UUID id,String version,byte[] bytes,String actor){return as(multipart("/api/v1/me/components/"+id+"/source").file(new org.springframework.mock.web.MockMultipartFile("file","component.zip","application/zip",bytes)).param("version",version).param("scenario","Try this original synthetic interaction.").param("rightsConsent","true"),actor).header("Origin","http://localhost:3000").header("X-Requested-With","getlancer");}
+  MockHttpServletRequestBuilder sourceUpload(UUID id,String version,byte[] bytes,String actor){return sourceUpload(id,version,bytes,actor,"Try this original synthetic interaction.",true);}
+  MockHttpServletRequestBuilder sourceUpload(UUID id,String version,byte[] bytes,String actor,String scenario,boolean consent){return as(multipart("/api/v1/me/components/"+id+"/source").file(new org.springframework.mock.web.MockMultipartFile("file","component.zip","application/zip",bytes)).param("version",version).param("scenario",scenario).param("rightsConsent",Boolean.toString(consent)),actor).header("Origin","http://localhost:3000").header("X-Requested-With","getlancer");}
+  @Test void sourceUploadValidationTargetsTheRelevantFieldAndPreservesTheSavedSource()throws Exception{
+    UUID id=draft();byte[] valid=contributionZip("Original source retained after invalid upload");response(sourceUpload(id,"1.0.0",valid,"builder"));
+    String original=db.queryForObject("SELECT draft_source::text FROM component_entries WHERE id=?",String.class,id);
+    long revision=db.queryForObject("SELECT revision FROM component_entries WHERE id=?",Long.class,id);
+    var invalid=Map.of(
+      "file",sourceUpload(id,"1.0.1","not a ZIP".getBytes(java.nio.charset.StandardCharsets.UTF_8),"builder"),
+      "version",sourceUpload(id,"invalid version",valid,"builder"),
+      "scenario",sourceUpload(id,"1.0.1",valid,"builder","   ",true),
+      "rightsConsent",sourceUpload(id,"1.0.1",valid,"builder","Try the synthetic interaction.",false));
+    for(var entry:invalid.entrySet()){
+      mvc.perform(entry.getValue()).andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.fieldErrors."+entry.getKey()).isNotEmpty());
+      assertEquals(original,db.queryForObject("SELECT draft_source::text FROM component_entries WHERE id=?",String.class,id));
+      assertEquals(revision,db.queryForObject("SELECT revision FROM component_entries WHERE id=?",Long.class,id));
+    }
+    response(sourceUpload(id,"1.0.1",contributionZip("Corrected source after targeted validation"),"builder"));
+    assertEquals("1.0.1",response(as(get("/api/v1/me/components/"+id),"builder")).path("version").asText());
+  }
+
+  @Test void ownCollegeMetadataContinuesBeyondOneHundredWithStableOwnerScopedPages()throws Exception{
+    var expected=new ArrayList<UUID>();for(int n=0;n<110;n++)expected.add(project(true,"ARCHIVED"));
+    UUID privateOther=project(true,"ARCHIVED");db.update("UPDATE products SET owner_user_id=? WHERE id=?",other,privateOther);
+    db.update("UPDATE college_project_metadata SET updated_at='2026-01-01T00:00:00Z'");
+    expected.sort(Comparator.comparing(UUID::toString));var seen=new ArrayList<UUID>();
+    for(int page=0;page<3;page++){
+      var result=response(as(get("/api/v1/me/college-projects").param("page",Integer.toString(page)),"builder"));
+      assertEquals(page,result.path("page").asInt());assertEquals(50,result.path("size").asInt());assertEquals(110,result.path("totalItems").asInt());assertEquals(3,result.path("totalPages").asInt());assertEquals(page<2,result.path("hasMore").asBoolean());assertEquals(page<2?50:10,result.path("items").size());
+      for(var row:result.path("items"))seen.add(UUID.fromString(row.path("productId").asText()));
+    }
+    assertEquals(expected,seen);assertEquals(110,new HashSet<>(seen).size());assertFalse(seen.contains(privateOther));
+    for(String size:List.of("0","101","-1","bad"))mvc.perform(as(get("/api/v1/me/college-projects").param("size",size),"builder")).andExpect(status().isBadRequest());
+    mvc.perform(as(get("/api/v1/me/college-projects").param("page","-1"),"builder")).andExpect(status().isBadRequest());
+  }
   @Test void privateUploadedSourceExportsRequireRecentAdminMfaAndAuditTheCurrentActor()throws Exception{
     UUID id=draft();response(sourceUpload(id,"1.0.0",contributionZip("Private original source"),"builder"));
     String adminPath="/api/v1/admin/components/"+id,ownerPath="/api/v1/me/components/"+id;

@@ -4,7 +4,7 @@ import { componentSeeds, type ComponentEntry } from '@/lib/components';
 import { ApiError } from '@/lib/api';
 import FormErrors from './form-errors';
 
-export default function ComponentDraftEditor({ entry, busy, error, onSave }: { entry: ComponentEntry | null; busy: boolean; error: ApiError | null; onSave: (event: FormEvent<HTMLFormElement>) => void }) {
+export default function ComponentDraftEditor({ entry, busy, error, onSave, demo = false }: { entry: ComponentEntry | null; busy: boolean; error: ApiError | null; onSave: (event: FormEvent<HTMLFormElement>) => void; demo?: boolean }) {
   const [step, setStep] = useState(0);
   const contribution = useRef<HTMLTextAreaElement>(null);
   const title = useRef<HTMLInputElement>(null);
@@ -24,6 +24,7 @@ export default function ComponentDraftEditor({ entry, busy, error, onSave }: { e
     onSave(event);
   }
   return <form className="form" onSubmit={next} aria-busy={busy}>
+    {demo && <p className="kit-notice">This preview saves sample recipe drafts only. Uploading your own ZIP requires a connected builder account.</p>}
     <ol className="draft-steps" aria-label="Draft steps"><li aria-current={step === 0 ? 'step' : undefined}>1 · Component details</li><li aria-current={step === 1 ? 'step' : undefined}>2 · Contribution & rights</li></ol>
     <fieldset hidden={step !== 0} disabled={busy} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
       <label htmlFor="recipeSlug">Base component</label><select id="recipeSlug" {...invalid("recipeSlug")} name="recipeSlug" value={recipe} onChange={e => setRecipe(e.target.value)} disabled={!!(entry?.published || entry?.uploaded)}>{componentSeeds.map(c => <option key={c.slug} value={c.slug}>{c.title}</option>)}</select>{fieldError("recipeSlug")}{(entry?.published || entry?.uploaded)&&<input type="hidden" name="recipeSlug" value={recipe}/>}
@@ -36,7 +37,7 @@ export default function ComponentDraftEditor({ entry, busy, error, onSave }: { e
       <p className="muted">Describe your actual contribution. A recipe selection alone does not imply authorship of the original source.</p>
       {entry?.uploaded&&<p className="kit-source-hash">Saved source v{entry.version} · SHA-256 <code>{entry.sha256}</code>. Upload a new version to replace it.</p>}
       <label className="kit-consent"><input type="checkbox" checked={upload} onChange={e=>setUpload(e.target.checked)}/>Upload my self-contained frontend source</label>
-      {upload&&<><p className="muted">ZIP up to 5 MiB, containing only index.html, README.md and LICENSE (up to 100 kB each). Inline CSS and JavaScript. Include the MIT notice, attribution and local setup. No secrets or external dependencies. Source is inspected without execution.</p><label htmlFor="file">Source ZIP</label><input id="file" {...invalid("file")} name="file" type="file" accept=".zip,application/zip" required={step===1}/>{fieldError("file")}<label htmlFor="version">Release version</label><input id="version" {...invalid("version")} name="version" defaultValue={entry?.published?'':entry?.version||'1.0.0'} pattern={step === 1 ? '[A-Za-z0-9][A-Za-z0-9._+\\-]{0,39}' : undefined} required={step===1} maxLength={40}/>{fieldError("version")}<label htmlFor="scenario">Synthetic preview interaction</label><textarea id="scenario" {...invalid("scenario")} name="scenario" defaultValue={entry?.uploaded?entry.scenario:undefined} required={step===1} maxLength={500}/>{fieldError("scenario")}</>}
+      {upload&&<><p className="muted">Upload the individual component ZIP, not a test-kit ZIP or enclosing folder. Include only root index.html, README.md and LICENSE (up to 100 kB each; ZIP up to 5 MiB). Inline CSS and JavaScript, preserve the full MIT licence and local setup, and remove secrets or external dependencies.</p><label htmlFor="file">Source ZIP</label><input id="file" {...invalid("file")} name="file" type="file" accept=".zip,application/zip" required={step===1}/>{fieldError("file")}<label htmlFor="version">Release version</label><input id="version" {...invalid("version")} name="version" defaultValue={entry?.published?'':entry?.version||'1.0.0'} pattern={step === 1 ? '[A-Za-z0-9][A-Za-z0-9._+\\-]{0,39}' : undefined} required={step===1} maxLength={40}/>{fieldError("version")}<label htmlFor="scenario">Synthetic preview interaction</label><textarea id="scenario" {...invalid("scenario")} name="scenario" defaultValue={entry?.uploaded?entry.scenario:undefined} required={step===1} maxLength={500}/>{fieldError("scenario")}</>}
       <label className="kit-consent"><input type="checkbox" id="rightsConsent" name="rightsConsent" {...invalid("rightsConsent")} required={step === 1} />I preserve the original MIT attribution and accurately describe my contribution.</label>{fieldError("rightsConsent")}
     </fieldset>
     <FormErrors error={error} onField={reveal} />
