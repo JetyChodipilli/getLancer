@@ -40,7 +40,7 @@ async function render(page:Page,kind:'team'|'business'='team'){
  await expect(page.getByRole('heading',{name:kind==='team'?'Northstar Studio':'Customer approval portal',exact:true})).toBeVisible();
 }
 async function controls(page:Page){await page.locator('.studio-preview > summary').click();}
-async function members(page:Page){await page.getByRole('tab',{name:'Members',exact:true}).click();await page.getByText('Find and invite a builder',{exact:true}).click();}
+async function members(page:Page){await page.getByRole('tab',{name:'Members',exact:true}).click();await page.getByText('Find and invite a builder',{exact:true}).click();await page.getByLabel('Builder name or skill',{exact:true}).fill('React');}
 async function lead(page:Page){await page.getByRole('tab',{name:'Leads',exact:true}).click();await page.getByText('Customer portal for a design practice · New',{exact:true}).click();}
 
 for(const refresh of ['actor','same workspace'] as const)test('initial builder search cannot repopulate results after '+refresh+' reload',async({page})=>{

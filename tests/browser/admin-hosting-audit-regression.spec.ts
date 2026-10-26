@@ -57,7 +57,7 @@ test('privacy failed first page has a retry, successful decisions reset paginati
 test('older pending privacy continuation cannot repopulate a refreshed collection',async({page})=>{
  const f=await fixture(page,'privacy');await f.mount();await page.getByText('Account deletion review',{exact:true}).click();await expect(page.locator('form')).toHaveCount(2);f.hold('/admin/deletion-requests');await page.getByRole('button',{name:'Load more privacy requests',exact:true}).click();await expect.poll(f.held).toBe(true);
  // Release a newer page-zero request before releasing the old continuation.
- f.hold('');await page.getByRole('button',{name:'Refresh privacy decisions',exact:true}).click();await expect(page.locator('form')).toHaveCount(2);await f.release();await expect(page.locator('form')).toHaveCount(2);
+ f.hold('');await page.getByRole('button',{name:'Refresh privacy decisions',exact:true}).click();await expect(page.getByRole('button',{name:'Refresh privacy decisions',exact:true})).toBeEnabled();await expect(page.locator('form')).toHaveCount(2);await f.release();await expect(page.locator('form')).toHaveCount(2);
 });
 
 test('report first-page retry and continuation failure retain the same page and private evidence',async({page})=>{

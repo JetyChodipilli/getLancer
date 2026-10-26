@@ -21,8 +21,8 @@ async function fixture(page:Page,kind:'account'|'profile'|'login'|'signup'){
   plugin.onResolve({filter:/moderation-workflow$/},()=>({path:'moderation',namespace:'fixture'}));
   plugin.onLoad({filter:/.*/,namespace:'fixture'},args=>({contents:args.path==='link'?'import React from "react";export default function Link({href,children,...props}){return <a href={href} {...props}>{children}</a>}':'export default function ModerationWorkflow(){return null}',loader:'jsx',resolveDir:process.cwd()}));
  }}]}).outputFiles[0].text;
- await page.route('**/auth-audit-fixture',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html lang="en"><head><title>Account audit regression</title></head><body><div id="root"></div></body></html>'}));
- await page.goto('/auth-audit-fixture');await page.addScriptTag({content});
+ await page.route('**/auth-audit-fixture',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Account audit regression</title></head><body><div id="root"></div></body></html>'}));
+ await page.goto('/auth-audit-fixture');await page.addStyleTag({content:readFileSync('app/form-controls.css','utf8')});await page.addScriptTag({content});
 }
 async function respond(page:Page,path:string,body:unknown,status=200){
  await expect.poll(()=>page.evaluate(path=>(window as unknown as HarnessWindow).pending.some(row=>row.path===path),path)).toBe(true);
