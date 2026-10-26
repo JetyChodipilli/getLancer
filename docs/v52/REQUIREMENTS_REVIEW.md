@@ -36,6 +36,10 @@ No static or unit check closes real KVM/image/network/isolation/cleanup qualific
 
 The requested Codex CLI review could not run because the binary is absent. Native source reviewers were used; no independent CLI or cross-model verdict is claimed.
 
+## Subsequent software acceptance work
+
+The component state matrix (FR-006), clean ZIP setup reproduction (FR-008), and separate originality/quality/licence/execution moderation assessments (FR-012) now have implementations and focused observing tests in [the software acceptance follow-up](SOFTWARE_ACCEPTANCE.md). The baseline clause counts below remain historical; current-head CI and the seven external launch gates remain separate evidence.
+
 ## Per-requirement disposition
 
 Every row below is reviewed and remains uncertified. A source-supported row can still need execution of its authored tests and responsible-owner acceptance.

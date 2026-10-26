@@ -217,7 +217,7 @@ public class DeliveryService {
 
   public Map<String, Object> adminDisputes(HttpServletRequest request) {
     repo.admin(request);
-    return Map.of("items", repo.disputes());
+    return repo.disputes(request);
   }
 
   @Transactional

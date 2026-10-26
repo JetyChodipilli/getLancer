@@ -4,84 +4,84 @@
     "category": "NAVBAR",
     "title": "Studio navigation",
     "summary": "A responsive navigation with a real menu, active state and a compact command bar.",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "framework": "HTML / CSS / JavaScript",
     "kind": "FRONTEND",
     "executionMode": "Browser local",
     "creator": "getLancer curated",
     "license": "MIT",
     "scenario": "Open Menu, select a section and inspect its active state.",
-    "sha256": "cfaece8721aa6cb5010bca3a7c72a8488db3053c3acbfdcdf4d7b1b75286a421"
+    "sha256": "3f6bc0862a41c47a0e692497657f51f77b794c3074800dd0860ddd810fda8887"
   },
   {
     "slug": "focus-sidebar",
     "category": "SIDEBAR",
     "title": "Focus sidebar",
     "summary": "An expandable workspace rail with clear section selection and accessible controls.",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "framework": "HTML / CSS / JavaScript",
     "kind": "FRONTEND",
     "executionMode": "Browser local",
     "creator": "getLancer curated",
     "license": "MIT",
     "scenario": "Select Projects and collapse or reopen the sidebar.",
-    "sha256": "6f0dce1803bc708e47ac23ee8f1640405485d1bc90fbdd992cdfa946660e3ff3"
+    "sha256": "074ed443e5cc51c2207bdc6007faa58f1b0b421e945b79c7b8bffd79c69cff95"
   },
   {
     "slug": "project-brief",
     "category": "FORM",
     "title": "Project brief form",
     "summary": "A concise intake form with labels, native validation and an inline confirmation.",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "framework": "HTML / CSS / JavaScript",
     "kind": "FRONTEND",
     "executionMode": "Browser local",
     "creator": "getLancer curated",
     "license": "MIT",
     "scenario": "Submit an empty form, complete a sample brief, then reset it.",
-    "sha256": "c19e0fa63b29662f4b93effa228567ceda00f4d026eee2d62bf0ee105bf15938"
+    "sha256": "820be0fa16f0198a14e59dc135383fcba87ad3838e5c39f341478e6c5e103a19"
   },
   {
     "slug": "portfolio-card",
     "category": "CARD",
     "title": "Portfolio project card",
     "summary": "A tactile project card with a save toggle and expandable project details.",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "framework": "HTML / CSS / JavaScript",
     "kind": "FRONTEND",
     "executionMode": "Browser local",
     "creator": "getLancer curated",
     "license": "MIT",
     "scenario": "Save or unsave the project and expand its details.",
-    "sha256": "c17315527c1677d506d6b3947ced1a0d690c10c4a6d9a2bc7b9a1e01d22b9539"
+    "sha256": "6f692599129edcfce42a4b3037ff23a496be612056d06b6d5038d1372377015f"
   },
   {
     "slug": "quiet-sign-in",
     "category": "AUTH",
     "title": "Quiet sign-in",
     "summary": "A compact auth layout with a password visibility control and synthetic sign-in state.",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "framework": "HTML / CSS / JavaScript",
     "kind": "FRONTEND",
     "executionMode": "Browser local",
     "creator": "getLancer curated",
     "license": "MIT",
     "scenario": "Toggle password visibility and try the displayed demo credentials.",
-    "sha256": "89cf962ad52baee96e3acee45fdbb6ff7f2728bc0f26fb67d4cafc3ec71c8971"
+    "sha256": "5d081e240cf2a2466dda5583dcce7dbc19defc1591e077ec5717551935c7f67f"
   },
   {
     "slug": "project-pulse",
     "category": "DASHBOARD",
     "title": "Project pulse dashboard",
     "summary": "A readable project table with a real status filter and sortable task counts.",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "framework": "HTML / CSS / JavaScript",
     "kind": "FRONTEND",
     "executionMode": "Browser local",
     "creator": "getLancer curated",
     "license": "MIT",
     "scenario": "Filter to Active and sort projects by their task count.",
-    "sha256": "a4e7a799dd59f210b90eda30d7134958b898a4f8155fba9e58038f539e417771"
+    "sha256": "2bee957ee4318ff436f42046e3fb7ca4b0f269f162400d99e4c96ccb1b1db5be"
   },
   {
     "slug": "workspace-switcher",
@@ -93,8 +93,8 @@
     "executionMode": "Browser local",
     "creator": "getLancer originals",
     "license": "MIT",
-    "version": "1.0.0",
-    "sha256": "aba88d23c4ffc6d325e07db4710b669c626e431b16da4c0d82bb5a119a586fc5",
+    "version": "1.0.1",
+    "sha256": "8546dd43d78da5d721f620b8ac16a2328ac3240df4ec86ea04ccb43333d7db29",
     "scenario": "Switch workspace, then open its project list."
   },
   {
@@ -107,8 +107,8 @@
     "executionMode": "Browser local",
     "creator": "getLancer originals",
     "license": "MIT",
-    "version": "1.0.0",
-    "sha256": "c01c5d0cf2d7a014e7332ee136e1f9921944a5231291e36ec81c3463732c874d",
+    "version": "1.0.1",
+    "sha256": "49730fadcb37c8ca7d601c0be8d797ec1974f6b28527624ab237315b0e1e655d",
     "scenario": "Switch between Overview, Updates and Files."
   },
   {
@@ -121,8 +121,8 @@
     "executionMode": "Browser local",
     "creator": "getLancer originals",
     "license": "MIT",
-    "version": "1.0.0",
-    "sha256": "42f370a0dd17240e73e21d6cea5ddcebcb00d6c0436a9eb116bef39e92e94bfe",
+    "version": "1.0.1",
+    "sha256": "312173db53bc7c4097312cc183ade430c874b045624dae51240e712f5fbaf9c9",
     "scenario": "Search for settings, then try a term with no results."
   },
   {
@@ -135,8 +135,8 @@
     "executionMode": "Browser local",
     "creator": "getLancer originals",
     "license": "MIT",
-    "version": "1.0.0",
-    "sha256": "30e98218378b75a44f42f09e40489bf6713331c7a609a62fc28f1a96dc4405d7",
+    "version": "1.0.1",
+    "sha256": "34baad6aebbcdbbc6739d30c50db675264528f1ea527245326b7c6a6e49f4a0b",
     "scenario": "Expand Assets and open Brand guidelines."
   },
   {
@@ -149,8 +149,8 @@
     "executionMode": "Browser local",
     "creator": "getLancer originals",
     "license": "MIT",
-    "version": "1.0.0",
-    "sha256": "b5b84cf4b42b309ee5ac2d47f69b8d27a18a482732a26f0bd5c481978e6ca66a",
+    "version": "1.0.1",
+    "sha256": "3ffc9b14db32d79d033e666f1406b66740bd7156992f6e036fcacbe0e5ae62e2",
     "scenario": "Filter active projects and clear the filter."
   },
   {
@@ -163,8 +163,8 @@
     "executionMode": "Browser local",
     "creator": "getLancer originals",
     "license": "MIT",
-    "version": "1.0.0",
-    "sha256": "acbbe86b36160473c66c9e99a73548f721a61baa02b08548244917cbca20d7f1",
+    "version": "1.0.1",
+    "sha256": "372e5dde1df020a7735be3f4f6be1a7522ac0b83076b2e92ae1d95704361afa2",
     "scenario": "Open Notifications and turn sample updates off."
   },
   {
@@ -177,8 +177,8 @@
     "executionMode": "Browser local",
     "creator": "getLancer originals",
     "license": "MIT",
-    "version": "1.0.0",
-    "sha256": "00757c1253d4e33b47f59149ba2941a5a85e34817c05634b25dc69a183685cea",
+    "version": "1.0.1",
+    "sha256": "c2e72c4dce5322becc3d254c8f18c476b97fbf9d5bcd549242ab02930e8f21cf",
     "scenario": "Submit an empty note, then a useful sample note."
   },
   {
@@ -191,8 +191,8 @@
     "executionMode": "Browser local",
     "creator": "getLancer originals",
     "license": "MIT",
-    "version": "1.0.0",
-    "sha256": "591de72104e1bffd65a8ec2e41829f921911eff44d692f98d56e127600b7d97c",
+    "version": "1.0.1",
+    "sha256": "71fcb3d0694f135a559d5ab296bae825e07b63372ce98ab4177ecbabc2b2a3fc",
     "scenario": "Change the number of screens and include an API."
   },
   {
@@ -205,8 +205,8 @@
     "executionMode": "Browser local",
     "creator": "getLancer originals",
     "license": "MIT",
-    "version": "1.0.0",
-    "sha256": "87564a9f206c4f4df9d1540fbe40b738e1eabfdd0fa80c213a4a37bb20548aed",
+    "version": "1.0.1",
+    "sha256": "ffcceaf6c7c7457c2c8b388896edc7ba122610287b00f956f595b179d0c2be28",
     "scenario": "Enter a sample name, continue and go back."
   },
   {
@@ -219,8 +219,8 @@
     "executionMode": "Browser local",
     "creator": "getLancer originals",
     "license": "MIT",
-    "version": "1.0.0",
-    "sha256": "586f7d0add235b0627879bd8bd7b807f15e91ff9180e08ea4d88066e120c32ca",
+    "version": "1.0.1",
+    "sha256": "8ff5a1c682fc68219d12bc3b52fd5c30d5d3e4cc0dbc4010648c005cb85d7625",
     "scenario": "Select a plan and compare its sample capacity."
   },
   {
@@ -233,8 +233,8 @@
     "executionMode": "Browser local",
     "creator": "getLancer originals",
     "license": "MIT",
-    "version": "1.0.0",
-    "sha256": "625e59ab11299d5e926c5cb141c8032e9ee454074984f1a603e4f38cbac79a23",
+    "version": "1.0.1",
+    "sha256": "871b3ea5bad589d144256255d6a0b408ec00059b92438f7e5379c3f04c79a7e7",
     "scenario": "Open the case study and inspect its contribution."
   },
   {
@@ -247,8 +247,8 @@
     "executionMode": "Browser local",
     "creator": "getLancer originals",
     "license": "MIT",
-    "version": "1.0.0",
-    "sha256": "da0743e7aa3a85aff0523430448b5b92390e95043aa8af35af12439f79e7c13c",
+    "version": "1.0.1",
+    "sha256": "2bc71e06d7682aa0402c2304791547935796d64528351a04135e3568b3681225",
     "scenario": "Complete the sample task and undo it."
   },
   {
@@ -261,8 +261,8 @@
     "executionMode": "Browser local",
     "creator": "getLancer originals",
     "license": "MIT",
-    "version": "1.0.0",
-    "sha256": "c9000bf9fae31ff1e4587c8ac25634674f62bb5bc18d29b46d9c9729f0769318",
+    "version": "1.0.1",
+    "sha256": "9a95c132adeeff464d05a8d759873e160bf4f63105f681e00cbc52878529bacc",
     "scenario": "Try a wrong code, then the disclosed sample code 246810."
   },
   {
@@ -275,8 +275,8 @@
     "executionMode": "Browser local",
     "creator": "getLancer originals",
     "license": "MIT",
-    "version": "1.0.0",
-    "sha256": "3def39e3e675c33ace6541d1202a71d8793b772b24a3b1a1f0c3b74dc3ad6906",
+    "version": "1.0.1",
+    "sha256": "93ad89c1e111541e5aa48a00a04c08df98bdfc84cb9a38ad14c88a4fceeb314c",
     "scenario": "Start a sample recovery and inspect its neutral confirmation."
   },
   {
@@ -289,8 +289,8 @@
     "executionMode": "Browser local",
     "creator": "getLancer originals",
     "license": "MIT",
-    "version": "1.0.0",
-    "sha256": "e434753e43482c7c960d3c33d4b1367dabff776b3a62cde004e191884b6ea9bb",
+    "version": "1.0.1",
+    "sha256": "fbe9ba2b92b35d6a0b71db4a1051396aa58aa50681906eaeac3d381428f179ef",
     "scenario": "End the sample session and start it again."
   },
   {
@@ -303,8 +303,8 @@
     "executionMode": "Browser local",
     "creator": "getLancer originals",
     "license": "MIT",
-    "version": "1.0.0",
-    "sha256": "171e6efc4fd3e427a89b4ad839715ef8b8e25f79c48a1e9264a671aed2d80648",
+    "version": "1.0.1",
+    "sha256": "26fb678524f395dc1f9b5c4488eea158661f881fb4f2407fec2091eddebb2b43",
     "scenario": "Switch between 7 days and 30 days."
   },
   {
@@ -317,8 +317,8 @@
     "executionMode": "Browser local",
     "creator": "getLancer originals",
     "license": "MIT",
-    "version": "1.0.0",
-    "sha256": "d34732aa2fbfc78ce91e537a7c88af0146941d460231334edb7b0654418ae1c4",
+    "version": "1.0.1",
+    "sha256": "fad078203db080440c8d81c8e059f50cfe65a3364cf04ea1a1e55d64a2e0b4b5",
     "scenario": "Search for garden and clear the search."
   },
   {
@@ -331,8 +331,8 @@
     "executionMode": "Browser local",
     "creator": "getLancer originals",
     "license": "MIT",
-    "version": "1.0.0",
-    "sha256": "d68be2b91222f35ab1d0e2531ccd8558455e48f023cce1258a9d8b9bcbd66383",
+    "version": "1.0.1",
+    "sha256": "74c51710b31049370b7475d82f4aad53901e5ad3bfea67a1a47e6df6925589a0",
     "scenario": "Check source, licence and keyboard review to make the sample ready."
   }
 ]

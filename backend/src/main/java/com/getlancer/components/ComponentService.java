@@ -351,7 +351,7 @@ public class ComponentService {
     if(!"SUSPENDED".equals(row.get("status"))||((Number)row.get("revision")).longValue()!=((Number)frozen.get("component_enforcement_revision")).longValue())throw new ApiError(409,"COMPONENT_APPEAL_STALE","A later component decision requires its own review.");
     requireReportedArtifact(id,revision,hash,version,frozenJson,reviewSource(row),reviewContext(row));
     String reviewReason="Appeal overturned: "+reason;reviewReason=reviewReason.substring(0,Math.min(2000,reviewReason.length()));
-    review(id,Map.of("revision",row.get("revision"),"sourceHash",reviewHash(row,reviewSource(row)),"decision","APPROVE","reason",reviewReason),request);
+    review(id,Map.of("revision",row.get("revision"),"sourceHash",reviewHash(row,reviewSource(row)),"decision","APPROVE","reason",reviewReason),request,decisionId);
     reportModerator(request);
     return Map.of("status","ACTIVE");
   }
@@ -446,6 +446,10 @@ public class ComponentService {
     return Map.of("id",id,"version",version,"sourceHash",source.get("sha256"),"archiveSha256",source.get("archiveSha256"));
   }
   @Transactional public Object review(UUID id,Map<String,Object> b,HttpServletRequest r) {
+    return review(id,b,r,null);
+  }
+  /** An appeal reinstates an already released exact artifact; it never invents fresh assessment results. */
+  private Object review(UUID id,Map<String,Object> b,HttpServletRequest r,UUID restoredDecision) {
     UUID admin=security.admin(r);slots.lockAuthority(admin);security.admin(r);
     var rows=db.queryForList("SELECT owner_id FROM component_entries WHERE id=?",id);
     if(rows.isEmpty())throw new ApiError(404,"NOT_FOUND","Component not found.");
@@ -457,6 +461,7 @@ public class ComponentService {
     var submitted=reviewSource(c);var context=reviewContext(c);
     if(!reviewHash(c,submitted).equals(b.get("sourceHash")))throw new ApiError(409,"REVIEW_SOURCE_CHANGED","The reviewed source hash does not match this submission.");
     String decision=text(b,"decision",3,30),reason=text(b,"reason",20,2000),next;
+    Map<String,Object> assessments=restoredDecision==null?reviewAssessments(b,decision,submitted):null;
     if(decision.equals("APPROVE")&&Set.of("PENDING","SUSPENDED").contains(c.get("status"))){
       requireAvailableRecipeSource(id,c.get("recipe_slug").toString(),submitted);security.admin(r);
       if(db.queryForObject("SELECT count(*) FROM users u JOIN developer_profiles d ON d.user_id=u.id WHERE u.id=? AND "+ELIGIBLE,Integer.class,owner)==0)throw new ApiError(409,"BUILDER_NOT_ELIGIBLE","The builder must have an active account and approved profile.");
@@ -476,8 +481,23 @@ public class ComponentService {
     }
     db.update("UPDATE component_entries SET status=?,revision=revision+1,submitted_source=CASE WHEN ?='SUSPENDED' THEN ?::jsonb ELSE submitted_source END,submitted_context=CASE WHEN ?='SUSPENDED' THEN ?::jsonb ELSE submitted_context END,review_reason=?,published_at=CASE WHEN ?='ACTIVE' THEN coalesce(published_at,now()) ELSE published_at END,published_source=CASE WHEN ?='ACTIVE' THEN coalesce(published_source,?::jsonb) ELSE published_source END,published_context=CASE WHEN ?='ACTIVE' THEN ?::jsonb ELSE published_context END,withdrawn_at=CASE WHEN ?='ACTIVE' THEN NULL ELSE withdrawn_at END,updated_at=now() WHERE id=?",next,next,encode(submitted),next,encode(context),reason,next,next,encode(submitted),next,encode(context),next,id);
     if(next.equals("ACTIVE")&&newRelease)db.update("INSERT INTO component_releases(component_id,revision,source,context,source_sha256) VALUES(?,?,?::jsonb,?::jsonb,?)",id,((Number)c.get("revision")).longValue(),encode(submitted),encode(context),submitted.get("sha256"));
+    db.update("INSERT INTO component_review_assessments(id,component_id,revision,source_hash,admin_id,decision,reason,assessments,restored_decision_id) VALUES(?,?,?,?,?,?,?,?::jsonb,?)",id(),id,c.get("revision"),b.get("sourceHash"),admin,restoredDecision==null?decision:"APPEAL_RESTORE",reason,assessments==null?null:encode(assessments),restoredDecision);
     slots.audit(admin,id,"REVIEW_"+decision,reason);
     return Map.of("status",next);
+  }
+  static Map<String,Object> reviewAssessments(Map<String,Object> body,String decision,Map<String,Object> source) {
+    var result=new LinkedHashMap<String,Object>();
+    for(String criterion:List.of("originality","quality","license","execution")) {
+      if(!(body.get(criterion) instanceof Map<?,?> value)||value.size()!=2
+        ||!(value.get("result") instanceof String outcome)||!Set.of("PASS","FAIL","NOT_APPLICABLE").contains(outcome)
+        ||!(value.get("note") instanceof String note)||note.strip().length()<20||note.length()>1000)
+        throw new ApiError(400,"REVIEW_ASSESSMENT_REQUIRED","Record a result and 20 to 1000 character evidence note for each assessment.");
+      if(decision.equals("APPROVE")&&!outcome.equals("PASS")
+        &&!(criterion.equals("execution")&&outcome.equals("NOT_APPLICABLE")&&"Source only".equals(source.get("executionMode"))))
+        throw new ApiError(400,"REVIEW_ASSESSMENT_FAILED","Approval requires passing originality, quality and licence assessments and verified execution for runnable source.");
+      result.put(criterion,Map.of("result",outcome,"note",note.strip()));
+    }
+    return result;
   }
   static void checkRevision(Map<String,Object>b,Map<String,Object>row){
     Object value=b.get("revision");
@@ -488,7 +508,7 @@ public class ComponentService {
     if(component.get("id")==null)return Map.of("items",List.of(Map.of("version",component.get("version"),"sha256",component.get("sha256"))));
     return Map.of("items",db.queryForList("SELECT revision,source->>'version' AS version,source_sha256 AS sha256,source->>'archiveSha256' AS archive_sha256,source->>'manifestSha256' AS manifest_sha256,published_at FROM component_releases WHERE component_id=? ORDER BY revision DESC LIMIT 100",component.get("id")));
   }
-  @Transactional public Object adminDetail(UUID id,HttpServletRequest r){UUID admin=security.admin(r);slots.lockAuthority(admin);security.admin(r);var rows=db.queryForList("SELECT c.id,c.recipe_slug,c.slug,c.title,c.summary,c.contribution,c.revision,c.status,c.review_reason,c.published_at,c.published_source,c.published_context,c.draft_source,c.submitted_source,c.submitted_context,c.withdrawn_at,d.display_name AS creator,d.slug AS builder_slug"+JOIN+" WHERE c.id=?",id);if(rows.isEmpty())throw new ApiError(404,"NOT_FOUND","Component not found.");return entry(rows.get(0));}
+  @Transactional public Object adminDetail(UUID id,HttpServletRequest r){UUID admin=security.admin(r);slots.lockAuthority(admin);security.admin(r);var rows=db.queryForList("SELECT c.id,c.recipe_slug,c.slug,c.title,c.summary,c.contribution,c.revision,c.status,c.review_reason,c.published_at,c.published_source,c.published_context,c.draft_source,c.submitted_source,c.submitted_context,c.withdrawn_at,d.display_name AS creator,d.slug AS builder_slug"+JOIN+" WHERE c.id=?",id);if(rows.isEmpty())throw new ApiError(404,"NOT_FOUND","Component not found.");var out=entry(rows.get(0));out.put("reviewHistory",db.queryForList("SELECT id,revision,source_hash,admin_id,decision,reason,assessments,restored_decision_id,created_at FROM component_review_assessments WHERE component_id=? ORDER BY created_at DESC,id LIMIT 20",id).stream().map(row->{var item=new LinkedHashMap<String,Object>(row);if(row.get("assessments")!=null)item.put("assessments",snapshot(row.get("assessments")));return item;}).toList());return out;}
   public Object queue(HttpServletRequest r) {
     security.admin(r);
     int cp=com.getlancer.shared.Pages.number(r,"componentPage",0,100000),ep=com.getlancer.shared.Pages.number(r,"collegePage",0,100000);

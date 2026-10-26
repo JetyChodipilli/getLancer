@@ -146,14 +146,14 @@
     {
       "id": "angular",
       "label": "Angular",
-      "version": "20.3.33",
+      "version": "20.3.34",
       "title": "Release checklist",
       "summary": "A standalone component with signals and checked-state feedback.",
       "primaryFile": "src/app.ts",
-      "compiler": "@angular/compiler-cli 20.3.33 · AOT",
-      "previewSha256": "d23310ac201ecf3f0f40f9837752a5166d592264f2ec72893a49f1fa73097461",
-      "sourceSha256": "48456b81fa7ddb8b7b3610e94ba16a3a14f553faf92ad23945c4319d68bd3ed6",
-      "archiveSha256": "a89cd20e96b265d1ff20993b55394b66335870bd1fe96c0b691f8837ffd7fcce",
+      "compiler": "@angular/compiler-cli 20.3.34 · AOT",
+      "previewSha256": "2af4d61f847bd52b14fa158f32db575f5c89d2b4f3696ad847db5e26fcb92bcd",
+      "sourceSha256": "8c82c113cf5f2ed25cb96f17a12f02fb53ff76ee5f5251f3c49719f3aed0462d",
+      "archiveSha256": "f7630e9faf7b2a8ac3a22123e8280207e898faa8007bd51c86746c1ce6172583",
       "sourceUrl": "/components/frameworks/source/angular",
       "previewUrl": "/components/frameworks/preview/angular",
       "files": [
@@ -174,12 +174,12 @@
         },
         {
           "name": "package-lock.json",
-          "sha256": "d60921aa6a7ecdd553dc8d57008e12a6a4ddff42173bd08940f12f9d819e2a39",
+          "sha256": "99a051139f9f72d24a9987c6dd906e5e9b70fe6b5c4e53dcdd56c4399554f5f1",
           "bytes": 47922
         },
         {
           "name": "package.json",
-          "sha256": "8c0f1c8999013dad5524fb763807d120156b56c9b3c6908f399c930b04fbb75d",
+          "sha256": "fd806009e138c15705b24401fbe51384bb5c35a0c6b79d10ef4fdceb641e3ef1",
           "bytes": 611
         },
         {
@@ -204,12 +204,12 @@
         },
         {
           "name": "THIRD_PARTY_LICENSES.md",
-          "sha256": "b49e1042dc2737da91343216d9664d732cb4c92fb5245014259cf344fdd2b6d7",
+          "sha256": "372261c492fd2c390dcfde0e3b9e723db2923547aec4ee8fe0222d4f94142791",
           "bytes": 16377
         },
         {
           "name": "THIRD_PARTY_NOTICES.md",
-          "sha256": "4c4467c5e1169f0cef9993ddd6fc3014af5e245821cbb217e05a8997426d45ce",
+          "sha256": "408e272e5e49797df3e7484d2bdbf465523a169b7e9ea20233d27bdd5024db17",
           "bytes": 673
         },
         {

@@ -33,7 +33,7 @@ test('sample contribution uses staged fields, preserves back navigation and can 
   await page.getByRole('group',{name:'Demo roles'}).getByRole('button',{name:/Administrator/}).click();
   const review=page.locator('.kit-admin-list article').filter({has:page.getByRole('heading',{name:'A sample release · pending',exact:true})});
   await review.getByLabel('Review reason',{exact:true}).fill('Reviewed the synthetic contribution, original source and MIT attribution.');
-  await review.getByRole('button',{name:'Record component review',exact:true}).click();
+  for(const criterion of ['Originality','Quality','Licence','Execution']){await review.getByLabel(criterion+' result',{exact:true}).selectOption('PASS');await review.getByLabel(criterion+' evidence',{exact:true}).fill('Independently checked the exact synthetic source and browser interaction.');}await review.getByRole('button',{name:'Record component review',exact:true}).click();
   await expect(page.getByText('Review decision recorded.',{exact:true})).toBeVisible();await reflow(page);
 });
 test('sample saves survive navigation and remove idempotently',async({page})=>{

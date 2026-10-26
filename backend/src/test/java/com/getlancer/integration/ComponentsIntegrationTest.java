@@ -90,8 +90,14 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
   MockHttpServletRequestBuilder as(MockHttpServletRequestBuilder r,String actor){
     return r.cookie(new Cookie("gl_session",actor));
   }
+  Object withAssessments(Object body) {
+    if(!(body instanceof Map<?,?> command)||!command.containsKey("sourceHash")||!command.containsKey("decision"))return body;
+    var value=new LinkedHashMap<String,Object>();command.forEach((key,item)->value.put(key.toString(),item));
+    for(String criterion:List.of("originality","quality","license","execution"))value.putIfAbsent(criterion,Map.of("result","PASS","note","Independent exact-source fixture assessment evidence."));
+    return value;
+  }
   MockHttpServletRequestBuilder body(MockHttpServletRequestBuilder r,String actor,Object b)throws Exception{
-    return as(r,actor).header("Origin","http://localhost:3000").header("X-Requested-With","getlancer").contentType("application/json").content(json.writeValueAsString(b));
+    return as(r,actor).header("Origin","http://localhost:3000").header("X-Requested-With","getlancer").contentType("application/json").content(json.writeValueAsString(withAssessments(b)));
   }
   JsonNode response(MockHttpServletRequestBuilder r)throws Exception{
     return json.readTree(mvc.perform(r).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());

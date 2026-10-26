@@ -2,6 +2,8 @@
 
 The qualification software is executable. **Actual production qualification remains UNMET.** No production target, dedicated KVM host, reviewed images, production dataset, recovery target, live merchant access or human sign-off is configured here. Disposable test keys and invented observations validate the software only. A CI restore cannot satisfy production recovery.
 
+The [25 October execution record](ACCEPTANCE_EXECUTION.md) lists the read-only capability observations, checks actually run and the precise owner handoff for every remaining production outcome. Its local software-verifier results do not close production gates.
+
 Use the existing application/PostgreSQL deployment and [dedicated KVM provider/offline builder](../../ops/lab-provider/README.md). No new hosting account, Kubernetes platform or payment service is introduced. Runtime and commerce activation remain separate. This harness never deploys, creates a VM, changes activation flags, charges/refunds a customer, changes DNS or restores a database.
 
 ## External target and trust

@@ -12,7 +12,7 @@ export const frameworkIds=['vue','svelte','angular'];
 export const catalogue=[
  {id:'vue',label:'Vue',version:'3.5.43',title:'Project brief',summary:'A reactive form with validation and local save feedback.',primaryFile:'src/App.vue',compiler:'@vue/compiler-sfc 3.5.43',mount:'<div id="app"></div>'},
  {id:'svelte',label:'Svelte',version:'5.57.2',title:'Build queue',summary:'A filtered list with reactive completion state.',primaryFile:'src/App.svelte',compiler:'svelte/compiler 5.57.2',mount:'<div id="app"></div>'},
- {id:'angular',label:'Angular',version:'20.3.33',title:'Release checklist',summary:'A standalone component with signals and checked-state feedback.',primaryFile:'src/app.ts',compiler:'@angular/compiler-cli 20.3.33 · AOT',mount:'<native-preview></native-preview>'},
+ {id:'angular',label:'Angular',version:'20.3.34',title:'Release checklist',summary:'A standalone component with signals and checked-state feedback.',primaryFile:'src/app.ts',compiler:'@angular/compiler-cli 20.3.34 · AOT',mount:'<native-preview></native-preview>'},
 ];
 export const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const cspHash=bytes=>"'sha256-"+createHash('sha256').update(bytes).digest('base64')+"'";

@@ -63,7 +63,7 @@ jobs:
       - name: Build and verify the three original native framework previews
         run: |
           node scripts/verify-framework-previews.mjs --native
-          for framework in vue svelte angular; do npm audit --prefix examples/frameworks/$framework --audit-level=high; done
+          for framework in vue svelte angular; do npm audit --prefix examples/frameworks/$framework --audit-level=moderate; done
       - name: Verify account-free laptop Docker environment with the full eighteen-core / data-AI / IoT matrix
         run: |
           docker compose -f compose.labs-local.yaml config --quiet

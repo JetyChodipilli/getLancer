@@ -6,6 +6,21 @@ export type Capacity = { free: number; purchased: number; used: number; limit: n
 export type SlotPricing = { amountMinor: number | null; enabled: boolean; salesEnabled: boolean; configured: boolean; currency: string; mode: string; reason: string };
 export type SlotPurchase = { id: string; amountMinor: number; mode: string; status: string; orderId?: string; keyId?: string; refundedMinor: number; grantsSlot: boolean };
 export const componentSeeds: ComponentEntry[] = seeds;
+export const componentReviewCriteria = ['originality', 'quality', 'license', 'execution'] as const;
+export type ComponentAssessment = { result: 'PASS' | 'FAIL' | 'NOT_APPLICABLE'; note: string };
+/** Only the reviewed binding and explicit criterion evidence form a moderator command. */
+export function componentReviewBody(form: FormData) {
+  const revision = Number(form.get('revision')), sourceHash = String(form.get('sourceHash') ?? ''), decision = String(form.get('decision') ?? ''), reason = String(form.get('reason') ?? '').trim();
+  if (!Number.isSafeInteger(revision) || revision < 1 || !/^[a-f0-9]{64}$/.test(sourceHash)) throw Error('Reload the exact submitted revision before reviewing it.');
+  if (!['APPROVE', 'CHANGES_REQUESTED', 'SUSPEND'].includes(decision) || reason.length < 20 || reason.length > 2000) throw Error('Choose a review decision and give a 20 to 2000 character reason.');
+  const assessments = {} as Record<typeof componentReviewCriteria[number], ComponentAssessment>;
+  for (const criterion of componentReviewCriteria) {
+    const result = String(form.get(criterion + 'Result') ?? ''), note = String(form.get(criterion + 'Note') ?? '').trim();
+    if (!['PASS', 'FAIL', 'NOT_APPLICABLE'].includes(result) || note.length < 20 || note.length > 1000) throw Error('Record a result and 20 to 1000 character evidence note for each assessment.');
+    assessments[criterion] = { result: result as ComponentAssessment['result'], note };
+  }
+  return { revision, sourceHash, decision, reason, ...assessments };
+}
 /** Send only the binding supplied by the current public detail response. The server rechecks it. */
 export function componentReportBody(item: ComponentEntry, reason: string, detail: string) {
   const targetId = item.reportTargetId ?? item.id, revision = item.reportRevision ?? item.revision;
