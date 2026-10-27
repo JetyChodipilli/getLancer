@@ -16,11 +16,21 @@ import com.getlancer.security.Security;
 import com.getlancer.shared.ApiError;
 import com.getlancer.shared.Support;
 import com.getlancer.testing.TestDatabaseGuard;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpServer;
 import jakarta.servlet.http.Cookie;
+import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,12 +41,13 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 
-/** Real PostgreSQL authority and journals, with deterministic in-process storage/publisher I/O. */
+/** Real PostgreSQL authority and publisher HTTP, with deterministic mock object storage. */
 @ContextConfiguration(initializers = TestDatabaseGuard.class)
 @SpringBootTest(properties = {
     "app.environment=local", "app.jobs-enabled=false", "app.admin-email=operator@example.test",
@@ -51,19 +62,24 @@ class Round2RuntimeStorageIntegrationTest {
   @Autowired JdbcTemplate db;
   @Autowired Security security;
   @Autowired PlatformTransactionManager manager;
+  @Autowired ComponentPreviewService components;
   UUID owner, admin, client, product, media, hosted, deployment;
   MockHttpServletRequest ownerRequest, adminRequest, clientRequest;
   MediaService images;
   HostingService hosting;
   S3Client storage;
-  DemoPublisherClient publisher;
   Runnable storageRead = () -> {};
-  Runnable publisherRead = () -> {};
+  volatile Runnable publisherRead = () -> {};
+  volatile String expectedPublisherMethod = "";
+  HttpServer publisherServer;
+  ExecutorService publisherExecutor;
+  final AtomicInteger publisherRequests = new AtomicInteger();
+  final AtomicReference<Throwable> publisherFailure = new AtomicReference<>();
   final byte[] png = new byte[] {1, 2, 3};
   final String archiveHash = "a".repeat(64), manifestHash = "b".repeat(64);
   Instant expiry;
 
-  @BeforeEach void fixtures() {
+  @BeforeEach void fixtures() throws IOException {
     db.execute("TRUNCATE users CASCADE");
     owner = UUID.randomUUID(); admin = UUID.randomUUID(); client = UUID.randomUUID();
     ownerRequest = actor(owner, "DEVELOPER", false);
@@ -83,13 +99,16 @@ class Round2RuntimeStorageIntegrationTest {
     });
     images = new MediaService(db, security, "http://storage.localhost", "us-east-1", "", "", "private-proof", "http://storage.localhost", false);
     ReflectionTestUtils.setField(images, "s3", storage);
-    var configuration = new HostingConfiguration(true, "http://publisher:8090", "p".repeat(32),
-        "http://{id}.demo.localhost:8090", "g".repeat(32), 7, 500, "http://localhost:3000");
-    publisher = mock(DemoPublisherClient.class);
-    when(publisher.get(any(), anyString(), anyString(), any())).thenAnswer(call -> publisherFact("READY"));
-    when(publisher.delete(any(), anyString(), anyString(), any())).thenAnswer(call -> publisherFact("DELETED"));
+    publisherServer = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+    publisherExecutor = Executors.newSingleThreadExecutor();
+    publisherServer.setExecutor(publisherExecutor);
+    publisherServer.createContext("/deployments/", this::publisherResponse);
+    publisherServer.start();
+    var configuration = new HostingConfiguration(true, "http://localhost:" + publisherServer.getAddress().getPort(), "p".repeat(32),
+        "http://{id}.demo.localhost:8090", "g".repeat(32), 7, 5000, "http://localhost:3000");
+    assertEquals(true, configuration.projection().get("enabled"), "Loopback publisher fixture configuration must be valid");
     hosting = new HostingService(new HostingRepository(db, configuration, new ObjectMapper()), security,
-        mock(CommerceStorage.class), configuration, publisher, manager, mock(ComponentPreviewService.class));
+        mock(CommerceStorage.class), configuration, new DemoPublisherClient(configuration), manager, components);
     expiry = Instant.now().plusSeconds(600).truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
     seedHosted(hosted, deployment, "1.0.0");
   }
@@ -107,11 +126,57 @@ class Round2RuntimeStorageIntegrationTest {
         + " VALUES(?,?,?,'Private package',?,'private/archive.zip',?,?,22,1,1,'[]'::jsonb,'APPROVED','READY',?,?)", id, owner, product, version, archiveHash, manifestHash, fixedDeployment, Timestamp.from(expiry));
   }
 
-  DemoPublisherClient.Metadata publisherFact(String state) {
-    assertFalse(TransactionSynchronizationManager.isActualTransactionActive(), "Publisher I/O releases authority locks");
-    publisherRead.run();
-    return new DemoPublisherClient.Metadata(deployment, state, archiveHash, manifestHash, expiry,
-        state.equals("READY") ? "http://" + deployment + ".demo.localhost:8090" : null);
+  void publisherResponse(HttpExchange exchange) throws IOException {
+    publisherRequests.incrementAndGet();
+    byte[] response;
+    int status = 200;
+    try {
+      assertEquals("Bearer " + "p".repeat(32), exchange.getRequestHeaders().getFirst("Authorization"));
+      assertEquals("application/json", exchange.getRequestHeaders().getFirst("Accept"));
+      assertEquals(expectedPublisherMethod, exchange.getRequestMethod());
+      assertTrue(expectedPublisherMethod.equals("GET") || expectedPublisherMethod.equals("DELETE"));
+      assertEquals("/deployments/" + deployment, exchange.getRequestURI().toString());
+      assertEquals(0, exchange.getRequestBody().readNBytes(1).length);
+      // The callback is on another thread: probe actual DB locks rather than its
+      // thread-local transaction state to prove the caller released authority locks.
+      new TransactionTemplate(manager).execute(transaction -> {
+        db.queryForList("SELECT id FROM users WHERE id IN (?,?) ORDER BY id FOR UPDATE NOWAIT", owner, admin);
+        db.queryForList("SELECT user_id FROM developer_profiles WHERE user_id=? FOR UPDATE NOWAIT", owner);
+        db.queryForList("SELECT user_id FROM user_roles WHERE user_id IN (?,?) ORDER BY user_id,role FOR UPDATE NOWAIT", owner, admin);
+        db.queryForList("SELECT token_hash FROM sessions WHERE user_id IN (?,?) ORDER BY token_hash FOR UPDATE NOWAIT", owner, admin);
+        db.queryForList("SELECT id FROM hosted_demos WHERE id=? FOR UPDATE NOWAIT", hosted);
+        return true;
+      });
+      publisherRead.run();
+      response = new ObjectMapper().writeValueAsBytes(Map.of("id", deployment.toString(),
+          "state", expectedPublisherMethod.equals("DELETE") ? "DELETED" : "READY",
+          "archiveSha256", archiveHash, "manifestSha256", manifestHash, "expiresAt", expiry.toString(),
+          "url", "http://" + deployment + ".demo.localhost:8090"));
+    } catch (Throwable failure) {
+      publisherFailure.compareAndSet(null, failure);
+      status = 500;
+      response = "{}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    }
+    try {
+      exchange.getResponseHeaders().set("Content-Type", "application/json");
+      exchange.sendResponseHeaders(status, response.length);
+      exchange.getResponseBody().write(response);
+    } catch (IOException failure) {
+      publisherFailure.compareAndSet(null, failure);
+      throw failure;
+    } finally {
+      exchange.close();
+    }
+  }
+
+  @AfterEach void closePublisher() throws InterruptedException {
+    if (publisherServer != null) publisherServer.stop(0);
+    if (publisherExecutor != null) {
+      publisherExecutor.shutdownNow();
+      assertTrue(publisherExecutor.awaitTermination(5, TimeUnit.SECONDS), "Publisher fixture thread must stop");
+    }
+    if (publisherFailure.get() != null) fail("Publisher fixture callback failed", publisherFailure.get());
+    if (expectedPublisherMethod.isEmpty()) assertEquals(0, publisherRequests.get(), "Media tests do not contact the publisher");
   }
 
   void denied(int status, org.junit.jupiter.api.function.Executable action) {
@@ -175,6 +240,7 @@ class Round2RuntimeStorageIntegrationTest {
   }
 
   @Test void withdrawnPublisherFactSurvivesMfaRevocationButPrivateProjectionIsDenied() {
+    expectedPublisherMethod = "DELETE";
     publisherRead = () -> db.update("UPDATE sessions SET mfa_verified=false WHERE user_id=?", admin);
     denied(403, () -> hosting.withdraw(hosted, Map.of("reason", "Operator verified this exact deployment"), adminRequest, true));
     assertEquals("DELETED", db.queryForObject("SELECT deployment_state FROM hosted_demos WHERE id=?", String.class, hosted));
@@ -182,31 +248,40 @@ class Round2RuntimeStorageIntegrationTest {
     assertEquals(1, db.queryForObject("SELECT count(*) FROM hosting_audit WHERE demo_id=? AND action='DELETE_CONFIRMED'", Integer.class, hosted));
     db.update("UPDATE sessions SET mfa_verified=true WHERE user_id=?", admin);
     assertEquals("DELETED", hosting.withdraw(hosted, Map.of("reason", "Recheck confirmed withdrawal without republishing"), adminRequest, true).get("deploymentState"));
-    verify(publisher, times(1)).delete(any(), anyString(), anyString(), any());
+    assertEquals(1, publisherRequests.get(), "Confirmed same-ID deletion is not sent twice");
   }
 
   @Test void reconciledPublisherFactSurvivesRoleRevocationButPrivateProjectionIsDenied() {
+    expectedPublisherMethod = "GET";
     publisherRead = () -> db.update("DELETE FROM user_roles WHERE user_id=? AND role='ADMIN'", admin);
     denied(403, () -> hosting.reconcile(hosted, Map.of("reason", "Operator verified this exact deployment"), adminRequest, true));
     assertEquals("READY", db.queryForObject("SELECT deployment_state FROM hosted_demos WHERE id=?", String.class, hosted));
     assertEquals(1, db.queryForObject("SELECT count(*) FROM hosting_audit WHERE demo_id=? AND action='RECONCILE_CONFIRMED'", Integer.class, hosted));
+    assertEquals(1, publisherRequests.get());
   }
 
   @Test void sessionExpiryAfterPublisherObservationAlsoDeniesAdministratorProjection() {
+    expectedPublisherMethod = "GET";
     publisherRead = () -> expired(admin);
     denied(401, () -> hosting.reconcile(hosted, Map.of("reason", "Operator verified this exact deployment"), adminRequest, true));
     assertEquals(1, db.queryForObject("SELECT count(*) FROM hosting_audit WHERE demo_id=? AND action='RECONCILE_CONFIRMED'", Integer.class, hosted));
+    assertEquals(1, publisherRequests.get());
   }
 
   @Test void ownerSessionExpiryDoesNotDiscardConfirmedDeletion() {
+    expectedPublisherMethod = "DELETE";
     publisherRead = () -> expired(owner);
     denied(401, () -> hosting.withdraw(hosted, Map.of(), ownerRequest, false));
     assertEquals("DELETED", db.queryForObject("SELECT deployment_state FROM hosted_demos WHERE id=?", String.class, hosted));
     assertEquals(1, db.queryForObject("SELECT count(*) FROM hosting_audit WHERE demo_id=? AND action='DELETE_CONFIRMED'", Integer.class, hosted));
+    assertEquals(1, publisherRequests.get());
   }
 
   @Test void currentAdministratorStillReceivesBothOperationProjections() {
+    expectedPublisherMethod = "GET";
     assertEquals("READY", hosting.reconcile(hosted, Map.of("reason", "Operator verified this exact deployment"), adminRequest, true).get("deploymentState"));
+    expectedPublisherMethod = "DELETE";
     assertEquals("DELETED", hosting.withdraw(hosted, Map.of("reason", "Operator verified this exact deployment"), adminRequest, true).get("deploymentState"));
+    assertEquals(2, publisherRequests.get());
   }
 }

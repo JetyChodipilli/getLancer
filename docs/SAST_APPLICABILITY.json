@@ -1201,7 +1201,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/Round2RuntimeStorageIntegrationTest.java",
-      "sha256": "1bba5a36864da5f3fa08437d32c135dfe45fb7766ba59447c3c903d8b211e7df"
+      "sha256": "d897c8cac1a4ab36fa335d7c8f71b6dfd664b4bfff04009ea76bfce2f4bc060b"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/TeamBusinessAuditRegressionTest.java",
