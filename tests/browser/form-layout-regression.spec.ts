@@ -50,7 +50,9 @@ test('component wizard spaces fieldsets and keeps wrapping consent beside its ch
   expect(toggle!.y - box!.y).toBeLessThanOrEqual(12);
   expect(toggle!.width).toBeLessThanOrEqual(21);
   await fits(page, dialog);
-  await info.attach('component-consent-layout', {body: await page.screenshot({animations: 'disabled'}), contentType: 'image/png'});
+  const screenshotPath = info.outputPath('component-consent-layout.png');
+  await page.screenshot({path: screenshotPath, animations: 'disabled'});
+  await info.attach('component-consent-layout', {path: screenshotPath, contentType: 'image/png'});
   await dialog.getByRole('button', {name: 'Back', exact: true}).click();
   await expect(contribution).not.toBeVisible();
   await expect(title).toHaveValue('An original accessible component');

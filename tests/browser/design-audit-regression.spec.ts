@@ -1,5 +1,12 @@
-import {expect, test, type Locator, type Page} from '@playwright/test';
+import {expect, test, type Locator, type Page, type TestInfo} from '@playwright/test';
+import {writeFileSync} from 'node:fs';
 import {percentile} from '../acceptance-metrics.mjs';
+
+async function attachJson(info: TestInfo, name: string, value: unknown) {
+  const path = info.outputPath(name + '.json');
+  writeFileSync(path, JSON.stringify(value, null, 2));
+  await info.attach(name, {path, contentType: 'application/json'});
+}
 
 async function fits(page: Page, scope?: Locator) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()!.width + 1);
@@ -92,7 +99,7 @@ test('public and workspace shells reflow at 320px with bounded local navigation 
       }
     });
   }
-  await info.attach('cross-app-320px-reflow', {body: JSON.stringify(samples, null, 2), contentType: 'application/json'});
+  await attachJson(info, 'cross-app-320px-reflow', samples);
 });
 
 type LabMetrics = {lcp: number; cls: number; interactionMs: number; inputSamples: number};
@@ -160,10 +167,10 @@ test('collects repeatable mobile lab paint, layout and action timing across thre
       samples: rows.length, lcpP75Ms: percentile(rows.map(row => row.lcp)), clsP75: percentile(rows.map(row => row.cls)),
       inputToPaintProxyP75Ms: percentile(rows.map(row => row.interactionMs)),
     }]));
-    await info.attach('cross-app-mobile-lab', {body: JSON.stringify({
+    await attachJson(info, 'cross-app-mobile-lab', {
       profile: {viewport: '390x844', cpuSlowdown: 4, latencyMs: 150, downloadKbps: 1600, uploadKbps: 750, cache: 'disabled', samplesPerRoute: 3},
       scope: 'CI browser lab evidence using local sample data. Input-to-paint proxy is not field INP. No before/after improvement is asserted; these additional shells establish a baseline, not a new performance acceptance gate.',
       samples, summary,
-    }, null, 2), contentType: 'application/json'});
+    });
   }
 });
