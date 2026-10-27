@@ -21,19 +21,19 @@ export default function DeliveryOperations(){
  const denied=useCallback((problem:unknown)=>{if(problem instanceof ApiError&&[401,403,404].includes(problem.status)){clear();setBlocked(true);setError(problem.message);return true}return false},[clear]);
  async function loadCollection(key:Collection,run=generation.current){
   const version=++versions.current[key];setLoading(old=>({...old,[key]:true}));setErrors(old=>({...old,[key]:''}));setPages(old=>({...old,[key]:undefined}));
-  try{const response=operationPage(await api(paths[key]+'?page=0&size=50'),0);if(mounted.current&&run===generation.current&&version===versions.current[key])setPages(old=>({...old,[key]:response}))}
-  catch(e){if(mounted.current&&run===generation.current&&version===versions.current[key]&&!denied(e))setErrors(old=>({...old,[key]:(e as Error).message}))}
+  try{const response=operationPage(await api(paths[key]+'?page=0&size=50'),0);if(mounted.current&&run===generation.current&&version===versions.current[key]){setPages(old=>({...old,[key]:response}));return true}return false}
+  catch(e){if(mounted.current&&run===generation.current&&version===versions.current[key]&&!denied(e))setErrors(old=>({...old,[key]:(e as Error).message}));return false}
   finally{if(mounted.current&&run===generation.current&&version===versions.current[key])setLoading(old=>({...old,[key]:false}))}
  }
- async function load(){clear();setBlocked(false);setError('');setNote('');const run=generation.current;await Promise.all((Object.keys(paths) as Collection[]).map(key=>loadCollection(key,run)))}
+ async function load(){clear();setBlocked(false);setError('');setNote('');const run=generation.current,results=await Promise.all((Object.keys(paths) as Collection[]).map(key=>loadCollection(key,run)));return {run,loaded:results.every(Boolean)}}
  const pageRequest=useCallback(async(path:string)=>{
   const run=generation.current,key=(Object.keys(paths) as Collection[]).find(key=>paths[key]===path.split('?')[0]),version=key?versions.current[key]:0;
   try{const response=await api(path);if(!mounted.current||run!==generation.current||!key||version!==versions.current[key])throw Error('Operations changed. Please refresh the records.');return operationPage(response,Number(new URLSearchParams(path.split('?')[1]).get('page')))}
   catch(e){if(mounted.current&&run===generation.current)denied(e);throw e}
  },[denied]);
  async function save(path:string,body:unknown){
-  if(mutating.current)return;mutating.current=true;setBusy(true);setError('');setNote('');generation.current++;setLoading({});setErrors({});setEpoch(value=>value+1);const run=generation.current;
-  try{await api(path,{method:'POST',body:JSON.stringify(body)});if(!mounted.current||run!==generation.current)return;await load();if(mounted.current)setNote('Decision saved.')}
+  if(mutating.current)return;mutating.current=true;setBusy(true);setError('');setNote('');generation.current++;setLoading({});setErrors({});setEpoch(value=>value+1);let run=generation.current;
+  try{await api(path,{method:'POST',body:JSON.stringify(body)});if(!mounted.current||run!==generation.current)return;const refreshed=await load();run=refreshed.run;if(!mounted.current||run!==generation.current)return;if(refreshed.loaded)setNote('Decision saved.');else setError('The decision was saved, but current operations could not be refreshed. Retry loading the unavailable records to verify it.')}
   catch(e){if(mounted.current&&run===generation.current){denied(e);setError((e as Error).message)}}
   finally{mutating.current=false;if(mounted.current)setBusy(false)}
  }

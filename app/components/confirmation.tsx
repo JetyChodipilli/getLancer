@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import ReviewFields from './review-fields';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 
 export default function Confirmation() {
   const linkRevision = useRef(0);
@@ -11,20 +11,30 @@ export default function Confirmation() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [canRetry, setCanRetry] = useState(false);
+  async function checkLink(value: string) {
+    const current = ++linkRevision.current;
+    setContext(null); setMessage(''); setError(''); setCanRetry(false); setBusy(false);
+    try {
+      const data = await api('/auth/confirmation', {method: 'POST', body: JSON.stringify({token: value})});
+      if (current !== linkRevision.current) return;
+      setContext(data); if (data.used) setMessage('This response has already been recorded.');
+    } catch (e) {
+      if (current !== linkRevision.current) return;
+      setError((e as Error).message);
+      setCanRetry(!(e instanceof ApiError) || e.status >= 500 || e.status === 429);
+    }
+  }
   useEffect(() => {
     function readLink(event?: Event) {
       const value = new URLSearchParams(location.hash.slice(1)).get('token') || new URLSearchParams(location.search).get('token') || '';
       // A fragment navigation emits both popstate and hashchange. The first
       // handler removes the bearer token; the second must preserve that result.
       if (event && !value) return;
-      const current = ++linkRevision.current;
       history.replaceState(null, '', '/confirm');
-      setToken(value); setContext(null); setMessage(''); setError(''); setBusy(false);
-      if (!value) { setError('Open the confirmation link from your email.'); return; }
-      api('/auth/confirmation', {method: 'POST', body: JSON.stringify({token: value})}).then(data => {
-        if (current !== linkRevision.current) return;
-        setContext(data); if (data.used) setMessage('This response has already been recorded.');
-      }).catch(e => { if (current === linkRevision.current) setError(e.message); });
+      setToken(value);
+      if (!value) { linkRevision.current++; setContext(null); setMessage(''); setBusy(false); setCanRetry(false); setError('Open the confirmation link from your email.'); return; }
+      void checkLink(value);
     }
     readLink();
     window.addEventListener('hashchange', readLink);
@@ -58,6 +68,7 @@ export default function Confirmation() {
     </form>}
     {!context && !error && <p role="status">Checking your link…</p>}
     {error && <p role="alert" className="error">{error}</p>}
+    {canRetry && <button type="button" className="button" onClick={() => void checkLink(token)}>Retry checking link</button>}
     <div className="policy-links" style={{marginTop:24}}><Link href="/workspace" className="link">My workspace</Link><Link href="/login" className="link">Log in</Link><Link href="/" className="link">Explore projects</Link></div>
   </div></main>;
 }

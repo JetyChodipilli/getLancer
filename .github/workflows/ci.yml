@@ -188,6 +188,8 @@ jobs:
       - run: node --experimental-strip-types --test tests/*.test.mjs
       - name: Install Chromium for responsive workspace acceptance
         run: npx playwright install --with-deps chromium
+      - name: Verify new audit browser fixtures before the full responsive suite
+        run: npx playwright test tests/browser/round2-*.spec.ts --workers=2 --max-failures=1
       - name: Verify desktop, phone and tablet workspace journeys
         run: npx playwright test --workers=2 --max-failures=3
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

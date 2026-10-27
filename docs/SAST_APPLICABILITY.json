@@ -407,7 +407,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/hosting/HostingService.java",
-      "sha256": "b1e1cda3dc132242c909c2479b693c12fede451fe5115dcc1d4ace4c197e6a6c"
+      "sha256": "6fac954a53161f1793f156d0aa2eca4f223a9435cd6c90c40761f12908389cc8"
     },
     {
       "path": "backend/src/main/java/com/getlancer/hosting/StaticArchive.java",
@@ -523,7 +523,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/media/MediaService.java",
-      "sha256": "3dfcbe18daadcde6d5af37109554c56c6f39c25afdec179959f85282c62ac764"
+      "sha256": "19d1c4d974f970736f7b3b772892f1b64a28f4dd19cce65768f70c69d11cb4d6"
     },
     {
       "path": "backend/src/main/java/com/getlancer/moderation/ModerationController.java",
@@ -1200,6 +1200,10 @@
       "sha256": "47d18e43dbbd27d1892aa92d01a5a5d2061f81a3d459325acca0ad393b0b08ff"
     },
     {
+      "path": "backend/src/test/java/com/getlancer/integration/Round2RuntimeStorageIntegrationTest.java",
+      "sha256": "1bba5a36864da5f3fa08437d32c135dfe45fb7766ba59447c3c903d8b211e7df"
+    },
+    {
       "path": "backend/src/test/java/com/getlancer/integration/TeamBusinessAuditRegressionTest.java",
       "sha256": "352b32be77b61a1a04ca5704c6cb4317ddc5a19872397f3dbccedc76ef029d79"
     },
@@ -1371,7 +1375,7 @@
   "buildInputs": [
     {
       "path": ".github/workflows/ci.yml",
-      "sha256": "0d2fb2bd7ebe35405d82ee2f00d3fc4945e656a1709852590082feb105e330d5"
+      "sha256": "1e658d950521897e7488be1f006e4de0990d2b14d318a627c05f7102d1cc7265"
     },
     {
       "path": "backend/pom.xml",
