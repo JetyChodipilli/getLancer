@@ -53,6 +53,18 @@ merchant transactions or LIVE lifecycle qualification.
 
 ## Verification record and limits
 
+Candidate `bba65f9` passed 780 backend tests (86 suites, no failures/errors/skips),
+507 Node tests and 943 browser checks. Eight browser cases intentionally skip
+duplicate viewport/profile executions. The saved 18-route 320px matrix showed
+no document overflow, and desktop/phone/tablet consent-form screenshots were
+reviewed. The connected Docker run then exposed an obsolete proof-upload status
+assertion in the publication journey on all three viewports: its snapshots showed
+the confirmed image and editable description, while the assertion expected the
+old message. That assertion now checks the current confirmation and explicitly
+waits for the refreshed description field to become editable. The corrected
+revision still requires a complete fresh workflow, including connected journeys
+and encrypted restore, before merge.
+
 The initial candidate's backend, native-language scenarios and security jobs
 passed. Its frontend job exposed one phone-only failure in the new standalone
 error-layout fixture: without viewport metadata, Chromium used a 980px layout.

@@ -168,8 +168,10 @@ test('E2E-02 publishes a new draft with a real screenshot, live URL, review and 
    mutation(page,'/developer/products/'+created.id+'/media/complete',()=>dialog.getByLabel('Add proof image (PNG or JPEG, up to 5 MB)',{exact:true}).setInputFiles({name:'v1-stock-proof.png',mimeType:'image/png',buffer:png})),
   ]);
   expect(put.ok(),'The browser must upload the actual bytes to signed private S3 storage.').toBeTruthy();
-  await expect(dialog.getByRole('status').filter({hasText:'Uploaded. Add a description and save.'})).toBeVisible();
-  await dialog.getByLabel('Image 1 description',{exact:true}).fill('Synthetic inventory stock screen submitted through the real browser upload.');
+  await expect(dialog.getByRole('status').filter({hasText:'Image upload confirmed.'})).toBeVisible();
+  const imageDescription=dialog.getByLabel('Image 1 description',{exact:true});
+  await expect(imageDescription).toBeEnabled();
+  await imageDescription.fill('Synthetic inventory stock screen submitted through the real browser upload.');
   await mutation(page,'/developer/products/'+created.id+'/media',()=>dialog.getByRole('button',{name:'Save image order and descriptions',exact:true}).click(),200,'PATCH');
   await dialog.getByRole('button',{name:'Close',exact:true}).click();
   await mutation(page,'/developer/products/'+created.id+'/submit',()=>card(page,title).getByRole('button',{name:'Submit for review',exact:true}).click(),204);
