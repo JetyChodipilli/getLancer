@@ -1117,7 +1117,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/AdminHostingAuditRegressionTest.java",
-      "sha256": "a4b090db4e8375ad32ca936da6cacca04f326f654f22198efe478ace15506dae"
+      "sha256": "7585e5bbd77972f036551841ced7f17230237a6fcdc6a25d695f63913301a36e"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/AdminOperationsPaginationIntegrationTest.java",

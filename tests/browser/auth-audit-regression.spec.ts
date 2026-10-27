@@ -1,5 +1,5 @@
 import {test,expect,type Page} from '@playwright/test';
-import {buildSync} from 'esbuild';
+import {build} from 'esbuild';
 import {readFileSync} from 'node:fs';
 
 type RequestRow={path:string;method:string;body?:string;resolve:(response:Response)=>void};
@@ -11,7 +11,7 @@ async function fixture(page:Page,kind:'account'|'profile'|'login'|'signup'){
   function Harness(){const [email,setEmail]=React.useState('first@example.test');return <><button onClick={()=>setEmail('second@example.test')}>Switch identity</button><AccountSettings email={email}/></>;}`:kind==='profile'?`
   const first={id:'first',profile:${JSON.stringify(profile)}},second={id:'second',profile:{...first.profile,display_name:'Second builder',availability_status:'NOT_ACCEPTING',booked_until:null}};
   function Harness(){const [me,setMe]=React.useState(first),[error,setError]=React.useState('');return <><button onClick={()=>{setMe(second);setError('')}}>Switch identity</button><ProfileForm me={me} reload={()=>{window.reloadCalls++;return new Promise(resolve=>window.reloadPending.push(resolve));}} setError={setError}/>{error&&<p role="alert">{error}</p>}</>;}`:`function Harness(){return <AuthForm signup={${kind==='signup'}}/>;}`;
- const content=buildSync({stdin:{contents:`
+ const content=(await build({stdin:{contents:`
   import React from 'react';import {createRoot} from 'react-dom/client';import AccountSettings from './app/components/account-settings';import ProfileForm from './app/components/profile-form';import {AuthForm} from './app/components/auth-form';
   window.requests=[];window.pending=[];window.reloadCalls=0;window.reloadPending=[];
   window.fetch=(path,init={})=>{window.requests.push({path,method:init.method||'GET',body:init.body});return new Promise(resolve=>window.pending.push({path,method:init.method||'GET',body:init.body,resolve}));};
@@ -20,7 +20,7 @@ async function fixture(page:Page,kind:'account'|'profile'|'login'|'signup'){
   plugin.onResolve({filter:/^next\/link$/},()=>({path:'link',namespace:'fixture'}));
   plugin.onResolve({filter:/moderation-workflow$/},()=>({path:'moderation',namespace:'fixture'}));
   plugin.onLoad({filter:/.*/,namespace:'fixture'},args=>({contents:args.path==='link'?'import React from "react";export default function Link({href,children,...props}){return <a href={href} {...props}>{children}</a>}':'export default function ModerationWorkflow(){return null}',loader:'jsx',resolveDir:process.cwd()}));
- }}]}).outputFiles[0].text;
+ }}]})).outputFiles[0].text;
  await page.route('**/auth-audit-fixture',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Account audit regression</title></head><body><div id="root"></div></body></html>'}));
  await page.goto('/auth-audit-fixture');await page.addStyleTag({content:readFileSync('app/form-controls.css','utf8')});await page.addScriptTag({content});
 }
