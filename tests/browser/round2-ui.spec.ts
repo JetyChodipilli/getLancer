@@ -40,6 +40,8 @@ test('keyboard selection preserves a category named ALL and keeps clear distinct
   await expect(page.getByRole('listbox')).toBeVisible();
   await expect(page.getByRole('option',{name:'Inventory',exact:true})).toBeFocused();
   await page.keyboard.press('ArrowDown');
+  // Radix defers arrow-key focus; Enter must target the newly focused option.
+  await expect(page.getByRole('option',{name:'ALL',exact:true})).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('status')).toHaveText('Selected category: ALL');
   await expect(trigger).toHaveText('ALL');
