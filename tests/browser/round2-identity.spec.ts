@@ -44,7 +44,7 @@ test('a same-verified identity switch and an unverified switch discard old priva
  await expect.poll(()=>page.evaluate(()=>(window as unknown as HarnessWindow).requests.some(row=>row.method==='POST'))).toBe(true);
  await page.evaluate(()=>(window as unknown as HarnessWindow).unverify());await expect(page.getByRole('dialog')).toHaveCount(0);await expect(page.getByText('Confirm your account email to view requests sent with that address.',{exact:true})).toBeVisible();
  await respond(page,base+'/second/not-hired',{ok:true},200,'POST');await expect(page.getByText('Your response has been recorded.',{exact:true})).toHaveCount(0);await expect(page.locator('article')).toHaveCount(0);
- expect(await page.evaluate(()=>(window as unknown as HarnessWindow).requests.filter(row=>row.path===base&&row.method==='GET').length)).toBe(2);
+ expect(await page.evaluate(path=>(window as unknown as HarnessWindow).requests.filter(row=>row.path===path&&row.method==='GET').length,base)).toBe(2);
 });
 
 test('an accepted client action with failed refresh exposes read-only recovery and resets continuation',async({page})=>{

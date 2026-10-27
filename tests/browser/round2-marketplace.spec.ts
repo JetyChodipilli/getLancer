@@ -22,8 +22,10 @@ function script(kind:Kind){
  scripts.set(kind,pending);return pending;
 }
 async function render(page:Page,kind:Kind){
- const css=['app/globals.css','app/components.css','app/form-controls.css','app/templates.css'].map(path=>readFileSync(path,'utf8').replace(/^@import[^;]+;/gm,'')).join('\n');
- await page.route('**/round2-marketplace-fixture',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Marketplace lifecycle regression</title><style>'+css+'</style></head><body><div id="root"></div></body></html>'}));
+ // Use the real emitted stylesheet, including Tailwind dialog positioning and overlays.
+ await page.goto('/templates');const styles=await page.locator('link[rel="stylesheet"],style').evaluateAll(nodes=>nodes.map(node=>node.outerHTML).join(''));
+ expect(styles.length).toBeGreaterThan(0);
+ await page.route('**/round2-marketplace-fixture',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Marketplace lifecycle regression</title>'+styles+'</head><body><div id="root"></div></body></html>'}));
  await page.goto('/round2-marketplace-fixture');await page.addScriptTag({content:await script(kind)});
 }
 async function select(page:Page,selection:Selection){await page.evaluate(value=>(window as unknown as FixtureWindow).round2Marketplace.select(value),selection);}
