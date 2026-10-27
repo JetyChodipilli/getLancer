@@ -20,6 +20,7 @@ test('a delayed paid order for a previous education release cannot open checkout
  await page.route('**/api/v1/templates/template-fixture/orders',async route=>{orderRequested=true;await waiting;return route.fulfill({json:{id:'old-order',status:'ORDER_CREATED',orderId:'order_fixture',keyId:'key_fixture',mode:'test',amountMinor:25000,currency:'INR'}});});
  const gatewayRequests:string[]=[];page.on('request',request=>{if(request.url().includes('razorpay'))gatewayRequests.push(request.url());});
  await page.goto('/education-fixture');
+ await page.addStyleTag({content:readFileSync('app/components.css','utf8')+readFileSync('app/form-controls.css','utf8')});
  await page.getByRole('checkbox',{name:/I have read and accept/}).check();
  await page.getByRole('button',{name:'Accept license & continue to payment',exact:true}).click();
  await expect.poll(()=>orderRequested).toBe(true);
