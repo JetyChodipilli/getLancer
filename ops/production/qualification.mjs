@@ -142,7 +142,7 @@ export function verifyProduction({targetPath, bundlePath, publicKeyPath, revisio
 }
 
 /** Absolute, cancellable DNS bound prevents timed-out sockets retaining an OS resolver request. */
-function boundedLookup(hostname, options, callback) {
+export function boundedLookup(hostname, options, callback) {
   const resolver = new Resolver({timeout: 1500, tries: 1}); let finished = false;
   const finish = (error, addresses = []) => {if (finished) return; finished = true; clearTimeout(timer); resolver.cancel(); if (error) callback(error); else if (options.all) callback(null, addresses); else callback(null, addresses[0].address, addresses[0].family);};
   const timer = setTimeout(() => finish(Object.assign(new Error('DNS deadline'), {code: 'ETIMEDOUT'})), 3000);

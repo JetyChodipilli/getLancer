@@ -1,13 +1,12 @@
 'use client';
-import { useEffect, useRef, useState, useTransition, useMemo } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Search, Bookmark, ArrowUpRight, X, Grid2X2, Layers, Users, MessageCircle } from 'lucide-react';
+import { Search, Bookmark, ArrowUpRight, X, Grid2X2, Layers } from 'lucide-react';
 import BrowseToolbar from './browse-toolbar';
 import Preview from './preview';
 import ProjectStack from './project-stack';
 import DiscoveryDock from './discovery-dock';
-import SpectralMotion from './spectral-motion';
 
 import {useTaxonomy} from '@/lib/use-taxonomy';
 import { api } from '@/lib/api';
@@ -18,41 +17,6 @@ import type { Catalog } from '@/lib/server';
 export default function Explore({ items, preview, totalItems, totalPages, filters, featured }: Catalog & {featured:Catalog['items']}) {
  const {categories,technologies}=useTaxonomy();
   const router = useRouter();
-  // Curate the unfiltered sample collection; real search/sort order stays intact.
-  const galleryItems=useMemo(()=>{
-    if(!preview||filters.q||filters.category||filters.technology||filters.sort!=='relevance')return items;
-    const portrait=items.find(p=>p.previewFormat==='portrait');
-    if(!portrait)return items;
-    const rest=items.filter(p=>p.id!==portrait.id);
-    return [...rest.slice(0,1),portrait,...rest.slice(1)];
-  },[items,preview,filters.q,filters.category,filters.technology,filters.sort]);
-  useEffect(()=>{
-    const root=gallery.current;
-    if(!root)return;
-    const cards=Array.from(root.querySelectorAll<HTMLElement>(':scope > .project'));
-    let frame=0,lastWidth=-1;
-    const layout=()=>{
-      const columns=Number(getComputedStyle(root).getPropertyValue('--demo-columns'))||4;
-      const gap=24,width=(root.clientWidth-gap*(columns-1))/columns;
-      const heights=columns===1?[0]:columns===2?[0,48]:[0,64,24,96];
-      root.dataset.layout='masonry';
-      cards.forEach(card=>{card.style.width=`${width}px`;});
-      cards.forEach(card=>{
-        const column=heights.indexOf(Math.min(...heights));
-        card.style.left=`${column*(width+gap)}px`;
-        card.style.top=`${heights[column]}px`;
-        heights[column]+=card.getBoundingClientRect().height+28;
-      });
-      root.style.height=`${cards.length?Math.max(...heights)-28:0}px`;
-    };
-    const schedule=()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(layout);};
-    const observer=new ResizeObserver(entries=>{
-      if(entries.some(e=>e.target!==root||e.contentRect.width!==lastWidth)){lastWidth=root.clientWidth;schedule();}
-    });
-    observer.observe(root);cards.forEach(card=>observer.observe(card));layout();
-    return()=>{observer.disconnect();cancelAnimationFrame(frame);};
-  },[galleryItems]);
-
   const gallery = useRef<HTMLDivElement>(null);
   const heroSearch = useRef<HTMLFormElement>(null);
   const draftKey=JSON.stringify([filters.q,filters.category,filters.technology]);
@@ -99,15 +63,11 @@ export default function Explore({ items, preview, totalItems, totalPages, filter
   }
   return <main id="main" className="wrap marketplace">
     <DiscoveryDock anchor={heroSearch} q={q} setQ={setQ} filters={filters} pending={pending} update={update} reset={reset}/>
-    <img className="spectral-studio-background" src="/spectral/studio-background.webp" alt="" aria-hidden="true" width={1536} height={1024} fetchPriority="high"/>
-    <section className="marketplace-hero">
-      <div className="hero-copy"><h1>Great work deserves<br/>to be <span>seen.</span></h1><p>Show what you make. Find the people to build with.</p>
-       <nav className="hero-categories" aria-label="Featured project categories"><button type="button" className={!filters.category?'selected':''} aria-pressed={!filters.category} disabled={pending} onClick={()=>update({category:''})}>All projects</button>{categories.slice(0,3).map(c=><button type="button" key={c} className={filters.category===c?'selected':''} aria-pressed={filters.category===c} disabled={pending} onClick={()=>update({category:c})}>{c}</button>)}</nav>
+    <section className="marketplace-hero" aria-label="Discover software and its builders">
+      <div className="hero-copy"><h1>Discover software.<br/>Meet its builder.</h1><p>Explore independent projects, try the work, and connect with the people who made it.</p>
+       <div className="hero-actions"><a className="button primary" href="#project-collection">Explore projects <ArrowUpRight size={18} aria-hidden="true"/></a><Link className="hero-workspace-link" href={preview?'/preview/workspace':'/workspace'}>Show your work <ArrowUpRight size={16} aria-hidden="true"/></Link></div>
       </div>
-      <SpectralMotion>
-        <ProjectStack products={featured}/>
-        <a className="spectral-browse-link" href="#project-collection">Explore projects</a>
-      </SpectralMotion>
+      <ProjectStack products={featured}/>
     </section>
     <form ref={heroSearch} className="market-search" role="search" onSubmit={e=>{e.preventDefault();update({q,category,technology})}}>
       <label className="market-query"><Search size={23} aria-hidden="true"/><span><strong>What do you need?</strong><input aria-label="Search projects" maxLength={200} value={q} onChange={e=>setQ(e.target.value)} placeholder="Search projects or builders"/></span></label>
@@ -119,9 +79,9 @@ export default function Explore({ items, preview, totalItems, totalPages, filter
       <nav className="categoryrow" aria-label="Business categories"><button className={!filters.category?'selected':''} aria-pressed={!filters.category} onClick={()=>update({category:''})}>All projects</button>{categories.slice(0,5).map(c=><button key={c} className={filters.category===c?'selected':''} aria-pressed={filters.category===c} onClick={()=>update({category:c})}>{c}</button>)}</nav>
       <BrowseToolbar compact filters={filters} query={q} onQuery={setQ} onChange={update} onReset={reset} count={totalItems} categories={categories} technologies={technologies} pending={pending} illustrative={preview}/>
     </div>
-    <div className="discovery-heading"><div><h2>Explore independent work</h2><p>Real projects, ready to explore.</p></div>{preview&&<p className="market-sample">Projects are illustrative. <Link href="/preview/workspace">Try the workspace →</Link></p>}</div>
+    <div className="discovery-heading"><div><h2>Explore independent work</h2><p>Try the software. Get to know its creator.</p></div>{preview&&<p className="market-sample">Projects are illustrative. <Link href="/preview/workspace">Try the workspace →</Link></p>}</div>
     {error && <p role="alert" className="error">{error}</p>}
-    <div ref={gallery} className="demo-gallery" aria-label="Project demos" aria-busy={pending}>{galleryItems.map((p) => <article className="project" key={p.id}>
+    <div ref={gallery} className="demo-gallery" aria-label="Project demos" aria-busy={pending}>{items.map((p) => <article className="project" key={p.id}>
       <div className="project-media"><Link href={'/products/'+p.slug} className={'thumbnail tone-'+p.category.toLowerCase()}><Preview product={p} naturalAspect/></Link><button className="iconbutton project-save" disabled={saving.includes(p.id)||!savedReady} aria-label={(saved.includes(p.id)?'Unsave ':'Save ')+p.title} aria-pressed={saved.includes(p.id)} onClick={()=>save(p.id)}><Bookmark size={18} fill={saved.includes(p.id)?'currentColor':'none'}/></button></div>
       <div className="cardtitle"><h2><Link href={'/products/'+p.slug}>{p.title}</Link></h2></div>
       <p className="project-meta">{p.category} · {p.technology.split(',')[0]}</p>
@@ -129,6 +89,6 @@ export default function Explore({ items, preview, totalItems, totalPages, filter
     </article>)}</div>
     {!items.length && <div className="empty"><Search size={32} style={{ margin: 'auto' }}/><h2>We couldn’t find an exact match.</h2><p>Try a broader business need or remove a filter.</p><button className="button" onClick={reset}>Clear search and filters <X size={15}/></button></div>}
     {!preview && totalPages > 1 && <nav className="pagination" aria-label="Results pages"><button className="button" disabled={pending || filters.page === 0} onClick={() => update({ page: filters.page - 1 })}>Previous</button><span>Page {filters.page + 1} of {totalPages}</span><button className="button" disabled={pending || filters.page + 1 >= totalPages} onClick={() => update({ page: filters.page + 1 })}>Next</button></nav>}
-    <section className="market-steps" aria-label="How getLancer works">{[[Search,'Explore real work','Browse working projects built by independent developers.'],[Users,'Meet the builder','Learn about the developer behind the project.'],[MessageCircle,'Start a conversation','Reach out and hire to bring your ideas to life.']].map(([Icon,title,copy])=>{const I=Icon as typeof Search;return <div key={String(title)}><span className="step-icon"><I size={26}/></span><div><h3>{String(title)}</h3><p>{String(copy)}</p></div></div>})}</section>
+    <section className="work-next" aria-labelledby="work-next-title"><div><h2 id="work-next-title">Take your next step.</h2><p>A working idea is just the beginning.</p></div><div className="work-next-links"><Link href="/components"><strong>Build with components</strong><span>Find reusable pieces for your next release.</span><ArrowUpRight size={20} aria-hidden="true"/></Link><Link href="/college-projects"><strong>Learn by making</strong><span>Explore practical projects and their source.</span><ArrowUpRight size={20} aria-hidden="true"/></Link><Link href="/teams"><strong>Find your people</strong><span>Meet independent teams and studios.</span><ArrowUpRight size={20} aria-hidden="true"/></Link></div></section>
   </main>;
 }

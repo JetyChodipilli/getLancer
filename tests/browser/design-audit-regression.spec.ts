@@ -92,7 +92,9 @@ test('public and workspace shells reflow at 320px with bounded local navigation 
       samples.push({path, viewport: 320, documentWidth: await page.evaluate(() => document.documentElement.scrollWidth)});
       const rail = page.locator('.studio-rail nav');
       if (await rail.count()) {
-        await expect(rail).toHaveCSS('overflow-x', 'auto');
+        await page.locator('.studio-navigation-toggle').click();
+        await expect(rail).toBeVisible();
+        await expect(rail).toHaveCSS('overflow-x', 'visible');
         await rail.getByRole('link').last().focus();
         await expect(rail.getByRole('link').last()).toBeFocused();
         await fits(page);

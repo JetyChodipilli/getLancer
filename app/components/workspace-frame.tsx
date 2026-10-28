@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { ArrowUpRight, BriefcaseBusiness, ChevronDown, Code2, Compass, FlaskConical, Layers, LifeBuoy, ShieldCheck, Users, type LucideIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import WorkspaceNavigation from './workspace-navigation';
 
 type Section = 'personal' | 'trust' | 'teams' | 'business' | 'delivery' | 'templates' | 'maintenance' | 'hosting' | 'components' | 'college' | 'slots' | 'labs' | 'operations';
 
@@ -28,12 +29,16 @@ export function WorkspaceFrame({ children, title, description, section, preview 
   ];
   const current = links.find(link => link.section === section)!;
   return <main id="main" className={cn('studio-shell', className)}>
-    <aside className="studio-rail" aria-label="Workspace navigation">
+    <WorkspaceNavigation current={current.title}><aside className="studio-rail" aria-label="Workspace navigation">
       <div className="studio-rail-title"><span><Layers size={18} aria-hidden="true" /></span><div><strong>Your workspace</strong><small>Build. Deliver. Grow.</small></div></div>
-      <nav aria-label="Workspace areas"><span className="studio-rail-label">Manage your work</span>{links.map(({ section: key, title: label, href, Icon }) => <Link key={key} href={href} aria-current={section === key ? 'page' : undefined}><Icon size={18} aria-hidden="true" /><span>{label}</span></Link>)}</nav>
+      <nav aria-label="Workspace areas">{[
+        {label:'Create & publish',sections:['personal','components','slots','college']},
+        {label:'People & projects',sections:['teams','business','delivery','trust']},
+        {label:'Manage & operate',sections:['maintenance','hosting','templates','labs','operations']},
+      ].map(group=><div className="studio-nav-group" key={group.label}><span className="studio-rail-label">{group.label}</span>{links.filter(link=>group.sections.includes(link.section)).map(({section:key,title:label,href,Icon})=><Link key={key} href={href} aria-current={section===key?'page':undefined}><Icon size={18} aria-hidden="true"/><span>{label}</span></Link>)}</div>)}</nav>
       <div className="studio-rail-secondary"><span className="studio-rail-label">Discover</span><Link href="/"><Compass size={18} aria-hidden="true" />Explore projects<ArrowUpRight size={14} aria-hidden="true" /></Link><Link href="/templates"><Code2 size={18} aria-hidden="true" />Explore templates<ArrowUpRight size={14} aria-hidden="true" /></Link><Link href="/labs/iot"><FlaskConical size={18} aria-hidden="true" />IoT simulation<ArrowUpRight size={14} aria-hidden="true" /></Link><Link href="/components/frameworks"><Code2 size={18} aria-hidden="true" />Framework previews<ArrowUpRight size={14} aria-hidden="true" /></Link><Link href="/teams"><Users size={18} aria-hidden="true" />Find a team<ArrowUpRight size={14} aria-hidden="true" /></Link></div>
       <div className="studio-rail-foot"><LifeBuoy size={18} aria-hidden="true" /><div><strong>A little guidance?</strong><Link href="/how-it-works">See how getLancer works <ArrowUpRight size={12} aria-hidden="true" /></Link></div></div>
-    </aside>
+    </aside></WorkspaceNavigation>
     <div className="studio-body">
       <header className="studio-page-head"><div><nav className="studio-breadcrumb" aria-label="Breadcrumb"><Link href={preview ? '/preview/workspace' : '/workspace'}>Workspace</Link><span aria-hidden="true">/</span><span aria-current="page">{section === 'personal' ? 'Personal' : current.title}</span></nav><h1>{title}</h1><p className="studio-description">{description}</p></div>{actions && <div className="studio-head-actions">{actions}</div>}</header>
       {children}

@@ -70,3 +70,8 @@ playwright-report/
 
 /labs/dotnet/artifacts/
 /examples/frameworks/*/.compiled/
+
+# Local design review captures and browser harness
+/.taste-skill/
+/.playwright-cli/
+/playwright.local.config.ts

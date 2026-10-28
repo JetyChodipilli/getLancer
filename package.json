@@ -39,7 +39,8 @@
     "v52:evidence": "node scripts/v52-evidence.mjs",
     "v52:monitor": "node scripts/v52-monitor.mjs",
     "v52:load": "node scripts/v52-load.mjs",
-    "v52:traceability": "node scripts/v52-release-contract.mjs"
+    "v52:traceability": "node scripts/v52-release-contract.mjs",
+    "lint:ui": "eslint app/components/page.tsx app/college-projects/page.tsx app/components/component-library.tsx app/components/template-marketplace.tsx app/components/explore.tsx app/components/project-stack.tsx app/components/preview.tsx app/components/workspace-frame.tsx app/components/workspace-navigation.tsx app/components/icy-auth-shell.tsx app/layout.tsx \"app/(auth)/layout.tsx\""
   },
   "dependencies": {
     "class-variance-authority": "0.7.1",

@@ -1,7 +1,7 @@
 import {defineConfig} from '@playwright/test';
 export default defineConfig({
  testDir:'./tests/browser',fullyParallel:false,workers:1,retries:0,timeout:45000,
- reporter:[['list']],use:{baseURL:'http://127.0.0.1:3000',trace:'retain-on-failure',screenshot:'only-on-failure'},
+ reporter:[['list']],use:{...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE?{launchOptions:{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE}}:{}),baseURL:'http://127.0.0.1:3000',trace:'retain-on-failure',screenshot:'only-on-failure'},
  projects:[
   {name:'desktop',use:{browserName:'chromium',viewport:{width:1440,height:1000}}},
   {name:'phone',use:{browserName:'chromium',viewport:{width:375,height:812},isMobile:true,hasTouch:true}},

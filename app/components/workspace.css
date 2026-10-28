@@ -47,8 +47,8 @@ body .studio-shell .studio-rail {
   border-radius: 24px;
   background: var(--glass-chrome, #ffffffb3);
   box-shadow: var(--glass-shadow);
-  -webkit-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 body .studio-shell .studio-rail-title { display: flex; align-items: center; gap: 10px; padding: 0 6px; }
 body .studio-shell .studio-rail-title > span { display: grid; place-items: center; flex-shrink: 0; width: 36px; height: 36px; border: 1px solid var(--studio-line); border-radius: 12px; background: var(--studio-record); color: var(--studio-blue); }
@@ -60,8 +60,8 @@ body .studio-shell .studio-rail :is(nav, .studio-rail-secondary) a { display: fl
 body .studio-shell .studio-rail :is(nav, .studio-rail-secondary) a svg { flex-shrink: 0; }
 body .studio-shell .studio-rail nav a > span { min-width: 0; }
 body .studio-shell .studio-rail a:hover { background: var(--studio-hover); color: var(--studio-ink); }
-body .studio-shell .studio-rail nav a[aria-current=page] { background: var(--studio-blue-soft); color: var(--studio-blue-hover); font-weight: 600; box-shadow: inset 0 0 0 1px #c6381012; }
-body .studio-shell .studio-rail nav a[aria-current=page]::before { content: ''; position: absolute; left: 0; top: 13px; bottom: 13px; width: 3px; background: var(--studio-blue); border-radius: 3px; }
+body .studio-shell .studio-rail nav a[aria-current=page] { background: var(--secondary); color: var(--foreground); font-weight: 600; box-shadow: none; }
+body .studio-shell .studio-rail nav a[aria-current=page]::before { content: none; }
 body .studio-shell .studio-rail-secondary a > svg:last-child { margin-left: auto; }
 body .studio-shell .studio-rail-foot { display: flex; align-items: flex-start; gap: 8px; margin-top: auto; padding: 14px 8px 0; border: 0; border-top: 1px solid var(--studio-line); border-radius: 0; background: transparent; color: var(--studio-muted); }
 body .studio-shell .studio-rail-foot > svg { flex-shrink: 0; margin-top: 2px; }
@@ -94,7 +94,7 @@ body .studio-shell :focus-visible { outline: 2px solid var(--ring); outline-offs
 body .studio-shell :is(button, a, input, select, textarea, summary, [role=tab], .studio-page-head, .studio-preview, [role=tabpanel]) { scroll-margin-top: var(--studio-sticky-top); }
 
 /* Sample disclosure stays visible with simulation controls closed. */
-body .studio-shell .studio-preview { margin: 0 0 20px; border: 1px solid var(--glass-line, var(--border)); border-radius: 16px; background: var(--glass-chrome, #ffffffb3); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); font-size: 12px; overflow: hidden; }
+body .studio-shell .studio-preview { margin: 0 0 20px; border: 1px solid var(--glass-line, var(--border)); border-radius: 16px; background: var(--glass-chrome, #ffffffb3); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: none; backdrop-filter: none; font-size: 12px; overflow: hidden; }
 body .studio-shell .studio-preview > summary { list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 48px; padding: 12px 16px; cursor: pointer; color: var(--studio-ink); }
 body .studio-shell .studio-preview > summary::-webkit-details-marker { display: none; }
 body .studio-shell .studio-preview > summary:focus-visible { border-radius: 15px; outline-offset: -3px; }
@@ -132,8 +132,8 @@ body .studio-shell .studio-overview-grid > :is(section, aside) {
   border-radius: 20px;
   background: var(--studio-surface);
   box-shadow: var(--glass-shadow);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 body .studio-shell :is(.panel, .team-section:not(.team-overview), .team-context, .business-section, .business-brief-panel, .business-shortlist, .business-candidate-section, .business-candidate, .delivery-detail, .commerce-section), body .studio-shell .studio-overview-grid > :is(section, aside) { padding: 20px; }
 body .studio-shell :is(.panel, [data-slot=card], .team-section:not(.team-overview), .business-section, .business-brief-panel, .business-shortlist, .business-candidate-section, .business-candidate, .delivery-list, .delivery-detail, .commerce-section, .studio-overview-grid > section, .studio-overview-grid > aside) :is(.panel, [data-slot=card], .demo-card, .team-card, .business-candidate, .delivery-milestone, .template-workspace-card, .commerce-section) { background: var(--studio-record); border-color: var(--studio-line); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
@@ -151,7 +151,7 @@ body .studio-shell .studio-metric [data-slot=card-header] svg { flex-shrink: 0; 
 body .studio-shell .studio-metric [data-slot=card-content] { padding: 12px 0 0; }
 body .studio-shell .studio-metric strong { display: block; font-size: 30px; line-height: 36px; font-weight: 600; letter-spacing: -.035em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; color: var(--studio-ink); }
 body .studio-shell .studio-metric p { margin: 8px 0 0; color: var(--studio-muted); font-size: 12px; line-height: 19px; overflow-wrap: anywhere; }
-body .studio-shell .overview-card { display: flex; flex-direction: column; align-items: stretch; position: relative; min-width: 0; min-height: 184px; padding: 20px; gap: 0; text-align: left; cursor: pointer; border: 1px solid var(--glass-line, var(--border)); border-radius: 20px; background: var(--studio-surface); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); transition: border-color 180ms, background 180ms, box-shadow 180ms, transform 180ms; }
+body .studio-shell .overview-card { display: flex; flex-direction: column; align-items: stretch; position: relative; min-width: 0; min-height: 184px; padding: 20px; gap: 0; text-align: left; cursor: pointer; border: 1px solid var(--glass-line, var(--border)); border-radius: 20px; background: var(--studio-surface); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: none; backdrop-filter: none; transition: border-color 180ms, background 180ms, box-shadow 180ms, transform 180ms; }
 body .studio-shell .overview-card-head { display: flex; justify-content: space-between; align-items: flex-start; width: 100%; gap: 10px; }
 body .studio-shell .overview-card-head > svg { flex-shrink: 0; margin-top: 1px; color: var(--studio-muted); }
 body .studio-shell .overview-label { padding: 0; color: var(--studio-muted); font-size: 14px; line-height: 20px; font-weight: 500; }
@@ -195,7 +195,7 @@ body .studio-shell .studio-overview-grid aside > h3 { margin: 18px 0 4px; font-s
 body .studio-shell .studio-overview-grid aside details { margin-top: 20px; }
 
 /* Productive search chrome, with opaque controls inside it. */
-body .studio-shell .browse-toolbar-sticky { top: var(--studio-sticky-top); margin: 0 0 20px; padding: 16px; border: 1px solid var(--glass-line, var(--border)); border-radius: 20px; background: var(--glass-chrome, #ffffffb3); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+body .studio-shell .browse-toolbar-sticky { top: var(--studio-sticky-top); margin: 0 0 20px; padding: 16px; border: 1px solid var(--glass-line, var(--border)); border-radius: 20px; background: var(--glass-chrome, #ffffffb3); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: none; backdrop-filter: none; }
 body .studio-shell .browse-toolbar:not(.browse-toolbar-sticky) { margin-bottom: 0; }
 body .studio-shell .browse-controls { gap: 12px; }
 body .studio-shell .browse-search { min-height: 48px; padding: 4px 4px 4px 12px; border-color: var(--studio-control); border-radius: 12px; background: var(--studio-record); box-shadow: none; }

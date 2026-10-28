@@ -8,7 +8,7 @@ import {resolve} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {Resolver} from 'node:dns/promises';
 import {ACTIVATION_CONTROLS, appendObservation, canonical, CONTROL_FACTS, DRILL_CONTROLS, envelope, HANDOVER_CONTROLS, hash, journalReport, openReport, readJournal} from '../ops/v52/evidence.mjs';
-import {observeTls, reviewOperations, reviewPreflight, reviewStartup, sourceDigests, targetPolicy, verifyProduction} from '../ops/production/qualification.mjs';
+import {boundedLookup, observeTls, reviewOperations, reviewPreflight, reviewStartup, sourceDigests, targetPolicy, verifyProduction} from '../ops/production/qualification.mjs';
 
 const NOW = Date.parse('2026-10-22T12:00:00.000Z'), ISO = value => new Date(value).toISOString(), REVISION = '1'.repeat(40), EPOCH = '11111111-1111-4111-8111-111111111111', OTHER = '22222222-2222-4222-8222-222222222222';
 const clone = value => structuredClone(value), sources = () => [{id: 'component-source', path: '/api/v1/components/qualification/source?sha256=' + hash('component'), sha256: hash('component'), sizeBytes: 50}, {id: 'education-source', path: '/api/v1/education-releases/' + OTHER + '/source', sha256: hash('education'), sizeBytes: 50}];
@@ -95,7 +95,18 @@ test('CLI reports actionable unmet status without leaking configuration or activ
   const result = spawnSync(process.execPath, ['scripts/qualify-production.mjs', 'verify'], {encoding: 'utf8', timeout: 5000}); assert.notEqual(result.status, 0); assert.match(result.stderr, /qualification is UNMET/); assert.equal(result.stdout, ''); assert.doesNotMatch(result.stderr, /password=|token=|cookie=|secret=/i);
 });
 
-test('TLS discovery refuses unsafe origins and bounds nonresponding DNS without network access', {timeout: 15000}, async t => {
-  for (const origin of ['http://getlancer-qualification.dev', 'https://127.0.0.1', 'https://user:pass@getlancer-qualification.dev', 'https://example.net']) await assert.rejects(observeTls(origin));
-  t.mock.method(Resolver.prototype, 'resolve4', () => new Promise(() => {})); t.mock.method(Resolver.prototype, 'resolve6', () => new Promise(() => {})); const result = await observeTls('https://getlancer-qualification.dev'); assert.equal(result.authorized, false); assert.equal(result.httpsOnly, false); assert.equal(result.certificateSha256, null);
+test('TLS discovery rejects unsafe origins before creating transports', async () => {
+  for (const origin of ['http://localhost', 'https://127.0.0.1', 'https://user:pass@localhost', 'https://example.net']) await assert.rejects(observeTls(origin));
+});
+
+test('DNS deadline cancels a nonresponding resolver without HTTP or TLS transport', {timeout: 10000}, async t => {
+  const queried = [], cancelled = [];
+  t.mock.method(Resolver.prototype, 'resolve4', hostname => {queried.push(hostname); return new Promise(() => {});});
+  t.mock.method(Resolver.prototype, 'resolve6', hostname => {queried.push(hostname); return new Promise(() => {});});
+  t.mock.method(Resolver.prototype, 'cancel', function () {cancelled.push(true);});
+  const result = await new Promise(resolveResult => boundedLookup('dns-deadline.invalid', {all: true}, (error, addresses) => resolveResult({error, addresses})));
+  assert.equal(result.error.code, 'ETIMEDOUT');
+  assert.equal(result.addresses, undefined);
+  assert.deepEqual(queried, ['dns-deadline.invalid', 'dns-deadline.invalid']);
+  assert.equal(cancelled.length, 1);
 });

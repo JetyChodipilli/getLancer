@@ -1,10 +1,10 @@
 /* Spectral Studio material. Geometry belongs to the relevant page system. */
 :root {
-  --glass-panel: rgba(255, 255, 255, .82);
-  --glass-chrome: rgba(255, 255, 255, .70);
-  --glass-line: rgba(155, 160, 172, .38);
+  --glass-panel: #ffffff;
+  --glass-chrome: #f5f6f5;
+  --glass-line: #dde2de;
   --glass-rim: rgba(255, 255, 255, .94);
-  --glass-shadow: 0 8px 28px rgba(31, 35, 46, .055), inset 0 1px 0 var(--glass-rim);
+  --glass-shadow: none;
   --glass-surface: var(--glass-panel);
   --control-surface: #fcfcfb;
   --control-border: #898d97;
@@ -39,10 +39,10 @@ body .commerce-detail-proof, body .commerce-operations,
 body .teams-page:not(.studio-shell) .team-card {
   background: var(--glass-panel);
   border: 1px solid var(--glass-line);
-  border-radius: 20px;
+  border-radius: 8px;
   box-shadow: var(--glass-shadow);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 body .panel .panel, body .commerce-operations .commerce-card,
 body .panel .empty {
@@ -65,7 +65,7 @@ body .browse-search-submit:hover:not(:disabled) { background: var(--accent-foreg
 body .marketplace > .demo-gallery > .project,
 body .wrap > .grid > .project {
   border: 1px solid var(--glass-line);
-  border-radius: 20px;
+  border-radius: 8px;
   padding: 12px;
   background: var(--glass-panel);
   box-shadow: var(--glass-shadow);
@@ -94,8 +94,8 @@ body .account-popover, body .account-switch-popover {
   border-radius: 18px;
   color: var(--foreground);
   box-shadow: 0 16px 48px #191b201a, inset 0 1px var(--glass-rim);
-  -webkit-backdrop-filter: blur(18px);
-  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 body .account-switch-popover { background: var(--control-surface); backdrop-filter: none; }
 body .account-popover [data-slot=dropdown-menu-item],
@@ -109,8 +109,8 @@ body .account-menu-heading, body .account-choice { min-width: 0; overflow-wrap: 
 body .account-avatar { background: var(--accent); color: var(--accent-foreground); }
 
 @media (max-width: 640px) {
-  body .panel, body .empty, body .commerce-filters { padding: 16px; border-radius: 16px; }
-  body .marketplace > .demo-gallery > .project, body .wrap > .grid > .project { border-radius: 16px; padding: 10px; }
+  body .panel, body .empty, body .commerce-filters { padding: 16px; border-radius: 8px; }
+  body .marketplace > .demo-gallery > .project, body .wrap > .grid > .project { border-radius: 8px; padding: 10px; }
 }
 @supports not (backdrop-filter: blur(1px)) {
   :root { --glass-panel: #fdfdfc; --glass-chrome: #f7f7f5; }

@@ -4,6 +4,7 @@ import {api} from '@/lib/api';
 import {observeArtifact} from '@/lib/analytics';
 import ComponentSaveButton from './component-save-button';
 import ComponentVersionHistory from './component-version-history';
+import componentCovers from '@/public/component-covers/index.json';
 import Link from 'next/link';
 import {ArrowUpRight,Code2,Copy,Download,Monitor,Smartphone,Tablet,RotateCcw,Check} from 'lucide-react';
 import {Tabs,TabsContent,TabsList,TabsTrigger} from '@/components/ui/tabs';
@@ -11,7 +12,10 @@ import {componentLabel,componentSeeds,componentZip,componentReportBody,type Comp
 import {componentPreviewDocument} from '@/lib/component-preview';
 
 export function ComponentArtwork({item}:{item:ComponentEntry}){
- return <div className={'kit-art kit-art-'+item.category.toLowerCase()} aria-hidden="true"><div className="kit-mini-window"><div className="kit-mini-bar"><i/><i/><i/><span>studio / {componentLabel(item.category)}</span></div><div className="kit-mini-body">{item.category==='SIDEBAR'&&<div className="kit-mini-rail"><b/><b/><b/><b/></div>}<div className="kit-mini-main"><span className="kit-mini-kicker"/><strong>{item.category==='AUTH'?'Welcome back.':item.category==='FORM'?'Your next idea.':item.category==='DASHBOARD'?'Project pulse.':item.category==='CARD'?'Thoughtfully built.':'Make room for good work.'}</strong>{['AUTH','FORM'].includes(item.category)?<><div className="kit-mini-input"/><div className="kit-mini-input short"/><div className="kit-mini-button"/></>:item.category==='DASHBOARD'?<><div className="kit-mini-stats"><i/><i/></div><div className="kit-mini-line"/><div className="kit-mini-line"/><div className="kit-mini-line"/></>:<><div className="kit-mini-sculpture"><i/><b/></div><div className="kit-mini-line"/></>}</div></div></div></div>;
+ const cover=componentCovers[item.slug as keyof typeof componentCovers];
+ return !item.uploaded&&cover?.sourceSha256===item.sha256
+  ? <img className="work-component-cover" src={'/component-covers/'+cover.file} width={1000} height={640} loading="lazy" alt="" aria-hidden="true"/>
+  : <div className="work-component-fallback" aria-hidden="true"><span>{componentLabel(item.category)}</span><strong>{item.title}</strong><span>Explore the working preview</span></div>;
 }
 export function ComponentCard({item}:{item:ComponentEntry}){return <article className="kit-card"><Link href={'/components/'+item.slug} className="kit-card-preview" aria-label={'Try '+item.title}><ComponentArtwork item={item}/><span className="kit-preview-link">Try component <ArrowUpRight size={15}/></span></Link><div className="kit-card-copy"><div className="kit-card-meta"><span>{componentLabel(item.category)}</span><span className="kit-free">Free · MIT</span></div><h2><Link href={'/components/'+item.slug}>{item.title}</Link></h2><p>{item.summary}</p><div className="kit-card-foot"><span>{item.creator}</span><span>HTML / CSS / JS</span></div></div></article>;}
 export default function ComponentDetailView({item,preview}:{item:ComponentEntry;preview:boolean}){

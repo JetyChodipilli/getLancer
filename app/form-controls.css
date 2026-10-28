@@ -1,6 +1,6 @@
 /* Real application fields. Keep embedded software previews at their own scale.
    Explicit native-type exclusions also override older generic .form input rules. */
-:root { --control-focus: #9c2d0f; }
+:root { --control-focus: #24634d; }
 body :is(.form,.team-field,.team-form,.studio-shell,.teams-page,.demo-filters,.commerce-field,.commerce-filters,.business-save-picker,.dock-options,[data-slot=dialog-content],[data-slot=alert-dialog-content]) :is(input:not([type=checkbox]):not([type=radio]):not([type=file]):not(:where([type=range],[type=color],[type=hidden],[type=button],[type=submit],[type=reset],[type=image],[data-slot=input-otp])),select,textarea,[data-slot=select-trigger]):not(:where(.showcase-screen *,.showcase-mobile *,.miniapp *,.product-demo *)),
 body [data-slot=input]:not(:where([type=checkbox],[type=radio],[type=file],[type=range],[type=color],[type=hidden])), body [data-slot=select-trigger] {
   width: 100%; min-width: 0; min-height: 44px;
@@ -110,7 +110,7 @@ body [data-slot=select-content], body [data-slot=popover-content] {
 }
 body [data-slot=select-item] { min-height: 44px; font-size: 16px; line-height: 1.4; }
 body [data-slot=select-item][data-highlighted] { background: #eeefed; color: #191b20; outline: none; }
-body [data-slot=select-item][data-state=checked] { color: #9c2d0f; }
+body [data-slot=select-item][data-state=checked] { color: var(--control-focus); }
 body :is(.form,.team-field,.studio-shell,.commerce-filters,.browse-sort,.market-search,[data-slot=dialog-content]) select option { background: #fff; color: #191b20; }
 
 body :is([data-slot=dialog-content],[data-slot=alert-dialog-content]) {
