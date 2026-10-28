@@ -11,7 +11,7 @@ const apiSource=stripTypeScriptTypes(readFileSync(new URL('../lib/api.ts',import
 const {api,ApiError}=await import('data:text/javascript;base64,'+Buffer.from(apiSource).toString('base64'));
 function routine(source,start,end,context){const text=source.slice(source.indexOf(start),source.indexOf(end,source.indexOf(start))).replace(/^export /,'');const js=stripTypeScriptTypes(text,{mode:'transform'});return Function(...Object.keys(context),js+';return '+start.match(/function (\w+)/)[1]+';')(...Object.values(context));}
 function deferred(){let resolve;const promise=new Promise(done=>{resolve=done;});return{promise,resolve};}
-function stateContext(source,extra={}){const values={},context={ApiError,...extra};for(const name of source.match(/\bset[A-Z]\w*/g)||[])context[name]=value=>{values[name]=typeof value==='function'?value(values[name]||0):value;};return{values,context};}
+function stateContext(source,extra={}){const values={},context={ApiError,...(source===workspace?{historyGeneration:{current:0}}:{}),...extra};for(const name of source.match(/\bset[A-Z]\w*/g)||[])context[name]=value=>{values[name]=typeof value==='function'?value(values[name]||0):value;};if(source===workspace)context.closeHistory=routine(workspace,'function closeHistory(){','\nfunction inquiryFailure',context);return{values,context};}
 
 test('showcase refresh preserves the authenticated editor on a transient read failure',async()=>{
  const original={id:'builder',roles:['DEVELOPER']};let cleared=0;

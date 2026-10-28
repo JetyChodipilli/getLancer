@@ -1213,7 +1213,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/Round3MarketplaceIntegrationTest.java",
-      "sha256": "8afeabd21ba653d9bd7c0da04e35454be116ec61b9589246038ebf2cf583457b"
+      "sha256": "13fdca73d7a18715264b04dc0e7e97159a31cbcd9b2508b34a7d8eca646b729a"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/Round3OperationsIntegrationTest.java",

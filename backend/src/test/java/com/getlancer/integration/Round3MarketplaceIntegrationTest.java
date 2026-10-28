@@ -111,6 +111,9 @@ class Round3MarketplaceIntegrationTest {
     download("round3-admin",true,403);assertEquals(1,reads.get());
   }
   @Test void unrelatedAccountCannotStartPrivateStorageRead()throws Exception{
+    download("round3-outsider",false,403);assertEquals(0,reads.get());
+    db.update("INSERT INTO user_roles(user_id,role) VALUES(?,'DEVELOPER')",outsider);
+    db.update("INSERT INTO developer_profiles(user_id,slug,display_name,approval_status) VALUES(?,'round3-unrelated-builder','Unrelated builder','APPROVED')",outsider);
     download("round3-outsider",false,404);assertEquals(0,reads.get());
   }
   @Test void initiallyStaleAdministratorMfaCannotStartStorageRead()throws Exception{
