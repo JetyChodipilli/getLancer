@@ -103,6 +103,9 @@ body .account-popover [data-slot=dropdown-menu-sub-trigger],
 body .account-switch-popover [data-slot=dropdown-menu-item] { min-height: 44px; border-radius: 10px; }
 body .account-menu-heading { display: grid; gap: 4px; padding: 12px; }
 body .account-menu-heading span, body .account-choice small { color: var(--muted-foreground); font-size: 12px; }
+/* Account names can be unbroken user text. Menus scroll vertically, so wrapping
+   must happen before the primitive's horizontal clipping boundary. */
+body .account-menu-heading, body .account-choice { min-width: 0; overflow-wrap: anywhere; }
 body .account-avatar { background: var(--accent); color: var(--accent-foreground); }
 
 @media (max-width: 640px) {

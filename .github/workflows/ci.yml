@@ -94,8 +94,25 @@ jobs:
         with: {persist-credentials: false}
       - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with: {distribution: temurin, java-version: '17', cache: maven}
-      - run: mvn -B -f backend/pom.xml -Djunit.jupiter.execution.timeout.default=60s verify
-        env:
+      - name: Verify new backend fixtures before the complete suite
+        run: |
+          for name in Round3FinanceIntegrationTest Round3MarketplaceIntegrationTest Round3OperationsIntegrationTest Round3RuntimeStorageIntegrationTest; do
+            test -f "backend/src/test/java/com/getlancer/integration/$name.java"
+          done
+          test -f backend/src/test/java/com/getlancer/config/DatabaseRoleGuardIntegrationTest.java
+          mvn -B -f backend/pom.xml -Djunit.jupiter.execution.timeout.default=60s -Dsurefire.failIfNoSpecifiedTests=true -DfailIfNoTests=true -Dtest=Round3FinanceIntegrationTest,Round3MarketplaceIntegrationTest,Round3OperationsIntegrationTest,Round3RuntimeStorageIntegrationTest,DatabaseRoleGuardIntegrationTest test
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          classes = ['com.getlancer.integration.' + name for name in ['Round3FinanceIntegrationTest', 'Round3MarketplaceIntegrationTest', 'Round3OperationsIntegrationTest', 'Round3RuntimeStorageIntegrationTest']]
+          classes.append('com.getlancer.config.DatabaseRoleGuardIntegrationTest')
+          for name in classes:
+              report = ET.parse(Path('backend/target/surefire-reports') / ('TEST-' + name + '.xml')).getroot()
+              cases = list(report.iter('testcase'))
+              assert cases and all(not any(case.find(tag) is not None for tag in ['failure', 'error', 'skipped']) for case in cases), name
+          print('Every expected backend fixture class executed nonzero passing cases.')
+          PY
+        env: &guarded-test-database
           TEST_DATABASE_RESET: 'true'
           TEST_DB_URL: jdbc:postgresql://localhost:5432/getlancer_test?socketTimeout=20&options=-c%20statement_timeout%3D15000
           TEST_DB_USERNAME: getlancer
@@ -103,6 +120,16 @@ jobs:
           APP_BASE_URL: http://localhost:3000
           SECURE_COOKIES: 'false'
           DB_POOL_MAX: '4'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: backend-round3-smoke-${{ github.event.pull_request.head.sha || github.sha }}
+          path: backend/target/surefire-reports
+          retention-days: 7
+      - name: Clear generated smoke reports before complete verification
+        run: rm -rf backend/target/surefire-reports
+      - run: mvn -B -f backend/pom.xml -Djunit.jupiter.execution.timeout.default=60s verify
+        env: *guarded-test-database
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with: {node-version: '22.23.4'}
       - name: Bind reviewed GET assessments to passing security regressions
@@ -188,6 +215,18 @@ jobs:
       - run: node --experimental-strip-types --test tests/*.test.mjs
       - name: Install Chromium for responsive workspace acceptance
         run: npx playwright install --with-deps chromium
+      - name: Verify Round 3 browser fixtures before retained audit and full suites
+        run: |
+          for name in identity marketplace ui; do test -f "tests/browser/round3-$name.spec.ts"; done
+          npx playwright test tests/browser/round3-*.spec.ts --workers=2 --max-failures=1 --output=test-results-round3-smoke
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: workspace-round3-smoke-${{ github.sha }}
+          path: test-results-round3-smoke
+          retention-days: 7
+      - name: Verify new audit browser fixtures before the full responsive suite
+        run: npx playwright test tests/browser/round2-*.spec.ts --workers=2 --max-failures=1
       - name: Verify desktop, phone and tablet workspace journeys
         run: npx playwright test --workers=2 --max-failures=3
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

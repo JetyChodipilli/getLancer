@@ -98,17 +98,71 @@ class DatabaseRoleGuardIntegrationTest {
     }
   }
 
+  @Test void moderationDecisionOrderingAllocatesWithoutResetOrHistoryMutation() throws Exception {
+    UUID user=UUID.randomUUID(), first=UUID.randomUUID(), second=UUID.randomUUID();
+    runtime.update("INSERT INTO users(id,email,password_hash) VALUES(?,?,'synthetic-hash')",user,user+"@example.test");
+    for(UUID decision:List.of(first,second))
+      runtime.update("INSERT INTO moderation_actions(id,admin_id,target_type,target_id,action,reason) VALUES(?,?,'ACCOUNT',?,'suspend','Synthetic ordering fixture')",decision,user,user);
+    long before=runtime.queryForObject("SELECT decision_order FROM moderation_actions WHERE id=?",Long.class,first);
+    long after=runtime.queryForObject("SELECT decision_order FROM moderation_actions WHERE id=?",Long.class,second);
+    assertTrue(before>0 && after>before);
+    assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.queryForObject("SELECT setval('moderation_decision_order_seq',1)",Long.class));
+    assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.queryForObject("SELECT last_value FROM moderation_decision_order_seq",Long.class));
+    assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE moderation_actions SET decision_order=decision_order+1 WHERE id=?",first));
+    JdbcTemplate backup=jdbc("getlancer_backup",backupPassword);
+    assertTrue(backup.queryForObject("SELECT last_value FROM moderation_decision_order_seq",Long.class)>=after);
+    assertThrows(org.springframework.dao.DataAccessException.class,()->backup.queryForObject("SELECT nextval('moderation_decision_order_seq')",Long.class));
+    try {
+      adminSql("GRANT UPDATE ON SEQUENCE "+SCHEMA+".moderation_decision_order_seq TO getlancer_runtime");
+      assertRejected(runtime,"moderation_sequence_permissions");
+    } finally {provision("10_permissions.sql");}
+    assertDoesNotThrow(()->guard(runtime));
+  }
+
+  @Test void moderationOrderingUpgradeRetainsUnorderedAppendOnlyHistory() throws Exception {
+    String upgradeSchema="getlancer_decision_upgrade_test";
+    adminSql("DROP SCHEMA IF EXISTS "+upgradeSchema+" CASCADE");
+    try {
+      Flyway.configure().dataSource(url,admin,adminPassword).schemas(upgradeSchema).defaultSchema(upgradeSchema)
+          .target("51").load().migrate();
+      DriverManagerDataSource source=new DriverManagerDataSource(url,admin,adminPassword);
+      java.util.Properties properties=new java.util.Properties();properties.setProperty("currentSchema",upgradeSchema);
+      source.setConnectionProperties(properties);JdbcTemplate upgrade=new JdbcTemplate(source);
+      UUID user=UUID.randomUUID();
+      upgrade.update("INSERT INTO users(id,email,password_hash) VALUES(?,?,'synthetic-hash')",user,user+"@example.test");
+      for(int i=0;i<2;i++)upgrade.update("INSERT INTO moderation_actions(id,admin_id,target_type,target_id,action,reason) VALUES(?,?,'ACCOUNT',?,'suspend','Retained history')",UUID.randomUUID(),user,user);
+      Flyway.configure().dataSource(url,admin,adminPassword).schemas(upgradeSchema).defaultSchema(upgradeSchema).load().migrate();
+      assertEquals(2,upgrade.queryForObject("SELECT count(*) FROM moderation_actions WHERE decision_order IS NULL",Integer.class));
+      UUID current=UUID.randomUUID();
+      upgrade.update("INSERT INTO moderation_actions(id,admin_id,target_type,target_id,action,reason) VALUES(?,?,'ACCOUNT',?,'suspend','Current decision')",current,user,user);
+      assertTrue(upgrade.queryForObject("SELECT decision_order FROM moderation_actions WHERE id=?",Long.class,current)>0);
+      assertThrows(org.springframework.dao.DataAccessException.class,()->upgrade.update("UPDATE moderation_actions SET decision_order=100 WHERE decision_order IS NULL"));
+    } finally {adminSql("DROP SCHEMA IF EXISTS "+upgradeSchema+" CASCADE");}
+  }
+
   @Test void webhookReceiptIdentityStaysImmutableWhileReconciliationMetadataCanAdvance() throws Exception {
     for(String table:List.of("payment_webhook_events","commerce_webhook_events")) {
       String event="runtime-receipt-"+UUID.randomUUID();
       runtime.update("INSERT INTO "+table+"(event_id,payload_hash,event_kind,payment_id,dispute_id) VALUES(?,?,'payment.dispute.created','pay_rolefixture123','disp_rolefixture123')",event,"a".repeat(64));
       assertEquals(1,runtime.update("UPDATE "+table+" SET order_id='order_rolefixture123',processed_at=clock_timestamp() WHERE event_id=?",event));
+      if(table.equals("payment_webhook_events"))assertEquals(1,runtime.update("UPDATE payment_webhook_events SET refund_id='rfnd_rolefixture123' WHERE event_id=?",event));
       assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE "+table+" SET payload_hash=? WHERE event_id=?","b".repeat(64),event));
       assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE "+table+" SET event_id='changed' WHERE event_id=?",event));
       assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("DELETE FROM "+table+" WHERE event_id=?",event));
       try {adminSql("GRANT UPDATE (payload_hash) ON "+SCHEMA+"."+table+" TO getlancer_runtime");assertRejected(runtime,"webhook_receipt_permissions");}
       finally {provision("10_permissions.sql");}
     }
+  }
+  @Test void providerRefundEvidenceAllowsStatusProgressWithoutIdentityOrAmountMutation() throws Exception {
+    assertEquals(0,runtime.update("UPDATE payment_provider_refunds SET status='processed',updated_at=clock_timestamp() WHERE false"));
+    for(String column:List.of("id","attempt_id","amount_minor"))
+      assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE payment_provider_refunds SET "+column+"="+column+" WHERE false"));
+    assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("DELETE FROM payment_provider_refunds WHERE false"));
+    try {
+      adminSql("GRANT UPDATE (amount_minor) ON "+SCHEMA+".payment_provider_refunds TO getlancer_runtime");
+      assertRejected(runtime,"refund_evidence_permissions");
+    } finally {provision("10_permissions.sql");}
+    assertDoesNotThrow(()->guard(runtime));
   }
   @Test void mediaRecoveryCanChangeDeadlineWithoutRewritingObjectIdentity() throws Exception {
     UUID owner=UUID.randomUUID(), product=UUID.randomUUID(), intent=UUID.randomUUID();

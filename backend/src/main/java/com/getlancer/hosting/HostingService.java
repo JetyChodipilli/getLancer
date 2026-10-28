@@ -64,15 +64,17 @@ public class HostingService {
   private void complete(UUID id,UUID actor,DemoPublisherClient.Metadata facts,String action){tx(()->{repo.lockOwner(repo.owner(id));repo.record(id,true);if(repo.observed(id,facts))repo.audit(id,actor,action,"Authenticated publisher confirmed "+facts.state()+" for the fixed deployment identity.");return true;});}
   public Map<String,Object> withdraw(UUID id,Map<String,Object>b,HttpServletRequest r,boolean admin){String reason=admin?text(b,"reason",10,2000):"Owner withdrew public hosting.";var h=tx(()->{UUID user=actor(r,admin,false);var row=access(id,user,admin);repo.withdraw(id);repo.audit(id,user,"WITHDRAW_INTENT",reason+" Public access is denied immediately; publisher deletion follows the committed intent.");return repo.record(id,false);});
     if(h.get("deployment_id")!=null&&!h.get("deployment_state").equals("DELETED")){config.ready();UUID actor=admin?security.admin(r):security.user(r);try{complete(id,actor,publisher.delete((UUID)h.get("deployment_id"),Objects.toString(h.get("archive_sha256")),Objects.toString(h.get("manifest_sha256")),instant(h,"expires_at")),"DELETE_CONFIRMED");}catch(ApiError e){tx(()->{repo.lockOwner((UUID)h.get("owner_id"));repo.record(id,true);repo.audit(id,actor,"DELETE_UNCONFIRMED","Withdrawal remains committed; exact publisher deletion must be reconciled.");return true;});throw e;}}
-    return admin?repo.detail(id):detail(id,r);
+    return currentDetail(id,r,admin);
   }
   public Map<String,Object> reconcile(UUID id,Map<String,Object>b,HttpServletRequest r,boolean admin){config.ready();String reason=admin?text(b,"reason",10,2000):"Owner requested exact deployment reconciliation.";var h=tx(()->{UUID user=actor(r,admin,false);var row=access(id,user,admin);if(row.get("deployment_id")==null)throw new ApiError(409,"NO_DEPLOYMENT","This package has no publisher deployment to reconcile.");repo.audit(id,user,"RECONCILE_REQUESTED",reason);return row;});
     UUID actor=admin?security.admin(r):security.user(r);UUID deployment=(UUID)h.get("deployment_id");if(!h.get("deployment_state").equals("DELETED")){DemoPublisherClient.Metadata facts;
       if(h.get("desired_state").equals("WITHDRAWN"))facts=publisher.delete(deployment,Objects.toString(h.get("archive_sha256")),Objects.toString(h.get("manifest_sha256")),instant(h,"expires_at"));
       else {try{facts=publisher.get(deployment,Objects.toString(h.get("archive_sha256")),Objects.toString(h.get("manifest_sha256")),instant(h,"expires_at"));}catch(ApiError e){if(!e.code.equals("DEPLOYMENT_UNCONFIRMED"))throw e;facts=retryExact(id,h,r,admin);}}
       complete(id,actor,facts,"RECONCILE_CONFIRMED");}
-    return admin?repo.detail(id):detail(id,r);
+    return currentDetail(id,r,admin);
   }
+  /** Provider facts survive revocation; returning private details still needs current authority. */
+  private Map<String,Object> currentDetail(UUID id,HttpServletRequest r,boolean admin){return tx(()->{UUID user=actor(r,admin,false);access(id,user,admin);return repo.detail(id);});}
   /** A proven absent reservation can be retried only with the same immutable id, bytes and expiry. */
   private DemoPublisherClient.Metadata retryExact(UUID id,Map<String,Object> snapshot,HttpServletRequest r,boolean admin){
     tx(()->{retryAllowed(id,snapshot,r,admin);return true;});

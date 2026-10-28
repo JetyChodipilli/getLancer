@@ -563,6 +563,30 @@ public class MediaService {
   }
 
   public ResponseEntity<byte[]> get(UUID id, String variant, HttpServletRequest r) {
+    var before = readable(id, r);
+    if (!Set.of("full", "thumbnail").contains(variant))
+      throw new ApiError(400, "VALIDATION_ERROR", "Unknown image size.");
+    String storageKey = storageKey(before, variant);
+    byte[] body =
+        s3.getObjectAsBytes(GetObjectRequest.builder().bucket(bucket).key(storageKey).build())
+            .asByteArray();
+    // Storage I/O must not keep a database transaction open. Recheck deletion,
+    // publication and viewer authority before releasing the fetched bytes.
+    if (!storageKey.equals(storageKey(readable(id, r), variant)))
+      throw new ApiError(404, "NOT_FOUND", "Image unavailable.");
+    return ResponseEntity.ok()
+        .contentType(MediaType.IMAGE_PNG)
+        .header("Cache-Control", "private, no-store")
+        .body(body);
+  }
+
+  private String storageKey(Map<String, Object> media, String variant) {
+    return variant.equals("thumbnail") && media.get("thumbnail_key") != null
+        ? (String) media.get("thumbnail_key")
+        : (String) media.get("storage_key");
+  }
+
+  private Map<String, Object> readable(UUID id, HttpServletRequest r) {
     var rows =
         db.queryForList(
             "SELECT m.storage_key,m.thumbnail_key,p.id AS"
@@ -592,18 +616,6 @@ public class MediaService {
               && PrivateProjectService.granted(db, (UUID) p.get("product_id"), viewer);
       if (!u.equals(p.get("owner_user_id")) && !clientAccess) security.admin(r);
     }
-    if (!Set.of("full", "thumbnail").contains(variant))
-      throw new ApiError(400, "VALIDATION_ERROR", "Unknown image size.");
-    String storageKey =
-        variant.equals("thumbnail") && p.get("thumbnail_key") != null
-            ? (String) p.get("thumbnail_key")
-            : (String) p.get("storage_key");
-    byte[] body =
-        s3.getObjectAsBytes(GetObjectRequest.builder().bucket(bucket).key(storageKey).build())
-            .asByteArray();
-    return ResponseEntity.ok()
-        .contentType(MediaType.IMAGE_PNG)
-        .header("Cache-Control", "private, no-store")
-        .body(body);
+    return p;
   }
 }

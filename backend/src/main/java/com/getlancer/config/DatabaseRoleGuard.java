@@ -118,14 +118,27 @@ public class DatabaseRoleGuard implements ApplicationRunner {
         LEFT JOIN pg_class c ON c.relnamespace=n.oid AND c.relname=required.name
         WHERE c.oid IS NULL OR has_table_privilege(current_user,c.oid,'UPDATE')
           OR has_table_privilege(current_user,c.oid,'DELETE')
-          OR 4<>(SELECT count(*) FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
-            AND a.attname IN ('order_id','payment_id','dispute_id','processed_at')
+          OR (CASE WHEN required.name='payment_webhook_events' THEN 5 ELSE 4 END)<>(SELECT count(*) FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+            AND (a.attname IN ('order_id','payment_id','dispute_id','processed_at') OR (required.name='payment_webhook_events' AND a.attname='refund_id'))
             AND has_column_privilege(current_user,c.oid,a.attnum,'UPDATE'))
           OR EXISTS(SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
-            AND a.attname NOT IN ('order_id','payment_id','dispute_id','processed_at')
+            AND NOT (a.attname IN ('order_id','payment_id','dispute_id','processed_at') OR (required.name='payment_webhook_events' AND a.attname='refund_id'))
             AND has_column_privilege(current_user,c.oid,a.attnum,'UPDATE'))
         """, Integer.class, schema);
     if (unsafeReceipts == null || unsafeReceipts != 0) reject("webhook_receipt_permissions");
+    Integer unsafeRefunds = db.queryForObject("""
+        SELECT count(*) FROM (VALUES ('payment_provider_refunds')) required(name)
+        LEFT JOIN pg_namespace n ON n.nspname=?
+        LEFT JOIN pg_class c ON c.relnamespace=n.oid AND c.relname=required.name
+        WHERE c.oid IS NULL OR has_table_privilege(current_user,c.oid,'UPDATE')
+          OR has_table_privilege(current_user,c.oid,'DELETE')
+          OR NOT has_table_privilege(current_user,c.oid,'INSERT')
+          OR 2<>(SELECT count(*) FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+            AND a.attname IN ('status','updated_at') AND has_column_privilege(current_user,c.oid,a.attnum,'UPDATE'))
+          OR EXISTS(SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+            AND a.attname NOT IN ('status','updated_at') AND has_column_privilege(current_user,c.oid,a.attnum,'UPDATE'))
+        """, Integer.class, schema);
+    if (unsafeRefunds == null || unsafeRefunds != 0) reject("refund_evidence_permissions");
     Integer unsafeMediaWrites = db.queryForObject("""
         SELECT count(*) FROM (VALUES ('media_write_intents')) required(name)
         LEFT JOIN pg_namespace n ON n.nspname=?
@@ -156,6 +169,20 @@ public class DatabaseRoleGuard implements ApplicationRunner {
             AND (0::oid=ANY(p.polroles) OR (SELECT oid FROM pg_roles WHERE rolname=current_user)=ANY(p.polroles)))
         """,Integer.class,schema);
     if (unsafeManifests == null || unsafeManifests != 0) reject("manifest_certification_permissions");
+    Integer unsafeSequences = db.queryForObject("""
+        SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+        WHERE n.nspname=? AND c.relkind='S' AND
+          (CASE WHEN c.relname='moderation_decision_order_seq'
+            THEN NOT has_sequence_privilege(current_user,c.oid,'USAGE')
+              OR has_sequence_privilege(current_user,c.oid,'SELECT')
+              OR has_sequence_privilege(current_user,c.oid,'UPDATE')
+            ELSE has_sequence_privilege(current_user,c.oid,'USAGE')
+              OR has_sequence_privilege(current_user,c.oid,'SELECT')
+              OR has_sequence_privilege(current_user,c.oid,'UPDATE') END)
+        """,Integer.class,schema);
+    if (unsafeSequences == null || unsafeSequences != 0
+        || !Boolean.TRUE.equals(db.queryForObject("SELECT to_regclass(?) IS NOT NULL",Boolean.class,
+            schema+".moderation_decision_order_seq"))) reject("moderation_sequence_permissions");
   }
 
   private static void reject(String check) {

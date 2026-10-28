@@ -437,10 +437,10 @@ public class ComponentService {
     var c=rows.get(0);
     if(!Set.of("DRAFT","ARCHIVED").contains(c.get("status")))throw new ApiError(409,"INVALID_COMPONENT_STATE","Archive the component before uploading a new version.");
     if(db.queryForObject("SELECT count(*) FROM component_releases WHERE component_id=?",Integer.class,id)>=100)throw new ApiError(409,"VERSION_LIMIT","A component supports up to 100 reviewed releases.");
-    if(scenario==null||scenario.isBlank()||scenario.length()>500)throw new ApiError(400,"VALIDATION_ERROR","Describe a synthetic preview interaction in up to 500 characters.");
+    if(scenario==null||scenario.isBlank()||scenario.length()>500)throw new ApiError(400,"VALIDATION_ERROR","Describe a synthetic preview interaction in up to 500 characters.",Map.of("scenario","Describe a synthetic preview interaction in up to 500 characters."));
     var source=ComponentArchive.inspect(file,version,consent,recipe(Objects.toString(c.get("recipe_slug"))));
     source.put("scenario",scenario);
-    if(db.queryForObject("SELECT count(*) FROM component_releases WHERE component_id=? AND source->>'version'=?",Integer.class,id,version)>0)throw new ApiError(409,"VERSION_EXISTS","Choose a new version; published versions are immutable.");
+    if(db.queryForObject("SELECT count(*) FROM component_releases WHERE component_id=? AND source->>'version'=?",Integer.class,id,version)>0)throw new ApiError(409,"VERSION_EXISTS","Choose a new version; published versions are immutable.",Map.of("version","Choose a new version; published versions are immutable."));
     db.update("UPDATE component_entries SET draft_source=?::jsonb,status='DRAFT',revision=revision+1,updated_at=now() WHERE id=?",encode(source),id);
     slots.audit(owner,id,"SOURCE_UPLOADED","Bounded MIT source archive pinned for fresh review; SHA-256 "+source.get("archiveSha256"));
     return Map.of("id",id,"version",version,"sourceHash",source.get("sha256"),"archiveSha256",source.get("archiveSha256"));
@@ -555,10 +555,10 @@ public class ComponentService {
   }
   public Object ownCollege(HttpServletRequest r) {
     UUID owner=security.developer(r,false);
-    return Map.of("items",db.queryForList("SELECT e.product_id,e.category,e.language,e.problem,e.outcome,e.prerequisites,e.contribution,e.institution,e.academic_year,e.branch,e.share_academic_details,e.revision,e.status,e.review_reason,e.updated_at,p.title,p.slug FROM college_project_metadata e JOIN products p ON p.id=e.product_id WHERE p.owner_user_id=? ORDER BY e.updated_at LIMIT 100",owner).stream().map(e->{
+    var page=com.getlancer.shared.Pages.query(db,r,"SELECT e.product_id,e.category,e.language,e.problem,e.outcome,e.prerequisites,e.contribution,e.institution,e.academic_year,e.branch,e.share_academic_details,e.revision,e.status,e.review_reason,e.updated_at,p.title,p.slug FROM college_project_metadata e JOIN products p ON p.id=e.product_id WHERE p.owner_user_id=? ORDER BY e.updated_at DESC,e.product_id",owner);
+    return com.getlancer.responses.PageResponse.from(page,e->{
       var out=education(e,true);out.put("productId",e.get("product_id"));out.put("title",e.get("title"));return out;
-    }
-    ).toList());
+    });
   }
   @Transactional public Object saveCollege(UUID product,Map<String,Object> b,HttpServletRequest r) {
     UUID owner=security.developer(r,true);

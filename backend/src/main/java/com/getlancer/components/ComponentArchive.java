@@ -13,22 +13,27 @@ import org.springframework.web.multipart.MultipartFile;
 /** Free, self-contained frontend contributions; never extracts or executes creator code. */
 public final class ComponentArchive {
   private ComponentArchive() {}
+  private static ApiError invalid(String code,String message,String field) {
+    return new ApiError(400,code,message,Map.of(field,message));
+  }
   private static final String MIT_BODY="Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software. THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.";
   static Map<String,Object> inspect(MultipartFile file,String version,boolean consent,Map<String,Object> base) throws IOException {
-    if(!consent)throw new ApiError(400,"RIGHTS_CONSENT_REQUIRED","Confirm your rights and preserve the MIT attribution.");
-    if(version==null||!version.matches("[A-Za-z0-9][A-Za-z0-9._+-]{0,39}"))throw new ApiError(400,"VALIDATION_ERROR","Choose an ASCII version of at most 40 characters.");
-    if(file.isEmpty()||file.getSize()>StaticArchive.MAX_COMPRESSED||file.getOriginalFilename()==null||!file.getOriginalFilename().toLowerCase(java.util.Locale.ROOT).endsWith(".zip"))throw new ApiError(400,"INVALID_COMPONENT_ARCHIVE","Choose a ZIP up to 5 MiB.");
+    if(!consent)throw invalid("RIGHTS_CONSENT_REQUIRED","Confirm your rights and preserve the MIT attribution.","rightsConsent");
+    if(version==null||!version.matches("[A-Za-z0-9][A-Za-z0-9._+-]{0,39}"))throw invalid("VALIDATION_ERROR","Choose an ASCII version of at most 40 characters.","version");
+    if(file.isEmpty()||file.getSize()>StaticArchive.MAX_COMPRESSED||file.getOriginalFilename()==null||!file.getOriginalFilename().toLowerCase(java.util.Locale.ROOT).endsWith(".zip"))throw invalid("INVALID_COMPONENT_ARCHIVE","Choose a nonempty ZIP up to 5 MiB.","file");
     byte[] bytes;try(var input=file.getInputStream()){bytes=input.readNBytes(StaticArchive.MAX_COMPRESSED+1);}
-    var inspected=StaticArchive.inspect(bytes);
+    StaticArchive.Inspection inspected;
+    try { inspected=StaticArchive.inspect(bytes); }
+    catch(ApiError error) { throw new ApiError(error.status,error.code,error.getMessage(),Map.of("file",error.getMessage())); }
     var files=new LinkedHashMap<String,String>();
     for(var item:inspected.files()){
-      if(!Set.of("index.html","README.md","LICENSE").contains(item.path())||item.sizeBytes()>100000)throw new ApiError(400,"INVALID_COMPONENT_ARCHIVE","Include only index.html, README.md and LICENSE, each up to 100 kB. Inline your CSS and JavaScript.");
+      if(!Set.of("index.html","README.md","LICENSE").contains(item.path())||item.sizeBytes()>100000)throw invalid("INVALID_COMPONENT_ARCHIVE","Include only root index.html, README.md and LICENSE, each up to 100 kB. Inline your CSS and JavaScript.","file");
       files.put(item.path(),new String(item.content(),StandardCharsets.UTF_8));
     }
-    if(files.size()!=3||!files.keySet().equals(Set.of("index.html","README.md","LICENSE")))throw new ApiError(400,"INVALID_COMPONENT_ARCHIVE","Include source, setup instructions and the MIT licence.");
+    if(files.size()!=3||!files.keySet().equals(Set.of("index.html","README.md","LICENSE")))throw invalid("INVALID_COMPONENT_ARCHIVE","Include root index.html, README.md and LICENSE, without an enclosing folder.","file");
     String licence=files.get("LICENSE");
     int grant=licence.indexOf("Permission is hereby granted");
-    if(grant<0||!licence.substring(0,grant).contains("Copyright")||!licence.substring(grant).strip().replaceAll("\\s+"," ").equals(MIT_BODY))throw new ApiError(400,"MIT_LICENSE_REQUIRED","Include the full unmodified MIT licence and copyright attribution.");
+    if(grant<0||!licence.substring(0,grant).contains("Copyright")||!licence.substring(grant).strip().replaceAll("\\s+"," ").equals(MIT_BODY))throw invalid("MIT_LICENSE_REQUIRED","Include the full unmodified MIT licence and copyright attribution.","file");
     var source=new LinkedHashMap<>(base);
     source.put("version",version);source.put("files",files);source.put("sha256",StaticArchive.sha(files.get("index.html").getBytes(StandardCharsets.UTF_8)));
     source.put("archiveSha256",inspected.archiveSha256());source.put("manifestSha256",inspected.manifestSha256());

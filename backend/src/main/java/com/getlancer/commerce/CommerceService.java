@@ -69,7 +69,14 @@ public class CommerceService {
     else {if(!Set.of("PENDING","SUSPENDED").contains(v.get("status"))) throw new ApiError(409,"INVALID_TRANSITION","Only a submitted or suspended release can be reviewed.");if(action.equals("APPROVE")) {repo.sellerEligible((UUID)t.get("seller_id"),(UUID)t.get("product_id"),true);if(!"ARCHIVED".equals(t.get("status"))) {publishing.requireTemplate((UUID)t.get("seller_id"),template);repo.templateStatus(template,"ACTIVE");}}}
     repo.review(version,next,reason,actor);repo.audit(template,null,actor,"SOURCE_"+action,"Release "+v.get("version")+": "+reason);return repo.detail(template);});}
   public ResponseEntity<byte[]> packageDownload(UUID template,UUID version,HttpServletRequest r,boolean admin) {
-    var v=tx(()->{if(admin) security.admin(r);else owner(template,r,false);return repo.version(template,version,false);});return archiveResponse(v);
+    var v=tx(()->readablePackage(template,version,r,admin));
+    var response=archiveResponse(v); // Keep database locks outside private storage I/O.
+    return tx(()->{readablePackage(template,version,r,admin);return response;});
+  }
+  private Map<String,Object> readablePackage(UUID template,UUID version,HttpServletRequest r,boolean admin) {
+    if(admin){security.admin(r);var principal=security.loadPrincipal(r);if(principal==null||!principal.recentMfa())throw new ApiError(403,"FORBIDDEN","Recent administrator MFA is required for source inspection.");}
+    else{owner(template,r,false);security.user(r);}
+    return repo.version(template,version,false); // Storage identity and package facts are immutable.
   }
   public ResponseEntity<byte[]> archiveResponse(Map<String,Object> version) {byte[] bytes=storage.read(Objects.toString(version.get("storage_key")),Objects.toString(version.get("sha256")),((Number)version.get("size_bytes")).intValue());return ResponseEntity.ok().contentType(MediaType.parseMediaType("application/zip")).header("Content-Disposition","attachment; filename=\"getlancer-source-"+version.get("id")+".zip\"").header("Cache-Control","private, no-store").header("X-Content-Type-Options","nosniff").body(bytes);}
 }

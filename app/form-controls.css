@@ -137,10 +137,20 @@ body :is([data-slot=dialog-footer],[data-slot=alert-dialog-footer]) :is(button,a
 
 /* Labels/hints/actions follow one rhythm across plain and component forms. */
 body .form { display: grid; gap: 12px; }
+/* Staged forms keep their fields mounted inside a fieldset. Give the visible
+   group the same rhythm as its form without overriding the hidden attribute. */
+body .form > fieldset:not([hidden]):not([class]) { display: grid; gap: 12px; min-width: 0; }
 body :is(.form,.team-form) label, body .team-field,
 body :is(.studio-shell,[data-slot=dialog-content]) :is(.form,.team-form,.team-field) label { font-size: 14px; line-height: 1.4; font-weight: 500; }
 body .form label:not(.filterlabel) { display: grid; gap: 8px; margin: 0; }
-body .form > label:not(.filterlabel):has(+ :is(input,select,textarea,[data-slot=select-trigger])) { margin-bottom: -4px; }
+body .form label:not(.filterlabel):has(+ :is(input,select,textarea,[data-slot=select-trigger])) { margin-bottom: -4px; }
+/* A consent statement is one target: the checkbox stays beside its wrapping
+   text, rather than becoming a separate row under the generic label grid. */
+body .form label:has(> input:is([type=checkbox],[type=radio])) {
+  display: flex; align-items: flex-start; gap: 10px; min-height: 44px;
+  padding-block: 8px; line-height: 1.5; overflow-wrap: anywhere;
+}
+body .form label:has(> input:is([type=checkbox],[type=radio])) > :is(span,div) { min-width: 0; }
 body :is(.team-field,.showcase-field,.team-form fieldset) { gap: 8px; min-width: 0; }
 body .team-form fieldset { gap: 16px; }
 /* Shared team action-row rules must not turn care's numeric group into a stack. */
@@ -151,6 +161,17 @@ body .care-dialog .team-form fieldset > .care-form-grid {
 body .form .filterlabel { display: flex; align-items: center; gap: 10px; min-height: 44px; margin: 0; }
 body .form .button { margin-top: 0; }
 body :is(.form,.team-form) :is(.error,.team-error,[role=alert]) { color: #b42318; }
+body .form p.error[id] {
+  margin: -4px 0 0; padding: 0; border: 0; border-radius: 0; background: transparent;
+  font-size: 14px; line-height: 1.5; overflow-wrap: anywhere;
+}
+body .form-error-summary {
+  display: grid; gap: 8px; min-width: 0; margin: 0;
+  font-size: 14px; line-height: 1.5; overflow-wrap: anywhere;
+}
+body .form-error-summary :is(p,ul) { margin: 0; color: inherit; }
+body .form-error-summary ul { padding-left: 20px; }
+body .form-error-summary a { display: block; padding-block: 8px; text-decoration: underline; text-underline-offset: 3px; }
 body :is(.team-form,.delivery-form) fieldset:disabled { opacity: 1; }
 
 /* Account keeps the shared canvas visible around compact utility panels. */

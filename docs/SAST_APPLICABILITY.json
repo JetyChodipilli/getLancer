@@ -75,7 +75,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/admin/AdminService.java",
-      "sha256": "7d864b988c37a1ff3dd739278277159da923c4855c71902504886813e28f2b1e"
+      "sha256": "37788e86a273d149e1cc707348aa57217147eb3b1ae768ebe74eddd7f0d74049"
     },
     {
       "path": "backend/src/main/java/com/getlancer/admin/MarketplaceMetrics.java",
@@ -211,7 +211,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/commerce/CommerceService.java",
-      "sha256": "3770fdad22612ccb29ec3a4bdbdcf672a1c6a1fabf48d99c4453016e30e01114"
+      "sha256": "09329e5dc6c2cab2bf95552ffbbe72b3beb41ca6d1695ca028a7b0a11ecb0857"
     },
     {
       "path": "backend/src/main/java/com/getlancer/commerce/CommerceStorage.java",
@@ -223,7 +223,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/components/ComponentArchive.java",
-      "sha256": "a8db8ee56d202f89d2ee21a84e6df152bef6c47b62936847d34795151174183a"
+      "sha256": "b8ee204eb6ce0f97107cb2ae2ca94cdf5121f3e03082d410d5dab1f9ec493ad2"
     },
     {
       "path": "backend/src/main/java/com/getlancer/components/ComponentBookmarkService.java",
@@ -239,7 +239,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/components/ComponentService.java",
-      "sha256": "e804c9d171014cb14a24c90f2cc640dc6f61d896741338d42b3380ba62620345"
+      "sha256": "c86869b572c31acd45f6a76215a6eca4997906792187257b206d18a7a2c1e2e3"
     },
     {
       "path": "backend/src/main/java/com/getlancer/components/ComponentSlotService.java",
@@ -259,7 +259,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/config/DatabaseRoleGuard.java",
-      "sha256": "8369967bedffb98957143a2c67120c503e664e80a58534584f559a76b290415b"
+      "sha256": "4aa3f1c3c0ba138797d5788bdc76fc31737f856d2b447f5193500b3fec4d3ad8"
     },
     {
       "path": "backend/src/main/java/com/getlancer/config/MfaStorageUpgrade.java",
@@ -279,7 +279,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/delivery/DeliveryRepository.java",
-      "sha256": "04efc66e52890678d4da7ff8aaf9d946b3df9a73a70e36b61dd47d288a55b4a6"
+      "sha256": "92d8d25cdb14ee4cf3180fff8b7e95107767087046da69bf2ca766f648f4dd56"
     },
     {
       "path": "backend/src/main/java/com/getlancer/delivery/DeliveryService.java",
@@ -407,7 +407,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/hosting/HostingService.java",
-      "sha256": "b1e1cda3dc132242c909c2479b693c12fede451fe5115dcc1d4ace4c197e6a6c"
+      "sha256": "6fac954a53161f1793f156d0aa2eca4f223a9435cd6c90c40761f12908389cc8"
     },
     {
       "path": "backend/src/main/java/com/getlancer/hosting/StaticArchive.java",
@@ -455,7 +455,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/labs/LabConfiguration.java",
-      "sha256": "9ad2f79f85c14f1125dc21886765efb11174218daa3e536ce99a97cdfd016591"
+      "sha256": "a2cf32f08e7858d3a5fcf5c59159af558e23072709f3140c99fef9f29b8990cd"
     },
     {
       "path": "backend/src/main/java/com/getlancer/labs/LabController.java",
@@ -491,7 +491,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/labs/LabService.java",
-      "sha256": "e2baff21043eced444a52f5bfad509a88dd4e3a8cf5dd8c757f0246e5f0cde79"
+      "sha256": "2f34dba22242cb0d59fee6735c7fbaa46c5dadd161d03ca337a5b6bb3275da56"
     },
     {
       "path": "backend/src/main/java/com/getlancer/maintenance/MaintenanceAccess.java",
@@ -523,7 +523,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/media/MediaService.java",
-      "sha256": "3dfcbe18daadcde6d5af37109554c56c6f39c25afdec179959f85282c62ac764"
+      "sha256": "19d1c4d974f970736f7b3b772892f1b64a28f4dd19cce65768f70c69d11cb4d6"
     },
     {
       "path": "backend/src/main/java/com/getlancer/moderation/ModerationController.java",
@@ -531,7 +531,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/moderation/ModerationService.java",
-      "sha256": "0a170ea00ec047b4b2a4cc0ad78bca32a9fee60272b8eb14694039ed5d4375d0"
+      "sha256": "7246e5166c1329bc703e694fa705f59210843d031d98b573baadee23bfb89d77"
     },
     {
       "path": "backend/src/main/java/com/getlancer/notifications/Mail.java",
@@ -543,11 +543,11 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/payments/PaymentRepository.java",
-      "sha256": "b6a038e651fe02f345ff555e05399b5b6f7784aa3c725c9df0c9c07a977f50f7"
+      "sha256": "be876d333a93ab6bdd213b7b7f07402f71e63782057197e095810a95983213b1"
     },
     {
       "path": "backend/src/main/java/com/getlancer/payments/PaymentService.java",
-      "sha256": "26e5c1c4e6c70a91436a763b07285024318c8700fc561143c6678b6611e5ca4d"
+      "sha256": "86df7c7d5c1322beb47ee71abc92e1eb4a2225a431663aca858a366909b58c8c"
     },
     {
       "path": "backend/src/main/java/com/getlancer/payments/RazorpayClient.java",
@@ -591,7 +591,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/profiles/ProfileService.java",
-      "sha256": "43bd4cabe6440207c51596bd75732c35e779254e25836e86d3c9adaa61c35189"
+      "sha256": "1ad2743cefc88f57106d7dfb8e08f63386f7108186c8ca9deb2b60180e420f84"
     },
     {
       "path": "backend/src/main/java/com/getlancer/publishing/PublishingCapacity.java",
@@ -962,6 +962,14 @@
       "sha256": "6185fcd7390a9da8261f8026d71bac87214d7ad0c49d6f818db31a9bda83ee4b"
     },
     {
+      "path": "backend/src/main/resources/db/migration/V51__payment_refund_inbox.sql",
+      "sha256": "cfd6e8b6e1d6e5f4dbff5c3296874ff9c43bdb021de6c664939cdcf0381df9e8"
+    },
+    {
+      "path": "backend/src/main/resources/db/migration/V52__moderation_decision_order.sql",
+      "sha256": "6504f3d62ef5a3ce8f82c31ad20586a34c9e69a20b3cd5e9f3f8d3a5d44e6d25"
+    },
+    {
       "path": "backend/src/main/resources/db/migration/V5__google_and_login_challenges.sql",
       "sha256": "f392b24cba6eacdc615c2b5a6868034485e36048bac7e7c3bd21ad553b85c5a3"
     },
@@ -1077,7 +1085,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/config/DatabaseRoleGuardIntegrationTest.java",
-      "sha256": "f415b42388218d2b7a974281c67eae71a9dd97c631550985fbe51138bfe760e1"
+      "sha256": "a88dae41da4932c0a1be6a947b0422f9d2997c3265c86117cef5294ec6750957"
     },
     {
       "path": "backend/src/test/java/com/getlancer/config/ProductionConfigurationTest.java",
@@ -1112,12 +1120,20 @@
       "sha256": "3bb35647ebf1aee74002cbb052eb440fc4936fb2701f9792aa504cb821e134b9"
     },
     {
+      "path": "backend/src/test/java/com/getlancer/integration/AdminHostingAuditRegressionTest.java",
+      "sha256": "7585e5bbd77972f036551841ced7f17230237a6fcdc6a25d695f63913301a36e"
+    },
+    {
       "path": "backend/src/test/java/com/getlancer/integration/AdminOperationsPaginationIntegrationTest.java",
       "sha256": "a9ee4fc494acbd787f5bb52a50045010d34f225bb1f76b6275a12eecde62b95b"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/AnalyticsCoverageIntegrationTest.java",
       "sha256": "06595a9115a51e550704074960d0dbda51f23365aa5bb77d90b13dbbc7bb1d61"
+    },
+    {
+      "path": "backend/src/test/java/com/getlancer/integration/AuthAuditRegressionTest.java",
+      "sha256": "6c9dd5221fc607789b424844db333bf507c5f3192e8e889c6d333f38ec663dc7"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/BusinessIntegrationTest.java",
@@ -1137,7 +1153,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java",
-      "sha256": "72961e8eee80d13598587c3db1086abc8029c2991bd7655ebbef623eac2b4e0d"
+      "sha256": "387f8e626c6dae3fa437b3e58dfefa9609f23b2260dd807aa08a3f5f995b5f10"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/DataExposureIntegrationTest.java",
@@ -1176,8 +1192,40 @@
       "sha256": "36e7ad286b05795146934cba98cd268269c2d0d11275c1047a6944822e1a0aaf"
     },
     {
+      "path": "backend/src/test/java/com/getlancer/integration/PaymentLifecycleAuditRegressionTest.java",
+      "sha256": "567b4f15241d1357f8ce73e87c6395fea6c78d1495c3a7be82a563e6f664c803"
+    },
+    {
       "path": "backend/src/test/java/com/getlancer/integration/PrivateAccessPaginationIntegrationTest.java",
       "sha256": "7e97a542f9c47bc28e065c90c3c82842045a35569cc861f52b8e982dcaec20c1"
+    },
+    {
+      "path": "backend/src/test/java/com/getlancer/integration/PublishingAuditRegressionTest.java",
+      "sha256": "47d18e43dbbd27d1892aa92d01a5a5d2061f81a3d459325acca0ad393b0b08ff"
+    },
+    {
+      "path": "backend/src/test/java/com/getlancer/integration/Round2RuntimeStorageIntegrationTest.java",
+      "sha256": "d897c8cac1a4ab36fa335d7c8f71b6dfd664b4bfff04009ea76bfce2f4bc060b"
+    },
+    {
+      "path": "backend/src/test/java/com/getlancer/integration/Round3FinanceIntegrationTest.java",
+      "sha256": "f071f1b2bccaf429c02dca22fc405be0a7d8e1e7ae662e12a6373815218c9546"
+    },
+    {
+      "path": "backend/src/test/java/com/getlancer/integration/Round3MarketplaceIntegrationTest.java",
+      "sha256": "13fdca73d7a18715264b04dc0e7e97159a31cbcd9b2508b34a7d8eca646b729a"
+    },
+    {
+      "path": "backend/src/test/java/com/getlancer/integration/Round3OperationsIntegrationTest.java",
+      "sha256": "02f9183a16a444df09495b35585e55f73a289d699f440b551a77b48c50172ff8"
+    },
+    {
+      "path": "backend/src/test/java/com/getlancer/integration/Round3RuntimeStorageIntegrationTest.java",
+      "sha256": "5da30da76acbd02af07fa51bc5a818f01660a7ab6ee03603ddeb55a702506850"
+    },
+    {
+      "path": "backend/src/test/java/com/getlancer/integration/TeamBusinessAuditRegressionTest.java",
+      "sha256": "352b32be77b61a1a04ca5704c6cb4317ddc5a19872397f3dbccedc76ef029d79"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/TeamsIntegrationTest.java",
@@ -1347,7 +1395,7 @@
   "buildInputs": [
     {
       "path": ".github/workflows/ci.yml",
-      "sha256": "0d2fb2bd7ebe35405d82ee2f00d3fc4945e656a1709852590082feb105e330d5"
+      "sha256": "7aac1d066403081f4bb312876117cb6569f9b7141ea224d7f83e70fd0a0960e6"
     },
     {
       "path": "backend/pom.xml",

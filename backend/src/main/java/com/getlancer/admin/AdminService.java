@@ -441,6 +441,69 @@ public class AdminService {
         marketplaceMetrics.snapshot());
   }
 
+  @Transactional
+  public void requireCurrentAppealDecision(Map<String, Object> decision) {
+    String type = (String) decision.get("target_type");
+    UUID target = (UUID) decision.get("target_id");
+    String action = decision.get("action").toString().toLowerCase(Locale.ROOT);
+    Set<String> restrictions = switch (type) {
+      case "ACCOUNT" -> Set.of("suspend");
+      case "USER" -> Set.of("suspend", "request-changes");
+      case "PRODUCT" -> Set.of("suspend", "request-changes", "reject");
+      case "INQUIRY" -> Set.of("quarantine", "block");
+      case "REVIEW" -> Set.of("hide");
+      default -> Set.of();
+    };
+    var stale = new ApiError(409, "MODERATION_APPEAL_STALE",
+        "This decision no longer identifies the current restriction. Review the current decision before restoring eligibility.");
+    if (!restrictions.contains(action)) throw stale;
+
+    // Match the manual action's lock order, then observe history in a new statement.
+    // A product action takes publishing capacity before entitlement and product locks.
+    if (type.equals("PRODUCT")) {
+      var owners = db.queryForList("SELECT owner_user_id FROM products WHERE id=?", target);
+      if (owners.isEmpty()) throw stale;
+      UUID owner = (UUID) owners.get(0).get("owner_user_id");
+      products.lockOwner(owner);
+      db.queryForMap("SELECT user_id,active_slot_limit,source FROM showcase_entitlements WHERE user_id=? FOR UPDATE", owner);
+    }
+    String table = switch (type) {
+      case "ACCOUNT" -> "users";
+      case "USER" -> "developer_profiles";
+      case "PRODUCT" -> "products";
+      case "INQUIRY" -> "inquiries";
+      case "REVIEW" -> "reviews";
+      default -> throw stale;
+    };
+    String column = type.equals("ACCOUNT") ? "account_status"
+        : Set.of("USER", "PRODUCT").contains(type) ? "approval_status" : "moderation_status";
+    var rows = db.queryForList("SELECT " + column + (type.equals("PRODUCT") ? ",lifecycle_status" : "")
+        + " FROM " + table + " WHERE " + (type.equals("USER") ? "user_id" : "id") + "=? FOR UPDATE", target);
+    String expected = switch (action) {
+      case "suspend" -> "SUSPENDED";
+      case "request-changes" -> "CHANGES_REQUESTED";
+      case "reject" -> "REJECTED";
+      case "quarantine" -> "QUARANTINED";
+      case "block" -> "BLOCKED";
+      default -> "HIDDEN";
+    };
+    if (rows.isEmpty() || !expected.equals(rows.get(0).get(column))
+        || (type.equals("PRODUCT") && "ARCHIVED".equals(rows.get(0).get("lifecycle_status")))) throw stale;
+    String actions = switch (type) {
+      case "ACCOUNT" -> "'suspend','restore'";
+      case "USER" -> "'approve','request-changes','suspend'";
+      case "PRODUCT" -> "'approve','request-changes','reject','suspend'";
+      case "INQUIRY" -> "'quarantine','block','restore'";
+      default -> "'hide','publish'";
+    };
+    var history = db.queryForMap("SELECT count(*) AS total,count(decision_order) AS ordered,max(decision_order) AS latest"
+        + " FROM moderation_actions WHERE target_type=? AND target_id=? AND lower(action) IN (" + actions + ")", type, target);
+    Object order = decision.get("decision_order");
+    // Legacy timestamps cannot establish causal order. Preserve ambiguous history for manual review.
+    if (order == null ? ((Number) history.get("total")).longValue() != 1 || ((Number) history.get("ordered")).longValue() != 0
+        : history.get("latest") == null || ((Number) order).longValue() != ((Number) history.get("latest")).longValue()) throw stale;
+  }
+
   public void audit(UUID admin, String type, UUID target, String action, String reason) {
     db.update(
         "INSERT INTO moderation_actions(id,admin_id,target_type,target_id,action,reason)"

@@ -87,9 +87,9 @@ public class LabService {
   }
   public LabResponses.Run start(LabRequests.Start input,String key,HttpServletRequest request){key(key);syncEpoch();return tx(()->{
     var settings=settings();UUID owner=actor(request,false);String hash=hash(input);var old=db.queryForList("SELECT id,owner_id,manifest_id,scenario_id,request_hash,idempotency_key,inputs,manifest_sha256,image_digest,operator_epoch,lease_generation,status,requested_at,expires_at,last_activity_at,healthy_at,cleanup_confirmed_at,reason,attention,memory_mib,cost_micros,quota_counted FROM lab_runs WHERE owner_id=? AND idempotency_key=? FOR UPDATE",owner,key);
-    if(!old.isEmpty()){if(!hash.equals(old.get(0).get("request_hash")))throw idempotency();reconcileAuthority(old.get(0));return projection(row((UUID)old.get(0).get("id")));}
+    if(!old.isEmpty()){if(!hash.equals(old.get(0).get("request_hash")))throw idempotency();reconcileAuthority(old.get(0));actor(request,false);return projection(row((UUID)old.get(0).get("id")));}
     config.ready();if(Boolean.TRUE.equals(settings.get("paused")))throw new ApiError(503,"LAB_PAUSED","New lab admissions are paused. Source and setup remain free.");
-    LabManifest manifest=manifest(input.manifestId());source(manifest,true);var scenario=manifest.scenario(input.scenarioId());String resourceClass=requirePolicies(manifest,scenario.id(),true);UUID id=UUID.randomUUID();Map<String,String> inputs=iot.inputs(manifest,manifest.inputs(scenario,input.inputs().values()),id);
+    LabManifest manifest=manifest(input.manifestId());source(manifest,true);config.current(manifest);actor(request,false);var scenario=manifest.scenario(input.scenarioId());String resourceClass=requirePolicies(manifest,scenario.id(),true);UUID id=UUID.randomUUID();Map<String,String> inputs=iot.inputs(manifest,manifest.inputs(scenario,input.inputs().values()),id);
     var quota=quota(owner);if(quota.remaining()<1)throw new ApiError(429,"LAB_QUOTA_EXHAUSTED","Your current daily runtime reservations are used. Source and setup remain free.");
     if(quota.activeRunId()!=null)throw new ApiError(429,"LAB_ACTIVE_RUN","Finish cleanup of your current run before starting another.");
     var resources=resources();var limits=limits();if(number(resources,"active")>=limits.maxActiveRuns()||number(resources,"memory")+manifest.memoryMiB()>limits.maxMemoryMiB()||number(resources,"daily")+manifest.maxCostMicros()>limits.dailyBudgetMicros()||number(resources,"monthly")+manifest.maxCostMicros()>limits.monthlyBudgetMicros())
@@ -112,8 +112,11 @@ public class LabService {
     if(!config.projection().enabled()||!Objects.equals(config.epoch,run.get("operator_epoch"))||!Objects.equals(config.epoch,db.queryForObject("SELECT observed_epoch FROM lab_runtime_settings WHERE id=1",UUID.class)))throw new ApiError(403,"LAB_LEASE_STALE","Runtime admission or the operator epoch has changed. This lease is closed.");
     if(!instant(run,"expires_at").isAfter(Instant.now()))throw new ApiError(410,"LAB_EXPIRED","This run has expired.");
     var manifest=manifest((String)run.get("manifest_id"));requirePolicies(manifest,(String)run.get("scenario_id"),false);source(manifest,true);
+    // Source-owner/component locks may outlive the authority checked before them.
+    config.current(manifest);
+    if(!instant(run,"expires_at").isAfter(Instant.now()))throw new ApiError(410,"LAB_EXPIRED","This run has expired.");
   }
-  public LabResponses.Run detail(UUID id,HttpServletRequest request){return tx(()->{readLock();UUID owner=actor(request,false);boolean admin=security.role(owner,"ADMIN")&&security.loadPrincipal(request).recentMfa();var run=owned(id,owner,admin);return observedProjection(run);});}
+  public LabResponses.Run detail(UUID id,HttpServletRequest request){return tx(()->{readLock();UUID owner=actor(request,false);var principal=security.loadPrincipal(request);boolean admin=security.role(owner,"ADMIN")&&principal!=null&&principal.recentMfa();var run=owned(id,owner,admin);var observed=observedProjection(run);actor(request,!owner.equals(run.get("owner_id")));return observed;});}
   private void reconcileAuthority(Map<String,Object> run){if(run.get("cleanup_confirmed_at")!=null)return;try{current(run);}catch(ApiError revoked){cancel(run,revoked.code.equals("LAB_EXPIRED")?"EXPIRED":"FAILED",revoked.getMessage());}}
   public LabResponses.Run stop(UUID id,HttpServletRequest request){syncEpoch();return tx(()->{settings();UUID owner=actor(request,false);var run=owned(id,owner,false);if(run.get("cleanup_confirmed_at")==null)cancel(run,"CANCELLED","Owner closed the run. Provider cleanup is pending.");return projection(row(id));});}
   private void cancel(Map<String,Object> run,String terminal,String reason){if(run.get("cleanup_confirmed_at")!=null||run.get("status").equals("CANCELLING"))return;
@@ -124,7 +127,7 @@ public class LabService {
   private record RequestIntent(UUID owner,UUID command,LabProviderClient.Command delivery,Instant claimedUntil,LabResponses.RequestResult cached) {}
   public LabResponses.RequestResult request(UUID id,LabRequests.Request input,String key,HttpServletRequest request){key(key);syncEpoch();
     RequestIntent intent=tx(()->{
-      settings();UUID owner=actor(request,false);var run=owned(id,owner,false);current(run);if(!run.get("status").equals("RUNNING")||run.get("healthy_at")==null)throw new ApiError(409,"LAB_NOT_RUNNING","Only a currently healthy running lab accepts requests.");
+      settings();UUID owner=actor(request,false);var run=owned(id,owner,false);current(run);actor(request,false);if(!run.get("status").equals("RUNNING")||run.get("healthy_at")==null)throw new ApiError(409,"LAB_NOT_RUNNING","Only a currently healthy running lab accepts requests.");
       var manifest=manifest((String)run.get("manifest_id"));var scenario=manifest.scenario((String)run.get("scenario_id"));if(scenario.operations().stream().noneMatch(op->op.id().equals(input.operationId())))throw new ApiError(400,"INVALID_LAB_OPERATION","Choose an operation certified for this scenario.");
       var inputs=iot.inputs(manifest,manifest.inputs(scenario,input.inputs().values()),id);String hash=hash(input);var previous=db.queryForList("SELECT command_id,run_id,idempotency_key,request_hash,lease_generation,operation_id,inputs,response,created_at FROM lab_requests WHERE run_id=? AND idempotency_key=? FOR UPDATE",id,key);UUID command;
       if(!previous.isEmpty()){var existing=previous.get(0);if(!hash.equals(existing.get("request_hash")))throw idempotency();command=(UUID)existing.get("command_id");
@@ -142,7 +145,7 @@ public class LabService {
     if(intent.cached()!=null)return intent.cached();
     // The committed claim bounds retries without holding admission, account or source locks across provider I/O.
     try{var result=provider.send(intent.delivery());if(result.state().equals("FAILED"))throw new ApiError(502,"LAB_SCENARIO_FAILED","The isolated provider confirmed failure of this scenario operation.");if(!result.state().equals("RESULT"))throw new ApiError(502,"LAB_REQUEST_UNCONFIRMED","The isolated provider has not confirmed this request.");
-      return tx(()->{settings();UUID owner=actor(request,false);var run=owned(id,owner,false);current(run);
+      return tx(()->{settings();UUID owner=actor(request,false);var run=owned(id,owner,false);current(run);actor(request,false);
       if(!run.get("status").equals("RUNNING")||number(run,"lease_generation")!=intent.delivery().leaseGeneration())throw new ApiError(403,"LAB_LEASE_STALE","This request belongs to an earlier closed lease.");
       if(!requestClaim(run,intent))throw new ApiError(409,"LAB_REQUEST_SUPERSEDED","A newer delivery attempt owns this request. Retry with the same request identity.");
       var signed=manifest((String)run.get("manifest_id"));
@@ -157,9 +160,9 @@ public class LabService {
   }
   private boolean requestClaim(Map<String,Object> run,RequestIntent intent){return intent.command().equals(run.get("request_delivery_command"))&&run.get("request_delivery_until")!=null&&intent.claimedUntil().equals(instant(run,"request_delivery_until"));}
   public String events(UUID id,String cursor,HttpServletRequest request){long after=0;try{if(cursor!=null){if(!cursor.matches("[0-9]{1,18}"))throw new NumberFormatException();after=Long.parseLong(cursor);}}catch(NumberFormatException invalid){throw new ApiError(400,"INVALID_LAB_CURSOR","Use the sequence of the last received event.");}
-    final long sequence=after;return tx(()->{readLock();UUID owner=actor(request,false);var run=owned(id,owner,false);current(run);
+    final long sequence=after;return tx(()->{readLock();UUID owner=actor(request,false);var run=owned(id,owner,false);current(run);actor(request,false);
       var replay=db.queryForList("SELECT e.run_id,e.sequence,e.event_type,e.status,e.reason,e.recorded_at,q.response FROM lab_events e LEFT JOIN lab_requests q ON q.command_id=e.command_id WHERE e.run_id=? AND e.sequence>? ORDER BY e.sequence LIMIT 100",id,sequence);var body=new StringBuilder();int emittedBytes=0;
-      for(var item:replay){actor(request,false);current(run);if(!Objects.equals(owner,row(id).get("owner_id")))throw absent();
+      for(var item:replay){current(run);actor(request,false);if(!Objects.equals(owner,row(id).get("owner_id")))throw absent();
         var event=new LabResponses.Event(id,number(item,"sequence"),(String)item.get("event_type"),instant(item,"recorded_at"),new LabResponses.EventData((String)item.get("status"),(String)item.get("reason"),item.get("response")==null?null:decode(item.get("response").toString(),LabResponses.RequestResult.class).observation()));
         String chunk="id: "+event.sequence()+"\nevent: lab\ndata: "+encode(event)+"\n\n";int chunkBytes=chunk.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;if(emittedBytes+chunkBytes>60000)break;emittedBytes+=chunkBytes;body.append(chunk);
       }return body.length()==0?": no newer events\n\n":body.toString();

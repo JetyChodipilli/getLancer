@@ -42,13 +42,17 @@ public class PaymentRepository {
     return rows.isEmpty()?null:rows.get(0);
   }
   public String payee(Map<String,Object> milestone,String mode) {
+    String eligibility,locks,description;Object party;
     if (milestone.get("builderUserId")!=null) {
-      var active=db.queryForList("SELECT u.id FROM users u JOIN developer_profiles d ON d.user_id=u.id JOIN user_roles r ON r.user_id=u.id AND r.role='DEVELOPER' WHERE u.id=? AND u.account_status='ACTIVE' AND u.email_verified_at IS NOT NULL AND d.approval_status='APPROVED' FOR SHARE OF u",milestone.get("builderUserId"));
-      if (active.isEmpty()) throw new ApiError(409,"PAYEE_UNAVAILABLE","The seller is no longer eligible for collection.");
+      party=milestone.get("builderUserId");locks=" FOR SHARE OF u";description="The seller is no longer eligible for collection.";
+      eligibility="SELECT u.id FROM users u JOIN developer_profiles d ON d.user_id=u.id JOIN user_roles r ON r.user_id=u.id AND r.role='DEVELOPER' WHERE u.id=? AND u.account_status='ACTIVE' AND u.email_verified_at IS NOT NULL AND d.approval_status='APPROVED'";
     } else {
-      var active=db.queryForList("SELECT t.id FROM teams t JOIN users u ON u.id=t.owner_id JOIN developer_profiles d ON d.user_id=u.id JOIN user_roles r ON r.user_id=u.id AND r.role='DEVELOPER' JOIN team_members m ON m.team_id=t.id AND m.user_id=t.owner_id WHERE t.id=? AND t.status='ACTIVE' AND u.account_status='ACTIVE' AND u.email_verified_at IS NOT NULL AND d.approval_status='APPROVED' AND m.role='OWNER' AND (m.expires_at IS NULL OR m.expires_at>now()) FOR SHARE OF t,u",milestone.get("teamId"));
-      if (active.isEmpty()) throw new ApiError(409,"PAYEE_UNAVAILABLE","The team is no longer eligible for collection.");
+      party=milestone.get("teamId");locks=" FOR SHARE OF t,u";description="The team is no longer eligible for collection.";
+      eligibility="SELECT t.id FROM teams t JOIN users u ON u.id=t.owner_id JOIN developer_profiles d ON d.user_id=u.id JOIN user_roles r ON r.user_id=u.id AND r.role='DEVELOPER' JOIN team_members m ON m.team_id=t.id AND m.user_id=t.owner_id WHERE t.id=? AND t.status='ACTIVE' AND u.account_status='ACTIVE' AND u.email_verified_at IS NOT NULL AND d.approval_status='APPROVED' AND m.role='OWNER' AND (m.expires_at IS NULL OR m.expires_at>now())";
     }
+    // Joined profile and role predicates may be evaluated before a row-lock wait.
+    if (db.queryForList(eligibility+locks,party).isEmpty() || db.queryForList(eligibility,party).isEmpty())
+      throw new ApiError(409,"PAYEE_UNAVAILABLE",description);
     var rows=db.queryForList("SELECT account_id FROM payment_accounts WHERE mode=? AND provider_status='created' AND activation_confirmed AND (builder_user_id=? OR team_id=?)",mode,milestone.get("builderUserId"),milestone.get("teamId"));
     if (rows.isEmpty()) throw new ApiError(409,"PAYEE_NOT_CONFIGURED","The seller needs an operator-verified Razorpay linked account before payment.");
     return Objects.toString(rows.get(0).get("account_id"));
@@ -81,6 +85,16 @@ public class PaymentRepository {
   List<String> pendingDisputeEvents(String order,String payment,String dispute) {
     return db.queryForList("SELECT event_id FROM payment_webhook_events WHERE (order_id=? OR payment_id=?) AND dispute_id=? AND processed_at IS NULL AND event_kind LIKE 'payment.dispute.%' ORDER BY received_at,event_id LIMIT 200",String.class,order,payment,dispute);
   }
+  List<Map<String,Object>> refundEvents(String order,String payment) {
+    return db.queryForList("SELECT event_id,refund_id FROM payment_webhook_events WHERE processed_at IS NULL AND (order_id=? OR payment_id=?) AND event_kind LIKE 'refund.%' ORDER BY received_at,event_id LIMIT 200",order,payment);
+  }
+  void refund(UUID attempt,String id,long amount,String status) {
+    int changed=db.update("INSERT INTO payment_provider_refunds(id,attempt_id,amount_minor,status) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET status=CASE WHEN payment_provider_refunds.status='processed' THEN 'processed' ELSE excluded.status END,updated_at=now() WHERE payment_provider_refunds.attempt_id=excluded.attempt_id AND payment_provider_refunds.amount_minor=excluded.amount_minor",id,attempt,amount,status);
+    if(changed!=1)throw new ApiError(409,"PROVIDER_MISMATCH","Provider refund membership or amount changed.");
+  }
+  long refunded(UUID attempt) {
+    return db.queryForObject("SELECT coalesce(sum(amount_minor),0) FROM payment_provider_refunds WHERE attempt_id=? AND status='processed'",Long.class,attempt);
+  }
   void dispute(UUID id,String dispute,String state,long deducted) {
     db.update("INSERT INTO payment_provider_disputes(id,attempt_id,status,deducted_minor) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET status=excluded.status,deducted_minor=excluded.deducted_minor,updated_at=now()",dispute,id,state,deducted);
     boolean held=db.queryForObject("SELECT count(*) FROM payment_provider_disputes WHERE attempt_id=? AND (status<>'won' OR deducted_minor>0)",Integer.class,id)>0;
@@ -93,14 +107,14 @@ public class PaymentRepository {
   void ledger(UUID id,String entry,String kind,long amount) {
     db.update("INSERT INTO payment_ledger(id,attempt_id,entry_key,kind,amount_minor,currency) VALUES(?,?,?,?,?,'INR') ON CONFLICT(attempt_id,entry_key) DO NOTHING",UUID.randomUUID(),id,entry,kind,amount);
   }
-  void event(String id,String hash,String kind,String order,String payment,String dispute) {
-    db.update("INSERT INTO payment_webhook_events(event_id,payload_hash,event_kind,order_id,payment_id,dispute_id,processed_at) VALUES(?,?,?,nullif(?,''),nullif(?,''),nullif(?,''),CASE WHEN ?='' AND ?='' THEN clock_timestamp() ELSE NULL END)",id,hash,kind,order,payment,dispute,order,payment);
+  void event(String id,String hash,String kind,String order,String payment,String dispute,String refund) {
+    db.update("INSERT INTO payment_webhook_events(event_id,payload_hash,event_kind,order_id,payment_id,dispute_id,refund_id,processed_at) VALUES(?,?,?,nullif(?,''),nullif(?,''),nullif(?,''),nullif(?,''),CASE WHEN ?='' AND ?='' THEN clock_timestamp() ELSE NULL END)",id,hash,kind,order,payment,dispute,refund,order,payment);
   }
   Map<String,Object> existingEvent(String id) {
     var rows=db.queryForList("SELECT payload_hash,processed_at IS NULL AS pending FROM payment_webhook_events WHERE event_id=?",id);
     return rows.isEmpty()?null:rows.get(0);
   }
-  void recoverEvent(String id,String order,String payment,String dispute) {int changed=db.update("UPDATE payment_webhook_events SET order_id=coalesce(order_id,nullif(?,'')),payment_id=coalesce(payment_id,nullif(?,'')),dispute_id=coalesce(dispute_id,nullif(?,'')) WHERE event_id=? AND (?='' OR order_id IS NULL OR order_id=?) AND (?='' OR payment_id IS NULL OR payment_id=?) AND (?='' OR dispute_id IS NULL OR dispute_id=?)",order,payment,dispute,id,order,order,payment,payment,dispute,dispute);if(changed!=1)throw new ApiError(409,"PROVIDER_MISMATCH","Webhook references changed.");}
+  void recoverEvent(String id,String order,String payment,String dispute,String refund) {int changed=db.update("UPDATE payment_webhook_events SET order_id=coalesce(order_id,nullif(?,'')),payment_id=coalesce(payment_id,nullif(?,'')),dispute_id=coalesce(dispute_id,nullif(?,'')),refund_id=coalesce(refund_id,nullif(?,'')) WHERE event_id=? AND (?='' OR order_id IS NULL OR order_id=?) AND (?='' OR payment_id IS NULL OR payment_id=?) AND (?='' OR dispute_id IS NULL OR dispute_id=?) AND (?='' OR refund_id IS NULL OR refund_id=?)",order,payment,dispute,refund,id,order,order,payment,payment,dispute,dispute,refund,refund);if(changed!=1)throw new ApiError(409,"PROVIDER_MISMATCH","Webhook references changed.");}
   void associateEvent(String id,String order) {int changed=db.update("UPDATE payment_webhook_events SET order_id=? WHERE event_id=? AND (order_id IS NULL OR order_id=?)",order,id,order);if(changed!=1)throw new ApiError(409,"PROVIDER_MISMATCH","Webhook order association changed.");}
   void processedEvent(String id) {
     db.update("UPDATE payment_webhook_events SET processed_at=clock_timestamp() WHERE event_id=? AND processed_at IS NULL",id);
@@ -126,7 +140,7 @@ public class PaymentRepository {
     db.update("INSERT INTO payment_account_audit(id,account_mapping_id,actor_id,previous_account_id,account_id) VALUES(?,?,?,?,?)",UUID.randomUUID(),id,admin,previous,account);
   }
   Map<String,Object> attention(HttpServletRequest request) {
-    return Pages.query(db, request, "SELECT p.id,p.milestone_id AS \"milestoneId\",m.engagement_id AS \"engagementId\",p.status,p.amount_minor AS \"amountMinor\",p.currency,p.mode,p.order_id AS \"orderId\",p.account_id AS \"accountId\",p.attention_reason AS \"attentionReason\",p.transfer_status AS \"transferStatus\",p.settlement_status AS \"settlementStatus\",p.created_at AS \"createdAt\" FROM payment_attempts p JOIN delivery_milestones m ON m.id=p.milestone_id JOIN delivery_engagements e ON e.id=m.engagement_id WHERE p.status IN ('UNKNOWN','CREATING') OR p.attention_reason IS NOT NULL OR p.status='DISPUTED' OR e.status='DISPUTED' ORDER BY p.created_at,p.id");
+    return Pages.query(db, request, "SELECT p.id,p.milestone_id AS \"milestoneId\",m.engagement_id AS \"engagementId\",p.status,p.amount_minor AS \"amountMinor\",p.currency,p.mode,p.order_id AS \"orderId\",p.account_id AS \"accountId\",p.attention_reason AS \"attentionReason\",p.transfer_status AS \"transferStatus\",p.settlement_status AS \"settlementStatus\",p.created_at AS \"createdAt\" FROM payment_attempts p JOIN delivery_milestones m ON m.id=p.milestone_id JOIN delivery_engagements e ON e.id=m.engagement_id WHERE p.status IN ('UNKNOWN','CREATING') OR p.attention_reason IS NOT NULL OR p.status='DISPUTED' OR e.status='DISPUTED' OR EXISTS(SELECT 1 FROM payment_webhook_events w WHERE w.processed_at IS NULL AND w.event_kind LIKE 'refund.%' AND (w.order_id=p.order_id OR w.payment_id=p.payment_id OR (w.order_id IS NULL AND w.payment_id IS NULL))) ORDER BY p.created_at,p.id");
   }
   static long number(Map<String,Object> row,String key) { return ((Number)row.get(key)).longValue(); }
 }

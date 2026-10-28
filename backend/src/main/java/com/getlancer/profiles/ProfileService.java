@@ -44,7 +44,7 @@ public class ProfileService {
     Rules.safeUrl(linkedin);
     db.update(
         "UPDATE developer_profiles SET"
-            + " display_name=?,headline=?,bio=?,technology=?,category=?,availability_status=?,booked_until=?,github_url=?,linkedin_url=?,updated_at=now()"
+            + " display_name=?,headline=?,bio=?,technology=?,category=?,availability_status=?,booked_until=?,availability_confirmed_at=now(),github_url=?,linkedin_url=?,updated_at=now()"
             + " WHERE user_id=?",
         text(b, "displayName", 2, 100),
         text(b, "headline", 5, 160),
