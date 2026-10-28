@@ -8,16 +8,16 @@ async function page(path){const response=await worker.fetch(new Request('https:/
 
 test('project discovery renders six clearly illustrative projects',async()=>{
  const {response,html}=await page('/');assert.equal(response.status,200);
- assert.match(html,/Great work deserves/);assert.match(html,/Projects are illustrative/);
- assert.equal((html.match(/<article[^>]*class="project"/g)||[]).length,6);
+ assert.match(html,/The craft behind the code/);assert.match(html,/Illustrative projects and creators/);
+ assert.equal((html.match(/<article[^>]*class="paper-project"/g)||[]).length,6);
  assert.equal(response.headers.get('referrer-policy'),'no-referrer');
 });
 test('technology and category filters work through URL state',async()=>{
- const react=await page('/?technology=React');assert.equal((react.html.match(/<article[^>]*class="project"/g)||[]).length,3);
- const inventory=await page('/?technology=React&category=Inventory');assert.equal((inventory.html.match(/<article[^>]*class="project"/g)||[]).length,1);assert.match(inventory.html,/Stockroom/);
+ const react=await page('/?technology=React');assert.equal((react.html.match(/<article[^>]*class="paper-project"/g)||[]).length,3);
+ const inventory=await page('/?technology=React&category=Inventory');assert.equal((inventory.html.match(/<article[^>]*class="paper-project"/g)||[]).length,1);assert.match(inventory.html,/Stockroom/);
 });
 test('a query with no matches has a recovery action',async()=>{
- const {html}=await page('/?q=nonexistentquantumservice');assert.match(html,/We couldn’t find an exact match/);assert.match(html,/Clear search and filters/);
+ const {html}=await page('/?q=nonexistentquantumservice');assert.match(html,/No projects found/);assert.match(html,/Clear search and filters/);
 });
 test('project details and a matching builder profile resolve',async()=>{
  const project=await page('/products/stockroom');assert.equal(project.response.status,200);assert.match(project.html,/Builder’s contribution/);assert.match(project.html,/Illustrative project/);
@@ -34,13 +34,12 @@ test('design preview is excluded from search indexing',async()=>{
  const sitemap=await page('/sitemap.xml');assert.doesNotMatch(sitemap.html,/<url>/);
 });
 
-test('featured project stack remains available when collection filters have no matches',async()=>{
+test('an empty filtered collection prioritises recovery over the homepage exhibition',async()=>{
  const {html}=await page('/?q=nonexistentquantumservice');
- assert.equal((html.match(/class="stack-card stack-card-/g)||[]).length,3);
+ assert.equal((html.match(/class="paper-feature paper-feature-/g)||[]).length,0);
  assert.doesNotMatch(html,/Pause animation|Play animation/);
- assert.match(html,/Featured project demos/);
- assert.match(html,/href="#project-collection"/);
- assert.match(html,/No|We couldn’t find an exact match/);
+ assert.match(html,/No projects found/);
+ assert.match(html,/Clear search and filters/);
  assert.match(html,/Remove Search: nonexistentquantumservice/);
 });
 

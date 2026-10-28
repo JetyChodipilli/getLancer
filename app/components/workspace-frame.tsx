@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { ArrowUpRight, BriefcaseBusiness, ChevronDown, Code2, Compass, FlaskConical, Layers, LifeBuoy, ShieldCheck, Users, type LucideIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import Brand from './brand';
 
 type Section = 'personal' | 'trust' | 'teams' | 'business' | 'delivery' | 'templates' | 'maintenance' | 'hosting' | 'components' | 'college' | 'slots' | 'labs' | 'operations';
 
@@ -27,10 +28,16 @@ export function WorkspaceFrame({ children, title, description, section, preview 
     { section: 'business', title: 'Business hiring', href: root + '/business', Icon: BriefcaseBusiness },
   ];
   const current = links.find(link => link.section === section)!;
-  return <main id="main" className={cn('studio-shell', className)}>
+  const areaLinks = links.map(({ section: key, title: label, href, Icon }) => <Link key={key} href={href} aria-current={section === key ? 'page' : undefined}><Icon size={18} aria-hidden="true" /><span>{label}</span></Link>);
+  return <main id="main" className={cn('studio-shell paper-studio', className)} data-workspace={section}>
+    <details className="studio-mobile-navigation">
+      <summary><span><Layers size={18} aria-hidden="true" /><span><small>Workspace</small><strong>{current.title}</strong></span></span><ChevronDown size={18} aria-hidden="true" /></summary>
+      <nav aria-label="Workspace areas">{areaLinks}</nav>
+      <Link className="studio-mobile-discover" href="/">Explore projects <ArrowUpRight size={16} aria-hidden="true" /></Link>
+    </details>
     <aside className="studio-rail" aria-label="Workspace navigation">
-      <div className="studio-rail-title"><span><Layers size={18} aria-hidden="true" /></span><div><strong>Your workspace</strong><small>Build. Deliver. Grow.</small></div></div>
-      <nav aria-label="Workspace areas"><span className="studio-rail-label">Manage your work</span>{links.map(({ section: key, title: label, href, Icon }) => <Link key={key} href={href} aria-current={section === key ? 'page' : undefined}><Icon size={18} aria-hidden="true" /><span>{label}</span></Link>)}</nav>
+      <div className="studio-rail-title"><Link href="/" aria-label="getLancer home"><Brand /></Link><small>{preview ? 'Preview workspace' : 'Your workspace'}</small></div>
+      <nav aria-label="Workspace areas"><span className="studio-rail-label">Manage your work</span>{areaLinks}</nav>
       <div className="studio-rail-secondary"><span className="studio-rail-label">Discover</span><Link href="/"><Compass size={18} aria-hidden="true" />Explore projects<ArrowUpRight size={14} aria-hidden="true" /></Link><Link href="/templates"><Code2 size={18} aria-hidden="true" />Explore templates<ArrowUpRight size={14} aria-hidden="true" /></Link><Link href="/labs/iot"><FlaskConical size={18} aria-hidden="true" />IoT simulation<ArrowUpRight size={14} aria-hidden="true" /></Link><Link href="/components/frameworks"><Code2 size={18} aria-hidden="true" />Framework previews<ArrowUpRight size={14} aria-hidden="true" /></Link><Link href="/teams"><Users size={18} aria-hidden="true" />Find a team<ArrowUpRight size={14} aria-hidden="true" /></Link></div>
       <div className="studio-rail-foot"><LifeBuoy size={18} aria-hidden="true" /><div><strong>A little guidance?</strong><Link href="/how-it-works">See how getLancer works <ArrowUpRight size={12} aria-hidden="true" /></Link></div></div>
     </aside>
@@ -46,5 +53,5 @@ export function PreviewControls({ title, children, note }: { title: string; chil
 }
 
 export function WorkspaceMetrics({ items }: { items: { label: string; value: ReactNode; detail: string; Icon: LucideIcon }[] }) {
-  return <div className="studio-metrics">{items.map(({ label, value, detail, Icon }) => <Card className="studio-metric" key={label}><CardHeader><span>{label}</span><Icon size={18} aria-hidden="true" /></CardHeader><CardContent><strong>{value}</strong><p>{detail}</p></CardContent></Card>)}</div>;
+  return <div className="studio-metrics" role="group" aria-label="Workspace metrics">{items.map(({ label, value, detail }) => <Card className="studio-metric" key={label}><CardHeader><span>{label}</span></CardHeader><CardContent><strong>{value}</strong><p>{detail}</p></CardContent></Card>)}</div>;
 }

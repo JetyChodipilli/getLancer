@@ -1,12 +1,12 @@
 /* Real application fields. Keep embedded software previews at their own scale.
    Explicit native-type exclusions also override older generic .form input rules. */
-:root { --control-focus: #9c2d0f; }
+:root { --control-focus: var(--paper-focus, #2563eb); }
 body :is(.form,.team-field,.team-form,.studio-shell,.teams-page,.demo-filters,.commerce-field,.commerce-filters,.business-save-picker,.dock-options,[data-slot=dialog-content],[data-slot=alert-dialog-content]) :is(input:not([type=checkbox]):not([type=radio]):not([type=file]):not(:where([type=range],[type=color],[type=hidden],[type=button],[type=submit],[type=reset],[type=image],[data-slot=input-otp])),select,textarea,[data-slot=select-trigger]):not(:where(.showcase-screen *,.showcase-mobile *,.miniapp *,.product-demo *)),
 body [data-slot=input]:not(:where([type=checkbox],[type=radio],[type=file],[type=range],[type=color],[type=hidden])), body [data-slot=select-trigger] {
   width: 100%; min-width: 0; min-height: 44px;
-  border: 1px solid var(--invalid-control-border,var(--field-border,var(--control-border))); border-radius: 12px;
+  border: 1px solid var(--invalid-control-border,var(--field-border,var(--control-border))); border-radius: 6px;
   background: var(--field-surface,var(--control-surface)); color: var(--field-ink,var(--foreground));
-  padding: 10px 12px; font: 400 16px/1.4 Inter,system-ui,sans-serif;
+  padding: 10px 12px; font: 400 16px/1.4 var(--paper-font, sans-serif);
   box-shadow: none; transition: border-color 180ms;
 }
 body :is(.form,.team-field,.team-form,.studio-shell,.teams-page,[data-slot=dialog-content],[data-slot=alert-dialog-content]) textarea {
@@ -18,12 +18,12 @@ body [data-slot=input]::placeholder { color: #686b74; opacity: 1; }
 /* One focus indicator, with no Tailwind ring or orange field fill. */
 body :is(.form,.team-field,.team-form,.team-form .team-field,.studio-shell,.teams-page,.icy-auth,.demo-filters,.commerce-field,.commerce-filters,.business-save-picker,.dock-options,[data-slot=dialog-content],[data-slot=alert-dialog-content]) :is(input,select,textarea,[data-slot=select-trigger],[data-slot=checkbox],[data-slot=dialog-close]):focus-visible,
 body :is([data-slot=input],[data-slot=select-trigger]):focus-visible {
-  outline: 2px solid var(--control-focus); outline-offset: 2px;
+  outline: 3px solid var(--control-focus); outline-offset: 2px;
   box-shadow: none; --tw-ring-shadow: 0 0 #0000; --tw-ring-offset-shadow: 0 0 #0000;
 }
 body :is(.form,.team-field,.team-form,.studio-shell,.teams-page,.commerce-field,.commerce-filters,[data-slot=dialog-content],[data-slot=alert-dialog-content]) :is(input,select,textarea,[data-slot=select-trigger])[aria-invalid=true],
 body :is([data-slot=input],[data-slot=select-trigger])[aria-invalid=true] {
-  --invalid-control-border: #b42318; border-color: #b42318; box-shadow: none;
+  --invalid-control-border: var(--paper-danger, #a52b34); border-color: var(--paper-danger, #a52b34); box-shadow: none;
 }
 body :is(.form,.team-field,.studio-shell,.commerce-field,.commerce-filters,[data-slot=dialog-content]) :is(input,select,textarea,[data-slot=select-trigger]):is(:disabled,[data-disabled]),
 body :is([data-slot=input],[data-slot=select-trigger]):is(:disabled,[data-disabled]) {
@@ -35,13 +35,13 @@ body [data-slot=input][readonly] { --field-surface: #f4f4f2; --field-ink: #33353
 
 /* Auth's icon/password wrapper owns focus, including its visibility button. */
 body .icy-field .icy-input {
-  min-height: 44px; height: 44px; overflow: visible; border-radius: 12px;
+  min-height: 44px; height: 44px; overflow: visible; border-radius: 6px;
   border-color: var(--control-border); background: var(--control-surface); box-shadow: none;
 }
 body .icy-field .icy-input:focus-within {
-  border-color: var(--control-border); outline: 2px solid var(--control-focus); outline-offset: 2px; box-shadow: none;
+  border-color: var(--control-border); outline: 3px solid var(--control-focus); outline-offset: 2px; box-shadow: none;
 }
-body .icy-field .icy-input:has(input[aria-invalid=true]) { border-color: #b42318; }
+body .icy-field .icy-input:has(input[aria-invalid=true]) { border-color: var(--paper-danger, #a52b34); }
 body .icy-field .icy-input input {
   min-height: 0; height: 100%; padding: 0 47px 0 42px; border: 0;
   border-radius: inherit; background: transparent;
@@ -55,28 +55,28 @@ body .icy-field [data-slot=input-otp-slot] {
   border-color: var(--control-border); box-shadow: none;
 }
 body .icy-field [data-slot=input-otp-slot][data-active=true] {
-  outline: 2px solid var(--control-focus); outline-offset: 2px; box-shadow: none;
+  outline: 3px solid var(--control-focus); outline-offset: 2px; box-shadow: none;
 }
 body .icy-field [data-slot=input-otp]:focus-visible { outline: none; box-shadow: none; }
-body .icy-field:has([data-slot=input-otp][aria-invalid=true]) [data-slot=input-otp-slot] { border-color: #b42318; }
+body .icy-field:has([data-slot=input-otp][aria-invalid=true]) [data-slot=input-otp-slot] { border-color: var(--paper-danger, #a52b34); }
 
 /* Search shells, like auth wrappers, own their field indicator. */
 body :is(.search,.browse-search,.dock-search,.market-search,.commerce-search>div):focus-within {
   outline: none; border-color: var(--control-border); box-shadow: none;
 }
 body :is(.search,.browse-search,.dock-search,.market-search,.commerce-search>div):has(input:focus-visible) {
-  outline: 2px solid var(--control-focus); outline-offset: 2px;
+  outline: 3px solid var(--control-focus); outline-offset: 2px;
 }
 body :is(.search,.browse-search,.dock-search,.market-search,.commerce-search>div) input:not([type=checkbox]):not([type=radio]):not([type=file]) {
   --field-surface: transparent; min-height: 44px; padding: 0; border: 0; box-shadow: none;
-  font: 400 16px/1.4 Inter,system-ui,sans-serif;
+  font: 400 16px/1.4 var(--paper-font, sans-serif);
 }
 body :is(.search,.browse-search,.dock-search,.market-search,.commerce-search>div) input:not([type=checkbox]):not([type=radio]):not([type=file]):focus-visible { outline: none; box-shadow: none; }
 body .browse-sort select {
   min-width: 0; min-height: 44px; padding: 10px 12px; border: 1px solid var(--control-border) !important;
-  background: var(--control-surface) !important; color: var(--foreground); border-radius: 12px; font-size: 16px;
+  background: var(--control-surface) !important; color: var(--foreground); border-radius: 6px; font-size: 16px;
 }
-body .browse-sort select:focus-visible { outline: 2px solid var(--control-focus); outline-offset: 2px; box-shadow: none; }
+body .browse-sort select:focus-visible { outline: 3px solid var(--control-focus); outline-offset: 2px; box-shadow: none; }
 
 /* Restore toggles and file controls after legacy width/min-height defaults. */
 body :is(.form,.team-field,.team-form,.studio-shell,.teams-page,.icy-auth,.demo-filters,.hosting-consent,.business-checks,[data-slot=dialog-content],[data-slot=alert-dialog-content]) input:is([type=checkbox],[type=radio]),
@@ -90,8 +90,8 @@ body [data-slot=input][type=radio] { border-radius: 50%; }
 body :is(.form,.team-field,.team-form,.studio-shell,.teams-page,[data-slot=dialog-content],[data-slot=alert-dialog-content]) input[type=file],
 body [data-slot=input][type=file] {
   width: 100%; min-width: 0; min-height: 44px; height: auto;
-  padding: 6px 8px; border: 1px solid var(--invalid-control-border,var(--field-border,var(--control-border))); border-radius: 12px;
-  background: var(--field-surface,var(--control-surface)); color: var(--field-ink,var(--foreground)); font: 400 16px/1.4 Inter,system-ui,sans-serif;
+  padding: 6px 8px; border: 1px solid var(--invalid-control-border,var(--field-border,var(--control-border))); border-radius: 6px;
+  background: var(--field-surface,var(--control-surface)); color: var(--field-ink,var(--foreground)); font: 400 16px/1.4 var(--paper-font, sans-serif);
   overflow: hidden; box-shadow: none;
 }
 body :is(.form,.team-field,.studio-shell,[data-slot=dialog-content]) input[type=file]::file-selector-button,
@@ -102,7 +102,7 @@ body [data-slot=input][type=file]::file-selector-button {
 body .hosting-consent:focus-within { outline: none; }
 
 /* Portal fields and menus need a solid text backplate. */
-body [data-slot=select-trigger] { min-height: 44px; height: auto; border-radius: 12px; font-size: 16px; }
+body [data-slot=select-trigger] { min-height: 44px; height: auto; border-radius: 6px; font-size: 16px; }
 body [data-slot=select-content], body [data-slot=popover-content] {
   background: #fdfdfc; color: #191b20; border: 1px solid var(--control-border);
   border-radius: 16px; box-shadow: 0 16px 48px #191b201c;
@@ -129,7 +129,7 @@ body :is([data-slot=dialog-content],[data-slot=alert-dialog-content]) :is([data-
 body :is([data-slot=dialog-content],[data-slot=alert-dialog-content]) :is([data-slot=dialog-description],[data-slot=alert-dialog-description]) {
   color: #585b64; font-size: 16px; line-height: 1.55; overflow-wrap: anywhere;
 }
-body [data-slot=dialog-close] { width: 44px; height: 44px; min-width: 44px; min-height: 44px; border-radius: 12px; }
+body [data-slot=dialog-close] { width: 44px; height: 44px; min-width: 44px; min-height: 44px; border-radius: 6px; }
 body :is([data-slot=dialog-footer],[data-slot=alert-dialog-footer]) { gap: 12px; }
 body :is([data-slot=dialog-footer],[data-slot=alert-dialog-footer]) :is(button,a) {
   min-height: 44px; height: auto; white-space: normal;
@@ -160,7 +160,7 @@ body .care-dialog .team-form fieldset > .care-form-grid {
 }
 body .form .filterlabel { display: flex; align-items: center; gap: 10px; min-height: 44px; margin: 0; }
 body .form .button { margin-top: 0; }
-body :is(.form,.team-form) :is(.error,.team-error,[role=alert]) { color: #b42318; }
+body :is(.form,.team-form) :is(.error,.team-error,[role=alert]) { color: var(--paper-danger, #a52b34); }
 body .form p.error[id] {
   margin: -4px 0 0; padding: 0; border: 0; border-radius: 0; background: transparent;
   font-size: 14px; line-height: 1.5; overflow-wrap: anywhere;
@@ -188,7 +188,7 @@ body .account-settings .account-notification {
 body .account-settings .account-notification p { margin: 0; font-size: 16px; overflow-wrap: anywhere; }
 body .account-settings .account-notification .button { flex-shrink: 0; }
 body .account-closure > summary {
-  min-height: 44px; padding-block: 8px; cursor: pointer; color: #b42318;
+  min-height: 44px; padding-block: 8px; cursor: pointer; color: var(--paper-danger, #a52b34);
   font-size: 16px; font-weight: 500; line-height: 1.4;
 }
 body .account-closure .form { max-width: 560px; margin-top: 16px; }

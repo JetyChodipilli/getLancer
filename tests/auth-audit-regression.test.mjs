@@ -66,15 +66,40 @@ test('account export ignores a previous identity response and clears stale outco
 
 test('signup validates UTF-8 byte limits and login does not apply the new-password minimum',()=>{
  for(const [mode,password,valid] of [['signup','😀'.repeat(20),false],['signup','synthetic-password-123',true],['login','old-pass',true]]){
-  const values={};const validate=routine(auth,'function validate(','\n async function submit',{mode,setErrors:fn=>{values.errors=fn(values.errors||{})}});
+  const values={};const validationMessage=routine(auth,'function validationMessage(','\n\nexport function AuthForm',{});const validate=routine(auth,'function validate(','\n async function submit',{mode,validationMessage,setErrors:fn=>{values.errors=fn(values.errors||{})}});
   assert.equal(validate('password',password),valid);assert.equal(Boolean(values.errors.password),!valid);
  }
 });
 
 test('an expired MFA challenge returns to login while an invalid code remains retryable',async()=>{
  for(const code of ['MFA_INVALID','MFA_EXPIRED']){
-  const modes=[];const {values,context}=stateContext({busy:false,googleBusy:false,servicesReady:true,mode:'mfa',totp:'123456',switchMode:next=>modes.push(next),api:async(path,init)=>{assert.equal(path,'/auth/login/mfa');assert.deepEqual(JSON.parse(init.body),{totp:'123456'});throw new ApiError('Current code required',code,401);}});
+  const modes=[];const {values,context}=stateContext({busy:false,googleBusy:false,inFlight:{current:false},isMfa:true,isSignup:false,isReset:false,servicesReady:true,mode:'mfa',totp:'123456',switchMode:next=>modes.push(next),api:async(path,init)=>{assert.equal(path,'/auth/login/mfa');assert.deepEqual(JSON.parse(init.body),{totp:'123456'});throw new ApiError('Current code required',code,401);}});
   await routine(auth,'async function submit(','\n async function oauth',context)({preventDefault(){}});
   assert.deepEqual(modes,code==='MFA_EXPIRED'?['login']:[]);assert.equal(values.setBusy,false);assert.match(values.setError,code==='MFA_EXPIRED'?/verification step expired/:/Current code required/);
  }
+});
+
+
+test('auth submits share one pending login intent and do not send duplicate requests',async()=>{
+ const pending=deferred(),modes=[];let writes=0;
+ const validationMessage=routine(auth,'function validationMessage(','\n\nexport function AuthForm',{});
+ const {values,context}=stateContext({inFlight:{current:false},servicesReady:true,isMfa:false,isSignup:false,isReset:false,mode:'login',email:'builder@example.test',name:'',password:'existing-password',remember:false,validationMessage,switchMode:mode=>modes.push(mode),api:()=>{writes++;return pending.promise;}});
+ const submit=routine(auth,'async function submit(','\n async function oauth',context),first=submit(event);
+ await submit(event);assert.equal(writes,1);assert.equal(values.setBusy,true);
+ pending.resolve({mfaRequired:true});await first;assert.deepEqual(modes,['mfa']);assert.equal(values.setBusy,false);assert.equal(context.inFlight.current,false);
+});
+
+test('OAuth rejects external destinations and credential-bearing provider URLs',async()=>{
+ for(const authorizationUrl of ['https://untrusted.example.test/signin','https://someone@accounts.google.com/signin']){
+  const {values,context}=stateContext({inFlight:{current:false},googleReady:true,githubReady:true,isSignup:false,mode:'login',remember:false,URL,window:{location:{assign:()=>assert.fail('Unsafe OAuth destination navigated')}},api:async()=>({authorizationUrl})});
+  await routine(auth,'async function oauth(','\n const title=',context)('google');
+  assert.match(values.setError,/Sign-in could not be started/);assert.equal(context.inFlight.current,false);assert.equal(values.setGoogleBusy,false);
+ }
+});
+
+test('malformed successful login responses do not navigate or claim sign-in succeeded',async()=>{
+ const validationMessage=routine(auth,'function validationMessage(','\n\nexport function AuthForm',{});
+ const {values,context}=stateContext({inFlight:{current:false},servicesReady:true,isMfa:false,isSignup:false,isReset:false,mode:'login',email:'builder@example.test',name:'',password:'existing-password',remember:false,validationMessage,window:{location:{assign:()=>assert.fail('Malformed response navigated')}},api:async()=>({})});
+ await routine(auth,'async function submit(','\n async function oauth',context)(event);
+ assert.match(values.setError,/Sign-in could not be confirmed/);assert.equal(values.setBusy,false);assert.equal(context.inFlight.current,false);
 });

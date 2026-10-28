@@ -1,1 +1,3 @@
-import Link from 'next/link';export default function NotFound(){return <main id="main" className="wrap empty"><h1>That project isn’t available.</h1><p>It may be archived, private, or no longer published.</p><Link className="button primary" href="/">Explore projects</Link></main>}
+import Link from 'next/link';
+import {ArrowRight,Search} from 'lucide-react';
+export default function NotFound(){return <main id="main" className="wrap paper-error-page"><span className="paper-error-symbol" aria-hidden="true"><Search size={26}/></span><span className="eyebrow">Page not found</span><h1>There’s more work to discover.</h1><p>This page may have moved, or the project may be private or no longer published. Find a new starting point in the collection.</p><div className="paper-error-actions"><Link className="button primary" href="/">Explore projects <ArrowRight size={17} aria-hidden="true"/></Link><Link className="button" href="/components">Browse components</Link></div></main>}

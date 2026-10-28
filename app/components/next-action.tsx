@@ -1,5 +1,7 @@
 'use client';
-import {ArrowRight,Inbox} from 'lucide-react';
+import {useId} from 'react';
+import {ArrowRight} from 'lucide-react';
 export default function NextAction({title,detail,action,onAction}:{title:string;detail:string;action:string;onAction:()=>void}){
- return <section className="next-action" aria-label="Your next step"><span className="next-action-icon"><Inbox size={20} aria-hidden="true"/></span><div><strong>{title}</strong><p>{detail}</p></div><button className="button" onClick={onAction}>{action}<ArrowRight size={16} aria-hidden="true"/></button></section>;
+ const titleId=useId();
+ return <section className="next-action" aria-labelledby={titleId}><div><span className="next-action-caption">Your next step</span><h2 id={titleId}>{title}</h2><p>{detail}</p></div><button type="button" className="button" onClick={onAction}>{action}<ArrowRight size={16} aria-hidden="true"/></button></section>;
 }

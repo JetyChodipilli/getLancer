@@ -51,26 +51,32 @@ function alpha(color: string) {
   return rgba ? Number(rgba[1]) : 1;
 }
 
-async function chrome(surface: Locator) {
-  const css = await material(surface);
-  expect(alpha(css.fill)).toBeGreaterThanOrEqual(.65);
-  expect(alpha(css.fill)).toBeLessThanOrEqual(.85);
-  expect(css.borderWidth).toBeGreaterThanOrEqual(1);
-  expect(css.shadow).not.toBe('none');
-  const blur = css.blur.match(/blur\(([\d.]+)px\)/);
-  expect(blur, `Chrome needs a restrained blur, found ${css.blur}`).not.toBeNull();
-  expect(Number(blur![1])).toBeGreaterThanOrEqual(12);
-  expect(Number(blur![1])).toBeLessThanOrEqual(18);
+async function tokenColor(page: Page, token: string) {
+  return page.evaluate(name => {
+    const probe = document.createElement('span');
+    probe.style.color = getComputedStyle(document.documentElement).getPropertyValue(name);
+    document.body.append(probe);
+    const color = getComputedStyle(probe).color;
+    probe.remove();
+    return color;
+  }, token);
 }
 
-async function glassCard(surface: Locator) {
+async function chrome(surface: Locator) {
   const css = await material(surface);
-  expect(alpha(css.fill)).toBeGreaterThanOrEqual(.78);
-  expect(alpha(css.fill)).toBeLessThanOrEqual(.9);
+  expect(alpha(css.fill)).toBe(1);
   expect(css.borderWidth).toBeGreaterThanOrEqual(1);
-  expect(css.radius).toBeGreaterThanOrEqual(16);
-  expect(css.shadow).not.toBe('none');
-  expect(css.border).not.toBe('rgba(0, 0, 0, 0)');
+  expect(css.shadow).toBe('none');
+  expect(css.blur).toBe('none');
+}
+
+async function paperCard(surface: Locator) {
+  const css = await material(surface);
+  // Flat record groups may inherit their paper canvas; translucent glass is gone.
+  expect([0, 1]).toContain(alpha(css.fill));
+  expect(css.radius).toBeLessThanOrEqual(12);
+  expect(css.shadow).toBe('none');
+  expect(css.blur).toBe('none');
 }
 
 async function fieldStyle(field: Locator) {
@@ -99,9 +105,9 @@ async function stableKeyboardFocus(page: Page, field: Locator, previousKey = 'Sh
   expect(after.font).toBeGreaterThanOrEqual(16);
   expect(after.height).toBeGreaterThanOrEqual(44);
   expect(after.outline).toBe('solid');
-  expect(after.outlineWidth).toBe('2px');
+  expect(after.outlineWidth).toBe('3px');
   expect(after.outlineOffset).toBe('2px');
-  expect(after.outlineColor).toBe('rgb(156, 45, 15)');
+  expect(after.outlineColor).toBe(await tokenColor(page, '--paper-focus'));
   expect(after.fill).toBe(before.fill);
   // A second focus ring would change the shadow as well as the one outline.
   expect(after.shadow).toBe(before.shadow);
@@ -118,7 +124,7 @@ const previews = [
   {route: 'trust', title: 'Trust & availability', ready: '.trust-split', card: '.trust-split > .panel'},
 ] as const;
 
-test('every sample workspace renders shared glass, readable records and contained responsive chrome', async ({page}, info) => {
+test('every sample workspace renders paper surfaces, readable records and contained responsive chrome', async ({page}, info) => {
   test.setTimeout(90000);
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -132,14 +138,14 @@ test('every sample workspace renders shared glass, readable records and containe
     if (preview.route === 'workspace') {
       const search = page.locator('.browse-search-submit');
       await expect(search).toBeVisible();
-      await expect(search).toHaveCSS('background-color', 'rgb(198, 56, 16)');
+      await expect(search).toHaveCSS('background-color', 'rgb(32, 35, 33)');
       expect((await search.boundingBox())!.height).toBeGreaterThanOrEqual(44);
       const toolbar = (await page.locator('.browse-toolbar-sticky:visible').boundingBox())!;
       const grid = (await page.locator('[role=tabpanel][data-state=active] > .grid').boundingBox())!;
       expect(grid.y - toolbar.y - toolbar.height, 'Cards must be separated from search chrome').toBeGreaterThanOrEqual(19);
     }
     await chrome(page.locator('.studio-preview'));
-    await glassCard(page.locator(preview.card).first());
+    await paperCard(page.locator(preview.card).first());
     expect(await page.locator('.studio-shell').evaluate(node => node.getAnimations({subtree: true})
       .some(animation => animation.effect?.getTiming().iterations === Infinity)),
     'Dashboard content must settle without infinite record or text motion').toBe(false);
@@ -310,7 +316,7 @@ test('public forms, project detail, source cards and team cards visibly settle w
   await page.goto('/report');
   const report = page.locator('main.wrap > .panel');
   await expect(page.getByRole('heading', {name: 'Report a concern', exact: true})).toBeVisible();
-  await glassCard(report);
+  await paperCard(report);
   await provesEntrance(report);
   const record = page.getByLabel('Record ID', {exact: true});
   await record.focus();
@@ -368,7 +374,7 @@ test('reduced transparency resolves chrome to a solid surface and forced colors 
   await expect(title).toBeFocused();
   const css = await fieldStyle(title);
   expect(css.outline).toBe('solid');
-  expect(css.outlineWidth).toBe('2px');
+  expect(css.outlineWidth).toBe('3px');
   expect(css.border).not.toBe('rgba(0, 0, 0, 0)');
   await fits(page);
   await evidence(page, info, 'forced-colors-business-focused');
@@ -384,6 +390,9 @@ test('invalid package fields keep readable values, a visible error and their sta
   await dialog.getByRole('checkbox').check();
   await dialog.getByRole('button', {name: 'Copy sample draft', exact: true}).click();
   await expect(version).toHaveAttribute('aria-invalid', 'true');
+  const summary = dialog.locator('.form-error-summary');
+  await expect(summary).toBeFocused();
+  await summary.getByRole('button', {name: /^version:/i}).click();
   await expect(version).toBeFocused();
   await expect(version).toHaveValue('../private');
   const describedBy = await version.getAttribute('aria-describedby');
@@ -395,11 +404,11 @@ test('invalid package fields keep readable values, a visible error and their sta
     }));
   expect(messages.map(message => message.text).join(' ')).toMatch(/version|letters|numbers|valid/i);
   expect(messages.some(message => message.visible && message.text.length > 0)).toBe(true);
-  await expect(version).toHaveCSS('border-top-color', 'rgb(180, 35, 24)');
+  await expect(version).toHaveCSS('border-top-color', await tokenColor(page, '--paper-danger'));
   const css = await fieldStyle(version);
-  expect(css.border).toBe('rgb(180, 35, 24)');
-  expect(css.outlineWidth).toBe('2px');
-  expect(css.outlineColor).toBe('rgb(156, 45, 15)');
+  expect(css.border).toBe(await tokenColor(page, '--paper-danger'));
+  expect(css.outlineWidth).toBe('3px');
+  expect(css.outlineColor).toBe(await tokenColor(page, '--paper-focus'));
   expect(css.font).toBeGreaterThanOrEqual(16);
   await fits(page);
   await evidence(page, info, 'hosting-invalid-focused');
@@ -407,7 +416,7 @@ test('invalid package fields keep readable values, a visible error and their sta
   await expect(page.getByRole('button', {name: 'Copy bundled sample', exact: true})).toBeFocused();
 });
 
-test('native account input wrappers show one focus indicator while original decorative assets stay present', async ({page}, info) => {
+test('native account input wrappers show one focus indicator beside the static project exhibit', async ({page}, info) => {
   await page.goto('/login');
   await expect(page.getByText('Checking account services…', {exact: true})).toHaveCount(0);
   await settle(page);
@@ -424,15 +433,16 @@ test('native account input wrappers show one focus indicator while original deco
   for (const key of ['x', 'y', 'width', 'height'] as const) {
     expect(after[key], `Auth focus must preserve field ${key}`).toBeCloseTo(before[key], 1);
   }
-  await expect(wrapper).toHaveCSS('outline-width', '2px');
-  await expect(wrapper).toHaveCSS('outline-color', 'rgb(156, 45, 15)');
+  await expect(wrapper).toHaveCSS('outline-width', '3px');
+  await expect(wrapper).toHaveCSS('outline-color', await tokenColor(page, '--paper-focus'));
   await expect(wrapper).toHaveCSS('box-shadow', 'none');
   await expect(email).toHaveCSS('outline-style', 'none');
   await expect(email).toHaveCSS('border-top-width', '0px');
   await expect(email).toHaveCSS('box-shadow', 'none');
   if (page.viewportSize()!.width > 760) {
-    await expect(page.locator('.auth-orbit-card')).toHaveCount(4);
-    await expect(page.locator('.auth-scene-frame')).toHaveAttribute('src', '/auth/pearlescent-frame-complete.webp');
+    await expect(page.locator('.paper-auth-exhibit')).toBeVisible();
+    await expect(page.locator('.paper-auth-exhibit')).toContainText('Illustrative project');
+    await expect(page.locator('.paper-auth-exhibit [role=img]')).toBeVisible();
   }
   await fits(page);
   await evidence(page, info, 'account-login-focused');
@@ -461,9 +471,9 @@ test('an isolated account fixture renders the real settings and profile on the s
   await expect(page.getByText('visual-fixture@example.test', {exact: true})).toBeVisible();
   await settle(page);
   const canvas = await page.locator('.studio-shell').evaluate(node => getComputedStyle(node).backgroundColor);
-  expect(canvas).not.toBe('rgb(255, 255, 255)');
-  expect(await page.locator('body').evaluate(node => getComputedStyle(node).backgroundColor)).toBe('rgb(244, 244, 242)');
-  await glassCard(page.locator('.studio-shell .panel').filter({has: page.getByRole('heading', {name: 'Account', exact: true})}).first());
+  expect(canvas).toBe(await tokenColor(page, '--paper-canvas'));
+  expect(await page.locator('body').evaluate(node => getComputedStyle(node).backgroundColor)).toBe(await tokenColor(page, '--paper-canvas'));
+  await paperCard(page.locator('.studio-shell .panel').filter({has: page.getByRole('heading', {name: 'Account', exact: true})}).first());
   await fits(page);
   await evidence(page, info, 'real-account-settings-fixture');
   await page.getByRole('tab', {name: 'Profile', exact: true}).click();

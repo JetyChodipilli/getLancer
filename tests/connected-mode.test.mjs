@@ -40,7 +40,7 @@ function renderedError({r,html}){
 
 test('connected empty catalog stays empty and never substitutes sample products',async()=>{
   const {r,html}=await page('/');assert.equal(r.status,200);noDemo(html);
-  assert.equal((html.match(/<article[^>]*class="project"/g)||[]).length,0);
+  assert.equal((html.match(/<article[^>]*class="paper-project"/g)||[]).length,0);
   assert.ok(requests.some(path=>path.startsWith('/api/v1/products?')));
   assert.match(html,/href="\/workspace"/);
 });

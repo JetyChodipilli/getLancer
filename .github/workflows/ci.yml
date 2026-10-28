@@ -179,7 +179,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with: {persist-credentials: false}
+        with: {persist-credentials: false, fetch-depth: 0}
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with: {node-version: '22.23.4', cache: npm}
       - run: npm ci
@@ -196,6 +196,11 @@ jobs:
           name: frontend-dependency-evidence-${{ github.sha }}
           path: dependency-evidence
           retention-days: 7
+      - name: Lint changed source with repository rules
+        run: node scripts/lint-changed.mjs
+        env:
+          LINT_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          LINT_HEAD_SHA: ${{ github.sha }}
       - run: npx tsc --noEmit
       - name: Rebuild original Vue, Svelte and Angular previews from pinned source
         run: node scripts/verify-framework-previews.mjs --native
@@ -213,8 +218,18 @@ jobs:
       - name: Verify separate provider protocol and durable lifecycle regressions
         run: python3 -m unittest discover -s ops/lab-provider -p 'test_*.py'
       - run: node --experimental-strip-types --test tests/*.test.mjs
-      - name: Install Chromium for responsive workspace acceptance
-        run: npx playwright install --with-deps chromium
+      - name: Install browsers for responsive and cross-engine acceptance
+        run: npx playwright install --with-deps chromium firefox webkit
+      - name: Verify Paper & Pixel discovery, auth and browser gaps
+        run: npx playwright test --config playwright.paper.config.ts
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: paper-pixel-browser-evidence-${{ github.sha }}
+          path: |
+            test-results/paper-pixel
+            playwright-report/paper-pixel
+          retention-days: 7
       - name: Verify Round 3 browser fixtures before retained audit and full suites
         run: |
           for name in identity marketplace ui; do test -f "tests/browser/round3-$name.spec.ts"; done
@@ -235,7 +250,7 @@ jobs:
           name: workspace-browser-evidence-${{ github.sha }}
           path: test-results
           retention-days: 7
-      - name: Retain focused liquid glass design review evidence
+      - name: Retain focused Paper & Pixel design review evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:

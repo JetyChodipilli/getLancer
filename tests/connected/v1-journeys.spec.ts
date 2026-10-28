@@ -58,7 +58,7 @@ function card(page:Page,title:string){return page.locator('article.panel').filte
 async function search(page:Page,title:string){
  await page.goto('/');
  await page.getByLabel('Search projects',{exact:true}).fill(title);
- await page.locator('form.market-search').getByRole('button',{name:'Search',exact:true}).click();
+ await page.locator('form.paper-home-search').getByRole('button',{name:'Search',exact:true}).click();
  await expect(page).toHaveURL(new RegExp('[?&]q='+encodeURIComponent(title).replaceAll('%20','\\+')));
  await expect(page.getByLabel('Project demos',{exact:true})).toHaveAttribute('aria-busy','false');
  await expect(page.getByText('Projects are illustrative.',{exact:false})).toHaveCount(0);
@@ -356,7 +356,7 @@ test('E2E-06 reports a public showcase, triages it, suspends it and shows the ow
   await expect(decision).not.toBeVisible();
   await search(page,product.title);await expect(page.getByLabel('Project demos',{exact:true}).locator('article')).toHaveCount(0);
   await page.goto('/products/'+product.slug);await expect(page.getByRole('heading',{name:product.title,exact:true})).toHaveCount(0);
-  await expect(page.getByRole('heading',{name:'That project isn’t available.',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'There’s more work to discover.',exact:true})).toBeVisible();
   await login(owner.page,state.builder);await workspace(owner.page,'showcases');
   await owner.page.getByRole('tab',{name:'Restricted',exact:true}).click();
   await expect(card(owner.page,product.title)).toContainText(reason);

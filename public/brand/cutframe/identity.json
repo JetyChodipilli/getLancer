@@ -1,0 +1,51 @@
+{
+  "name": "getLancer",
+  "direction": "Paper & Pixel",
+  "mark": "Cutframe",
+  "mechanism": "A chamfered software-gallery frame closes into a lowercase g and returns as an open lower shelf.",
+  "colors": {
+    "ink": "#202321",
+    "canvas": "#f8f8f6",
+    "surface": "#ffffff",
+    "inverseCanvas": "#171a18",
+    "inverseInk": "#f8faf7"
+  },
+  "typography": {
+    "ui": "Geist Sans",
+    "editorial": "Georgia",
+    "wordmark": {
+      "family": "Geist",
+      "weight": 550,
+      "license": "SIL OFL 1.1",
+      "outlined": true
+    }
+  },
+  "clearSpace": {
+    "unit": "symbol band",
+    "gridUnits": 32
+  },
+  "minimumSize": {
+    "symbolPx": 16,
+    "horizontalPx": 144
+  },
+  "measurement": {
+    "contrast": {
+      "#202321 on #ffffff": 15.86,
+      "#202321 on #f8f8f6": 14.92,
+      "#f8faf7 on #171a18": 16.71
+    },
+    "font": {
+      "family": "Geist",
+      "weight": 550,
+      "license": "SIL OFL 1.1",
+      "real_variable_axis": [
+        100,
+        900
+      ],
+      "tabular_figures": true
+    },
+    "symbol_feature_min_units": 32,
+    "grid": 256,
+    "min16_stroke_px": 2
+  }
+}
