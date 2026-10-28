@@ -42,13 +42,17 @@ public class PaymentRepository {
     return rows.isEmpty()?null:rows.get(0);
   }
   public String payee(Map<String,Object> milestone,String mode) {
+    String eligibility,locks,description;Object party;
     if (milestone.get("builderUserId")!=null) {
-      var active=db.queryForList("SELECT u.id FROM users u JOIN developer_profiles d ON d.user_id=u.id JOIN user_roles r ON r.user_id=u.id AND r.role='DEVELOPER' WHERE u.id=? AND u.account_status='ACTIVE' AND u.email_verified_at IS NOT NULL AND d.approval_status='APPROVED' FOR SHARE OF u",milestone.get("builderUserId"));
-      if (active.isEmpty()) throw new ApiError(409,"PAYEE_UNAVAILABLE","The seller is no longer eligible for collection.");
+      party=milestone.get("builderUserId");locks=" FOR SHARE OF u";description="The seller is no longer eligible for collection.";
+      eligibility="SELECT u.id FROM users u JOIN developer_profiles d ON d.user_id=u.id JOIN user_roles r ON r.user_id=u.id AND r.role='DEVELOPER' WHERE u.id=? AND u.account_status='ACTIVE' AND u.email_verified_at IS NOT NULL AND d.approval_status='APPROVED'";
     } else {
-      var active=db.queryForList("SELECT t.id FROM teams t JOIN users u ON u.id=t.owner_id JOIN developer_profiles d ON d.user_id=u.id JOIN user_roles r ON r.user_id=u.id AND r.role='DEVELOPER' JOIN team_members m ON m.team_id=t.id AND m.user_id=t.owner_id WHERE t.id=? AND t.status='ACTIVE' AND u.account_status='ACTIVE' AND u.email_verified_at IS NOT NULL AND d.approval_status='APPROVED' AND m.role='OWNER' AND (m.expires_at IS NULL OR m.expires_at>now()) FOR SHARE OF t,u",milestone.get("teamId"));
-      if (active.isEmpty()) throw new ApiError(409,"PAYEE_UNAVAILABLE","The team is no longer eligible for collection.");
+      party=milestone.get("teamId");locks=" FOR SHARE OF t,u";description="The team is no longer eligible for collection.";
+      eligibility="SELECT t.id FROM teams t JOIN users u ON u.id=t.owner_id JOIN developer_profiles d ON d.user_id=u.id JOIN user_roles r ON r.user_id=u.id AND r.role='DEVELOPER' JOIN team_members m ON m.team_id=t.id AND m.user_id=t.owner_id WHERE t.id=? AND t.status='ACTIVE' AND u.account_status='ACTIVE' AND u.email_verified_at IS NOT NULL AND d.approval_status='APPROVED' AND m.role='OWNER' AND (m.expires_at IS NULL OR m.expires_at>now())";
     }
+    // Joined profile and role predicates may be evaluated before a row-lock wait.
+    if (db.queryForList(eligibility+locks,party).isEmpty() || db.queryForList(eligibility,party).isEmpty())
+      throw new ApiError(409,"PAYEE_UNAVAILABLE",description);
     var rows=db.queryForList("SELECT account_id FROM payment_accounts WHERE mode=? AND provider_status='created' AND activation_confirmed AND (builder_user_id=? OR team_id=?)",mode,milestone.get("builderUserId"),milestone.get("teamId"));
     if (rows.isEmpty()) throw new ApiError(409,"PAYEE_NOT_CONFIGURED","The seller needs an operator-verified Razorpay linked account before payment.");
     return Objects.toString(rows.get(0).get("account_id"));

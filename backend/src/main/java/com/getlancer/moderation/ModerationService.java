@@ -177,9 +177,11 @@ public class ModerationService {
     if (Set.of("UPHELD", "OVERTURNED").contains(appeal.get("status")))
       throw new ApiError(409, "INVALID_STATE_TRANSITION", "This appeal has already been resolved.");
     var original =
-        db.queryForMap("SELECT id,admin_id,target_type,target_id,action,reason,created_at FROM moderation_actions WHERE id=?", appeal.get("decision_id"));
+        db.queryForMap("SELECT id,admin_id,target_type,target_id,action,reason,created_at,decision_order FROM moderation_actions WHERE id=?", appeal.get("decision_id"));
     if (state.equals("OVERTURNED")) {
       UUID target = (UUID) original.get("target_id");
+      if (Set.of("ACCOUNT", "USER", "PRODUCT", "INQUIRY", "REVIEW").contains(original.get("target_type")))
+        admin.requireCurrentAppealDecision(original);
       switch ((String) original.get("target_type")) {
         case "ACCOUNT" -> admin.accountAction(target, "restore", Map.of("reason", reason), r);
         case "USER" -> {
@@ -193,11 +195,6 @@ public class ModerationService {
         case "REVIEW" -> admin.reviewAction(target, "publish", Map.of("reason", reason), r);
         case "COMPONENT" -> components.restoreReported((UUID)original.get("id"),reason,r);
         case "PRODUCT" -> {
-          var owner = db.queryForList("SELECT owner_user_id FROM products WHERE id=?", target);
-          if (owner.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Project not found.");
-          db.queryForMap(
-              "SELECT user_id,active_slot_limit,source FROM showcase_entitlements WHERE user_id=? FOR UPDATE",
-              owner.get(0).get("owner_user_id"));
           db.update(
               "UPDATE products SET"
                   + " approval_status='PENDING_REVIEW',lifecycle_status='DRAFT',updated_at=now()"

@@ -48,9 +48,13 @@ public final class LabConfiguration {
   void ready(){if(!projection().enabled())throw new ApiError(503,"LAB_DISABLED",projection().reason());}
   LabManifest manifest(String payload,String sha,String detached,ObjectMapper json){
     var manifest=sourceManifest(payload,sha,detached,json);
+    current(manifest);
+    return manifest;
+  }
+  /** Recheck time-bound execution authority after callers acquire source locks. */
+  void current(LabManifest manifest){
     if(!manifest.approvedUntil().isAfter(Instant.now())||evidence==null||manifest.approvedUntil().isAfter(evidence.approvedUntil())||!manifest.evidenceSha256().equals(evidence.evidenceSha256()))
       throw new ApiError(503,"LAB_MANIFEST_UNAVAILABLE","This immutable lab manifest has no current operator certification.");
-    return manifest;
   }
   /** Expiry closes execution, while signed source metadata may remain visible after source eligibility checks. */
   LabManifest sourceManifest(String payload,String sha,String detached,ObjectMapper json){

@@ -19,6 +19,11 @@ function stateContext(extra={}){
  for(const name of new Set((profile+account+auth).match(/\bset[A-Z]\w*/g)))context[name]=value=>{values[name]=typeof value==='function'?value(values[name]):value;};
  return{values,context};
 }
+function accountContext(extra={}){
+ const fixture=stateContext({generation:{current:0},...extra});
+ fixture.context.failed=routine(account,'function failed(','\n  useEffect(()=>{',fixture.context);
+ return fixture;
+}
 const event={preventDefault(){},currentTarget:new Map([['displayName','Synthetic builder']])};
 class FixtureFormData extends Map {constructor(form){super(form)}}
 
@@ -46,15 +51,15 @@ test('profile refresh-only retry never invokes the write endpoint',async()=>{
 });
 
 test('notification reads prevent duplicate requests, retain failed rows, and retry without stale errors',async()=>{
- const pending=deferred();let writes=0;const {values,context}=stateContext({active:{current:true},reads:{current:new Set()},api:()=>{writes++;return writes===1?pending.promise:Promise.resolve({ok:true});}});
+ const pending=deferred();let writes=0;const {values,context}=accountContext({active:{current:true},reads:{current:new Set()},api:()=>{writes++;return writes===1?pending.promise:Promise.resolve({ok:true});}});
  values.setNotifications=[{id:'owned',title:'Owned notice'},{id:'other',title:'Another notice'}];
- const markRead=routine(account,'async function markRead(','\n  return <section',context),first=markRead('owned');await markRead('owned');assert.equal(writes,1);assert.deepEqual(values.setReading,['owned']);
+ const markRead=routine(account,'async function markRead(','\n  const context=',context),first=markRead('owned');await markRead('owned');assert.equal(writes,1);assert.deepEqual(values.setReading,['owned']);
  pending.reject(new Error('Temporary read failure'));await first;assert.equal(values.setNotifications[0].read_at,undefined);assert.equal(values.setError,'Temporary read failure');assert.deepEqual(values.setReading,[]);
  await markRead('owned');assert.equal(writes,2);assert.equal(values.setError,'');assert.ok(values.setNotifications[0].read_at);assert.equal(values.setNotifications[1].read_at,undefined);
 });
 
 test('account export ignores a previous identity response and clears stale outcome text on retry',async()=>{
- const pending=deferred();let requests=0;const {values,context}=stateContext({active:{current:true},mutation:{current:false},api:()=>{requests++;return pending.promise;},document:{createElement:()=>assert.fail('A stale identity must not trigger a download')},URL:{createObjectURL:()=>assert.fail('A stale export must not create a blob URL')}});
+ const pending=deferred();let requests=0;const {values,context}=accountContext({active:{current:true},mutation:{current:false},api:()=>{requests++;return pending.promise;},document:{createElement:()=>assert.fail('A stale identity must not trigger a download')},URL:{createObjectURL:()=>assert.fail('A stale export must not create a blob URL')}});
  const exportData=routine(account,'async function exportData(','\n  async function markRead',context),first=exportData();await exportData();assert.equal(requests,1);assert.equal(values.setMessage,'');assert.equal(values.setError,'');
  context.active.current=false;pending.resolve({account:{id:'previous'}});await first;assert.equal(context.mutation.current,false);assert.equal(values.setMessage,'');
 });

@@ -44,3 +44,6 @@ assert.ok(known.has('component_recipe_enforcement')&&updates.has('component_reci
 assert.ok(known.has('payment_provider_refunds')&&!updates.has('payment_provider_refunds')&&!deletes.has('payment_provider_refunds'));
 assert.ok(permissions.includes('GRANT UPDATE (status,updated_at) ON'));
 assert.ok(permissions.includes("IF table_name='payment_webhook_events' THEN")&&permissions.includes('GRANT UPDATE (refund_id) ON'));
+
+assert.ok(permissions.includes('GRANT USAGE ON SEQUENCE %I.moderation_decision_order_seq TO getlancer_runtime'));
+assert.ok(permissions.includes('GRANT SELECT ON SEQUENCE %I.moderation_decision_order_seq TO getlancer_backup'));

@@ -65,11 +65,19 @@ export default function Explore({ items, preview, totalItems, totalPages, filter
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState('');
   const [saved, setSaved] = useState<string[]>([]);
-  const [saving, setSaving] = useState('');
+  const [saving, setSaving] = useState<string[]>([]);
+  const savingRef = useRef(new Set<string>());
+  const savedRevision = useRef(0);
+  const savedChanges = useRef(new Map<string,{revision:number;saved:boolean}>());
   const visibleIds=items.map(p=>p.id).join(',');
   const [loadedSavedIds,setLoadedSavedIds]=useState('');
   const savedReady=preview||loadedSavedIds===visibleIds;
-  useEffect(() => { if (preview||!visibleIds)return;const controller=new AbortController();api('/me/saved-products?ids='+encodeURIComponent(visibleIds),{signal:controller.signal}).then(r=>{setSaved(r.items.map((p:{id:string})=>p.id));setLoadedSavedIds(visibleIds)}).catch(e=>{if(controller.signal.aborted)return;if(e.status===401){setSaved([]);setLoadedSavedIds(visibleIds)}else setError('Saved projects could not be loaded. Refresh the page to try again.')});return()=>controller.abort(); }, [preview,visibleIds]);
+  useEffect(() => { if (preview||!visibleIds)return;const controller=new AbortController(),revision=savedRevision.current;api('/me/saved-products?ids='+encodeURIComponent(visibleIds),{signal:controller.signal}).then(r=>{
+    const next=new Set<string>(r.items.map((p:{id:string})=>p.id));
+    // Preserve writes confirmed after this read began, in either response order.
+    for(const [id,change] of savedChanges.current)if(change.revision>revision){if(change.saved)next.add(id);else next.delete(id);}
+    setSaved([...next]);setLoadedSavedIds(visibleIds);
+  }).catch(e=>{if(controller.signal.aborted)return;if(e.status===401){setSaved([]);setLoadedSavedIds(visibleIds)}else setError('Saved projects could not be loaded. Refresh the page to try again.')});return()=>controller.abort(); }, [preview,visibleIds]);
   useEffect(()=>{if(!preview){const searched=!!(filters.q||filters.category||filters.technology||filters.projectType||filters.availability);track(searched?'search_performed':'home_view',undefined,searched?{resultCount:totalItems,queryLength:filters.q.length}:{});items.forEach(p=>track('product_impression',p.id));}},[items,preview,filters.q,filters.category,filters.technology,filters.projectType,filters.availability,totalItems]);
   function update(change: Partial<Filters>) {
     const params = filterParams({ ...filters, page: 0, ...change });
@@ -80,11 +88,14 @@ export default function Explore({ items, preview, totalItems, totalPages, filter
   }
   function reset() { setQ(''); update(emptyFilters); }
   async function save(id: string) {
-    setSaving(id); setError('');
+    if(savingRef.current.has(id))return;
+    const wasSaved=saved.includes(id);
+    savingRef.current.add(id);setSaving([...savingRef.current]);setError('');
     try {
-      await api('/products/' + id + '/save', { method: saved.includes(id) ? 'DELETE' : 'POST' });
-      setSaved(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
-    } catch (e) { setError((e as Error).message); } finally { setSaving(''); }
+      await api('/products/' + id + '/save', { method: wasSaved ? 'DELETE' : 'POST' });
+      savedChanges.current.set(id,{revision:++savedRevision.current,saved:!wasSaved});
+      setSaved(s => wasSaved ? s.filter(x => x !== id) : s.includes(id) ? s : [...s, id]);
+    } catch (e) { setError((e as Error).message); } finally { savingRef.current.delete(id);setSaving([...savingRef.current]); }
   }
   return <main id="main" className="wrap marketplace">
     <DiscoveryDock anchor={heroSearch} q={q} setQ={setQ} filters={filters} pending={pending} update={update} reset={reset}/>
@@ -111,7 +122,7 @@ export default function Explore({ items, preview, totalItems, totalPages, filter
     <div className="discovery-heading"><div><h2>Explore independent work</h2><p>Real projects, ready to explore.</p></div>{preview&&<p className="market-sample">Projects are illustrative. <Link href="/preview/workspace">Try the workspace →</Link></p>}</div>
     {error && <p role="alert" className="error">{error}</p>}
     <div ref={gallery} className="demo-gallery" aria-label="Project demos" aria-busy={pending}>{galleryItems.map((p) => <article className="project" key={p.id}>
-      <div className="project-media"><Link href={'/products/'+p.slug} className={'thumbnail tone-'+p.category.toLowerCase()}><Preview product={p} naturalAspect/></Link><button className="iconbutton project-save" disabled={saving===p.id||!savedReady} aria-label={(saved.includes(p.id)?'Unsave ':'Save ')+p.title} aria-pressed={saved.includes(p.id)} onClick={()=>save(p.id)}><Bookmark size={18} fill={saved.includes(p.id)?'currentColor':'none'}/></button></div>
+      <div className="project-media"><Link href={'/products/'+p.slug} className={'thumbnail tone-'+p.category.toLowerCase()}><Preview product={p} naturalAspect/></Link><button className="iconbutton project-save" disabled={saving.includes(p.id)||!savedReady} aria-label={(saved.includes(p.id)?'Unsave ':'Save ')+p.title} aria-pressed={saved.includes(p.id)} onClick={()=>save(p.id)}><Bookmark size={18} fill={saved.includes(p.id)?'currentColor':'none'}/></button></div>
       <div className="cardtitle"><h2><Link href={'/products/'+p.slug}>{p.title}</Link></h2></div>
       <p className="project-meta">{p.category} · {p.technology.split(',')[0]}</p>
       <div className="byline"><span className="avatar" aria-hidden="true">{p.builder.split(' ').map(x=>x[0]).join('')}</span><Link href={'/builders/'+p.builderSlug}>{p.builder}</Link><Link className="project-view" href={'/products/'+p.slug}>View project <ArrowUpRight size={13}/></Link></div>

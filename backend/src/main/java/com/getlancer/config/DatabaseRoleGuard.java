@@ -169,6 +169,20 @@ public class DatabaseRoleGuard implements ApplicationRunner {
             AND (0::oid=ANY(p.polroles) OR (SELECT oid FROM pg_roles WHERE rolname=current_user)=ANY(p.polroles)))
         """,Integer.class,schema);
     if (unsafeManifests == null || unsafeManifests != 0) reject("manifest_certification_permissions");
+    Integer unsafeSequences = db.queryForObject("""
+        SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+        WHERE n.nspname=? AND c.relkind='S' AND
+          (CASE WHEN c.relname='moderation_decision_order_seq'
+            THEN NOT has_sequence_privilege(current_user,c.oid,'USAGE')
+              OR has_sequence_privilege(current_user,c.oid,'SELECT')
+              OR has_sequence_privilege(current_user,c.oid,'UPDATE')
+            ELSE has_sequence_privilege(current_user,c.oid,'USAGE')
+              OR has_sequence_privilege(current_user,c.oid,'SELECT')
+              OR has_sequence_privilege(current_user,c.oid,'UPDATE') END)
+        """,Integer.class,schema);
+    if (unsafeSequences == null || unsafeSequences != 0
+        || !Boolean.TRUE.equals(db.queryForObject("SELECT to_regclass(?) IS NOT NULL",Boolean.class,
+            schema+".moderation_decision_order_seq"))) reject("moderation_sequence_permissions");
   }
 
   private static void reject(String check) {

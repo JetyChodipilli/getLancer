@@ -1,0 +1,33 @@
+# PR56 additional application audit
+
+This third audit starts from `08d707d7d82a5f3744000ee7628aa395c6ebd6d1` and adds repairs to the same PR56. The plan and sequential product/design/engineering/developer-experience reviews preceded implementation. Six domain agents reproduced additional failures, prepared focused repairs and reviewed related risk-sensitive paths. Parent review found and completed remaining SDK-exception and lab replay/MFA branches. The PR remains open and unmerged.
+
+| Area | Additional failure | Resulting behavior |
+| --- | --- | --- |
+| Qualified inquiry history | An older response could replace selected history or reopen a closed dialog. | Selection, close, filter, reload, identity and unmount invalidate obsolete reads. |
+| Qualified inquiry filters | Old failures could replace current state; denied reads retained private briefs; continuation lacked confirmed page context. | Current generation and confirmed page metadata govern reads; current authority denial clears private context and offers recovery. |
+| Account notifications/export | A denied notification write retained private rows and allowed an earlier export to download. | Authority generation clears protected rows and invalidates older export/read/closure acknowledgements; explicit notification retry is a read. |
+| Education checkout | Duplicate orders/verifications and dismissed, failed or obsolete SDK callbacks could run. SDK setup exceptions left callbacks valid. | Immediate pending/session guards, one verification latch and exception invalidation preserve the original order/key and explicit reconciliation. |
+| Private source inspection | Owner/admin authority could expire during storage I/O while bytes were still returned. | Current owner/session or admin/recent-MFA is checked before and after storage; storage stays outside database locks. |
+| Lab temporal authority | Source locks could outlive admission/certification/lease/session authority before admission, cached results or provider-result publication. | The established temporal predicates and actor are rechecked after source locks; expired callers cannot obtain private output. |
+| Lab replay/admin detail | Existing-start replay missed renewed session checks; cross-owner detail could outlive recent administrator MFA. | Replay checks the current actor; cross-owner detail requires current administrator MFA after waiting, while own detail retains its user contract. |
+| Payment checkout | Reused and returned orders could expose checkout after seller suspension or recipient remapping. | Final checkout requires current seller eligibility and the frozen recipient. Provider binding commits first and remains recoverable. |
+| Payee contention | Profile/role/membership predicates could be sampled before a user/team lock wait. | A fresh statement resamples eligibility after the lock; current seller controls and real contention regressions cover builder and team paths. |
+| Moderation appeals | Overturning an old appeal could undo a later restriction or restore changed/archived content. | Restoration requires the exact current restrictive action/state and causal decision order under the normal target locks. Ambiguous legacy history requires manual review. |
+| Catalogue saves | Saving a second project unlocked the first; toggle acknowledgements and stale list reads could contradict persisted saves. | Each project has an immediate pending guard; acknowledgements apply intended state, and list results retain writes confirmed after they began. |
+
+## Evidence and verification contract
+
+Each repair has a failing original-source reproduction and an allowed current-path control. Focused checks execute actual extracted TypeScript/Java routines; they do not substitute for React, JDBC or provider transport acceptance. Parent reruns pass all six new Node oracles. Existing auth and Picker assertions are retained; the auth fixture only gains the new helper/context bindings. All changed/new Java sources passed grammar parsing; new browser/Node fixtures passed syntax checks. These are local scope statements, not type/build/browser/database pass claims.
+
+The new real-boundary fixtures are `Round3FinanceIntegrationTest`, `Round3MarketplaceIntegrationTest`, `Round3OperationsIntegrationTest`, `Round3RuntimeStorageIntegrationTest`, two added `DatabaseRoleGuardIntegrationTest` cases, and three actual-component/actual-route browser specs named `round3-identity`, `round3-marketplace` and `round3-ui`. They include real PostgreSQL lock-wait observation, positive controls, valid native form prerequisites, current application CSS/viewport, request-start assertions and recovery. CI first runs the actual new classes/specs, then retains the complete existing backend, Node, responsive, connected, security, native-language and encrypted-restore jobs. Smoke diagnostics are separate and excluded from complete-suite totals. Final exact-revision results and workflow links are recorded in PR56.
+
+Only reviewed input hashes are rebound in the existing SAST assessment; its findings, security tests, scores, expiry and scanner requirements remain unchanged. No dependency, final production class, MockMaker, provider credential or payment mode is changed.
+
+## Migration and limits
+
+V52 adds nullable `moderation_actions.decision_order` and allocates new orders with a sequence while existing target locks are held. It does not backfill or mutate retained append-only history. A sole matching legacy decision remains recoverable; ambiguous legacy histories cannot acquire fabricated authority from timestamps or UUID sorting. Runtime receives only USAGE on the exact sequence; backup receives SELECT to retain its state. Runtime cannot reset/read sequence state or update/delete decision history. Provision the reviewed permissions after migration, as required by the existing deployment process. Real role tests cover those boundaries and the V51-to-V52 upgrade.
+
+Source review rejected speculative OAuth, pagination, storage-size, catalogue and lifecycle hypotheses that lacked valid reproductions. Saved-list detail traversal remains unmeasured; no cache/index or speed-improvement/field-INP claim is made. Design authority, explicit motion and existing native controls remain intact. Narrow/enlarged-text checks and screenshots are part of browser acceptance, not fabricated local observations.
+
+This is a bounded additional audit, not zero-bug certification or permission to merge/deploy. Real KVM, live provider/financial acceptance, production infrastructure/load/soak/recovery/rollback and human operational acceptance retain their separate existing gates. Unrelated PNG changes and private settings are excluded.

@@ -64,6 +64,16 @@ public class PaymentService {
   private PaymentResponses.Checkout checkout(Map<String,Object> row) {
     return PaymentResponses.Checkout.from(row, provider.keyId);
   }
+  private PaymentResponses.Checkout availableCheckout(UUID id,HttpServletRequest request) {
+    var before=repo.attempt(id,false);
+    var milestone=delivery.lockMilestone((UUID)before.get("milestone_id"),request,"BUYER");
+    var current=repo.attempt(id,true);
+    if (!"ACTIVE".equals(milestone.get("engagementStatus")))
+      throw new ApiError(409,"PAYMENT_HELD","The engagement now has a hold. Contact the operator before checkout.");
+    if (!Objects.equals(current.get("account_id"),repo.payee(milestone,provider.mode)))
+      throw new ApiError(409,"PAYEE_CHANGED","The seller's linked account changed. Ask the operator to review the original order before checkout.");
+    return checkout(current);
+  }
 
   public PaymentResponses.Checkout order(UUID milestone,HttpServletRequest request) {
     UUID key=uuid(request.getHeader("Idempotency-Key"));
@@ -91,19 +101,14 @@ public class PaymentService {
     if (!Boolean.TRUE.equals(reservation.get("create"))) {
       if (Set.of("CREATING","UNKNOWN","REJECTED").contains(Objects.toString(reservation.get("status"))))
         throw new ApiError(409,"PAYMENT_REQUIRES_RECONCILIATION","Order creation is unresolved. Check its status or contact the operator; another order will not be created.");
-      return tx(() -> checkout(accessible(id,request,"BUYER")));
+      return tx(() -> availableCheckout(id,request));
     }
     // Reservation is committed before making the external call. A crash cannot result in an unrecorded retry.
     try {
       var order=provider.createOrder(id,number(reservation,"amount_minor"),Objects.toString(reservation.get("account_id")));
       var transfer=validateOrder(reservation,order);
       tx(()-> { var current=system(id); if (current.get("order_id")==null) repo.bind(id,order.path("id").asText(),transfer.status(),transfer.settlement()); return null; });
-      return tx(()-> {
-        var m=delivery.lockMilestone(milestone,request,"BUYER");
-        if (!"ACTIVE".equals(m.get("engagementStatus")))
-          throw new ApiError(409,"PAYMENT_HELD","The engagement now has a hold. Contact the operator before checkout.");
-        return checkout(repo.attempt(id,false));
-      });
+      return tx(()->availableCheckout(id,request));
     } catch (RazorpayClient.ProviderFailure ex) {
       tx(()->{ system(id); repo.creationFailed(id,ex.rejected); return null; });
       throw new ApiError(502,ex.rejected?"PAYMENT_ORDER_REJECTED":"PAYMENT_ORDER_UNKNOWN",ex.rejected?"Razorpay rejected the order. Check the seller setup before trying with a fresh request key.":"Razorpay order creation could not be confirmed. Do not pay again; ask the operator to reconcile this receipt.");

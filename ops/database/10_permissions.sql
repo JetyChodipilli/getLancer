@@ -107,7 +107,11 @@ BEGIN
   IF to_regclass(format('%I.flyway_schema_history',schema_name)) IS NOT NULL THEN
     EXECUTE format('GRANT SELECT ON %I.flyway_schema_history TO getlancer_backup,getlancer_readonly',schema_name);
   END IF;
-  -- Application IDs are UUIDs; no runtime sequence mutation is needed.
+  -- Only moderation ordering allocates a sequence value; runtime cannot reset it.
+  IF to_regclass(format('%I.moderation_decision_order_seq',schema_name)) IS NOT NULL THEN
+    EXECUTE format('GRANT USAGE ON SEQUENCE %I.moderation_decision_order_seq TO getlancer_runtime',schema_name);
+    EXECUTE format('GRANT SELECT ON SEQUENCE %I.moderation_decision_order_seq TO getlancer_backup',schema_name);
+  END IF;
   -- PostgreSQL trigger functions execute through their triggers; callers need no EXECUTE grant.
 END $permissions$;
 COMMIT;
