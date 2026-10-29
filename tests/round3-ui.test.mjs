@@ -2,25 +2,38 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {stripTypeScriptTypes} from 'node:module';
 import test from 'node:test';
+import ts from 'typescript';
 
 const source=readFileSync(new URL('../app/components/explore.tsx',import.meta.url),'utf8');
-const start=source.indexOf('  async function save('),end=source.indexOf('\n  return <main',start);
-assert.ok(start>=0&&end>start,'The actual Explore save routine is available');
-const compiled=stripTypeScriptTypes(source.slice(start,end),{mode:'transform'});
+const tree=ts.createSourceFile('explore.tsx',source,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
+const explore=tree.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='Explore');
+assert.ok(explore?.body,'The actual Explore component is available');
+const save=explore.body.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='save');
+assert.ok(save,'The actual Explore save routine is available');
+function hasSavedEndpoint(node){
+  return ts.isStringLiteral(node)&&node.text==='/me/saved-products?ids='
+    ||Boolean(ts.forEachChild(node,hasSavedEndpoint));
+}
+const savedRead=explore.body.statements.filter(node=>
+  ts.isExpressionStatement(node)&&ts.isCallExpression(node.expression)&&
+  ts.isIdentifier(node.expression.expression)&&node.expression.expression.text==='useEffect'&&
+  node.expression.arguments[0]&&hasSavedEndpoint(node.expression.arguments[0])
+);
+assert.equal(savedRead.length,1,'Exactly one actual saved-list effect is available');
+const compiled=stripTypeScriptTypes(save.getText(tree),{mode:'transform'});
+const compiledRead=stripTypeScriptTypes(savedRead[0].getText(tree),{mode:'transform'});
 
 function fixture(initial=[]){
-  const state={saved:[...initial],saving:[],error:''},savingRef={current:new Set()},savedRevision={current:0},savedChanges={current:new Map()},requests=[];
+  const state={saved:[...initial],saving:[],error:'',notice:''},savingRef={current:new Set()},savedRevision={current:0},savedChanges={current:new Map()},requests=[];
   const setSaved=value=>{state.saved=typeof value==='function'?value(state.saved):value;};
   function render(){
-    const context={saved:state.saved,savingRef,savedRevision,savedChanges,setSaved,setSaving:value=>{state.saving=Array.isArray(value)?value:value?[value]:[];},setError:value=>{state.error=value;},api:(path,options)=>{const response=Promise.withResolvers();requests.push({path,method:options.method,...response});return response.promise;}};
+    const context={preview:false,saved:state.saved,savingRef,savedRevision,savedChanges,setSaved,setSaving:value=>{state.saving=Array.isArray(value)?value:value?[value]:[];},setError:value=>{state.error=value;},setSaveNotice:value=>{state.notice=value;},api:(path,options)=>{const response=Promise.withResolvers();requests.push({path,method:options.method,...response});return response.promise;}};
     return Function(...Object.keys(context),compiled+';return save;')(...Object.values(context));
   }
   function load(){
-    const first=source.indexOf('  useEffect(() => { if (preview||!visibleIds)'),last=source.indexOf('\n  useEffect(()=>{if(!preview)',first);
-    assert.ok(first>=0&&last>first,'The actual saved-list effect is available');
     const response=Promise.withResolvers();
     const context={preview:false,visibleIds:'alpha,beta',savedRevision,savedChanges,setSaved,setLoadedSavedIds:()=>{},setError:value=>{state.error=value;},api:()=>response.promise,useEffect:effect=>effect()};
-    Function(...Object.keys(context),stripTypeScriptTypes(source.slice(first,last),{mode:'transform'}))(...Object.values(context));
+    Function(...Object.keys(context),compiledRead)(...Object.values(context));
     return response;
   }
   return {state,requests,render,load};

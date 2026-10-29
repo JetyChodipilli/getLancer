@@ -44,7 +44,7 @@ test('an empty filtered collection prioritises recovery over the homepage exhibi
 });
 
  test('V1.5 preview clearly separates simulated trust from real account services',async()=>{
- const {response,html}=await page('/preview/trust');assert.equal(response.status,200);assert.match(html,/Interactive V1.5 simulation/);assert.match(html,/Confirm availability/);assert.match(html,/Project evidence/);assert.match(html,/Earned capacity/);assert.doesNotMatch(html,/Repository: Verified/);
+ const {response,html}=await page('/preview/trust');assert.equal(response.status,200);assert.match(html,/Trust &amp; availability preview/);assert.match(html,/Confirm availability/);assert.match(html,/Project evidence/);assert.match(html,/Earned capacity/);assert.doesNotMatch(html,/Repository: Verified/);
  const real=await page('/workspace/trust');assert.match(real.html,/Loading trust details/);assert.doesNotMatch(real.html,/Stockroom/);
  });
 

@@ -1,6 +1,6 @@
 {
   "schema": 2,
-  "reviewedAt": "2026-10-26",
+  "reviewedAt": "2026-10-29",
   "expiresAt": "2026-11-05T00:00:00Z",
   "findings": [
     {
@@ -1395,7 +1395,7 @@
   "buildInputs": [
     {
       "path": ".github/workflows/ci.yml",
-      "sha256": "7aac1d066403081f4bb312876117cb6569f9b7141ea224d7f83e70fd0a0960e6"
+      "sha256": "302c26707d34252c179febb3dd9062e7cd2d543198128db4fd5c6f8fb48537d6"
     },
     {
       "path": "backend/pom.xml",

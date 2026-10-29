@@ -12,7 +12,8 @@ const message=(problem:unknown)=>problem instanceof Error?problem.message:'The a
 export default function IotWorkbench(){
  const [session,setSession]=useState<IotSession|null>(null),[inputs,setInputs]=useState<InputValues>(initialInputs),[errors,setErrors]=useState<Partial<Record<Field,string>>>({}),[problem,setProblem]=useState(''),[notice,setNotice]=useState('');
  const errorSummary=useRef<HTMLDivElement>(null);
- useEffect(()=>{const next=createIotSession();setSession(next);setInputs({...initialInputs,topic:next.topic});},[]);
+ // Per-tab IDs and timestamps must be created after hydration, never during server render.
+ useEffect(()=>{let active=true;queueMicrotask(()=>{if(!active)return;const next=createIotSession();setSession(next);setInputs({...initialInputs,topic:next.topic});});return()=>{active=false;};},[]);
  useEffect(()=>{if(problem||Object.keys(errors).length)errorSummary.current?.focus({preventScroll:false});},[problem,errors]);
  function act(type:'connect'|'disconnect'|'reset'){
   if(!session)return;
@@ -24,7 +25,7 @@ export default function IotWorkbench(){
   try{const next=iotAction(session,{type:'publish',temperatureC:Number(inputs.temperatureC),humidityPercent:Number(inputs.humidityPercent),thresholdC:Number(inputs.thresholdC),topic:inputs.topic});setSession(next);setNotice(`Message ${next.sequence} published. Synthetic actuator ${next.actuatorOn?'ON':'OFF'}.`);}catch(error){setProblem(message(error));setNotice('');}
  }
  return <main id="main" className="iot-shell">
-  <header className="iot-header"><div><span className="iot-kicker"><Radio size={18} aria-hidden="true"/>IoT lab · V5.1</span><h1>A device model you can inspect.</h1><p>Publish synthetic readings, change the alarm threshold, and test disconnect and recovery.</p></div><Link className="iot-button" href="/labs/scenarios"><ArrowLeft size={18} aria-hidden="true"/>All backend labs</Link></header>
+  <header className="iot-header"><div><span className="iot-kicker"><Radio size={18} aria-hidden="true"/>IoT lab</span><h1>A device model you can inspect.</h1><p>Publish synthetic readings, change the alarm threshold, and test disconnect and recovery.</p></div><Link className="iot-button" href="/labs/scenarios"><ArrowLeft size={18} aria-hidden="true"/>All backend labs</Link></header>
   <div className="iot-boundary"><ShieldCheck size={22} aria-hidden="true"/><p><strong>Device / protocol simulation.</strong> Runs locally in this browser. No physical device is connected; no hardware proof has been supplied.</p></div>
   <div className="iot-layout">
    <section className="iot-controls iot-panel" aria-labelledby="iot-input-heading"><div className="iot-section-head"><div><span className="iot-kicker">Synthetic inputs</span><h2 id="iot-input-heading">Publish telemetry</h2></div><Cpu size={22} aria-hidden="true"/></div>

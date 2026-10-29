@@ -25,7 +25,7 @@ test('a source concern pauses sample access and never fabricates a refund',()=>{
 test('production build renders the demo source catalog and license detail as labelled HTML without checkout scripts',async()=>{
  const {default:worker}=await import('./helpers/built-worker.mjs');
  const environment={DEMO_MODE:'true',ASSETS:{fetch:async()=>new Response('Not found',{status:404})}},context={waitUntil(){},passThroughOnException(){}};
- for(const [path,title] of [['/templates','A head start, with the source.'],['/templates/sample-approval-portal','Approval portal starter']]){
-  const response=await worker.fetch(new Request('http://localhost'+path,{headers:{accept:'text/html'}}),environment,context);assert.equal(response.status,200);const html=await response.text();assert.ok(html.includes(title));assert.ok(html.includes('Frontend preview'));assert.ok(!html.includes('src="https://checkout.razorpay.com'));
+ for(const [path,title,disclosure] of [['/templates','A head start, with the source.','Sample catalogue'],['/templates/sample-approval-portal','Approval portal starter','Sample listing']]){
+  const response=await worker.fetch(new Request('http://localhost'+path,{headers:{accept:'text/html'}}),environment,context);assert.equal(response.status,200);const html=await response.text();assert.ok(html.includes(title));assert.ok(html.includes(disclosure));assert.ok(!html.includes('src="https://checkout.razorpay.com'));
  }
 });

@@ -1,6 +1,8 @@
 import {test,expect} from '@playwright/test';
 import {buildSync} from 'esbuild';
 
+type FormFixtureWindow=Window&{finishSave:()=>void};
+
 function fixture(fieldError:boolean){
  return buildSync({stdin:{contents:`
   import {useState} from 'react';
@@ -20,11 +22,11 @@ for(const fieldError of [false,true])test(`a ${fieldError?'field':'summary'} err
  await page.setContent('<div id="root"></div>');await page.addScriptTag({content:fixture(fieldError)});
  const first=page.getByLabel('First name',{exact:true}),summary=page.getByRole('alert'),target=fieldError?first:summary;
  await page.getByRole('button',{name:'Reject first',exact:true}).click();await expect(first).toBeDisabled();
- await page.evaluate(()=>{(window as any).finishSave();});
- await expect(target).toBeFocused();await expect(first).toBeEnabled();await expect(first).toHaveValue('First value');
- if(fieldError){await expect(first).toHaveAttribute('aria-invalid','true');await expect(first).toHaveAttribute('aria-describedby',/.+-error/);}
+ await page.evaluate(()=>{(window as unknown as FormFixtureWindow).finishSave();});
+ await expect(summary).toBeFocused();await expect(first).toBeEnabled();await expect(first).toHaveValue('First value');
+ if(fieldError){await summary.getByRole('button',{name:'first: Choose another name.',exact:true}).click();await expect(first).toBeFocused();await expect(first).toHaveAttribute('aria-invalid','true');await expect(first).toHaveAttribute('aria-describedby',/.+-error/);}
  await page.getByRole('button',{name:'Save second',exact:true}).click();await expect(first).toBeDisabled();
- await page.evaluate(()=>{(window as any).finishSave();});await expect(page.getByText('Second saved',{exact:true})).toBeVisible();
+ await page.evaluate(()=>{(window as unknown as FormFixtureWindow).finishSave();});await expect(page.getByText('Second saved',{exact:true})).toBeVisible();
  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
  await expect(target).not.toBeFocused();await expect(first).toHaveValue('First value');
 });

@@ -54,7 +54,8 @@ export default function TrustWorkspace({demo=false}:{demo?:boolean}){
   }catch(e){if(mounted.current&&current===generation.current){denied(e);setError((e as Error).message)}return false}
   finally{if(mounted.current&&current===generation.current)setLoading(false)}
  },[denied]);
- useEffect(()=>{mounted.current=true;if(!demo)void load();return()=>{mounted.current=false;generation.current++}},[demo,load]);
+ // Start browser account loading after hydration; cancellation prevents a Strict Mode replay from starting a stale request.
+ useEffect(()=>{let active=true;mounted.current=true;queueMicrotask(()=>{if(active&&!demo)void load()});return()=>{active=false;mounted.current=false;generation.current++}},[demo,load]);
  const pageRequest=useCallback(async(path:string)=>{
   const current=generation.current;
   try{const response=await api(path);if(!mounted.current||current!==generation.current)throw new Error('Trust details changed. Please load this page again.');const params=new URLSearchParams(path.split('?')[1]);trustCollectionPage(response,params.get('collection') as TrustCollection,Number(params.get('page')));return response}
@@ -76,7 +77,7 @@ export default function TrustWorkspace({demo=false}:{demo?:boolean}){
  }
  async function decision(id:string,action:string,reason:string){await run(async()=>{if(demo){setData(old=>old&&({...old,projects:old.projects.map(p=>p.id===id?{...p,verification_status:action==='approve'?'VERIFIED':'REJECTED',reason}:p)}));setQueue(old=>({...old,verifications:old.verifications.filter(v=>v.product_id!==id)}));}else await api('/admin/verifications/'+id+'/'+action,{method:'POST',body:JSON.stringify({reason})});});}
  return <WorkspaceFrame section="trust" preview={demo} className="trust-workspace" title="Trust & availability" description="Keep your availability current, show evidence and help clients choose confidently.">
- {demo&&<PreviewControls title="Interactive V1.5 simulation" note="Sample records reset when you leave this page. These controls never change a live account."><button className="button" onClick={()=>setAdmin(!admin)}>{admin?'View as builder':'Preview administrator tools'}</button></PreviewControls>}
+ {demo&&<PreviewControls title="Trust & availability preview" note="Sample records reset when you leave this page. These controls never change a live account."><button className="button" onClick={()=>setAdmin(!admin)}>{admin?'View as builder':'Preview administrator tools'}</button></PreviewControls>}
  {error&&<p className="error" role="alert">{error} {!data&&<Link className="link" href="/login">Log in</Link>} {!demo&&<button type="button" className="link" disabled={loading||busy} onClick={()=>void load()}>Retry trust details</button>}</p>}{message&&<p className="success" role="status" aria-atomic="true">{message}</p>}
  {!data&&!error&&<p role="status">Loading trust details…</p>}
  {data&&<><WorkspaceMetrics items={[{label:'Client availability',value:label(data.profile.availability_status),detail:'Separate from showcase capacity',Icon:CalendarDays},{label:'Loaded repository evidence',value:data.projects.filter(p=>p.verification_status==='VERIFIED').length,detail:'Reviewed repositories in loaded projects',Icon:ShieldCheck},{label:'Loaded live link checks',value:data.projects.filter(p=>p.demo_checked_at).length,detail:'Recorded checks in loaded projects',Icon:Activity},{label:'Showcase capacity',value:data.publishingCapacity?.limit??(data.activeSlotLimit===0?0:6+Math.max(0,data.activeSlotLimit-3)),detail:'Regular + college capacity',Icon:Layers}]}/>

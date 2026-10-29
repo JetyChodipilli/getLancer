@@ -33,7 +33,7 @@ export function InquiryForm({initialProduct,preview=false}:{initialProduct?:Prod
  async function send(e:FormEvent<HTMLFormElement>){
   e.preventDefault();if(inFlight.current)return;
   setFormError(null);setError('');
-  if(preview){setError('This is a frontend preview. Nothing is sent.');return;}
+  if(preview){setError('This is a sample inquiry. Nothing is sent.');return;}
   if(!product){setError('Choose a project before sending an inquiry.');return;}
   if(!budget||!timeline){setFormError(new ApiError('Choose a budget and timeline to continue.','VALIDATION_ERROR',400,undefined,{...(!budget?{budgetBand:'Choose the budget range that fits your project.'}:{}),...(!timeline?{timelineBand:'Choose when you would like to begin.'}:{})}));return;}
   if(!intentKey.current){
@@ -52,7 +52,7 @@ export function InquiryForm({initialProduct,preview=false}:{initialProduct?:Prod
    <section className="panel form"><span className="eyebrow">Start a conversation</span><h1>Tell the builder what you need.</h1><p className="form-intro">A clear brief is the first step toward something useful.</p>
     {ok?<div ref={success} tabIndex={-1} className="success feedback-result" role="status"><CheckCircle2 size={28} aria-hidden="true"/><h2>Inquiry saved. Check your inbox.</h2><p>Confirm your email to send this inquiry to the builder.</p><Link className="button" href={product?'/products/'+product.slug:'/'}>Back to the project <ArrowRight size={16}/></Link></div>:
     <form onSubmit={send} className="form" aria-busy={busy}>
-     {preview&&<p className="samplebar">Frontend preview. You can review the form; nothing is sent.</p>}
+     {preview&&<p className="samplebar">Sample inquiry form. You can review the fields; nothing is sent.</p>}
      <FormErrors error={formError}/>
      {product&&<div className="inquiry-reference"><span>Inspired by</span><strong>{product.title}</strong><span>by {product.builder}</span></div>}
      <fieldset disabled={busy} className="paper-form-fields">

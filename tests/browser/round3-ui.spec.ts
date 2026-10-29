@@ -77,10 +77,10 @@ for(const initiallySaved of [false,true])for(const readFirst of [false,true])tes
     releaseRead();await expect(page.getByRole('button',{name:(initiallySaved?'Save ':'Unsave ')+'Stockroom',exact:true})).toBeDisabled();releaseWrite();
   }else{
     releaseWrite();await writeFinished.promise;
-    await expect(page.locator('.project-save').first()).toHaveAttribute('aria-pressed',String(!initiallySaved));releaseRead();
+    await expect(page.getByRole('button',{name:/^(?:Unsave|Save) Stockroom$/})).toHaveAttribute('aria-pressed',String(!initiallySaved));releaseRead();
   }
   await expect(page.getByRole('button',{name:(initiallySaved?'Save ':'Unsave ')+'Stockroom',exact:true})).toBeEnabled();
-  await expect(page.locator('.project-save').first()).toHaveAttribute('aria-pressed',String(!initiallySaved));
+  await expect(page.getByRole('button',{name:/^(?:Unsave|Save) Stockroom$/})).toHaveAttribute('aria-pressed',String(!initiallySaved));
   expect(errors).toEqual([]);
 });
 
