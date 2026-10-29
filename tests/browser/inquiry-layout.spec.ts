@@ -31,7 +31,7 @@ test('qualified inquiries and their native filters fit with long client details'
  await expect(page.getByRole('heading',{name:'Qualified inquiries',exact:true})).toBeVisible();
  await expect(page.getByRole('link',{name:email,exact:true})).toHaveAttribute('href','mailto:'+email);
  await expect(page.getByRole('button',{name:'Mark responded',exact:true})).toBeVisible();
- await expect(page.getByRole('region',{name:'Your next step',exact:true}).getByRole('button',{name:'View inquiries',exact:true})).toBeVisible();
+ await expect(page.getByRole('region',{name:'An inquiry is waiting for your reply',exact:true}).getByRole('button',{name:'View inquiries',exact:true})).toBeVisible();
  await withinViewport(page);
  const filters=page.getByRole('form',{name:'Filter qualified inquiries',exact:true});
  await filters.getByLabel('Status',{exact:true}).selectOption('COMPLETION_PENDING_CONFIRMATION');

@@ -60,6 +60,30 @@ test('@cross-browser public exhibition exposes real projects and all four discov
   await fits(page);
 });
 
+test('@cross-browser discovery waits for navigation intent before requesting another route', async ({page}) => {
+  const routeRequests: string[] = [];
+  page.on('request', request => {
+    const url = new URL(request.url());
+    if (url.searchParams.has('_rsc') && url.pathname !== '/') routeRequests.push(url.pathname);
+  });
+  await page.goto('/');
+  await expect(page.getByRole('heading', {level: 1, name: 'The craft behind the code.'})).toBeVisible();
+  // A quiet network window lets viewport/idle prefetch work run if it is enabled.
+  await page.waitForLoadState('networkidle');
+  expect(routeRequests, 'Discovery must not start speculative route requests before a navigation choice').toEqual([]);
+  await page.evaluate(() => {
+    (window as Window & {paperNavigationProbe?: string}).paperNavigationProbe = 'retained-document';
+  });
+  const paths = page.getByRole('navigation', {name: 'Explore getLancer', exact: true});
+  await paths.getByRole('link', {name: 'Components', exact: true}).click();
+  await expect(page).toHaveURL(/\/components(?:[?#].*)?$/);
+  await expect(page.locator('main h1')).toHaveText(/Build your next\s*good idea\./);
+  await expect.poll(() => routeRequests.includes('/components')).toBe(true);
+  expect(await page.evaluate(() => (window as Window & {paperNavigationProbe?: string}).paperNavigationProbe))
+    .toBe('retained-document');
+  await fits(page);
+});
+
 test('project search, filter removal and browser back retain confirmed URL state', async ({page}) => {
   await page.goto('/');
   const search = page.getByRole('textbox', {name: 'Search projects', exact: true});

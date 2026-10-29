@@ -8,11 +8,12 @@ On 28 October 2026 the main branch was `2f1ea580336ce2cf26c655a25d51b0aed080cc5f
 
 ## Added regression coverage
 
-`playwright.paper.config.ts` runs eleven behavioral scenarios at 1440px, 768px and 375px in Chromium. Three public/layout/reduced-motion scenarios also run in Firefox at 1440px and WebKit at 375px. The narrow navigation scenario explicitly checks 320px. Test discovery currently enumerates 39 cases.
+`playwright.paper.config.ts` runs twelve behavioral scenarios at 1440px, 768px and 375px in Chromium. Four public/navigation/layout/reduced-motion scenarios also run in Firefox at 1440px and WebKit at 375px. The narrow navigation scenario explicitly checks 320px. Test discovery currently enumerates 44 cases.
 
 | Scenario | Evidence being tested | Service boundary |
 |---|---|---|
 | Public exhibition | Project links, real preview props, four discovery destinations and editorial chapters | Production Worker in explicitly labelled sample mode |
+| Navigation intent | No speculative other-route RSC request before a choice; Components navigation requests its route and preserves the document | Actual client navigation; strict page-error assertion remains |
 | Search/filter/history | Search results, URL query, category removal, browser Back and reset | Real local sample catalogue filtering |
 | Component examples | Selection controls and truthful local success/reset feedback | Browser-local specimen; no network mutation |
 | Empty search | No manufactured results, recovery returns catalogue | Real local sample catalogue filtering |
@@ -48,7 +49,7 @@ The existing `scripts/check-frontend-security.mjs` scans built text assets for c
 
 ## Local verification record
 
-- `npx playwright test --config playwright.paper.config.ts --list`: passed; 39 cases discovered (33 Chromium cases and three each in Firefox and WebKit).
+- Current `npx playwright test --config playwright.paper.config.ts --list`: passed; 44 cases discovered (36 Chromium cases and four each in Firefox and WebKit). The newly added navigation-intent case requires the final production build; the earlier execution records below cover the original eleven scenarios.
 - Owned browser sources, configuration and lint script pass ESLint; full integrated TypeScript checking passes.
 - Changed-file lint passed with zero errors; the existing fixed-size provider-icon image warning remains. Invalid SHA negative control rejected with exit 1.
 - Chromium: all 33 discovery, form, auth, response-state and sign-out scenarios passed at 1440px, 768px and 375px. The narrow navigation scenario also exercises 320px.
@@ -69,3 +70,30 @@ The same audit replaced the retired `.project-save` browser selector with the St
 The next CI pass exposed the same formatting-dependent extraction in two publishing refresh cases. `publishing-audit-regression.test.mjs` now selects unique actual function declarations with the TypeScript AST; all eleven publishing authority, outage, race and transport cases pass locally. Missing and duplicate declarations are rejected rather than silently selecting a different routine.
 
 The enlarged-text catalogue browser check found a real 7px horizontal overflow at 320px. Component specimen tabs now wrap and retain their intrinsic label width instead of shrinking into equal columns. The original overflow assertion remains unchanged. The previous broad local run was stopped at the project boundary after 79 passing desktop cases and that one reproduced failure; its unexecuted phone cases are not counted as passing evidence.
+
+## Complete browser audit follow-up
+
+The broad desktop diagnostic reached the component accessibility case (332 of the original 391 cases) before session continuation stopped it. It found a stale inquiry-region name and a real contrast dip during staggered metric entrance. The inquiry check now names the actual descriptive region and retains its action, long-address, native-filter and viewport assertions. Workspace entrance opacity is repaired in product CSS; the unchanged WCAG case must pass on the next build.
+
+Five browser fixtures previously expected raw messages from unstructured 503 responses. They now assert the API helper’s safe read/mutation recovery text and the absence of the raw diagnostic, preserving request identity, retained data, retries and access controls. Coded domain-error messages and the separate source-download transport retain their existing checks.
+
+The same diagnostic used Chromium 153 on port 3018 in Asia/Calcutta. The source-package exact-browser guard, an exact-origin sandbox check and a local datetime assertion consequently differed from CI’s pinned Chromium 145, port 3000 and UTC profile. Those checks are retained. An interrupted diagnostic is not counted as a full passing run.
+
+Current-commit remote execution must remain the final release evidence. On the earlier `044467e1` candidate, the push workflow passed all 39 original Paper cases across the official three engines and all 90 Round 3 cases. Its PR workflow reported a WebKit page error during abandoned speculative prefetch at document unload; the explicit navigation-intent regression now guards the site-owned opt-out policy without filtering page errors. No browser scenario, WCAG threshold, security assertion or historical suite is skipped.
+
+## Rebuilt navigation and contrast verification
+
+The rebuilt Worker passed 39 local critical cases: 36 core Chromium cases across desktop/tablet/phone and the unchanged automated component WCAG case at all three widths. The strengthened navigation-intent case also passed in three separate viewport runs. This checks real Components client navigation and strict page-error capture after the speculative-prefetch opt-out.
+
+The remaining eight desktop files were executed on port 3000 with UTC Node/browser timezone. The first pass completed 57 of 58 cases; its only failure was a 240-second wait for a preview iframe’s first paint while that iframe was entirely below the viewport. The test now scrolls the real iframe into view and asserts viewport intersection before the original first-contentful-paint wait. Its CPU/network profile, three samples per route, LCP/CLS/input proxy thresholds and source-interaction checks are unchanged. The single corrected performance case then passed, completing the remaining 58-case coverage across those two runs. This is not a claim of a single 58/58 run or of a complete passing 391-case local run.
+
+The measured 390×844, 4× CPU, 150ms latency, 1600/750Kbps, disabled-cache samples were:
+
+| Route | Samples | LCP p75 (ms) | CLS p75 | Input-to-next-paint proxy p75 (ms) |
+|---|---:|---:|---:|---:|
+| `/components` | 3 | 1768 | 0 | 33.7 |
+| `/components/feedback-form` | 3 | 2036 | 0 | 23.0 |
+| `/college-projects` | 3 | 1992 | 0 | 31.3 |
+| `/college-projects/stockroom` | 3 | 1668 | 0 | 21.0 |
+
+All retain the existing limits of 2500ms LCP p75, 0.1 CLS p75 and 200ms input proxy p75. These are bounded browser-lab samples, not field INP or live production load acceptance. The corrected inquiry region/action, long client address, native filters and reflow case passed separately at desktop, tablet and phone. Full exact-commit CI, including the official three engines and connected service journeys, remains the release gate.

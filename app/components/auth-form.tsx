@@ -116,14 +116,14 @@ export function AuthForm({signup=false,preview=false}:{signup?:boolean;preview?:
  const title=success?'Check your inbox':isMfa?'One more step':isReset?'Reset your password':isSignup?'Make yourself at home.':'Welcome back';
  const errorFields=Object.entries(errors).filter(([,message])=>message);
  return <section className="icy-form" aria-labelledby="auth-title">
-  <Link href="/" className="icy-browse">Browse projects <ArrowUpRight size={16} aria-hidden="true"/></Link>
+  <Link prefetch={false} href="/" className="icy-browse">Browse projects <ArrowUpRight size={16} aria-hidden="true"/></Link>
   <div className="icy-form-content" key={mode}>
    {(isReset||isMfa)&&<button type="button" className="auth-back" onClick={()=>switchMode('login')} disabled={busy}><ArrowLeft size={16} aria-hidden="true"/> Back to login</button>}
    <span className="paper-auth-form-label">{isSignup?'Join getLancer':isMfa?'Account verification':isReset?'Account recovery':'Your getLancer account'}</span>
    <h1 id="auth-title" ref={heading} tabIndex={-1}>{title}</h1>
    <p className="icy-description">{success?email:isMfa?'Enter your authenticator code to protect administrator access.':isReset?'We’ll send you a link to get back into your account.':isSignup?'A space to share your work and discover what’s next.':'Log in to pick up where you left off.'}</p>
    {success?<div className="auth-success" role="status"><CheckCircle2 size={28} aria-hidden="true"/><p>{success}</p><p className="paper-auth-success-help">Can’t see it? Check your spam folder and the email above.</p><button type="button" className="auth-submit" onClick={()=>switchMode(signup?'signup':'login')}>Back to {signup?'signup':'login'} <ArrowRight size={18} aria-hidden="true"/></button></div>:<>
-    {servicesReady!==true&&<div className="auth-connection" role="status" aria-live="polite"><p>{servicesReady===null?'Checking account services…':serviceMessage}</p>{servicesReady===false&&<>{preview&&<Link href="/preview/workspace">Explore the demo</Link>}<button type="button" onClick={()=>{setServicesReady(null);setCheckAttempt(n=>n+1)}} aria-label="Check again">Retry</button></>}</div>}
+    {servicesReady!==true&&<div className="auth-connection" role="status" aria-live="polite"><p>{servicesReady===null?'Checking account services…':serviceMessage}</p>{servicesReady===false&&<>{preview&&<Link prefetch={false} href="/preview/workspace">Explore the demo</Link>}<button type="button" onClick={()=>{setServicesReady(null);setCheckAttempt(n=>n+1)}} aria-label="Check again">Retry</button></>}</div>}
     {!isReset&&!isMfa&&<><div className="icy-providers">{(['google','github'] as const).map(provider=><button key={provider} type="button" className="icy-provider" aria-label={(googleBusy&&providerBusy===provider?'Opening sign-in with ':'Continue with ')+(provider==='google'?'Google':'GitHub')} disabled={(provider==='google'?googleReady!==true:!githubReady)||busy||googleBusy} onClick={()=>oauth(provider)}>{googleBusy&&providerBusy===provider?<LoaderCircle size={18} className="auth-spin" aria-hidden="true"/>:<img src={'/brand/'+(provider==='google'?'google-signin-icon.svg':'github-mark.png')} width={20} height={20} alt=""/>}{googleBusy&&providerBusy===provider?'Opening…':(provider==='google'?'Google':'GitHub')}</button>)}</div><div className="icy-divider"><span>or continue with email</span></div></>}
     <form className="icy-fields" onSubmit={submit} noValidate aria-busy={busy||googleBusy}>
      {error&&<div className="auth-error" ref={notice} role="alert" tabIndex={-1}>{errorFields.length>0&&<strong>Check these details</strong>}<p>{error}</p>{errorFields.length>0&&<ul>{errorFields.map(([field])=><li key={field}><a href={'#'+fieldIds[field]} onClick={event=>{event.preventDefault();focusField(field)}}>{{name:'Full name',email:'Email address',password:'Password',totp:'Authenticator code'}[field]||field}</a></li>)}</ul>}</div>}
@@ -137,11 +137,11 @@ export function AuthForm({signup=false,preview=false}:{signup?:boolean;preview?:
      </fieldset>
      <button className="auth-submit" disabled={busy||googleBusy||servicesReady!==true} type="submit">{busy?<><LoaderCircle size={18} className="auth-spin" aria-hidden="true"/>{isSignup?'Creating account…':isReset?'Sending link…':'Logging in…'}</>:<>{isMfa?'Verify and log in':isReset?'Send reset link':isSignup?'Create account':'Log in'}<ArrowRight size={18} aria-hidden="true"/></>}</button>
     </form>
-    {isSignup&&<p className="icy-legal">By creating an account, you accept our <Link href="/policies#terms">Terms</Link> and <Link href="/policies#privacy">Privacy Policy</Link>.</p>}
-    {!isReset&&!isMfa&&<p className="icy-switch">{isSignup?'Already have an account?':'New to getLancer?'} <Link href={isSignup?'/login':'/signup'}>{isSignup?'Log in':'Create an account'}</Link></p>}
+    {isSignup&&<p className="icy-legal">By creating an account, you accept our <Link prefetch={false} href="/policies#terms">Terms</Link> and <Link prefetch={false} href="/policies#privacy">Privacy Policy</Link>.</p>}
+    {!isReset&&!isMfa&&<p className="icy-switch">{isSignup?'Already have an account?':'New to getLancer?'} <Link prefetch={false} href={isSignup?'/login':'/signup'}>{isSignup?'Log in':'Create an account'}</Link></p>}
     {servicesReady===true&&(googleReady===false||!githubReady)&&<p className="icy-service-note">You can sign in with your email and password.</p>}
    </>}
   </div>
-  <p className="paper-auth-assistance">Need a hand? <Link href="/report">Contact support</Link></p>
+  <p className="paper-auth-assistance">Need a hand? <Link prefetch={false} href="/report">Contact support</Link></p>
  </section>;
 }

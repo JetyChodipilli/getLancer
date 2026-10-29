@@ -1,15 +1,15 @@
-/* Purposeful application motion. Import after material and field styles.
-   The original hero floats and 72-second auth orbit have their own motion. */
+/* Purposeful task-surface motion. Import after material and field styles.
+   Text keeps its full contrast throughout the entrance. */
 :root {
   --app-motion-ease: cubic-bezier(.22, 1, .36, 1);
 }
 
 @keyframes application-settle {
-  from { opacity: .48; translate: 0 8px; }
-  to { opacity: 1; translate: none; }
+  from { translate: 0 8px; }
+  to { translate: none; }
 }
 
-/* Content is readable even at the first frame; no script hides it before entry. */
+/* Enter through position only; fading text would reduce its contrast during entry. */
 .studio-shell .studio-page-head,
 main.wrap:not(.marketplace) > :is(.intro, .panel, .detailgrid, h1),
 main.wrap:not(.marketplace) > .stack > .panel,

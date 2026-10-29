@@ -31,7 +31,7 @@ export default function AuthOrbit({preview=false}:{preview?:boolean}){
  const project=examples[1];
  return <figure className="paper-auth-exhibit">
   <div className="paper-auth-preview" data-ui ref={frame}><div className="paper-auth-miniature" style={{transform:`scale(${scale})`}}><Preview product={project}/></div></div>
-  <figcaption><div><strong>{project.title}</strong><span>{project.summary}</span></div><Link href={'/products/'+project.slug} aria-label={'Explore '+project.title+' illustrative project'}><ArrowUpRight size={20} aria-hidden="true"/></Link></figcaption>
+  <figcaption><div><strong>{project.title}</strong><span>{project.summary}</span></div><Link prefetch={false} href={'/products/'+project.slug} aria-label={'Explore '+project.title+' illustrative project'}><ArrowUpRight size={20} aria-hidden="true"/></Link></figcaption>
   <p className="paper-auth-sample">Illustrative project · Explore what you can build.</p>
  </figure>;
 }

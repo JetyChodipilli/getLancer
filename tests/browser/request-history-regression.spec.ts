@@ -35,7 +35,8 @@ test('history failures remain scoped to the selected inquiry and a new selection
  await page.route('**/api/v1/me/inquiries/*',route=>route.request().url().endsWith('/A')?route.fulfill({status:503,json:{error:{message:'History is temporarily unavailable.'}}}):route.fulfill({json:{events:[]}}));
  await mount(page);
  await page.getByRole('button',{name:'View request',exact:true}).nth(0).click();
- await expect(page.getByRole('dialog').getByRole('alert')).toContainText('History is temporarily unavailable.');
+ await expect(page.getByRole('dialog').getByRole('alert')).toHaveText('This service is temporarily unavailable. Please try loading it again.');
+ await expect(page.getByRole('dialog').getByRole('alert')).not.toContainText('History is temporarily unavailable.');
  await page.keyboard.press('Escape');
  await page.getByRole('button',{name:'View request',exact:true}).nth(1).click();
  await expect(page.getByRole('dialog')).toContainText('No history events yet.');
