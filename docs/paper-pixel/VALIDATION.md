@@ -97,3 +97,9 @@ The measured 390×844, 4× CPU, 150ms latency, 1600/750Kbps, disabled-cache samp
 | `/college-projects/stockroom` | 3 | 1668 | 0 | 21.0 |
 
 All retain the existing limits of 2500ms LCP p75, 0.1 CLS p75 and 200ms input proxy p75. These are bounded browser-lab samples, not field INP or live production load acceptance. The corrected inquiry region/action, long client address, native filters and reflow case passed separately at desktop, tablet and phone. Full exact-commit CI, including the official three engines and connected service journeys, remains the release gate.
+
+## Client request fixture host correction
+
+Candidate `2c07e5b8662d8cc6fd769b8cf72d25c48fa7a1d1` passed all 617 Node checks, 44 Paper cases across the official three engines and 90 Round 3 cases in both its push and PR workflows. Both workflows then exposed the same phone-only Round 2 continuation failure: an accepted row remained in the DOM but its heading was hidden. The standalone fixture mounted `ClientRequests` in the retired bare `.wrap` host, so the legacy horizontal row layout collapsed the text beside its actions. The real page mounts it in `WorkspaceFrame`, whose existing mobile layout stacks those rows.
+
+The identity and request-history fixtures now use that actual frame and production stylesheet; their mock Link consumes the framework-only `prefetch` prop. Existing API, identity, retry, history-race and visibility assertions are unchanged. No product CSS or API behavior changed. Both whole files passed in separate desktop, tablet and phone runs on port 3000 with UTC Node/browser timezones: 10 cases per profile, 30 total. The request-history fixture uses asynchronous esbuild because its Link boundary is implemented as a build plugin. ESLint and full TypeScript checking pass. The corrected commit still requires a fresh complete remote workflow, including connected Docker checks, before release.

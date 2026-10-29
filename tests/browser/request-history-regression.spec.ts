@@ -1,10 +1,18 @@
 import {test,expect,type Page} from '@playwright/test';
-import {buildSync} from 'esbuild';
+import {build} from 'esbuild';
 
 const requests=['A','B'].map(id=>({id,projectTitle:'Project '+id,builder:'Builder '+id,description:'Request for project '+id,budgetBand:'UNSURE',timelineBand:'FLEXIBLE',status:'NOT_HIRED',moderationStatus:'CLEAR',reviewSubmitted:false}));
 async function mount(page:Page){
- const script=buildSync({stdin:{contents:"import {createRoot} from 'react-dom/client';import ClientRequests from './app/components/client-requests';createRoot(document.getElementById('fixture')).render(<ClientRequests verified={true}/>);",loader:'tsx',resolveDir:process.cwd()},bundle:true,write:false,format:'iife',platform:'browser',jsx:'automatic',define:{'process.env.NODE_ENV':'"test"','process.env':'{}'}}).outputFiles[0].text;
- await page.route('**/request-history-fixture',route=>route.fulfill({contentType:'text/html',body:'<main><h1>Client requests</h1><div id="fixture"></div></main><script src="/request-history-fixture.js"></script>'}));
+ const script=(await build({stdin:{contents:`
+  import {createRoot} from 'react-dom/client';import ClientRequests from './app/components/client-requests';import {WorkspaceFrame} from './app/components/workspace-frame';
+  createRoot(document.getElementById('fixture')).render(<WorkspaceFrame section="personal" title="Client requests" description="Private request history for the current account."><ClientRequests verified={true}/></WorkspaceFrame>);
+ `,loader:'tsx',resolveDir:process.cwd()},bundle:true,write:false,format:'iife',platform:'browser',jsx:'automatic',define:{'process.env.NODE_ENV':'"test"','process.env':'{}'},plugins:[{name:'link-boundary',setup(plugin){
+  plugin.onResolve({filter:/^next\/link$/},()=>({path:'link',namespace:'fixture'}));
+  plugin.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:'import React from "react";export default function Link({href,children,prefetch,...props}){return <a href={href} {...props}>{children}</a>}',loader:'jsx',resolveDir:process.cwd()}));
+ }}]})).outputFiles[0].text;
+ await page.goto('/');const styles=await page.locator('link[rel="stylesheet"],style').evaluateAll(nodes=>nodes.map(node=>node.outerHTML).join(''));
+ expect(styles.length).toBeGreaterThan(0);
+ await page.route('**/request-history-fixture',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Client request history</title>'+styles+'</head><body><div id="fixture"></div><script src="/request-history-fixture.js"></script></body></html>'}));
  await page.route('**/request-history-fixture.js',route=>route.fulfill({contentType:'application/javascript',body:script}));
  await page.goto('/request-history-fixture');
  await expect(page.getByRole('button',{name:'View request',exact:true})).toHaveCount(2);
