@@ -252,7 +252,7 @@ test('E2E-04 converts public search and a live-demo click into an email-confirme
   await choose(page,page.locator('main'),'Choose timeline','ONE TO THREE MONTHS');
   await page.getByLabel('Your name',{exact:true}).fill(client.displayName);
   await page.getByLabel('Your email',{exact:true}).fill(client.email);
-  await page.getByLabel('Company (optional)',{exact:true}).fill('Synthetic conversion shop');
+  await page.getByRole('textbox',{name:'Company Optional',exact:true}).fill('Synthetic conversion shop');
   const created=await (await mutation(page,'/inquiries',()=>page.getByRole('button',{name:'Send inquiry',exact:true}).click(),201)).json();
   assert.match(created.id,/^[a-f0-9-]{36}$/);
   await expect(page.getByRole('heading',{name:'Inquiry saved. Check your inbox.',exact:true})).toBeVisible();

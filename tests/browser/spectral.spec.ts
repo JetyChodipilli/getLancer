@@ -24,10 +24,10 @@ test('Paper & Pixel discovery keeps genuine project navigation, search and legib
  await fits(page);await page.screenshot({path:info.outputPath('paper-home.png'),fullPage:true});
  const project=exhibition.getByRole('link',{name:'Explore Stockroom',exact:true});
  await project.focus();await expect(project).toBeFocused();
- await project.press('Enter');await expect(page.getByRole('heading',{name:'Stockroom',exact:true})).toBeVisible();
+ await project.press('Enter');await expect(page).toHaveURL(/\/products\/stockroom$/);await expect(page.getByRole('heading',{level:1,name:'Stockroom',exact:true})).toBeVisible();
  await page.goto('/');
  const pointer=await pointerTarget(project);await page.mouse.click(pointer.x,pointer.y);
- await expect(page).toHaveURL(/\/products\/stockroom$/);await expect(page.getByRole('heading',{name:'Stockroom',exact:true})).toBeVisible();
+ await expect(page).toHaveURL(/\/products\/stockroom$/);await expect(page.getByRole('heading',{level:1,name:'Stockroom',exact:true})).toBeVisible();
  await page.goto('/');await page.getByRole('textbox',{name:'Search projects',exact:true}).fill('Stockroom');await page.locator('.paper-home-search').getByRole('button',{name:'Search',exact:true}).click();
  await expect(page).toHaveURL(/q=Stockroom/);await expect(page.locator('.paper-project-grid .paper-project')).toHaveCount(1);await fits(page);
  await page.getByRole('link',{name:'Start a project request',exact:true}).click();await expect(page.getByRole('button',{name:'New project request',exact:true})).toBeVisible();
@@ -121,7 +121,7 @@ test('the account exhibit has a truthful project caption and independently reach
  await expect(exhibit).toContainText('Booklane');await expect(exhibit).toContainText('Illustrative project');
  const link=exhibit.getByRole('link',{name:'Explore Booklane illustrative project',exact:true});
  await expect(link).toHaveAttribute('href','/products/booklane');await link.focus();await expect(link).toBeFocused();
- await link.press('Enter');await expect(page.getByRole('heading',{name:'Booklane',exact:true})).toBeVisible();
+ await link.press('Enter');await expect(page).toHaveURL(/\/products\/booklane$/);await expect(page.getByRole('heading',{level:1,name:'Booklane',exact:true})).toBeVisible();
  await fits(page);
 });
 
