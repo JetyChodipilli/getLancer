@@ -57,7 +57,7 @@ async function choose(page:Page,scope:Locator,label:string,option:string){
 function card(page:Page,title:string){return page.locator('article.panel').filter({has:page.getByRole('heading',{name:title,exact:true})});}
 async function search(page:Page,title:string){
  await page.goto('/');
- await page.getByLabel('Search projects',{exact:true}).fill(title);
+ await page.getByRole('textbox',{name:'Search projects',exact:true}).fill(title);
  await page.locator('form.paper-home-search').getByRole('button',{name:'Search',exact:true}).click();
  await expect(page).toHaveURL(new RegExp('[?&]q='+encodeURIComponent(title).replaceAll('%20','\\+')));
  await expect(page.getByLabel('Project demos',{exact:true})).toHaveAttribute('aria-busy','false');
