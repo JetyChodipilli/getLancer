@@ -1,15 +1,15 @@
 import Link from 'next/link';
+import {ArrowRight} from 'lucide-react';
 import Preview from './preview';
 import type {Product} from '@/lib/catalog';
-import {ArrowUpRight} from 'lucide-react';
 
 export default function ProjectStack({products=[]}:{products:Product[]}) {
- const portrait=products.find(p=>p.illustrative&&p.previewFormat==='portrait');
- const selected=portrait?[products[0],portrait,products.find(p=>p.id!==products[0]?.id&&p.id!==portrait.id)].filter((p):p is Product=>!!p):products.slice(0,3);
- return <div className="project-stack" aria-label="Featured project demos">{selected.map((product,index)=><article className={`stack-card stack-card-${index}${product.previewFormat==='portrait'?' stack-portrait':''}`} key={product.id}>
-  <div className="stack-float"><div className="stack-glass">
-   <Link className="stack-card-media" href={'/products/'+product.slug} aria-label={'Explore '+product.title}><Preview product={product} naturalAspect/></Link>
-   <div className="spectral-stack-caption"><span className="spectral-project-icon" aria-hidden="true">{product.title[0]}</span><div><strong>{product.title}</strong><span>{product.category} · {product.builder}</span></div><ArrowUpRight size={17} aria-hidden="true"/></div>
-  </div></div>
- </article>)}</div>;
+ const first=products[0];
+ const portrait=products.find(product=>product.id!==first?.id&&product.previewFormat==='portrait');
+ const selected=[first,portrait??products[1],products.find(product=>product.id!==first?.id&&product.id!==(portrait??products[1])?.id)].filter((product):product is Product=>!!product);
+ if(!selected.length)return null;
+ return <section className="paper-featured-projects" aria-label="Featured project demos">{selected.map((product,index)=><article className={'paper-feature paper-feature-'+index} key={product.id}>
+  <Link prefetch={false} className={'paper-feature-media'+(product.previewFormat==='portrait'?' paper-feature-portrait':'')} data-ui="project-preview" href={'/products/'+product.slug} aria-label={'Explore '+product.title}><Preview product={product} naturalAspect/></Link>
+  <div className="paper-feature-caption"><div><h2><Link prefetch={false} href={'/products/'+product.slug}>{product.title}</Link></h2><Link prefetch={false} className="paper-feature-maker" href={'/builders/'+product.builderSlug}><span className="paper-maker-avatar" aria-hidden="true">{product.builder.split(' ').map(word=>word[0]).slice(0,2).join('')}</span>by {product.builder}</Link></div><p>{product.summary}</p><Link prefetch={false} className="paper-open-project" href={'/products/'+product.slug}>Open project <ArrowRight size={16} aria-hidden="true"/></Link><span className="paper-feature-stack">{product.technology.split(',').join(' · ')}{product.repositoryUrl?' · Source available':''}</span></div>
+ </article>)}</section>;
 }

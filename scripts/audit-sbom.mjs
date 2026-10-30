@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync,writeFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {assessBackendFindings} from './sbom-dispositions.mjs';
+import {queryOsv} from './osv-client.mjs';
 const [input,output,assessment]=process.argv.slice(2);assert.ok(input&&output,'Provide CycloneDX input and JSON report output.');
 assert.ok(!assessment||assessment==='--backend-rest-assessment','Unknown dependency assessment.');
 if(assessment) assert.equal(resolve(input),resolve('backend/target/bom.json'),'REST assessment is scoped to this backend runtime inventory.');
@@ -14,9 +15,7 @@ for(let offset=0;offset<packages.length;offset+=100){
  let queries=packages.slice(offset,offset+100).map(item=>({package:{purl:item.purl}}));
  for(let page=0;queries.length;page++){
   assert.ok(page<100,'OSV pagination exceeded the bounded scan.');
-  const response=await fetch('https://api.osv.dev/v1/querybatch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({queries}),signal:AbortSignal.timeout(30000)});
-  assert.ok(response.ok,`OSV returned ${response.status}; scan incomplete.`);
-  const data=await response.json();assert.equal(data.results?.length,queries.length,'Incomplete OSV result cohort.');
+  const data=await queryOsv(queries);assert.equal(data.results?.length,queries.length,'Incomplete OSV result cohort.');
   const next=[];data.results.forEach((result,index)=>{assert.ok(!result.error,'OSV package lookup failed.');for(const vulnerability of result.vulns||[])findings.push({purl:queries[index].package.purl,id:vulnerability.id,modified:vulnerability.modified});if(result.next_page_token)next.push({...queries[index],page_token:result.next_page_token});});queries=next;
  }
 }

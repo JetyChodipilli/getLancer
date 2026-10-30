@@ -31,7 +31,7 @@ after(async()=>{
   server.closeAllConnections();await new Promise(resolve=>server.close(resolve));
 });
 async function page(path){const r=await worker.fetch(new Request('https://app.example.test'+path,{headers:{accept:'text/html'}}),env,ctx);return {r,html:await r.text()};}
-const noDemo=html=>assert.doesNotMatch(html,/Stockroom|Booklane|Leah Morgan|Northstar Studio|Demo workspace|Interactive team preview|Interactive V1.5 simulation|href="\/preview\//);
+const noDemo=html=>assert.doesNotMatch(html,/Stockroom|Booklane|Leah Morgan|Northstar Studio|Demo workspace|Interactive team preview|Trust &amp; availability preview|href="\/preview\//);
 function renderedError({r,html}){
   // A streamed response can commit HTTP 200 before RSC reports its error.
   const chunks=[...html.matchAll(/(?:__VINEXT_RSC_CHUNKS__\.push|\.rsc\.push)\((.*?)\)<\/script>/gs)].map(m=>JSON.parse(m[1])).join('');
@@ -40,7 +40,7 @@ function renderedError({r,html}){
 
 test('connected empty catalog stays empty and never substitutes sample products',async()=>{
   const {r,html}=await page('/');assert.equal(r.status,200);noDemo(html);
-  assert.equal((html.match(/<article[^>]*class="project"/g)||[]).length,0);
+  assert.equal((html.match(/<article[^>]*class="paper-project"/g)||[]).length,0);
   assert.ok(requests.some(path=>path.startsWith('/api/v1/products?')));
   assert.match(html,/href="\/workspace"/);
 });

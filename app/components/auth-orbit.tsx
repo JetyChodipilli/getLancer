@@ -1,39 +1,37 @@
 'use client';
-import {useEffect,useRef} from 'react';
-const cards=['freelancers','projects','clients','opportunities'] as const;
-function poseAt(progress:number){
- const angle=-Math.PI/4-progress*2*Math.PI;
- return {x:.5+.35*Math.cos(angle),y:.5+.275*Math.sin(angle)};
-}
-export default function AuthOrbit(){
- const scene=useRef<HTMLDivElement>(null),elapsed=useRef(0);
+import {useEffect,useRef,useState} from 'react';
+import {ArrowRight,ArrowUpRight,Check,Code2} from 'lucide-react';
+import Link from 'next/link';
+import {examples} from '@/lib/catalog';
+import Preview from './preview';
+
+// Render the miniature at its own usable width and scale it as one picture.
+// This keeps the sidebar and labels intact instead of compressing live UI columns.
+export default function AuthOrbit({preview=false}:{preview?:boolean}){
+ const frame=useRef<HTMLDivElement>(null),[scale,setScale]=useState(1);
  useEffect(()=>{
-  const node=scene.current;if(!node)return;
-  const images=Array.from(node.querySelectorAll<HTMLElement>('.auth-orbit-card'));
-  const compact=matchMedia('(max-width: 760px)');
-  let frame=0,last=0,inView=true,disposed=false,width=node.clientWidth,height=node.clientHeight;
-  const paint=()=>images.forEach((image,index)=>{
-   const initial=poseAt(index/4),pose=poseAt(elapsed.current/72000+index/4);
-   image.style.transform=`translate3d(${(pose.x-initial.x)*width}px,${(pose.y-initial.y)*height}px,0) translate(-50%,-50%)`;
-  });
-  const tick=(now:number)=>{if(last)elapsed.current+=Math.min(now-last,64);last=now;paint();frame=requestAnimationFrame(tick);};
-  const sync=()=>{
-   if(disposed)return;
-   cancelAnimationFrame(frame);last=0;
-   const running=!compact.matches&&!document.hidden&&inView;
-   node.dataset.running=String(running);
-   if(running)frame=requestAnimationFrame(tick);
-  };
-  const observer=new IntersectionObserver(entries=>{inView=entries[0].isIntersecting;sync();});observer.observe(node);
-  const resize=new ResizeObserver(()=>{width=node.clientWidth;height=node.clientHeight;paint();});resize.observe(node);
-  document.addEventListener('visibilitychange',sync);compact.addEventListener('change',sync);paint();sync();
-  return()=>{disposed=true;cancelAnimationFrame(frame);observer.disconnect();resize.disconnect();document.removeEventListener('visibilitychange',sync);compact.removeEventListener('change',sync);};
- },[]);
- return <div className="auth-scene" ref={scene} data-running="false">
-  <div className="auth-scene-art" aria-hidden="true">
-   <img className="auth-scene-frame" src="/auth/pearlescent-frame-complete.webp" alt="" width={1536} height={1024}/>
-   <img className="auth-scene-laptop" src="/auth/laptop.webp" alt="" width={1448} height={1086} fetchPriority="high"/>
-   {cards.map(card=><img key={card} className={`auth-orbit-card auth-orbit-${card}`} src={`/auth/${card}.webp`} alt="" width={1254} height={1254}/>)}
+  const node=frame.current;if(!node||!preview)return;
+  const resize=()=>setScale(node.clientWidth/720);
+  const observer=new ResizeObserver(resize);observer.observe(node);resize();
+  return()=>observer.disconnect();
+ },[preview]);
+ if(!preview)return <figure className="paper-auth-exhibit">
+  <div className="paper-auth-interface-study" role="img" aria-label="getLancer interface study: considered components with clear labels and useful feedback">
+   <div aria-hidden="true">
+    <div className="paper-auth-study-top"><span><Code2 size={18}/> getLancer</span><span>Interface study</span></div>
+    <div className="paper-auth-study-body"><div className="paper-auth-study-copy"><span>Small details.</span><strong>Better<br/>beginnings.</strong><p>Every useful thing starts with a thoughtful first step.</p></div>
+     <div className="paper-auth-study-fields"><span className="paper-auth-study-label">Email address</span><div className="paper-auth-study-input">you@yourdomain.com</div><span className="paper-auth-study-hint">A clear label. A little guidance.</span><div className="paper-auth-study-action">Continue <ArrowRight size={16}/></div><div className="paper-auth-study-feedback"><Check size={16}/> Ready when you are.</div></div>
+    </div>
+    <div className="paper-auth-study-code"><span>label</span><span>input</span><span>feedback</span><span>your next idea</span></div>
+   </div>
   </div>
- </div>;
+  <figcaption><div><strong>Built around the work.</strong><span>A considered space to discover, share and build.</span></div></figcaption>
+  <p className="paper-auth-sample">getLancer interface study</p>
+ </figure>;
+ const project=examples[1];
+ return <figure className="paper-auth-exhibit">
+  <div className="paper-auth-preview" data-ui ref={frame}><div className="paper-auth-miniature" style={{transform:`scale(${scale})`}}><Preview product={project}/></div></div>
+  <figcaption><div><strong>{project.title}</strong><span>{project.summary}</span></div><Link prefetch={false} href={'/products/'+project.slug} aria-label={'Explore '+project.title+' illustrative project'}><ArrowUpRight size={20} aria-hidden="true"/></Link></figcaption>
+  <p className="paper-auth-sample">Illustrative project · Explore what you can build.</p>
+ </figure>;
 }

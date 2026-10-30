@@ -17,7 +17,7 @@ test('Node local development starts and streams navigation without workerd', {ti
   child.once('exit',code=>{clearTimeout(timer);reject(Error('Local server exited '+code+': '+output.slice(-4000)));});
  });
  const page=await fetch(origin+'/',{signal:AbortSignal.timeout(30000)});
- assert.equal(page.status,200);assert.match(await page.text(),/Great work/);
+ assert.equal(page.status,200);assert.match(await page.text(),/The craft behind/);
  const streamed=await fetch(origin+'/login?_rsc=local-runtime-regression',{headers:{RSC:'1'},signal:AbortSignal.timeout(30000)});
  assert.equal(streamed.status,200);assert.match(streamed.headers.get('content-type'),/text\/x-component/);
  const body=await streamed.text();assert.match(body,/Log in/);assert.doesNotMatch(body,/Network connection lost|ERR_RUNTIME_FAILURE|MFERR_RUNTIME_FAILURE/);

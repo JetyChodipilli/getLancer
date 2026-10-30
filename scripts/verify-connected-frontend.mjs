@@ -21,7 +21,7 @@ assert.deepEqual(await proxied.json(),catalog,'Frontend proxy must return the re
 const home=await page('/');assert.equal(home.status,200);
 const html=await home.text();
 assert.doesNotMatch(html,/Stockroom|Booklane|Leah Morgan|Northstar Studio|Projects are illustrative|href="\/preview\//);
-assert.equal((html.match(/<article[^>]*class="project"/g)||[]).length,catalog.items.length,'Rendered listing count must equal the real database result.');
+assert.equal((html.match(/<article[^>]*class="paper-project"/g)||[]).length,catalog.items.length,'Rendered listing count must equal the real database result.');
 assert.equal((await page('/api/v1/me')).status,401,'No fabricated authenticated account.');
 const providers=await page('/api/v1/auth/providers');assert.equal(providers.status,200);
 assert.deepEqual(await providers.json(),await fetch(process.env.BACKEND_URL+'/api/v1/auth/providers').then(r=>r.json()));

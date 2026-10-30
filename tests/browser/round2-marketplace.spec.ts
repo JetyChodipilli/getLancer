@@ -54,7 +54,7 @@ for(const status of [401,403])test('saved deletion '+status+' clears prior accou
 
 test('transient saved deletion failure retains the row and read retry never replays deletion',async({page})=>{
  let writes=0,reads=0;await page.route('**/api/v1/**',route=>{if(route.request().method()==='GET'){reads++;return route.fulfill({json:{items:reads===1?[saved]:[]}});}writes++;return route.fulfill({status:503,json:{error:{message:'Removal outcome is temporarily unavailable.'}}});});
- await render(page,'saved');await page.getByRole('button',{name:'Remove',exact:true}).click();await expect(page.getByRole('heading',{name:'Saved alpha',exact:true})).toBeVisible();await expect(page.getByRole('alert')).toContainText('temporarily unavailable');await page.getByRole('button',{name:'Reload saved components',exact:true}).click();await expect(page.getByRole('heading',{name:'Your next building block is here.',exact:true})).toBeVisible();expect(writes).toBe(1);expect(reads).toBe(2);
+ await render(page,'saved');await page.getByRole('button',{name:'Remove',exact:true}).click();await expect(page.getByRole('heading',{name:'Saved alpha',exact:true})).toBeVisible();await expect(page.getByRole('alert')).toHaveText('We could not confirm this change. Check the current record before retrying.');await expect(page.getByRole('alert')).not.toContainText('Removal outcome is temporarily unavailable.');await page.getByRole('button',{name:'Reload saved components',exact:true}).click();await expect(page.getByRole('heading',{name:'Your next building block is here.',exact:true})).toBeVisible();expect(writes).toBe(1);expect(reads).toBe(2);
 });
 
 test('private project selection clears old content and ignores its delayed success',async({page})=>{

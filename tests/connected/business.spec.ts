@@ -71,21 +71,25 @@ test('real hiring journey persists consent, matching, talent, MFA concierge and 
   await expect(form.getByRole('alert')).toBeFocused();
   await form.getByLabel('Business category (optional if technology provided)',{exact:true}).fill('Inventory');
   await form.getByLabel('Technology (one, optional if category provided)',{exact:true}).fill('React');
-  // Exercise the field-error focus branch after an asynchronous rejected save.
+  // The rejected save announces its summary, then offers explicit field recovery.
   await page.route('**/api/v1/businesses/'+b.id+'/requests',async route=>{
    await route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:{code:'VALIDATION_ERROR',message:'Check the project title.',fieldErrors:{title:'Use a different title.'}}})});
   },{times:1});
   await form.getByRole('button',{name:'Create project request',exact:true}).click();
   const titleField=form.getByLabel('Project title',{exact:true});
+  const errorSummary=form.locator('.form-error-summary');
+  await expect(errorSummary).toBeFocused();
   await expect(titleField).toBeEnabled();await expect(titleField).toHaveAttribute('aria-invalid','true');
-  await expect(titleField).toBeFocused();await expect(titleField).toHaveValue(title);
+  await expect(titleField).toHaveValue(title);
   await expect(form.getByText('Use a different title.',{exact:true})).toBeVisible();
+  await errorSummary.getByRole('button',{name:'title: Use a different title.',exact:true}).click();
+  await expect(titleField).toBeFocused();await expect(titleField).toHaveAttribute('aria-describedby',/.+-error/);
   await expect(form.getByRole('alert')).not.toBeFocused();
   await reflow(page);
   await form.getByRole('button',{name:'Create project request',exact:true}).click();
   await expect(form).not.toBeVisible();
   await page.reload();await page.getByLabel('Business workspace',{exact:true}).selectOption(b.id);await expect(page.getByRole('heading',{name:title,exact:true})).toBeVisible();
-  const brief=(await (await call(page,root+'/requests')).json()).items.find((r:any)=>r.title===title);
+  const brief=(await (await call(page,root+'/requests')).json()).items.find((r:{id:string;title:string})=>r.title===title);
   assert.ok(brief);const briefRoot=root+'/requests/'+brief.id;
   await page.getByRole('button',{name:'Open for matching',exact:true}).click();
   const matches=page.locator('.business-candidate-section');

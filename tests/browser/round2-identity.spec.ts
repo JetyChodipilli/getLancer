@@ -9,19 +9,19 @@ const list=(id='first',hasMore=true)=>({items:[row(id)],page:0,size:1,hasMore});
 
 async function mount(page:Page){
  const script=(await build({stdin:{contents:`
-  import React from 'react';import {createRoot} from 'react-dom/client';import ClientRequests from './app/components/client-requests';
+  import React from 'react';import {createRoot} from 'react-dom/client';import ClientRequests from './app/components/client-requests';import {WorkspaceFrame} from './app/components/workspace-frame';
   window.requests=[];window.pending=[];
   window.fetch=(path,init={})=>{const request={path:String(path),method:init.method||'GET',body:init.body};window.requests.push(request);return new Promise(resolve=>window.pending.push({...request,resolve}));};
   function Harness(){const [id,setId]=React.useState('first'),[verified,setVerified]=React.useState(true);window.switchIdentity=()=>setId('second');window.unverify=()=>setVerified(false);return <><button onClick={window.switchIdentity}>Switch identity</button><button onClick={window.unverify}>Unverify identity</button><ClientRequests key={id} verified={verified}/></>;}
-  createRoot(document.getElementById('root')).render(<Harness/>);
+  createRoot(document.getElementById('root')).render(<WorkspaceFrame section="personal" title="Client requests" description="Private request recovery for the current account."><Harness/></WorkspaceFrame>);
  `,loader:'tsx',resolveDir:process.cwd()},bundle:true,write:false,platform:'browser',format:'iife',jsx:'automatic',define:{'process.env.NODE_ENV':'"test"'},plugins:[{name:'link-boundary',setup(plugin){
   plugin.onResolve({filter:/^next\/link$/},()=>({path:'link',namespace:'fixture'}));
-  plugin.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:'import React from "react";export default function Link({href,children,...props}){return <a href={href} {...props}>{children}</a>}',loader:'jsx',resolveDir:process.cwd()}));
+  plugin.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:'import React from "react";export default function Link({href,children,prefetch,...props}){return <a href={href} {...props}>{children}</a>}',loader:'jsx',resolveDir:process.cwd()}));
  }}]})).outputFiles[0].text;
  // Keep the production CSS emitted by the real application, including dialog utilities.
  await page.goto('/');const styles=await page.locator('link[rel="stylesheet"],style').evaluateAll(nodes=>nodes.map(node=>node.outerHTML).join(''));
  expect(styles.length).toBeGreaterThan(0);
- await page.route('**/round2-identity-fixture',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Client request recovery</title>'+styles+'</head><body><main class="wrap"><div id="root"></div></main></body></html>'}));
+ await page.route('**/round2-identity-fixture',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Client request recovery</title>'+styles+'</head><body><div id="root"></div></body></html>'}));
  await page.goto('/round2-identity-fixture');await page.addScriptTag({content:script});
  await expect.poll(()=>page.evaluate(()=>(window as unknown as HarnessWindow).pending.length)).toBe(1);
 }

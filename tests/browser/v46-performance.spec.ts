@@ -39,6 +39,7 @@ test('new component and college shells enforce sampled mobile 4G paint, layout a
     else if(path==='/components/feedback-form'){
      await page.getByRole('button',{name:'Phone',exact:true}).click();await expect(page.getByRole('button',{name:'Phone',exact:true})).toHaveAttribute('aria-pressed','true');
      const iframe=page.getByTitle('Feedback form working preview',{exact:true});await expect(iframe).toBeVisible();
+     await iframe.scrollIntoViewIfNeeded();await expect(iframe).toBeInViewport();
      const handle=await iframe.elementHandle(),frame=await handle!.contentFrame();expect(frame).not.toBeNull();
      await expect(frame!.getByRole('heading',{name:'Feedback form',exact:true})).toBeVisible();
      await expect(frame!.getByLabel('Sample feedback',{exact:true})).toBeVisible();

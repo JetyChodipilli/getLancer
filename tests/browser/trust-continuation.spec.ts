@@ -38,7 +38,8 @@ test('owner continues projects and awards, retries the same page and can request
  await page.route('**/api/v1/developer/products/*/verification',async route=>{requested=route.request().url().split('/').at(-2)!;await route.fulfill({json:{status:'PENDING'}})});
  await page.goto('/workspace/trust');await page.getByRole('tab',{name:'Project evidence',exact:true}).click();
  await page.getByRole('button',{name:'Load more project evidence',exact:true}).click();
- await expect(page.getByRole('alert')).toHaveText('Trust page temporarily unavailable.');
+ await expect(page.getByRole('alert')).toHaveText('This service is temporarily unavailable. Please try loading it again.');
+ await expect(page.getByRole('alert')).not.toContainText('Trust page temporarily unavailable.');
  await expect(page.getByRole('heading',{name:'Retained owner project 99',exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Load more project evidence',exact:true}).click();
  await expect(page.getByRole('heading',{name:'Retained owner project 104',exact:true})).toBeVisible();

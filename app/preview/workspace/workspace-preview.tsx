@@ -1,10 +1,9 @@
 'use client';
 import {useEffect,useState,useDeferredValue,type FormEvent} from 'react';
-import Link from 'next/link';
 import {createPortal} from 'react-dom';
 import AccountMenu from '@/app/components/account-menu';
 import DemoRolePicker from '@/app/components/demo-role-picker';
-import {Search,Bookmark,Layers,Inbox,Send,UserRound,ShieldCheck,RotateCcw,ArrowUpRight,Plus,CheckCircle2,Mail,FlaskConical,ChartNoAxesCombined} from 'lucide-react';
+import {Search,Bookmark,Layers,Inbox,Send,UserRound,ShieldCheck,RotateCcw,ArrowUpRight,Plus,CheckCircle2,Mail,ChartNoAxesCombined} from 'lucide-react';
 import {Tabs,TabsContent,TabsList,TabsTrigger} from '@/components/ui/tabs';
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription} from '@/components/ui/dialog';
 import {AlertDialog,AlertDialogContent,AlertDialogHeader,AlertDialogTitle,AlertDialogDescription,AlertDialogFooter,AlertDialogCancel,AlertDialogAction} from '@/components/ui/alert-dialog';
@@ -33,12 +32,23 @@ export default function WorkspacePreview(){
  const [accountTarget,setAccountTarget]=useState<HTMLElement|null>(null);
  const searchQuery=useDeferredValue(query);
  const [lifecycle,setLifecycle]=useState('ACTIVE'),[requestFilter,setRequestFilter]=useState('');
+ // Hydrate browser-only preview state after mount; discarded effect runs do no work.
  useEffect(()=>{
-  setAccountTarget(document.getElementById('account-menu-slot'));
-  try{const raw=sessionStorage.getItem(DEMO_STORAGE_KEY);if(raw){const saved=JSON.parse(raw);if(saved.state?.version===1&&saved.state.people?.length===4&&Array.isArray(saved.state.projects)&&Array.isArray(saved.state.requests)&&Array.isArray(saved.state.reports)&&Array.isArray(saved.state.audit)&&saved.state.saved){setState(saved.state);if(accountLabels[saved.actorId])setActorId(saved.actorId);if(Object.hasOwn(titles,saved.tab))setTab(saved.tab);}else setMessage('The previous demo was reset to the current sample data.');}}
-  catch{setStorageIssue(true);}finally{setReady(true);}
+  let active=true;
+  queueMicrotask(()=>{
+   if(!active)return;
+   setAccountTarget(document.getElementById('account-menu-slot'));
+   try{const raw=sessionStorage.getItem(DEMO_STORAGE_KEY);if(raw){const saved=JSON.parse(raw);if(saved.state?.version===1&&saved.state.people?.length===4&&Array.isArray(saved.state.projects)&&Array.isArray(saved.state.requests)&&Array.isArray(saved.state.reports)&&Array.isArray(saved.state.audit)&&saved.state.saved){setState(saved.state);if(accountLabels[saved.actorId])setActorId(saved.actorId);if(Object.hasOwn(titles,saved.tab))setTab(saved.tab);}else setMessage('The previous demo was reset to the current sample data.');}}
+   catch{setStorageIssue(true);}finally{setReady(true);}
+  });
+  return()=>{active=false;};
  },[]);
- useEffect(()=>{if(ready)try{sessionStorage.setItem(DEMO_STORAGE_KEY,JSON.stringify({state,actorId,tab}));}catch{setStorageIssue(true);}},[state,actorId,tab,ready]);
+ useEffect(()=>{
+  let active=true;
+  if(ready)try{sessionStorage.setItem(DEMO_STORAGE_KEY,JSON.stringify({state,actorId,tab}));}
+  catch{queueMicrotask(()=>{if(active)setStorageIssue(true);});}
+  return()=>{active=false;};
+ },[state,actorId,tab,ready]);
  const me=state.people.find(p=>p.id===actorId)||state.people[0];
  const who=(id:string)=>state.people.find(p=>p.id===id)?.name||'Sample account';
  const own=state.projects.filter(p=>p.ownerId===me.id),active=own.filter(p=>p.lifecycleStatus==='ACTIVE').length;
@@ -90,7 +100,7 @@ export default function WorkspacePreview(){
    {['explore','saved'].map(view=><TabsContent key={view} value={view}>
     <BrowseToolbar filters={browseFilters} query={query} onQuery={setQuery} onChange={updateBrowse} onReset={resetBrowse} count={gallery.length} categories={categories} technologies={technologies} pending={query!==searchQuery} workspace saved={view==='saved'} illustrative liveDemo={false} sortOptions={[{value:'recent',label:'Recently updated'},{value:'name',label:'Name A–Z'}]}/>
     {gallery.length?<div className="grid" aria-busy={query!==searchQuery}>{gallery.map((p,i)=>projectCard(p,i))}</div>:<div className="empty"><Search size={28} aria-hidden="true"/><h2>{view==='saved'&&!hasBrowseFilters?'Your shortlist starts here.':'No projects match these filters.'}</h2><p>{view==='saved'&&!hasBrowseFilters?'Save projects you like, then compare them in one place.':'Try a different keyword or remove a filter to see more projects.'}</p><button className="button" onClick={()=>{resetBrowse();if(view==='saved'&&!hasBrowseFilters)setTab('explore')}}>{view==='saved'&&!hasBrowseFilters?'Explore projects':'Clear search and filters'}</button></div>}
-    <p className="samplebar"><strong>Try the client flow:</strong> Preview Stockroom → Build something similar → Send inquiry → confirm in the demo inbox. Templates and checkout belong to a later release.</p>
+    <p className="samplebar"><strong>Try the client flow:</strong> Preview Stockroom → Build something similar → Send inquiry → confirm in the demo inbox.</p>
    </TabsContent>)}
    <TabsContent value="showcases"><div className="workspacehead demo-section-head"><div><h2>Showcase library</h2><p className="muted">{active} / 3 active · Unlimited drafts.</p></div><button className="button primary" disabled={me.profile!=='APPROVED'} onClick={()=>open({type:'draft'})}><Plus size={17}/>New draft</button></div>
     {me.profile!=='APPROVED'&&<p className="samplebar">Complete your profile and request approval before publishing. <button className="link" onClick={()=>setTab('profile')}>Open profile →</button></p>}
