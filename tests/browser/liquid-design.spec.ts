@@ -229,9 +229,11 @@ async function provesEntrance(surface: Locator) {
       };
     };
     const initial = sample();
+    const frameOpacities = [initial.opacity];
     animation.play();
     await new Promise<void>((resolve, reject) => {
       const frame = () => {
+        frameOpacities.push(sample().opacity);
         if (Number(animation.currentTime) > delay + 80) resolve();
         else if (animation.playState === 'idle') reject(new Error('The entrance was cancelled before it progressed.'));
         else requestAnimationFrame(frame);
@@ -239,21 +241,31 @@ async function provesEntrance(surface: Locator) {
       requestAnimationFrame(frame);
     });
     const progressed = sample();
-    await animation.finished;
-    return {duration, delay, iterations: timing.iterations, initial, progressed, settled: sample()};
+    await new Promise<void>((resolve, reject) => {
+      const frame = () => {
+        frameOpacities.push(sample().opacity);
+        if (animation.playState === 'finished') resolve();
+        else if (animation.playState === 'idle') reject(new Error('The entrance was cancelled before it settled.'));
+        else requestAnimationFrame(frame);
+      };
+      requestAnimationFrame(frame);
+    });
+    return {duration, delay, iterations: timing.iterations, initial, progressed, settled: sample(), frameOpacities};
   });
   expect(measurements.duration).toBeGreaterThanOrEqual(420);
   expect(measurements.duration).toBeLessThanOrEqual(560);
   expect(measurements.delay).toBeGreaterThanOrEqual(0);
   expect(measurements.delay).toBeLessThanOrEqual(120);
   expect(measurements.iterations).toBe(1);
-  expect(measurements.initial.opacity).toBeGreaterThan(0);
-  expect(measurements.initial.opacity).toBeLessThan(.7);
+  // Position carries the entrance; text must retain full contrast at every frame.
+  expect(measurements.initial.opacity).toBe(1);
   expect(measurements.initial.y).toBeCloseTo(8, 1);
   expect(measurements.progressed.time).toBeGreaterThan(measurements.initial.time + 80);
-  expect(measurements.progressed.opacity).toBeGreaterThan(measurements.initial.opacity + .1);
+  expect(measurements.progressed.opacity).toBe(1);
   expect(measurements.progressed.y).toBeLessThan(measurements.initial.y - 1);
   expect(measurements.settled.opacity).toBe(1);
+  expect(measurements.frameOpacities.length).toBeGreaterThan(2);
+  expect(measurements.frameOpacities.every(opacity => opacity === 1)).toBe(true);
   expect(measurements.settled.translate).toBe('none');
 }
 

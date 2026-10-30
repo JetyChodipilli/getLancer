@@ -70,7 +70,7 @@ test('account menu preserves a complete unbroken display name inside its clippin
   await expect(trigger).toBeFocused();
 });
 
-test('public and workspace shells reflow at 320px with bounded local navigation strips', async ({page}, info) => {
+test('public and workspace shells reflow at 320px with keyboard-operable local navigation', async ({page}, info) => {
   test.skip(info.project.name !== 'desktop', 'One dedicated narrow-width matrix covers all shells.');
   test.setTimeout(180000);
   await page.setViewportSize({width: 320, height: 812});
@@ -90,11 +90,32 @@ test('public and workspace shells reflow at 320px with bounded local navigation 
       await expect(page.locator('meta[name="viewport"]')).toHaveAttribute('content', /width=device-width/);
       await fits(page);
       samples.push({path, viewport: 320, documentWidth: await page.evaluate(() => document.documentElement.scrollWidth)});
-      const rail = page.locator('.studio-rail nav');
-      if (await rail.count()) {
-        await expect(rail).toHaveCSS('overflow-x', 'auto');
-        await rail.getByRole('link').last().focus();
-        await expect(rail.getByRole('link').last()).toBeFocused();
+      const workspace = page.locator('.studio-shell');
+      if (await workspace.count()) {
+        await expect(workspace.locator('.studio-rail')).toBeHidden();
+        const mobile = workspace.locator('.studio-mobile-navigation');
+        const summary = mobile.locator('summary');
+        await expect(summary).toBeVisible();
+        await summary.focus();
+        await page.keyboard.press('Enter');
+        await expect(mobile).toHaveAttribute('open', '');
+        const navigation = mobile.getByRole('navigation', {name: 'Workspace areas', exact: true});
+        await expect(navigation).toBeVisible();
+        await expect(navigation).toHaveCSS('overflow-y', 'auto');
+        await expect(navigation.locator('[aria-current="page"]')).toHaveAttribute('href', path);
+        await page.keyboard.press('Tab');
+        await expect(navigation.getByRole('link').first()).toBeFocused();
+        const destination = path === '/preview/business'
+          ? navigation.getByRole('link').first() : navigation.getByRole('link').last();
+        const href = await destination.getAttribute('href');
+        expect(href).toMatch(/^\/preview\//);
+        await destination.focus();
+        await expect(destination).toBeFocused();
+        await expect(destination).toBeInViewport();
+        await fits(page, navigation);
+        await page.keyboard.press('Enter');
+        await expect.poll(() => new URL(page.url()).pathname).toBe(href);
+        await expect(page.locator('main h1')).toBeVisible();
         await fits(page);
       }
     });
