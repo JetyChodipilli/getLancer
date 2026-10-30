@@ -26,8 +26,13 @@ test('real built frontend ZIP, MFA review, isolated JavaScript and withdrawal wo
   await dialog.getByLabel('Built frontend ZIP',{exact:true}).setInputFiles({name:'frontend.zip',mimeType:'application/zip',buffer:bytes});await dialog.getByRole('checkbox').check();
   await dialog.getByRole('button',{name:'Upload immutable package',exact:true}).click();await expect(dialog).not.toBeVisible();await expect(page.getByRole('heading',{name:title,exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Review rights & submit',exact:true}).click();dialog=page.getByRole('dialog');await dialog.getByRole('checkbox').check();await dialog.getByRole('button',{name:'Submit package for review',exact:true}).click();await expect(dialog).not.toBeVisible();
-  const record=(await (await call(page,'/me/hosting')).json()).items.find((item:any)=>item.title===title);expect(record.status).toBe('PENDING');
-  await login(admin,true);await admin.goto('/workspace');await admin.getByText('Hosted frontend review & recovery',{exact:true}).click();
+  const record=(await (await call(page,'/me/hosting')).json()).items.find((item:{title:string;status:string})=>item.title===title);expect(record.status).toBe('PENDING');
+  await login(admin,true);await admin.goto('/workspace');
+  const operations=admin.locator('.hosting-operations'),operationsSummary=operations.locator('summary');
+  await expect(operationsSummary).toHaveText('Hosted frontend review & recovery');
+  // Native keyboard activation avoids a pointer target moving during page scroll.
+  await operationsSummary.focus();await expect(operationsSummary).toBeFocused();await operationsSummary.press('Enter');
+  await expect(operations).toHaveAttribute('open','');
   const card=admin.locator('.hosting-operator-list [data-slot="card"]').filter({has:admin.getByRole('heading',{name:title,exact:true})});
   await expect(card).toBeVisible();await expect(card.getByRole('button',{name:'Review package & rights',exact:true})).toBeDisabled();
   const downloadEvent=admin.waitForEvent('download');await card.getByRole('button',{name:'Download actual ZIP',exact:true}).click();const download=await downloadEvent;assert.deepEqual(readFileSync((await download.path())!),bytes);
