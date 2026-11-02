@@ -1,5 +1,4 @@
 import {expect,test,type Page} from '@playwright/test';
-import {readFileSync} from 'node:fs';
 import {buildSync} from 'esbuild';
 
 function contrast(a:string,b:string){
@@ -65,8 +64,13 @@ test('@cross-browser keyboard focus stays inside clipped media and separate from
 
 test('shared form confirmation distinguishes pending, neutral and failed outcomes without fading',async({page})=>{
  const bundle=buildSync({stdin:{contents:`import {createRoot}from'react-dom/client';import{Field,TeamForm}from'./app/components/workspace-form';function Harness(){return <TeamForm label="Search builders" pendingLabel="Searching…" pendingMessage="Finding matching builders…" successMessage="Search complete." onSave={()=>new Promise((resolve,reject)=>{window.finishJoinery=outcome=>outcome==='error'?reject(new Error('Search unavailable. Try again.')):resolve(outcome==='neutral'?false:{items:[]});})}><Field name="q" label="Builder name or skill" value="React"/></TeamForm>}createRoot(document.getElementById('root')).render(<Harness/>);`,loader:'tsx',resolveDir:process.cwd()},bundle:true,write:false,platform:'browser',format:'iife',jsx:'automatic',define:{'process.env.NODE_ENV':'"test"'}}).outputFiles[0].text;
- await page.route('**/joinery-form-fixture',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html lang="en"><meta name="viewport" content="width=device-width,initial-scale=1"><div id="root"></div></html>'}));await page.goto('/joinery-form-fixture');
- await page.addStyleTag({content:['app/globals.css','app/components/workspace.css','app/form-controls.css','app/paper.css','app/paper-feedback.css'].map(path=>readFileSync(path,'utf8')).join('\n')});await page.addScriptTag({content:bundle});
+ // Use the real compiled cascade, including the global box-sizing reset and package imports.
+ await page.goto('/');
+ const styles=await page.locator('link[rel="stylesheet"]').evaluateAll(links=>links.map(link=>link.getAttribute('href')).filter((href):href is string=>Boolean(href?.startsWith('/_next/static/css/'))));
+ expect(styles.length).toBeGreaterThan(0);
+ const styleLinks=styles.map(href=>`<link rel="stylesheet" href="${href.replaceAll('&','&amp;').replaceAll('"','&quot;')}">`).join('');
+ await page.route('**/joinery-form-fixture',route=>route.fulfill({contentType:'text/html',body:`<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1">${styleLinks}</head><body><div id="root"></div></body></html>`}));await page.goto('/joinery-form-fixture');
+ await page.addScriptTag({content:bundle});
  const submit=page.getByRole('button',{name:'Search builders',exact:true}),status=page.getByRole('status');
  const finish=(outcome:string)=>page.evaluate(value=>(window as unknown as {finishJoinery:(outcome:string)=>void}).finishJoinery(value),outcome);
  await submit.click();await expect(page.getByRole('button',{name:'Searching…',exact:true})).toBeDisabled();await expect(status).toHaveText('Finding matching builders…');await expect(status).not.toContainText('Search complete.');
