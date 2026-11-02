@@ -56,7 +56,12 @@ test('pending replacement search keeps confirmed catalogue content fully readabl
 });
 
 test('@cross-browser keyboard focus stays inside clipped media and separate from Save',async({page})=>{
- await page.goto('/');const preview=page.locator('.paper-project-media>.paper-project-preview').first();await preview.focus();await page.keyboard.press('Tab');await page.keyboard.press('Shift+Tab');await expect(preview).toBeFocused();
+ await page.goto('/');const preview=page.locator('.paper-project-media>.paper-project-preview').first();
+ const save=preview.locator('..').getByRole('button',{name:'Save Stockroom',exact:true});
+ // Confirm this client component is interactive before testing programmatic keyboard focus.
+ await expect(save).toBeEnabled();await save.click();
+ await expect(page.getByRole('alert')).toContainText('Sign in to save projects to your collection.');
+ await preview.focus();await expect(preview).toBeFocused();await page.keyboard.press('Tab');await expect(save).toBeFocused();await page.keyboard.press('Shift+Tab');await expect(preview).toBeFocused();
  const ring=await preview.evaluate(node=>{const media=node.parentElement!,s=getComputedStyle(media,'::after'),box=media.getBoundingClientRect();return{visible:node.matches(':focus-visible'),content:s.content,inset:parseFloat(s.top),border:parseFloat(s.borderTopWidth),shadow:s.boxShadow,width:box.width,height:box.height};});
  expect(ring.visible).toBe(true);expect(ring.content).not.toBe('none');expect(ring.border).toBeGreaterThanOrEqual(3);expect(ring.inset).toBeGreaterThanOrEqual(2);expect(ring.inset*2+ring.border*2).toBeLessThan(Math.min(ring.width,ring.height));expect(ring.shadow).not.toBe('none');
  await expect(preview).toHaveAttribute('href',/^\/products\//);await expect(preview.locator('..').getByRole('button',{name:/^(?:Save|Unsave) /})).toHaveCount(1);
