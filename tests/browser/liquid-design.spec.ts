@@ -138,7 +138,7 @@ test('every sample workspace renders paper surfaces, readable records and contai
     if (preview.route === 'workspace') {
       const search = page.locator('.browse-search-submit');
       await expect(search).toBeVisible();
-      await expect(search).toHaveCSS('background-color', 'rgb(32, 35, 33)');
+      await expect(search).toHaveCSS('background-color', 'rgb(35, 55, 70)');
       expect((await search.boundingBox())!.height).toBeGreaterThanOrEqual(44);
       const toolbar = (await page.locator('.browse-toolbar-sticky:visible').boundingBox())!;
       const grid = (await page.locator('[role=tabpanel][data-state=active] > .grid').boundingBox())!;
