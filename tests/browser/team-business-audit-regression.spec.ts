@@ -55,7 +55,7 @@ for(const refresh of ['actor','same workspace'] as const)test('initial builder s
 
 test('unchanged overdue follow-up is omitted while status and private notes save',async({page})=>{
  await render(page);await lead(page);await page.getByLabel('Stage',{exact:true}).selectOption('INTERESTED');await page.getByLabel('Add a private note',{exact:true}).fill('Discuss the existing approval workflow.');
- await page.getByRole('button',{name:'Update lead',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'Changes saved.'})).toBeVisible();
+ await page.getByRole('button',{name:'Update lead',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'Client lead updated.'})).toBeVisible();
  const writes=await page.evaluate(()=>(window as unknown as AuditWindow).teamBusinessAudit.writes);expect(writes).toHaveLength(1);expect(writes[0].body).not.toHaveProperty('followUpAt');expect(writes[0].body).not.toHaveProperty('assigneeId');expect(writes[0].body.status).toBe('INTERESTED');
  await page.getByText('Customer portal for a design practice · Interested',{exact:true}).click();await expect(page.getByLabel('Follow-up (local time)',{exact:true})).toHaveValue('2020-01-02T03:04');await expect(page.getByText('Discuss the existing approval workflow.',{exact:true})).toBeVisible();
 });
@@ -69,7 +69,7 @@ for(const denial of ['search','mutation'] as const)test('team '+denial+' access 
 
 test('accepted team update with failed refresh offers a read retry without false success or duplicate write',async({page})=>{
  await render(page);await lead(page);await page.evaluate(()=>(window as unknown as AuditWindow).teamBusinessAudit.failAfterWrite=true);await page.getByRole('button',{name:'Update lead',exact:true}).click();
- await expect(page.getByRole('alert')).toContainText('The change was saved, but your team workspace could not be refreshed.');await expect(page.getByText('Changes saved.',{exact:true})).toHaveCount(0);
+ await expect(page.getByRole('alert')).toContainText('The change was saved, but your team workspace could not be refreshed.');await expect(page.getByRole('status').filter({hasText:'Client lead updated.'})).toHaveCount(0);
  await page.getByRole('button',{name:'Retry your workspace',exact:true}).click();await expect(page.getByRole('heading',{name:'Northstar Studio',exact:true})).toBeVisible();expect(await page.evaluate(()=>(window as unknown as AuditWindow).teamBusinessAudit.writes.length)).toBe(1);
 });
 

@@ -15,7 +15,11 @@ export function Field({name,label,value='',type='text',options,required=true,min
   {error&&<span id={id+'-error'} className="team-error">{error}</span>}
  </label>;
 }
-export function TeamForm({children,onSave,label='Save changes',busy=false}:{children:ReactNode;onSave:(data:Record<string,string>)=>Promise<unknown>;label?:string;busy?:boolean}){
+export function TeamForm({children,onSave,label='Save changes',busy=false,pendingLabel,pendingMessage,successMessage}:{children:ReactNode;onSave:(data:Record<string,string>)=>Promise<unknown>;label?:string;busy?:boolean;pendingLabel?:string;pendingMessage?:string;successMessage?:string}){
+ const isSave=label==='Save changes';
+ const waitingLabel=pendingLabel??(isSave?'Saving…':'Please wait…');
+ const waitingMessage=pendingMessage??(isSave?'Saving your changes…':'Waiting for confirmation…');
+ const confirmedMessage=successMessage??(isSave?'Changes saved.':'Request confirmed.');
  const [error,setError]=useState(''),[fields,setFields]=useState<Record<string,string>>({}),[pending,setPending]=useState(false),[completed,setCompleted]=useState(false);
  const summary=useRef<HTMLDivElement>(null),formRef=useRef<HTMLFormElement>(null),focusError=useRef(false),inFlight=useRef(false);
  useEffect(()=>{
@@ -31,12 +35,12 @@ export function TeamForm({children,onSave,label='Save changes',busy=false}:{chil
   inFlight.current=true;focusError.current=false;setError('');setFields({});setCompleted(false);setPending(true);
   try{const result=await onSave(data);if(result!==false)setCompleted(true);}
   catch(problem){
-   const failure=problem as Error&{fieldErrors?:Record<string,string>};
+   const failure:Error&{fieldErrors?:Record<string,string>}=problem instanceof Error?problem:new Error('This action could not be confirmed. Refresh the current record before retrying.');
    focusError.current=true;setError(failure.message||'This action could not be confirmed. Refresh the current record before retrying.');setFields(failure.fieldErrors||{});
   }finally{inFlight.current=false;setPending(false);}
  }
  return <FieldErrors.Provider value={fields}><form ref={formRef} className="team-form" aria-busy={pending||busy} onSubmit={submit} onChange={()=>setCompleted(false)}>
   {error&&<div ref={summary} tabIndex={-1} role="alert" className="error form-error-summary"><div className="feedback-heading"><CircleAlert size={20} aria-hidden="true"/><strong>{Object.keys(fields).length?'Check these details':'This action needs your attention'}</strong></div><p>{error}</p>{Object.entries(fields).length>0&&<ul>{Object.entries(fields).map(([name,message])=><li key={name}><button type="button" className="error-field-link" onClick={()=>focusField(name)}>{name.replace(/([a-z])([A-Z])/g,'$1 $2')}: {message}</button></li>)}</ul>}</div>}
-  <fieldset disabled={pending||busy}>{children}<div className="team-form-actions"><button type="submit" className="button primary" disabled={pending||busy}>{pending?'Working…':label}</button><span className="team-form-status" role="status" aria-live="polite">{pending?'Your request is being processed…':completed?<><CheckCircle2 size={16} aria-hidden="true"/>Action completed.</>:''}</span></div></fieldset>
+  <fieldset disabled={pending||busy}>{children}<div className="team-form-actions"><button type="submit" className="button primary" disabled={pending||busy}>{pending?waitingLabel:label}</button><span className="team-form-status" role="status" aria-live="polite" aria-atomic="true">{pending?waitingMessage:completed&&confirmedMessage?<><CheckCircle2 size={16} aria-hidden="true"/>{confirmedMessage}</>:''}</span></div></fieldset>
  </form></FieldErrors.Provider>;
 }

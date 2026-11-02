@@ -1,4 +1,4 @@
-# getLancer — Paper & Pixel
+# getLancer — Paper & Pixel / Joinery
 
 User-approved direction: P4 Paper & Pixel, 28 October 2026. The public homepage is a digital exhibition of working software. Dark projects lead into light components, college work and learning. Product screens retain quiet task-focused structure.
 
@@ -6,10 +6,10 @@ User-approved direction: P4 Paper & Pixel, 28 October 2026. The public homepage 
 Framer supplies the dark exhibition hierarchy; Wired supplies editorial light chapters. These are compositional references only. Use original getLancer marks, product copy and assets. Deliberate deviations: no neon, gradients, glass, floating blobs or proprietary typography. The approved template wins over any random style draw.
 
 ## Semantic tokens
-Canvas #f8f8f6; surface #ffffff; raised #f0f0ed; ink #202321; muted #5b625e; border #d6d9d5. Inverse canvas #171a18; inverse surface #232724; inverse ink #f8faf7; inverse muted #bdc5bf; inverse border #454c47. Primary ink on light and ivory on dark. Focus #2563eb with visible 3px ring. Success #166b45 / #edf8f0; warning #805710 / #fff8e8; danger #a52b34 / #fff1f2. Disabled opacity .55, never opacity alone for status.
+Selected B / Joinery supplies the identity and graphite palette. Canvas #f5f8fa; surface #ffffff; raised #edf2f5; ink/dark #233746; muted #536572; decorative line #d3dce2; control boundary #7d8b94. Dark raised #304959; inverse ink #ffffff; dark muted #c1d0da; decorative dark line #5a6e7b. Focus #2d5d85 on light and #bad8f1 on dark. Success #166b45 / #edf8f0; warning #805710 / #fff8e8; danger #a52b34 / #fff1f2. Disabled controls remain legible; no opacity reduction on readable status text. Exact asset rules/evidence: [Joinery](docs/brand/JOINERY.md).
 
 ## Typography
-Self-hosted Geist Sans for UI and hero, with supplied OFL license; Georgia serif editorial headings until an openly licensed serif can be bundled. Two families maximum. Body 16px/1.55. Metadata 13–14px/1.5; form labels 14px/600. Headline clamp(2.5rem,5vw,4.75rem), weight 500, line 1.05, tracking -.055em. Editorial chapter 36–48px serif. Product headings 28–40px. No uppercased paragraphs.
+Self-hosted getLancer Sans (renamed IBM Plex Sans Latin, normal variable 100-700, width 100) for UI and hero; getLancer Serif (renamed IBM Plex Serif Latin, real 400) for editorial display. Original OFL copyright/licenses bundled. Two families maximum; no synthetic serif bold. Body 16px/1.55. Metadata 13-14px/1.5; labels 14px/600. Headline clamp(2.5rem,5vw,4.75rem), 500, line 1.05, tracking -.04em. Editorial chapter 36-48px serif/400. Product headings 28-40px. No uppercased paragraphs. Joinery outlined horizontal logo: header 168px, minimum 132px; symbol minimum 24px with tested favicon exception at 16px.
 
 ## Geometry
 4px spacing scale: 4/8/12/16/24/32/48/64/96. Public max width 1440px with 24–48px gutters. Tasks max width 1320px. Form line length 480–640px. 6px radius for controls, 10px previews, 999px primary CTA only. Border and surface hierarchy, no decorative shadows; dialogs may have modest functional elevation.

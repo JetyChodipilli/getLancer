@@ -1,0 +1,25 @@
+{
+  "name": "getLancer",
+  "short_name": "getLancer",
+  "icons": [
+    {
+      "src": "/brand/joinery/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/brand/joinery/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/brand/joinery/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "theme_color": "#233746",
+  "background_color": "#f5f8fa",
+  "display": "standalone"
+}

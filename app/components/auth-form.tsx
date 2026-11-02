@@ -31,6 +31,7 @@ export function AuthForm({signup=false,preview=false}:{signup?:boolean;preview?:
  const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[name,setName]=useState('');
  const [showPassword,setShowPassword]=useState(false),[remember,setRemember]=useState(false),[totp,setTotp]=useState('');
  const [errors,setErrors]=useState<Record<string,string>>({}),[error,setError]=useState('');
+ const [validationAttempt,setValidationAttempt]=useState(0);
  const [success,setSuccess]=useState(''),[busy,setBusy]=useState(false),[googleBusy,setGoogleBusy]=useState(false);
  const [githubReady,setGithubReady]=useState(false),[providerBusy,setProviderBusy]=useState('');
  const [googleReady,setGoogleReady]=useState<boolean|null>(null),[servicesReady,setServicesReady]=useState<boolean|null>(null);
@@ -55,12 +56,12 @@ export function AuthForm({signup=false,preview=false}:{signup?:boolean;preview?:
   const frame=requestAnimationFrame(()=>{if(code)setError(code==='email_unverified'?'Verify your primary GitHub email before continuing.':(googleErrors[code]||'Sign-in could not be completed. Please try again.').replaceAll('Google',query.get('provider')==='github'?'GitHub':'Google'))});
   return()=>cancelAnimationFrame(frame);
  },[]);
- useEffect(()=>{if(error)notice.current?.focus()},[error]);
+ useEffect(()=>{if(error&&!busy&&!googleBusy)notice.current?.focus()},[error,validationAttempt,busy,googleBusy]);
  useEffect(()=>{if(success)heading.current?.focus()},[success]);
 
- function switchMode(next:Mode){
+ function switchMode(next:Mode,focusHeading=true){
   setMode(next);setError('');setErrors({});setSuccess('');setPassword('');setTotp('');setShowPassword(false);
-  requestAnimationFrame(()=>heading.current?.focus());
+  if(focusHeading)requestAnimationFrame(()=>heading.current?.focus());
  }
  function validate(field:string,value:string){
   const message=validationMessage(field,value,mode);setErrors(old=>({...old,[field]:message}));return !message;
@@ -78,7 +79,7 @@ export function AuthForm({signup=false,preview=false}:{signup?:boolean;preview?:
    }
   }
   setErrors(nextErrors);
-  if(Object.keys(nextErrors).length){setError('Review the highlighted details, then try again.');requestAnimationFrame(()=>notice.current?.focus());return;}
+  if(Object.keys(nextErrors).length){setError('Review the highlighted details, then try again.');setValidationAttempt(attempt=>attempt+1);return;}
   inFlight.current=true;setBusy(true);
   try{
    const path=isMfa?'/auth/login/mfa':isReset?'/auth/password-reset/request':'/auth/'+mode;
@@ -92,7 +93,7 @@ export function AuthForm({signup=false,preview=false}:{signup?:boolean;preview?:
    setSuccess(isReset?'If an account exists for this email, you’ll receive a link to reset your password.':'Your account is created. Open the confirmation email to verify your address and get started.');
   }catch(e){
    const failure=e instanceof Error?e:new Error('Sign-in could not be completed. Please try again.');
-   if(failure instanceof ApiError&&failure.code==='MFA_EXPIRED'){switchMode('login');setError('Your verification step expired. Please sign in again.');}
+   if(failure instanceof ApiError&&failure.code==='MFA_EXPIRED'){switchMode('login',false);setError('Your verification step expired. Please sign in again.');}
    else{
     if(failure instanceof ApiError){
      const fields=Object.fromEntries(Object.entries(failure.fieldErrors).filter(([field])=>fieldIds[field]).map(([field,message])=>[field==='displayName'?'name':field,message]));
@@ -135,11 +136,11 @@ export function AuthForm({signup=false,preview=false}:{signup?:boolean;preview?:
        {!isSignup&&!isReset&&<div className="icy-options"><label><input type="checkbox" checked={remember} onChange={e=>setRemember(e.target.checked)}/> Keep me signed in</label><button type="button" onClick={()=>switchMode('reset')}>Forgot password?</button></div>}
       </>}
      </fieldset>
-     <button className="auth-submit" disabled={busy||googleBusy||servicesReady!==true} type="submit">{busy?<><LoaderCircle size={18} className="auth-spin" aria-hidden="true"/>{isSignup?'Creating account…':isReset?'Sending link…':'Logging in…'}</>:<>{isMfa?'Verify and log in':isReset?'Send reset link':isSignup?'Create account':'Log in'}<ArrowRight size={18} aria-hidden="true"/></>}</button>
+     <button className="auth-submit" disabled={busy||googleBusy||servicesReady!==true} type="submit">{busy?<><LoaderCircle size={18} className="auth-spin" aria-hidden="true"/>{isMfa?'Verifying…':isSignup?'Creating account…':isReset?'Sending link…':'Logging in…'}</>:<>{isMfa?'Verify and log in':isReset?'Send reset link':isSignup?'Create account':'Log in'}<ArrowRight size={18} aria-hidden="true"/></>}</button>
     </form>
     {isSignup&&<p className="icy-legal">By creating an account, you accept our <Link prefetch={false} href="/policies#terms">Terms</Link> and <Link prefetch={false} href="/policies#privacy">Privacy Policy</Link>.</p>}
     {!isReset&&!isMfa&&<p className="icy-switch">{isSignup?'Already have an account?':'New to getLancer?'} <Link prefetch={false} href={isSignup?'/login':'/signup'}>{isSignup?'Log in':'Create an account'}</Link></p>}
-    {servicesReady===true&&(googleReady===false||!githubReady)&&<p className="icy-service-note">You can sign in with your email and password.</p>}
+    {!isReset&&!isMfa&&servicesReady===true&&(googleReady===false||!githubReady)&&<p className="icy-service-note">{googleReady===false&&!githubReady?'Google and GitHub sign-in are unavailable.':googleReady===false?'Google sign-in is unavailable.':'GitHub sign-in is unavailable.'} Continue with {isSignup?'email to create your account':'your email and password'}.</p>}
    </>}
   </div>
   <p className="paper-auth-assistance">Need a hand? <Link prefetch={false} href="/report">Contact support</Link></p>

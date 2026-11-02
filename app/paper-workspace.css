@@ -17,18 +17,18 @@ body .studio-shell.paper-studio {
   gap: 32px;
   max-width: 1440px;
   padding: 24px 24px 64px;
-  font-family: var(--font-sans, "Geist", sans-serif);
+  font-family: var(--paper-font, system-ui, sans-serif);
   background: var(--studio-canvas);
   color: var(--studio-ink);
 }
 .paper-studio *, .paper-studio *::before, .paper-studio *::after { box-sizing: border-box; }
 body .studio-shell.paper-studio .studio-body { min-width: 0; }
 body .studio-shell.paper-studio .studio-rail {
-  --rail-canvas: #171a18;
-  --rail-surface: #292e2a;
-  --rail-ink: #f8faf7;
-  --rail-muted: #bdc5bf;
-  --rail-line: #454c47;
+  --rail-canvas: var(--paper-dark);
+  --rail-surface: var(--paper-dark-surface);
+  --rail-ink: var(--paper-on-dark);
+  --rail-muted: var(--paper-dark-muted);
+  --rail-line: var(--paper-dark-line);
   top: var(--studio-sticky-top);
   height: calc(100dvh - var(--studio-sticky-top) - 24px);
   max-height: 980px;
@@ -60,7 +60,7 @@ body .studio-shell.paper-studio .studio-rail :is(nav, .studio-rail-secondary) a 
   line-height: 20px;
   font-weight: 400;
   box-shadow: none;
-  transition: background 180ms ease, color 180ms ease;
+  transition: background var(--paper-motion-fast), color var(--paper-motion-fast);
 }
 body .studio-shell.paper-studio .studio-rail :is(nav, .studio-rail-secondary) a:hover,
 body .studio-shell.paper-studio .studio-rail nav a[aria-current=page] { color: var(--rail-ink); background: var(--rail-surface); box-shadow: none; }

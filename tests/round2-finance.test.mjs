@@ -23,7 +23,9 @@ function operations(kind='delivery'){
  const state={pages:{},page:null,loading:{},errors:{},busy:false,blocked:false,error:'',note:'',epoch:0};
  const context={ApiError,JSON,Error,Object,Number,Promise,page:null,useCallback:fn=>fn,mounted:{current:true},generation:{current:0},mutating:{current:false},versions:{current:{disputes:0,accounts:0,attention:0}},paths:{disputes:'/admin/delivery/disputes',accounts:'/admin/payments/accounts',attention:'/admin/payments/attention'}};
  for(const key of Object.keys(state))context['set'+key[0].toUpperCase()+key.slice(1)]=value=>{state[key]=typeof value==='function'?value(state[key]):value;};
- context.api=async(_path,options)=>options?.method==='POST'?{status:'RESOLVED'}:page([{id:'current'}]);
+ // The production maintenance action requires a currently loaded matching row.
+ Object.defineProperty(context,'page',{get:()=>state.page,set:value=>{state.page=value;}});
+ context.api=async(_path,options)=>options?.method==='POST'?{status:'RESOLVED'}:page([{id:kind==='maintenance'?'billing-current':'current'}]);
  return {...runInNewContext(pageCode+(kind==='delivery'?deliveryCode:maintenanceCode)+(kind==='delivery'?';({load,save,clear})':';({load,save})'),context),state,context};
 }
 
@@ -66,6 +68,11 @@ test('accepted maintenance action distinguishes unavailable refresh from rejecte
 });
 
 test('a current maintenance refresh still reports its confirmed provider state',async()=>{
- const {save,state}=operations('maintenance');await save('billing-current',{action:'reconcile',reason:'Reviewed provider evidence.'});
+ const {load,save,state}=operations('maintenance');await load();await save('billing-current',{action:'reconcile',reason:'Reviewed provider evidence.'});
  assert.equal(state.note,'Operator action recorded. Provider state: RESOLVED');assert.equal(state.error,'');assert.equal(state.busy,false);
+});
+
+test('maintenance cannot record an operation for a row that is not loaded',async()=>{
+ const {save,state,context}=operations('maintenance');let writes=0;context.api=async()=>{writes++;return{status:'RESOLVED'};};
+ assert.equal(await save('missing-billing',{action:'reconcile',reason:'Synthetic missing record.'}),false);assert.equal(writes,0);assert.equal(state.note,'');assert.equal(state.busy,false);
 });

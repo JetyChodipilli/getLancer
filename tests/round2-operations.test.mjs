@@ -25,7 +25,7 @@ function callback(kind,context){
 function deferred(){let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no;});return{promise,resolve,reject};}
 function harness(pending){
  const state={notice:'',applied:[]},writes=[];
- const context={id:'alpha',r:{id:'role-alpha'},generation:{current:1},request:async(path,init)=>{writes.push({path,body:JSON.parse(init.body)});await pending.promise;return {ok:true};},setNotice:value=>{state.notice=value;},setApplied:update=>{state.applied=update(state.applied);}};
+ const context={id:'alpha',r:{id:'role-alpha'},demo:false,generation:{current:1},mutationInFlight:{current:null},setSending:value=>{state.sending=value;},request:async(path,init)=>{writes.push({path,body:JSON.parse(init.body)});await pending.promise;return {ok:true};},setNotice:value=>{state.notice=value;},setApplied:update=>{state.applied=update(state.applied);}};
  return {state,writes,context};
 }
 
@@ -52,5 +52,15 @@ for(const kind of ['interest','application']){
   const request=kind==='interest'?send({title:'An accessible project'}):source.includes('async function sendApplication(')?send('role-alpha',{message:'Relevant builder experience'}):send({message:'Relevant builder experience'});
   pending.reject(new Error('Current team access is required.'));
   await assert.rejects(request,/Current team access/);assert.equal(state.notice,'');assert.deepEqual(state.applied,[]);
+ });
+ test('team '+kind+' duplicate submit cannot start a second write',async()=>{
+  const pending=deferred(),{context,writes}=harness(pending),send=callback(kind,context);
+  const invoke=()=>kind==='interest'?send({title:'An accessible project'}):send('role-alpha',{message:'Relevant builder experience'});
+  const first=invoke();assert.equal(await invoke(),false);assert.equal(writes.length,1);pending.resolve();assert.equal(await first,true);
+ });
+ test('team '+kind+' old-context rejection is a neutral cancelled outcome',async()=>{
+  const pending=deferred(),{context,state}=harness(pending),send=callback(kind,context);
+  const request=kind==='interest'?send({title:'An accessible project'}):send('role-alpha',{message:'Relevant builder experience'});
+  context.generation.current++;pending.reject(Error('Previous team access changed.'));assert.equal(await request,false);assert.equal(state.notice,'');assert.deepEqual(state.applied,[]);
  });
 }
