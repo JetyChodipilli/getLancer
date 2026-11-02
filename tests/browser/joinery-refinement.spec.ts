@@ -27,7 +27,7 @@ test('@cross-browser auth field boundaries remain visible through validation and
  await page.goto('/login');const email=page.getByLabel('Email address',{exact:true}),field=email.locator('..');
  async function boundary(){const c=await field.evaluate(node=>{const s=getComputedStyle(node);return{border:s.borderTopColor,background:s.backgroundColor,width:parseFloat(s.borderTopWidth),opacity:s.opacity};});expect(c.width).toBeGreaterThanOrEqual(1);expect(c.opacity).toBe('1');expect(contrast(c.border,c.background)).toBeGreaterThanOrEqual(3);}
  await boundary();await email.focus();await boundary();await page.getByRole('button',{name:'Log in',exact:true}).click();
- await expect(email).toHaveAttribute('aria-invalid','true');await boundary();
+ await expect(page.getByRole('alert')).toBeFocused();await expect(email).toHaveAttribute('aria-invalid','true');await boundary();
  await page.getByRole('alert').getByRole('link',{name:'Email address',exact:true}).click();await expect(email).toBeFocused();
  await page.getByRole('button',{name:'Log in',exact:true}).click();await expect(page.getByRole('alert')).toBeFocused();
  await email.fill('builder@example.test');await page.getByLabel('Password',{exact:true}).fill('synthetic-password-123');await page.getByRole('button',{name:'Log in',exact:true}).click();
@@ -66,7 +66,7 @@ test('@cross-browser keyboard focus stays inside clipped media and separate from
 test('shared form confirmation distinguishes pending, neutral and failed outcomes without fading',async({page})=>{
  const bundle=buildSync({stdin:{contents:`import {createRoot}from'react-dom/client';import{Field,TeamForm}from'./app/components/workspace-form';function Harness(){return <TeamForm label="Search builders" pendingLabel="Searching…" pendingMessage="Finding matching builders…" successMessage="Search complete." onSave={()=>new Promise((resolve,reject)=>{window.finishJoinery=outcome=>outcome==='error'?reject(new Error('Search unavailable. Try again.')):resolve(outcome==='neutral'?false:{items:[]});})}><Field name="q" label="Builder name or skill" value="React"/></TeamForm>}createRoot(document.getElementById('root')).render(<Harness/>);`,loader:'tsx',resolveDir:process.cwd()},bundle:true,write:false,platform:'browser',format:'iife',jsx:'automatic',define:{'process.env.NODE_ENV':'"test"'}}).outputFiles[0].text;
  await page.route('**/joinery-form-fixture',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html lang="en"><meta name="viewport" content="width=device-width,initial-scale=1"><div id="root"></div></html>'}));await page.goto('/joinery-form-fixture');
- await page.addStyleTag({content:['app/form-controls.css','app/paper.css','app/paper-feedback.css'].map(path=>readFileSync(path,'utf8')).join('\n')});await page.addScriptTag({content:bundle});
+ await page.addStyleTag({content:['app/globals.css','app/components/workspace.css','app/form-controls.css','app/paper.css','app/paper-feedback.css'].map(path=>readFileSync(path,'utf8')).join('\n')});await page.addScriptTag({content:bundle});
  const submit=page.getByRole('button',{name:'Search builders',exact:true}),status=page.getByRole('status');
  const finish=(outcome:string)=>page.evaluate(value=>(window as unknown as {finishJoinery:(outcome:string)=>void}).finishJoinery(value),outcome);
  await submit.click();await expect(page.getByRole('button',{name:'Searching…',exact:true})).toBeDisabled();await expect(status).toHaveText('Finding matching builders…');await expect(status).not.toContainText('Search complete.');

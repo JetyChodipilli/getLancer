@@ -15,7 +15,7 @@ function routine(source,start,end,context){
 }
 function deferred(){let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no});return{promise,resolve,reject};}
 function stateContext(extra={}){
- const values={},context={ApiError,...extra};
+ const values={},context={ApiError,submitPointer:{current:false},...extra};
  for(const name of new Set((profile+account+auth).match(/\bset[A-Z]\w*/g)))context[name]=value=>{values[name]=typeof value==='function'?value(values[name]):value;};
  return{values,context};
 }
@@ -83,9 +83,9 @@ test('an expired MFA challenge returns to login while an invalid code remains re
 test('auth submits share one pending login intent and do not send duplicate requests',async()=>{
  const pending=deferred(),modes=[];let writes=0;
  const validationMessage=routine(auth,'function validationMessage(','\n\nexport function AuthForm',{});
- const {values,context}=stateContext({inFlight:{current:false},servicesReady:true,isMfa:false,isSignup:false,isReset:false,mode:'login',email:'builder@example.test',name:'',password:'existing-password',remember:false,validationMessage,switchMode:mode=>modes.push(mode),api:()=>{writes++;return pending.promise;}});
+ const {values,context}=stateContext({inFlight:{current:false},submitPointer:{current:true},servicesReady:true,isMfa:false,isSignup:false,isReset:false,mode:'login',email:'builder@example.test',name:'',password:'existing-password',remember:false,validationMessage,switchMode:mode=>modes.push(mode),api:()=>{writes++;return pending.promise;}});
  const submit=routine(auth,'async function submit(','\n async function oauth',context),first=submit(event);
- await submit(event);assert.equal(writes,1);assert.equal(values.setBusy,true);
+ await submit(event);assert.equal(writes,1);assert.equal(values.setBusy,true);assert.equal(context.submitPointer.current,false);
  pending.resolve({mfaRequired:true});await first;assert.deepEqual(modes,['mfa']);assert.equal(values.setBusy,false);assert.equal(context.inFlight.current,false);
 });
 

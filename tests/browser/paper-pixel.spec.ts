@@ -148,6 +148,12 @@ test('@cross-browser narrow navigation is keyboard recoverable and pages fit at 
     await page.goto(route);
     await expect(page.locator('main:not([aria-busy="true"]):visible')).toHaveCount(1);
     await fits(page);
+    // Complete the real preview service check before unloading the auth page.
+    // WebKit reports fetches started during unload as renderer access errors.
+    if (route === '/login' || route === '/signup') {
+      await expect(page.getByRole('status').filter({hasText: 'Sign-in is unavailable in this preview.'}))
+        .toContainText('Sign-in is unavailable in this preview.');
+    }
   }
   await capture(page, info, 'narrow-signup');
 });
