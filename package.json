@@ -39,7 +39,8 @@
     "v52:evidence": "node scripts/v52-evidence.mjs",
     "v52:monitor": "node scripts/v52-monitor.mjs",
     "v52:load": "node scripts/v52-load.mjs",
-    "v52:traceability": "node scripts/v52-release-contract.mjs"
+    "v52:traceability": "node scripts/v52-release-contract.mjs",
+    "postinstall": "node scripts/patch-lint-globs.mjs"
   },
   "dependencies": {
     "class-variance-authority": "0.7.1",
@@ -84,6 +85,7 @@
     "sharp": "0.35.5",
     "undici": "7.30.1",
     "fast-uri": "3.1.9",
-    "zod": "4.6.7"
+    "zod": "4.6.7",
+    "minimatch": "11.0.4"
   }
 }
