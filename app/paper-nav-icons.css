@@ -1,0 +1,36 @@
+/* Navigation motion belongs to the symbol; labels and hit targets stay still. */
+body .site-header.paper-icon-header .topnav{display:flex;gap:22px}
+body .site-header.paper-icon-header .topnav .paper-icon-action{gap:7px}
+.paper-nav-icon{display:block;flex:none;transform-origin:center;transition:transform var(--paper-motion-fast,160ms) var(--app-motion-ease,ease-out);--nav-lift:-2px;--nav-turn:-4deg}
+.paper-nav-icon[data-nav-icon=components]{--nav-turn:5deg}
+.paper-nav-icon[data-nav-icon=college]{--nav-turn:-6deg}
+.paper-nav-icon[data-nav-icon=learning]{--nav-turn:8deg}
+.paper-nav-icon[data-nav-icon=search]{--nav-turn:-8deg}
+.paper-nav-icon[data-nav-icon=menu]{width:22px;height:22px;--nav-lift:0px;--nav-turn:8deg}
+.paper-header-search .paper-nav-icon{width:20px;height:20px}
+.paper-navigation-menu .paper-icon-action{min-height:44px;gap:10px;cursor:pointer}
+.paper-navigation-menu .paper-nav-icon{color:currentColor}
+.paper-icon-action:focus-visible .paper-nav-icon{transform:translateY(var(--nav-lift)) rotate(var(--nav-turn))}
+@media(hover:hover) and (pointer:fine){
+ .paper-icon-action:hover .paper-nav-icon{transform:translateY(var(--nav-lift)) rotate(var(--nav-turn))}
+}
+.paper-icon-action:active .paper-nav-icon{transform:translateY(1px) scale(.88)}
+.paper-icon-action[data-state=open] .paper-nav-icon[data-nav-icon=menu]{transform:rotate(90deg)}
+/* Reuse the same quiet feedback in desktop and mobile workspace navigation. */
+.paper-studio :is(nav[aria-label="Workspace areas"],.studio-rail-secondary)>a>svg:first-child{transform-origin:center;transition:transform var(--paper-motion-fast,160ms) var(--app-motion-ease,ease-out)}
+.paper-studio :is(nav[aria-label="Workspace areas"],.studio-rail-secondary)>a:focus-visible>svg:first-child{transform:translateY(-2px) rotate(-4deg)}
+@media(hover:hover) and (pointer:fine){
+ .paper-studio :is(nav[aria-label="Workspace areas"],.studio-rail-secondary)>a:hover>svg:first-child{transform:translateY(-2px) rotate(-4deg)}
+}
+.paper-studio :is(nav[aria-label="Workspace areas"],.studio-rail-secondary)>a:active>svg:first-child{transform:translateY(1px) scale(.88)}
+/* Reserve room for symbols instead of squeezing controls at tablet widths. */
+@media(max-width:1100px){
+ body .site-header.paper-icon-header .topnav{display:none}
+ body .site-header.paper-icon-header .paper-more-nav{margin-left:auto}
+ body .site-header.paper-icon-header .account{margin-left:0}
+ body .paper-navigation-menu .mobile-only-link{display:flex}
+}
+@media(prefers-reduced-motion:reduce){
+ .paper-icon-action .paper-nav-icon,
+ .paper-studio :is(nav[aria-label="Workspace areas"],.studio-rail-secondary)>a>svg:first-child{transition:none!important;animation:none!important;transform:none!important}
+}
