@@ -1,0 +1,21 @@
+/* Labels and hit targets stay still; local library variants animate SVG parts. */
+/* The stable bar ID also outranks merged legacy :is() breakpoint selectors. */
+body .site-header.paper-icon-header #site-navigation-bar>.topnav{display:flex;gap:22px}
+body .site-header.paper-icon-header:has(.scroll-discovery[data-visible=true]) #site-navigation-bar>.topnav{display:none}
+body .site-header.paper-icon-header .topnav .paper-icon-action{gap:7px}
+.paper-nav-icon{display:block;flex:none;overflow:visible}
+.paper-nav-icon[data-nav-icon=menu]{width:22px;height:22px}
+.paper-header-search .paper-nav-icon{width:20px;height:20px}
+.paper-navigation-menu .paper-icon-action{min-height:44px;gap:10px;cursor:pointer}
+.paper-navigation-menu .paper-nav-icon{color:currentColor}
+/* Reserve room for symbols instead of squeezing controls at tablet widths. */
+@media(max-width:1100px){
+ body .site-header.paper-icon-header #site-navigation-bar>.topnav{display:none}
+ body .site-header.paper-icon-header .paper-more-nav{margin-left:auto}
+ body .site-header.paper-icon-header .account{margin-left:0}
+ body .paper-navigation-menu .mobile-only-link{display:flex}
+}
+/* JS also stops active Motion controls when this preference changes. */
+@media(prefers-reduced-motion:reduce){
+ .paper-nav-icon,.paper-nav-icon [data-animated-part]{transition:none!important;animation:none!important;transform:none!important;opacity:1!important;stroke-dasharray:none!important;stroke-dashoffset:0!important}
+}

@@ -4,10 +4,10 @@
 body :is(.form,.team-field,.team-form,.studio-shell,.teams-page,.demo-filters,.commerce-field,.commerce-filters,.business-save-picker,.dock-options,[data-slot=dialog-content],[data-slot=alert-dialog-content]) :is(input:not([type=checkbox]):not([type=radio]):not([type=file]):not(:where([type=range],[type=color],[type=hidden],[type=button],[type=submit],[type=reset],[type=image],[data-slot=input-otp])),select,textarea,[data-slot=select-trigger]):not(:where(.showcase-screen *,.showcase-mobile *,.miniapp *,.product-demo *)),
 body [data-slot=input]:not(:where([type=checkbox],[type=radio],[type=file],[type=range],[type=color],[type=hidden])), body [data-slot=select-trigger] {
   width: 100%; min-width: 0; min-height: 44px;
-  border: 1px solid var(--invalid-control-border,var(--field-border,var(--control-border))); border-radius: 6px;
+  border: 1px solid var(--invalid-control-border,var(--field-border,var(--control-border))); border-radius: var(--paper-radius-control,6px);
   background: var(--field-surface,var(--control-surface)); color: var(--field-ink,var(--foreground));
   padding: 10px 12px; font: 400 16px/1.4 var(--paper-font, sans-serif);
-  box-shadow: none; transition: border-color 180ms;
+  box-shadow: none; transition: border-color var(--paper-motion-fast,160ms),background-color var(--paper-motion-fast,160ms);
 }
 body :is(.form,.team-field,.team-form,.studio-shell,.teams-page,[data-slot=dialog-content],[data-slot=alert-dialog-content]) textarea {
   min-height: 112px; resize: vertical;

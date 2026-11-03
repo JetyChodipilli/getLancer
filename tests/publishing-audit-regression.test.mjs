@@ -59,7 +59,7 @@ test('template refresh retains release forms on outage and clears them on author
 });
 
 test('an accepted immutable release is reported as saved when its follow-up read fails',async()=>{
- let writes=0,reads=0;const {context,values}=stateContext(templates,{selected:'template',owned:{page:0},preview:null,clear:()=>assert.fail('unexpected authority reset'),load:async()=>{reads++;return false;}});
+ let writes=0,reads=0;const {context,values}=stateContext(templates,{generation:{current:0},selected:'template',owned:{page:0},preview:null,clear:()=>assert.fail('unexpected authority reset'),load:async()=>{reads++;return false;}});
  const change=routine(templates,'change',context);const result=await change(async()=>{writes++;return{id:'version'};},'Version uploaded privately.');
  assert.equal(writes,1);assert.equal(reads,1);assert.deepEqual(result,{id:'version'});assert.match(values.setNote,/Version uploaded privately.*change was accepted.*reload/);assert.equal(values.setBusy,false);
 });

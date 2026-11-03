@@ -13,7 +13,7 @@ function fixture(fieldError:boolean){
    function save(first){setBusy(true);return new Promise((resolve,reject)=>{
     window.finishSave=()=>{setBusy(false);if(first)reject(Object.assign(new Error('First failure'),{fieldErrors:${fieldError?"{first:'Choose another name.'}":'{}'}}));else{setSaved(true);resolve();}};
    });}
-   return <><TeamForm busy={busy} label="Reject first" onSave={()=>save(true)}><Field name="first" label="First name" value="First value"/></TeamForm><TeamForm busy={busy} label="Save second" onSave={()=>save(false)}><Field name="second" label="Second name" value="Second value"/></TeamForm><p role="status">{saved?'Second saved':''}</p></>;
+   return <><TeamForm busy={busy} label="Reject first" pendingLabel="Submitting first…" pendingMessage="Submitting the first form…" onSave={()=>save(true)}><Field name="first" label="First name" value="First value"/></TeamForm><TeamForm busy={busy} label="Save second" pendingLabel="Saving second…" pendingMessage="Saving the second form…" onSave={()=>save(false)}><Field name="second" label="Second name" value="Second value"/></TeamForm><p role="status">{saved?'Second saved':''}</p></>;
   }
   createRoot(document.getElementById('root')).render(<Harness/>);
  `,loader:'tsx',resolveDir:process.cwd()},bundle:true,write:false,platform:'browser',format:'iife',jsx:'automatic',define:{'process.env.NODE_ENV':'"test"'}}).outputFiles[0].text;
@@ -22,10 +22,12 @@ for(const fieldError of [false,true])test(`a ${fieldError?'field':'summary'} err
  await page.setContent('<div id="root"></div>');await page.addScriptTag({content:fixture(fieldError)});
  const first=page.getByLabel('First name',{exact:true}),summary=page.getByRole('alert'),target=fieldError?first:summary;
  await page.getByRole('button',{name:'Reject first',exact:true}).click();await expect(first).toBeDisabled();
+ await expect(page.getByRole('button',{name:'Save second',exact:true})).toBeDisabled();await expect(page.locator('form').nth(1).getByRole('status')).toBeEmpty();
  await page.evaluate(()=>{(window as unknown as FormFixtureWindow).finishSave();});
  await expect(summary).toBeFocused();await expect(first).toBeEnabled();await expect(first).toHaveValue('First value');
  if(fieldError){await summary.getByRole('button',{name:'first: Choose another name.',exact:true}).click();await expect(first).toBeFocused();await expect(first).toHaveAttribute('aria-invalid','true');await expect(first).toHaveAttribute('aria-describedby',/.+-error/);}
  await page.getByRole('button',{name:'Save second',exact:true}).click();await expect(first).toBeDisabled();
+ await expect(page.getByRole('button',{name:'Reject first',exact:true})).toBeDisabled();await expect(page.locator('form').first().getByRole('status')).toBeEmpty();
  await page.evaluate(()=>{(window as unknown as FormFixtureWindow).finishSave();});await expect(page.getByText('Second saved',{exact:true})).toBeVisible();
  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
  await expect(target).not.toBeFocused();await expect(first).toHaveValue('First value');

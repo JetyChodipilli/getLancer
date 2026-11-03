@@ -47,10 +47,10 @@ export function InquiryForm({initialProduct,preview=false}:{initialProduct?:Prod
   finally{inFlight.current=false;setBusy(false);}
  }
  return <main className="wrap structured-form-page paper-inquiry" id="main">
-  <Link href="/" className="link">← Explore projects</Link>
+  <Link prefetch={false} href="/" className="link">← Explore projects</Link>
   <div className="detailgrid">
    <section className="panel form"><span className="eyebrow">Start a conversation</span><h1>Tell the builder what you need.</h1><p className="form-intro">A clear brief is the first step toward something useful.</p>
-    {ok?<div ref={success} tabIndex={-1} className="success feedback-result" role="status"><CheckCircle2 size={28} aria-hidden="true"/><h2>Inquiry saved. Check your inbox.</h2><p>Confirm your email to send this inquiry to the builder.</p><Link className="button" href={product?'/products/'+product.slug:'/'}>Back to the project <ArrowRight size={16}/></Link></div>:
+    {ok?<div ref={success} tabIndex={-1} className="success feedback-result" role="status"><CheckCircle2 size={28} aria-hidden="true"/><h2>Inquiry saved. Check your inbox.</h2><p>Confirm your email to send this inquiry to the builder.</p><Link prefetch={false} className="button" href={product?'/products/'+product.slug:'/'}>Back to the project <ArrowRight size={16}/></Link></div>:
     <form onSubmit={send} className="form" aria-busy={busy}>
      {preview&&<p className="samplebar">Sample inquiry form. You can review the fields; nothing is sent.</p>}
      <FormErrors error={formError}/>
@@ -92,7 +92,7 @@ function ReportForTarget({initialTargetId,educationReleaseId}:{initialTargetId:s
   finally{inFlight.current=false;setBusy(false);}
  }
  return <main id="main" className="wrap structured-form-page"><section className="panel form structured-report"><span className="eyebrow">Help keep the community safe</span><h1>Report a concern</h1><p>Report content or choose Appeal to request another look at a moderation decision.</p>
-  {message?<div className="success feedback-result" ref={success} role="status" tabIndex={-1}><CheckCircle2 size={28} aria-hidden="true"/><h2>Thank you for speaking up.</h2><p>{message}</p><Link href="/" className="button">Explore projects <ArrowRight size={16}/></Link></div>:
+  {message?<div className="success feedback-result" ref={success} role="status" tabIndex={-1}><CheckCircle2 size={28} aria-hidden="true"/><h2>Thank you for speaking up.</h2><p>{message}</p><Link prefetch={false} href="/" className="button">Explore projects <ArrowRight size={16}/></Link></div>:
   <form className="form" onSubmit={submit} aria-busy={busy}><FormErrors error={error}/><fieldset disabled={busy} className="paper-form-fields">
    <div data-field="targetType"><label htmlFor="targetType">Report type</label>{educationReleaseId?<p className="kit-notice">Exact education artifact <code>{educationReleaseId}</code>. Its frozen source hash and disclosures will be stored privately for operator review.</p>:<Picker id="targetType" invalid={!!error?.fieldErrors.targetType} describedBy={error?.fieldErrors.targetType?'targetType-error':undefined} label="Report type" value={targetType} onChange={setTargetType} options={['PRODUCT','USER','REVIEW','INQUIRY']}/>} {error?.fieldErrors.targetType&&<span className="field-error" id="targetType-error">{error.fieldErrors.targetType}</span>}</div>
    <div><label htmlFor="targetId">Record ID</label><input id="targetId" name="targetId" readOnly={Boolean(educationReleaseId)} required value={targetId} onChange={e=>setTargetId(e.target.value)} aria-invalid={!!error?.fieldErrors.targetId} aria-describedby={'targetId-hint'+(error?.fieldErrors.targetId?' targetId-error':'')}/><span className="field-hint" id="targetId-hint">Use the ID of the content or decision you want reviewed.</span>{error?.fieldErrors.targetId&&<span className="field-error" id="targetId-error">{error.fieldErrors.targetId}</span>}</div>

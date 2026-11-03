@@ -64,7 +64,7 @@ test('@cross-browser discovery waits for navigation intent before requesting ano
   const routeRequests: string[] = [];
   page.on('request', request => {
     const url = new URL(request.url());
-    if (url.searchParams.has('_rsc') && url.pathname !== '/') routeRequests.push(url.pathname);
+    if (url.searchParams.has('_rsc')) routeRequests.push(url.pathname);
   });
   await page.goto('/');
   await expect(page.getByRole('heading', {level: 1, name: 'The craft behind the code.'})).toBeVisible();
@@ -82,6 +82,16 @@ test('@cross-browser discovery waits for navigation intent before requesting ano
   expect(await page.evaluate(() => (window as Window & {paperNavigationProbe?: string}).paperNavigationProbe))
     .toBe('retained-document');
   await fits(page);
+  await page.waitForLoadState('networkidle');
+  expect([...new Set(routeRequests)]).toEqual(['/components']);
+  for (const route of ['/college-projects', '/labs', '/report']) {
+    routeRequests.length = 0;
+    await page.goto(route);
+    await expect(page.locator('main h1')).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    expect(routeRequests, route + ' must wait for a navigation choice').toEqual([]);
+    await fits(page);
+  }
 });
 
 test('project search, filter removal and browser back retain confirmed URL state', async ({page}) => {
@@ -146,8 +156,16 @@ test('@cross-browser narrow navigation is keyboard recoverable and pages fit at 
   await fits(page);
   for (const route of ['/components', '/college-projects', '/labs', '/report', '/login', '/signup']) {
     await page.goto(route);
+    // Measure each settled page before unloading it for the next viewport check.
+    await page.waitForLoadState('networkidle');
     await expect(page.locator('main:not([aria-busy="true"]):visible')).toHaveCount(1);
     await fits(page);
+    // Complete the real preview service check before unloading the auth page.
+    // WebKit reports fetches started during unload as renderer access errors.
+    if (route === '/login' || route === '/signup') {
+      await expect(page.getByRole('status').filter({hasText: 'Sign-in is unavailable in this preview.'}))
+        .toContainText('Sign-in is unavailable in this preview.');
+    }
   }
   await capture(page, info, 'narrow-signup');
 });

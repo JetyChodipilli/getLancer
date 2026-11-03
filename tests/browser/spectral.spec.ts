@@ -99,7 +99,7 @@ test('account controls stay readable across short laptops and narrow phones',asy
    for(const control of controls){expect(control.font).toBeGreaterThanOrEqual(16);expect(control.height).toBeGreaterThanOrEqual(44);}
    const form=await page.locator('.icy-form-content').boundingBox();expect(form!.width).toBeGreaterThanOrEqual(width<=375?250:290);expect(form!.width).toBeLessThanOrEqual(440);
    if(width>760){
-    await expect(page.locator('.icy-story')).toHaveCSS('background-color','rgb(23, 26, 24)');
+    await expect(page.locator('.icy-story')).toHaveCSS('background-color','rgb(35, 55, 70)');
     const shell=await page.locator('.icy-shell').boundingBox(),story=await page.locator('.icy-story').boundingBox();
     expect(story!.width/shell!.width).toBeGreaterThan(.4);expect(story!.width/shell!.width).toBeLessThan(.6);
     const bounds=await page.locator('.paper-auth-preview').evaluate(node=>{const outer=node.getBoundingClientRect(),inner=node.querySelector('[role=img]')!.getBoundingClientRect();return {left:inner.left-outer.left,right:outer.right-inner.right,top:inner.top-outer.top,bottom:outer.bottom-inner.bottom};});

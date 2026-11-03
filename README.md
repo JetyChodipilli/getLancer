@@ -1,4 +1,4 @@
-# getLancer V5.2 — Spectral Studio
+# getLancer V5.2 — Joinery
 
 See [phase completion repairs and remaining acceptance](docs/phase-completion/STATUS.md) for the current implementation gaps, verification artifacts and work required before launch.
 
@@ -20,7 +20,7 @@ The five follow-up coding areas and their test coverage are recorded in [impleme
 
 **V4.0 implements maintenance/support and reviewed static frontend demos:** immutable monthly care agreements, separate recurring billing consent, verified paid-period access, bounded support requests, MFA recovery, built ZIP review and isolated publication. See the [V4 contract](docs/V4_CONTRACT.md), [maintenance operations](docs/V4_OPERATIONS.md) and [hosting operations](docs/V4_HOSTING_OPERATIONS.md). Collection and hosting remain disabled by default. Merchant approval, live provider acceptance and separate publisher/DNS/TLS setup remain deployment requirements. The private cloud Site provides labelled frontend exercises at `/preview/maintenance` and `/preview/hosting`.
 
-The active visual system is [Spectral Studio](docs/SPECTRAL_STUDIO_ACCEPTANCE.md), using the installed shadcn components and current authentication artwork.
+The active visual system is [Joinery](DESIGN.md), with the approved Paper & Pixel layout, original outlined logo, self-hosted type, accessible task surfaces and current authentication artwork.
 
 | Phase | Implemented scope | Source and evidence |
 |---|---|---|

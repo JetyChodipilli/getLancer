@@ -104,7 +104,10 @@ test('real hiring journey persists consent, matching, talent, MFA concierge and 
   const builder=matches.locator('.business-candidate').filter({has:page.getByRole('heading',{name:'CI Builder',exact:true})});
   const list=(await (await call(page,root+'/talent-lists')).json()).items[0];
   await builder.getByLabel('Save CI Builder to a talent list',{exact:true}).selectOption(list.id);
-  await expect(page.getByRole('status').filter({hasText:'Changes saved.'})).toBeVisible();
+  await expect(page.getByRole('status').filter({hasText:'Candidate saved to talent list.'})).toBeVisible();
+  const savedTalent=await call(page,root+'/talent-lists/'+list.id+'/entries');
+  expect(savedTalent.ok()).toBeTruthy();
+  expect((await savedTalent.json()).items).toEqual(expect.arrayContaining([expect.objectContaining({kind:'BUILDER',targetId:fixture.builderId})]));
   await builder.getByRole('button',{name:'Shortlist',exact:true}).click();
   await expect(builder.getByRole('button',{name:'Shortlisted',exact:true})).toBeDisabled();
   await manager.reload();

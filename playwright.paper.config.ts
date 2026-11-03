@@ -16,8 +16,8 @@ const chromiumOptions = localChromium ? {launchOptions: {
 export default defineConfig({
   testDir: './tests/browser',
   testMatch: process.env.PAPER_REVIEW_LEGACY === 'true'
-    ? /(?:paper-pixel|spectral|liquid-design)\.spec\.ts/
-    : 'paper-pixel.spec.ts',
+    ? /(?:paper-pixel|joinery-refinement|nav-icons|spectral|liquid-design)\.spec\.ts/
+    : /(?:paper-pixel|joinery-refinement|nav-icons)\.spec\.ts/,
   fullyParallel: false,
   workers: process.env.CI ? 2 : 1,
   retries: 0,
