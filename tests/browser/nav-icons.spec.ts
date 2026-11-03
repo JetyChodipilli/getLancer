@@ -6,11 +6,23 @@ const menuButton=(page:Page)=>page.getByRole('button',{name:'Open navigation men
 // anchored to the same DOM icon while accessibility-based actions remain scoped.
 const menuIcon=(page:Page)=>page.locator('.site-header button[aria-label="Open navigation menu"] > .paper-nav-icon');
 // Observe the rendered path/group values, independently of whole-SVG CSS.
-const partState=(icon:Locator)=>icon.locator('[data-animated-part]').evaluateAll(nodes=>nodes.map(node=>{
- const style=(node as SVGElement).style;return JSON.stringify([style.transform,style.opacity,node.getAttribute('stroke-dasharray'),node.getAttribute('stroke-dashoffset')]);
-}));
-async function afterPreferenceFrame(icon:Locator){await icon.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));return partState(icon);}
+async function partState(icon:Locator){
+ // Radix removes background aria-hidden after its exit. Role-based chains must
+ // resolve the actual visible SVG before an empty evaluateAll can look static.
+ await expect(icon).toBeVisible();
+ const parts=icon.locator('[data-animated-part]');await expect(parts.first()).toBeAttached();
+ return parts.evaluateAll(nodes=>nodes.map(node=>{
+  const style=(node as SVGElement).style;return JSON.stringify([style.transform,style.opacity,node.getAttribute('stroke-dasharray'),node.getAttribute('stroke-dashoffset')]);
+ }));
+}
+async function afterPreferenceFrame(icon:Locator){
+ // Capture inside the second frame, before another host round trip can mask work.
+ return icon.evaluate(node=>new Promise<string[]>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>{
+  resolve(Array.from(node.querySelectorAll<SVGElement>('[data-animated-part]')).map(part=>JSON.stringify([part.style.transform,part.style.opacity,part.getAttribute('stroke-dasharray'),part.getAttribute('stroke-dashoffset')])));
+ }))));
+}
 async function partsAreStatic(icon:Locator){
+ await expect(icon).toBeVisible();await expect(icon.locator('[data-animated-part]').first()).toBeAttached();
  const states=await icon.locator('[data-animated-part]').evaluateAll(nodes=>nodes.map(node=>{
   const style=getComputedStyle(node);return{transform:style.transform,opacity:style.opacity,animation:style.animationName,transition:style.transitionDuration};
  }));

@@ -15,9 +15,9 @@ export default function NavIcon({name}:{name:NavIconName}){
   const control=icon.current?.closest<HTMLElement>('a,button,[role="menuitem"]');
   if(!control)return;
   const play=()=>{
-   controls.stop();controls.set('normal');
    // Check at activation too: preferences can change between React renders.
-   if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches)void controls.start('animate');
+   if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)void controls.start('normal',{duration:0});
+   else void controls.start('animate');
   };
   const enter=(event:PointerEvent)=>{if(event.pointerType!=='touch'&&window.matchMedia('(hover:hover) and (pointer:fine)').matches)play();};
   const focus=()=>{if(control.matches(':focus-visible'))play();};
@@ -32,7 +32,9 @@ export default function NavIcon({name}:{name:NavIconName}){
  },[controls,name]);
  useEffect(()=>{
   const preference=window.matchMedia('(prefers-reduced-motion: reduce)');
-  const reset=()=>{if(preference.matches){controls.stop();controls.set('normal');}};
+  // start() replaces each descendant animation; root stop()+set() leaves the
+  // descendant drivers running, able to overwrite their newly reset values.
+  const reset=()=>{if(preference.matches)void controls.start('normal',{duration:0});};
   preference.addEventListener('change',reset);reset();
   return()=>preference.removeEventListener('change',reset);
  },[controls]);
