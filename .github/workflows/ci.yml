@@ -256,8 +256,20 @@ jobs:
           retention-days: 7
       - name: Verify new audit browser fixtures before the full responsive suite
         run: npx playwright test tests/browser/round2-*.spec.ts --workers=2 --max-failures=1
+      # CPU-throttled timing samples must not share this runner with another
+      # browser worker. Keep all profiles and the original performance budgets.
+      - name: Verify mobile performance budgets without competing browser workers
+        run: npx playwright test tests/browser/v46-performance.spec.ts --workers=1 --max-failures=1 --output=test-results-performance --reporter=line,json
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: test-results-performance/results.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: performance-browser-evidence-${{ github.sha }}
+          path: test-results-performance
+          retention-days: 7
       - name: Verify desktop, phone and tablet workspace journeys
-        run: npx playwright test --workers=2 --max-failures=3
+        run: npx playwright test --workers=2 --max-failures=3 --grep-invert v46-performance
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:

@@ -45,6 +45,42 @@ function executePython(code, root, env = {}) {
   return spawnSync('python3', ['-c', code], {cwd: root, env: {...process.env, ...env}, encoding: 'utf8'});
 }
 
+test('serial performance and parallel browser commands preserve every collected test exactly once', () => {
+  const frontend = job('frontend');
+  const performance = step(frontend, 'Verify mobile performance budgets without competing browser workers');
+  const general = step(frontend, 'Verify desktop, phone and tablet workspace journeys');
+  assert.match(performance, /--workers=1\b/);
+  assert.doesNotMatch(performance, /--project|--grep|--retries/);
+  assert.match(performance, /PLAYWRIGHT_JSON_OUTPUT_FILE: test-results-performance\/results.json/);
+  assert(frontend.includes('name: performance-browser-evidence-${{ github.sha }}'));
+  assert.match(general, /--workers=2\b/);
+  function collect(block) {
+    const command = block.match(/run: npx playwright test([^\n]*)/);
+    assert(command, 'Expected the actual workflow browser command');
+    const args = command[1].trim().split(/\s+/).filter(Boolean);
+    const result = spawnSync(process.execPath, ['node_modules/@playwright/test/cli.js', 'test', ...args, '--list', '--reporter=json'], {encoding: 'utf8', timeout: 60000, maxBuffer: 8 * 1024 * 1024});
+    assert.equal(result.status, 0, result.stderr);
+    const records = [];
+    function visit(suites) {
+      for (const suite of suites) {
+        for (const spec of suite.specs ?? []) for (const item of spec.tests) records.push({key: `${item.projectName}:${spec.file}:${spec.line}:${spec.title}`, file: spec.file, project: item.projectName});
+        visit(suite.suites ?? []);
+      }
+    }
+    visit(JSON.parse(result.stdout).suites);
+    assert(records.length > 0, 'Collection must not be empty');
+    return records;
+  }
+  const all = collect('run: npx playwright test');
+  const isolated = collect(performance), parallel = collect(general);
+  assert(isolated.every(item => item.file.endsWith('v46-performance.spec.ts')));
+  assert.deepEqual(isolated.map(item => item.project).sort(), ['desktop', 'phone', 'tablet']);
+  assert(parallel.every(item => !item.file.endsWith('v46-performance.spec.ts')));
+  const combined = [...isolated, ...parallel].map(item => item.key).sort();
+  assert.equal(new Set(combined).size, combined.length, 'No duplicate execution across the partition');
+  assert.deepEqual(combined, all.map(item => item.key).sort(), 'No browser test may disappear from CI');
+});
+
 function report(name, body = `<testcase classname="${name}" name="passes"/>`) {
   return `<testsuite name="${name}">${body}</testsuite>`;
 }
