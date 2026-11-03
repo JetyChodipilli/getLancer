@@ -1,10 +1,40 @@
-import {Blocks,Bookmark,CircleHelp,Code2,FlaskConical,GraduationCap,House,LayoutDashboard,LogIn,Menu,Search,Upload,Users} from 'lucide-react';
+'use client';
 
-const icons={home:House,components:Blocks,college:GraduationCap,learning:FlaskConical,publish:Upload,templates:Code2,teams:Users,saved:Bookmark,help:CircleHelp,workspace:LayoutDashboard,signin:LogIn,search:Search,menu:Menu};
-export type NavIconName=keyof typeof icons;
+import {LazyMotion,domAnimation,useAnimation} from 'motion/react';
+import * as m from 'motion/react-m';
+import {useEffect,useRef} from 'react';
+import {IconParts,type NavIconName} from './animated-icons/parts';
 
-// Labels belong to the surrounding link/button, so symbols never repeat them.
+export type {NavIconName} from './animated-icons/parts';
+
+// Local MIT adaptations are attributed in parts.tsx and the third-party notices.
+// Labels belong to the enclosing control; the SVG is always decorative.
 export default function NavIcon({name}:{name:NavIconName}){
- const Icon=icons[name];
- return <Icon className="paper-nav-icon" data-nav-icon={name} size={18} strokeWidth={1.7} aria-hidden="true" focusable="false"/>;
+ const icon=useRef<SVGSVGElement>(null),controls=useAnimation();
+ useEffect(()=>{
+  const control=icon.current?.closest<HTMLElement>('a,button,[role="menuitem"]');
+  if(!control)return;
+  const play=()=>{
+   controls.stop();controls.set('normal');
+   // Check at activation too: preferences can change between React renders.
+   if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches)void controls.start('animate');
+  };
+  const enter=(event:PointerEvent)=>{if(event.pointerType!=='touch'&&window.matchMedia('(hover:hover) and (pointer:fine)').matches)play();};
+  const focus=()=>{if(control.matches(':focus-visible'))play();};
+  const key=(event:KeyboardEvent)=>{if(!event.repeat&&(event.key==='Enter'||event.key===' '&&(control.tagName==='BUTTON'||control.getAttribute('role')==='menuitem')))play();};
+  const click=(event:MouseEvent)=>{if(event.detail===0)play();};
+  control.addEventListener('pointerenter',enter);control.addEventListener('focusin',focus);
+  control.addEventListener('pointerdown',play);control.addEventListener('keydown',key);control.addEventListener('click',click);
+  return()=>{
+   control.removeEventListener('pointerenter',enter);control.removeEventListener('focusin',focus);
+   control.removeEventListener('pointerdown',play);control.removeEventListener('keydown',key);control.removeEventListener('click',click);controls.stop();
+  };
+ },[controls,name]);
+ useEffect(()=>{
+  const preference=window.matchMedia('(prefers-reduced-motion: reduce)');
+  const reset=()=>{if(preference.matches){controls.stop();controls.set('normal');}};
+  preference.addEventListener('change',reset);reset();
+  return()=>preference.removeEventListener('change',reset);
+ },[controls]);
+ return <LazyMotion features={domAnimation} strict><m.svg ref={icon} className="paper-nav-icon" data-nav-icon={name} width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false" initial="normal" animate={controls}><IconParts name={name}/></m.svg></LazyMotion>;
 }
