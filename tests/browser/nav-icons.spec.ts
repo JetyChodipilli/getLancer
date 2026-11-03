@@ -2,6 +2,9 @@ import {expect,test,type Page} from '@playwright/test';
 
 const destinations=[['Projects','/','home'],['Components','/components','components'],['College projects','/college-projects','college'],['Learning','/labs','learning']] as const;
 const menuButton=(page:Page)=>page.getByRole('button',{name:'Open navigation menu',exact:true});
+// The modal menu deliberately aria-hides its background; keep style inspection
+// anchored to the same DOM icon while accessibility-based actions remain scoped.
+const menuIcon=(page:Page)=>page.locator('.site-header button[aria-label="Open navigation menu"] > .paper-nav-icon');
 async function fits(page:Page){
  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()!.width+1);
 }
@@ -20,7 +23,9 @@ test('@cross-browser navigation symbols keep labels, destinations and narrow men
  await page.keyboard.press('Escape');await expect(trigger).toBeFocused();
  for(const width of [320,768,1024,1100,1101,1280,1440]){
   await page.setViewportSize({width,height:900});await fits(page);
-  const box=await trigger.boundingBox();expect(box).not.toBeNull();expect(box!.width).toBeGreaterThanOrEqual(44);expect(box!.height).toBeGreaterThanOrEqual(44);
+  // Firefox DOMRects may round 44px to 43.999969; CSS minima stay exactly 44px.
+  const box=await trigger.boundingBox();expect(box).not.toBeNull();expect(box!.width).toBeGreaterThanOrEqual(44-.001);expect(box!.height).toBeGreaterThanOrEqual(44-.001);
+  expect(await trigger.evaluate(node=>parseFloat(getComputedStyle(node).minWidth))).toBeGreaterThanOrEqual(44);expect(await trigger.evaluate(node=>parseFloat(getComputedStyle(node).minHeight))).toBeGreaterThanOrEqual(44);
   if(width>1100){
    const nav=page.getByRole('navigation',{name:'Main navigation',exact:true});await expect(nav).toBeVisible();
    for(const [name,href] of destinations)await expect(nav.getByRole('link',{name,exact:true})).toHaveAttribute('href',href);
@@ -72,18 +77,17 @@ test('@cross-browser navigation icons respond to focus, hover and press without 
   await expect.poll(()=>icon.evaluate(node=>getComputedStyle(node).transform)).not.toBe('none');
   expect(await label.boundingBox()).toEqual(before);
  }
- // A link presses before navigation; move away before release to cancel activation.
- const homeBox=await home.boundingBox();expect(homeBox).not.toBeNull();
- await page.mouse.move(homeBox!.x+homeBox!.width/2,homeBox!.y+homeBox!.height/2);await page.mouse.down();
- await expect.poll(()=>home.locator('.paper-nav-icon').evaluate(node=>getComputedStyle(node).transform)).toMatch(/^matrix\(0\.88[, ]/);
- await page.mouse.move(homeBox!.x+homeBox!.width/2,homeBox!.y+homeBox!.height+40);await page.mouse.up();
- await trigger.click();await expect(page.getByRole('menu')).toBeVisible();
+ // Press the native button directly, without dragging a navigable anchor.
+ const menuBox=await trigger.boundingBox();expect(menuBox).not.toBeNull();
+ await page.mouse.move(menuBox!.x+menuBox!.width/2,menuBox!.y+menuBox!.height/2);await page.mouse.down();
+ await expect.poll(()=>menuIcon(page).evaluate(node=>getComputedStyle(node).transform)).toMatch(/^matrix\(0\.88[, ]/);
+ await page.mouse.up();await expect(page.getByRole('menu')).toBeVisible();
  await page.keyboard.press('Escape');await expect(trigger).toBeFocused();await fits(page);
 });
 
 test('@cross-browser reduced motion keeps navigation symbols static during interaction',async({page})=>{
  await page.emulateMedia({reducedMotion:'reduce'});await page.goto('/');
- const trigger=menuButton(page),icon=trigger.locator('.paper-nav-icon');
+ const trigger=menuButton(page),icon=menuIcon(page);
  await trigger.click();await expect(page.getByRole('menu')).toBeVisible();
  await expect(icon).toHaveCSS('transform','none');await expect(icon).toHaveCSS('transition-duration','0s');await expect(icon).toHaveCSS('animation-name','none');
  await page.keyboard.press('Escape');await expect(trigger).toBeFocused();await expect(icon).toHaveCSS('transform','none');

@@ -8,7 +8,6 @@ import AccountMenu from './account-menu';
 import {api} from '@/lib/api';
 import Brand from './brand';
 import NavIcon,{type NavIconName} from './nav-icon';
-import '../paper-nav-icons.css';
 
 type SessionUser={displayName?:string;email:string;roles?:string[]};
 export default function Header({preview=false}:{preview?:boolean}){
