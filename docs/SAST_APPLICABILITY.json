@@ -1,6 +1,6 @@
 {
   "schema": 2,
-  "reviewedAt": "2026-10-29",
+  "reviewedAt": "2026-11-03",
   "expiresAt": "2026-11-05T00:00:00Z",
   "findings": [
     {
@@ -51,7 +51,7 @@
   "productionInputs": [
     {
       "path": "backend/src/main/java/com/getlancer/Application.java",
-      "sha256": "b80caf0f9c2ff3e26713854f13b280cb5c82b2a1c524a3694146fac111d8baaa"
+      "sha256": "c79975e4bb1ad5d25caa0de3943cbea597aff6db28231a2514b2fbb6d532975d"
     },
     {
       "path": "backend/src/main/java/com/getlancer/accounts/AccountController.java",
@@ -1088,6 +1088,10 @@
       "sha256": "a88dae41da4932c0a1be6a947b0422f9d2997c3265c86117cef5294ec6750957"
     },
     {
+      "path": "backend/src/test/java/com/getlancer/config/DefaultSecurityBootstrapIntegrationTest.java",
+      "sha256": "7078fc067917636f753dd55fe0ffc8f942f242dc8ce5e07cc4a2f050c519c65a"
+    },
+    {
       "path": "backend/src/test/java/com/getlancer/config/ProductionConfigurationTest.java",
       "sha256": "18c37f6cd3de96151c989673a0a9203b1971270fc17bdca7133699fd706b519d"
     },
@@ -1395,7 +1399,7 @@
   "buildInputs": [
     {
       "path": ".github/workflows/ci.yml",
-      "sha256": "302c26707d34252c179febb3dd9062e7cd2d543198128db4fd5c6f8fb48537d6"
+      "sha256": "67979a9b988aa36a2fe54b9bc39cc3726acc4246903802fc798cb26ee154218d"
     },
     {
       "path": "backend/pom.xml",
