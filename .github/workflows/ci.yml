@@ -73,7 +73,10 @@ jobs:
           npm run labs:docker
   backend:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    # Main exhausted 20m after a redundant ~4m fixture run while verify was
+    # still passing. Run the full suite once; 30m bounds runner variability
+    # plus packaging/dependency evidence (see docs/CI_VALIDATION.md).
+    timeout-minutes: 30
     env:
       SECURITY_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     services:
@@ -94,25 +97,16 @@ jobs:
         with: {persist-credentials: false}
       - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with: {distribution: temurin, java-version: '17', cache: maven}
-      - name: Verify new backend fixtures before the complete suite
+      - name: Check expected backend fixture sources and clear generated reports
         run: |
           for name in Round3FinanceIntegrationTest Round3MarketplaceIntegrationTest Round3OperationsIntegrationTest Round3RuntimeStorageIntegrationTest; do
             test -f "backend/src/test/java/com/getlancer/integration/$name.java"
           done
           test -f backend/src/test/java/com/getlancer/config/DatabaseRoleGuardIntegrationTest.java
-          mvn -B -f backend/pom.xml -Djunit.jupiter.execution.timeout.default=60s -Dsurefire.failIfNoSpecifiedTests=true -DfailIfNoTests=true -Dtest=Round3FinanceIntegrationTest,Round3MarketplaceIntegrationTest,Round3OperationsIntegrationTest,Round3RuntimeStorageIntegrationTest,DatabaseRoleGuardIntegrationTest test
-          python3 - <<'PY'
-          from pathlib import Path
-          import xml.etree.ElementTree as ET
-          classes = ['com.getlancer.integration.' + name for name in ['Round3FinanceIntegrationTest', 'Round3MarketplaceIntegrationTest', 'Round3OperationsIntegrationTest', 'Round3RuntimeStorageIntegrationTest']]
-          classes.append('com.getlancer.config.DatabaseRoleGuardIntegrationTest')
-          for name in classes:
-              report = ET.parse(Path('backend/target/surefire-reports') / ('TEST-' + name + '.xml')).getroot()
-              cases = list(report.iter('testcase'))
-              assert cases and all(not any(case.find(tag) is not None for tag in ['failure', 'error', 'skipped']) for case in cases), name
-          print('Every expected backend fixture class executed nonzero passing cases.')
-          PY
-        env: &guarded-test-database
+          rm -rf backend/target/surefire-reports backend/target/round3-smoke-reports
+      - name: Verify the complete backend suite once
+        run: mvn -B -f backend/pom.xml -Djunit.jupiter.execution.timeout.default=60s -DfailIfNoTests=true verify
+        env:
           TEST_DATABASE_RESET: 'true'
           TEST_DB_URL: jdbc:postgresql://localhost:5432/getlancer_test?socketTimeout=20&options=-c%20statement_timeout%3D15000
           TEST_DB_USERNAME: getlancer
@@ -120,16 +114,36 @@ jobs:
           APP_BASE_URL: http://localhost:3000
           SECURE_COOKIES: 'false'
           DB_POOL_MAX: '4'
+      - name: Verify expected backend fixtures in complete-suite reports
+        if: always()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from shutil import copyfile
+          import xml.etree.ElementTree as ET
+          classes = ['com.getlancer.integration.' + name for name in ['Round3FinanceIntegrationTest', 'Round3MarketplaceIntegrationTest', 'Round3OperationsIntegrationTest', 'Round3RuntimeStorageIntegrationTest']]
+          classes.append('com.getlancer.config.DatabaseRoleGuardIntegrationTest')
+          reports = Path('backend/target/surefire-reports')
+          smoke = Path('backend/target/round3-smoke-reports')
+          smoke.mkdir(parents=True, exist_ok=True)
+          # Preserve available diagnostics even when the complete suite failed.
+          for name in classes:
+              source = reports / ('TEST-' + name + '.xml')
+              if source.is_file():
+                  copyfile(source, smoke / source.name)
+          for name in classes:
+              report = ET.parse(reports / ('TEST-' + name + '.xml')).getroot()
+              cases = list(report.iter('testcase'))
+              assert report.tag == 'testsuite' and report.get('name') == name, name
+              assert cases and all(case.get('classname') == name and not any(case.find(tag) is not None for tag in ['failure', 'error', 'skipped']) for case in cases), name
+          print('Every expected backend fixture class executed nonzero passing cases in the complete suite.')
+          PY
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: backend-round3-smoke-${{ github.event.pull_request.head.sha || github.sha }}
-          path: backend/target/surefire-reports
+          path: backend/target/round3-smoke-reports
           retention-days: 7
-      - name: Clear generated smoke reports before complete verification
-        run: rm -rf backend/target/surefire-reports
-      - run: mvn -B -f backend/pom.xml -Djunit.jupiter.execution.timeout.default=60s verify
-        env: *guarded-test-database
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with: {node-version: '22.23.4'}
       - name: Bind reviewed GET assessments to passing security regressions
@@ -242,8 +256,20 @@ jobs:
           retention-days: 7
       - name: Verify new audit browser fixtures before the full responsive suite
         run: npx playwright test tests/browser/round2-*.spec.ts --workers=2 --max-failures=1
+      # CPU-throttled timing samples must not share this runner with another
+      # browser worker. Keep all profiles and the original performance budgets.
+      - name: Verify mobile performance budgets without competing browser workers
+        run: npx playwright test tests/browser/v46-performance.spec.ts --workers=1 --max-failures=1 --output=test-results-performance --reporter=line,json
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: test-results-performance/results.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: performance-browser-evidence-${{ github.sha }}
+          path: test-results-performance
+          retention-days: 7
       - name: Verify desktop, phone and tablet workspace journeys
-        run: npx playwright test --workers=2 --max-failures=3
+        run: npx playwright test --workers=2 --max-failures=3 --grep-invert v46-performance
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
@@ -462,3 +488,29 @@ jobs:
           name: container-scan-evidence-${{ github.sha }}
           path: security-evidence
           retention-days: 7
+
+  validation-status:
+    needs: [lab-scenarios, backend, frontend, docker-startup, secrets-and-sast, container-security]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Require every validation job to succeed
+        env:
+          CI_JOB_RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          expected = ['lab-scenarios', 'backend', 'frontend', 'docker-startup', 'secrets-and-sast', 'container-security']
+          jobs = json.loads(os.environ['CI_JOB_RESULTS'])
+          outcomes = {name: jobs.get(name, {}).get('result', 'missing') for name in expected}
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              summary.write('## Required validation jobs\n\n| Job | Result |\n| --- | --- |\n')
+              for name, result in outcomes.items():
+                  summary.write(f'| {name} | {result} |\n')
+                  print(f'{name}: {result}')
+          failed = [name for name, result in outcomes.items() if result != 'success']
+          if failed:
+              raise SystemExit('Required validation jobs did not pass: ' + ', '.join(failed))
+          PY
