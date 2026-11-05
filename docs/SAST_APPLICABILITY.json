@@ -1173,7 +1173,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java",
-      "sha256": "4ede1866d90d34fbf59a4bc6931e1a15497041908fd0caf60c6c1ce35669b0d6"
+      "sha256": "bc8b5f7b3b2585a9d84206aee74f807df61ea2077e2e5d5b04df37bd014b9b98"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/DataExposureIntegrationTest.java",
@@ -1322,6 +1322,10 @@
     {
       "path": "backend/src/test/java/com/getlancer/payments/MaintenanceFixture.java",
       "sha256": "b1a54b80e7b86e14daeae5d674e807aae69d55966b5b6010beeaf1f073c70998"
+    },
+    {
+      "path": "backend/src/test/java/com/getlancer/payments/ProviderFailureFixture.java",
+      "sha256": "2d3553208d2cd7358c0cc4b1ac845e51532f081284264bbd92fd559dd2bbadb2"
     },
     {
       "path": "backend/src/test/java/com/getlancer/payments/RazorpayClientTest.java",

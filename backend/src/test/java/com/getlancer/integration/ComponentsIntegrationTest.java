@@ -374,7 +374,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
       slotPrice(pool,10000);String id=response(poolBuy(pool,UUID.randomUUID().toString(),10000)).path("id").asText();captured=true;
       String reconcile="/api/v1/me/publishing-slot-purchases/"+id+"/reconcile";
       assertTrue(response(body(post(reconcile),"builder",Map.of())).path("grantsSlot").asBoolean());assertEquals(1,publishing().path(pool).path("purchased").asInt());
-      JsonNode valid=provider.payment("pay_component123");doThrow(mock(RazorpayClient.ProviderFailure.class)).when(provider).payment(anyString());
+      JsonNode valid=provider.payment("pay_component123");doThrow(com.getlancer.payments.ProviderFailureFixture.unavailable()).when(provider).payment(anyString());
       String payload=slotRefund("rfnd_componentpending123"),event="pending_refund_"+pool;
       mvc.perform(slotHook(event,payload)).andExpect(status().isBadGateway());
       assertEquals("rfnd_componentpending123",db.queryForObject("SELECT refund_id FROM component_slot_events WHERE event_id=?",String.class,event));
@@ -386,7 +386,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
       mvc.perform(slotHook(event,payload+" ")).andExpect(status().isConflict());
       doReturn(slotRefundFact("rfnd_componentpending123","failed")).when(provider).refund(anyString());
       assertTrue(response(slotHook(event,payload)).path("duplicate").asBoolean());assertEquals(1,publishing().path(pool).path("purchased").asInt());
-      doThrow(mock(RazorpayClient.ProviderFailure.class)).when(provider).payment(anyString());
+      doThrow(com.getlancer.payments.ProviderFailureFixture.unavailable()).when(provider).payment(anyString());
       String dispute="{\"event\":\"payment.dispute.created\",\"payload\":{\"dispute\":{\"entity\":{\"id\":\"disp_componentpending123\",\"payment_id\":\"pay_component123\"}}}}";
       mvc.perform(slotHook("pending_dispute_"+pool,dispute)).andExpect(status().isBadGateway());assertEquals(0,publishing().path(pool).path("purchased").asInt());
       doReturn(valid).when(provider).payment(anyString());
@@ -410,7 +410,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     price(10000);
     when(provider.createPlatformOrder(any(UUID.class),anyLong())).thenAnswer(i->{order=json.valueToTree(Map.of("id","order_component123","receipt",i.getArgument(0).toString(),"amount",10000,"currency","INR"));throw new ApiError(409,"PROVIDER_MISMATCH","Uncertain fixture order.");});
     mvc.perform(buy("builder",UUID.randomUUID().toString(),10000)).andExpect(status().isConflict());captured=true;
-    JsonNode valid=provider.payment("pay_component123");doThrow(mock(RazorpayClient.ProviderFailure.class)).when(provider).payment(anyString());
+    JsonNode valid=provider.payment("pay_component123");doThrow(com.getlancer.payments.ProviderFailureFixture.unavailable()).when(provider).payment(anyString());
     mvc.perform(slotHook("slot_early_refund",slotRefund("rfnd_componentearly123"))).andExpect(status().isBadGateway());
     doReturn(valid).when(provider).payment(anyString());when(provider.refund(anyString())).thenReturn(slotRefundFact("rfnd_componentearly123","pending"));
     UUID id=db.queryForObject("SELECT id FROM component_slot_purchases",UUID.class);
