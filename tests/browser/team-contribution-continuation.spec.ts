@@ -65,13 +65,13 @@ test('denied product continuation clears private choices and an old actor respon
  await page.evaluate(()=>(window as unknown as State).denyProductPage=true);
  await page.getByRole('button',{name:'Load more of your products',exact:true}).click();
  await expect(page.getByRole('alert')).toContainText('Builder access changed.');
- await expect(page.getByLabel('Your approved public product',{exact:true}).locator('option')).toHaveCount(1);
- await expect(page.getByRole('button',{name:'Consent and share product',exact:true})).toBeDisabled();
+ await expect(page.getByLabel('Your approved public product',{exact:true})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'Consent and share product',exact:true})).toHaveCount(0);
+ await expect(page.getByRole('link',{name:'Log in',exact:true})).toBeVisible();
  await page.evaluate(()=>(window as unknown as State).denyProductPage=false);
- await page.getByRole('button',{name:'Retry your products',exact:true}).click();
- // Reload restores the initial page and focuses the picker in the reopened panel.
- await expect(page.getByRole('button',{name:'Retry your products',exact:true})).toHaveCount(0);
- await expect(page.getByLabel('Your approved public product',{exact:true})).toBeFocused();
+ await page.getByRole('button',{name:'Retry your workspace',exact:true}).click();
+ await expect(page.getByText('Member access',{exact:true})).toBeVisible();await page.getByText('Contribute your product',{exact:true}).click();
+ await expect(page.getByLabel('Your approved public product',{exact:true}).locator('option')).toHaveCount(51);
  await page.evaluate(()=>(window as unknown as State).holdProductPage=true);
  await page.getByRole('button',{name:'Load more of your products',exact:true}).click();
  await expect(page.getByRole('button',{name:'Loading…',exact:true})).toBeDisabled();

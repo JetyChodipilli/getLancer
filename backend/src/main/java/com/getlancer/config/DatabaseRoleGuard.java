@@ -62,7 +62,7 @@ public class DatabaseRoleGuard implements ApplicationRunner {
         WHERE n.nspname=? AND c.relname IN ('security_audit_events','inquiry_events','moderation_actions',
           'delivery_activity','payment_ledger','payment_account_audit','commerce_ledger','commerce_audit',
           'maintenance_ledger','maintenance_audit','hosting_audit','component_audit','component_releases','component_review_assessments','component_slot_ledger',
-          'component_slot_events','publishing_capacity_grants','lab_events','lab_operator_audit','education_audit','education_free_packages')
+          'publishing_capacity_grants','lab_events','lab_operator_audit','education_audit','education_free_packages')
           AND (has_table_privilege(current_user,c.oid,'UPDATE') OR has_any_column_privilege(current_user,c.oid,'UPDATE')
             OR has_table_privilege(current_user,c.oid,'DELETE'))
         """, Integer.class, schema);
@@ -113,21 +113,21 @@ public class DatabaseRoleGuard implements ApplicationRunner {
     if (unsafeLocks == null || unsafeLocks != 0) reject("locking_permissions");
     if (unsafeCounters == null || unsafeCounters != 0) reject("measurement_counter_permissions");
     Integer unsafeReceipts = db.queryForObject("""
-        SELECT count(*) FROM (VALUES ('payment_webhook_events'),('commerce_webhook_events')) required(name)
+        SELECT count(*) FROM (VALUES ('payment_webhook_events'),('commerce_webhook_events'),('component_slot_events')) required(name)
         LEFT JOIN pg_namespace n ON n.nspname=?
         LEFT JOIN pg_class c ON c.relnamespace=n.oid AND c.relname=required.name
         WHERE c.oid IS NULL OR has_table_privilege(current_user,c.oid,'UPDATE')
           OR has_table_privilege(current_user,c.oid,'DELETE')
-          OR (CASE WHEN required.name='payment_webhook_events' THEN 5 ELSE 4 END)<>(SELECT count(*) FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
-            AND (a.attname IN ('order_id','payment_id','dispute_id','processed_at') OR (required.name='payment_webhook_events' AND a.attname='refund_id'))
+          OR (CASE WHEN required.name='component_slot_events' THEN 6 ELSE 5 END)<>(SELECT count(*) FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+            AND (a.attname IN ('order_id','payment_id','dispute_id','refund_id','processed_at') OR (required.name='component_slot_events' AND a.attname='event_kind'))
             AND has_column_privilege(current_user,c.oid,a.attnum,'UPDATE'))
           OR EXISTS(SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
-            AND NOT (a.attname IN ('order_id','payment_id','dispute_id','processed_at') OR (required.name='payment_webhook_events' AND a.attname='refund_id'))
+            AND NOT (a.attname IN ('order_id','payment_id','dispute_id','refund_id','processed_at') OR (required.name='component_slot_events' AND a.attname='event_kind'))
             AND has_column_privilege(current_user,c.oid,a.attnum,'UPDATE'))
         """, Integer.class, schema);
     if (unsafeReceipts == null || unsafeReceipts != 0) reject("webhook_receipt_permissions");
     Integer unsafeRefunds = db.queryForObject("""
-        SELECT count(*) FROM (VALUES ('payment_provider_refunds')) required(name)
+        SELECT count(*) FROM (VALUES ('payment_provider_refunds'),('commerce_provider_refunds'),('component_slot_refunds'),('component_slot_disputes')) required(name)
         LEFT JOIN pg_namespace n ON n.nspname=?
         LEFT JOIN pg_class c ON c.relnamespace=n.oid AND c.relname=required.name
         WHERE c.oid IS NULL OR has_table_privilege(current_user,c.oid,'UPDATE')

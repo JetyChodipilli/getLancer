@@ -5,13 +5,14 @@ import Link from 'next/link';
 import {ArrowUpRight,BookOpen,Clock3,FlaskConical,RefreshCw,ShieldCheck,Square} from 'lucide-react';
 import {Card,CardContent,CardHeader} from '@/components/ui/card';
 import {Badge} from '@/components/ui/badge';
-import {api,ApiError} from '@/lib/api';
+import {api,accountApi,ApiError} from '@/lib/api';
 import {observeArtifact} from '@/lib/analytics';
 import {labApplyEvents,labMergeObservations,labObservation,labAttempt,labCanRequest,labCanStop,labEventsPath,labExpired,labExpiryText,labFieldErrors,labSourceUrl,labRunResponse,labStatusLabel,labTerminal,parseLabEvents,type LabObservation,type LabAttempt,type LabCatalogue,type LabEvent,type LabInput,type LabQuota,type LabRun,type LabRunBody} from '@/lib/labs';
 import LiveRunEvidence from './live-run-evidence';
 import './labs.css';
 
 const labApi=(path:string,init:RequestInit={})=>api(path,{...init,signal:init.signal??AbortSignal.timeout(15000)});
+const privateLabApi=(actor:string|null,path:string,init:RequestInit={})=>accountApi(actor,path,{...init,signal:init.signal??AbortSignal.timeout(15000)});
 const message=(problem:unknown)=>problem instanceof Error?problem.message:'The service is unavailable. Try the same request again.';
 const definitiveDenial=(problem:unknown)=>problem instanceof ApiError&&([400,401,403,429].includes(problem.status)||problem.code==='LAB_DISABLED');
 const emptyInputs=(fields:LabInput[])=>Object.fromEntries(fields.map(field=>[field.name,field.type==='BOOLEAN'?'false':'']));
@@ -27,41 +28,48 @@ export default function LabWorkbench(){
  const [attempt,setAttempt]=useState<LabAttempt<LabRunBody>|null>(null),[requestAttempt,setRequestAttempt]=useState<LabAttempt<{operationId:string;inputs:Record<string,string>}>|null>(null);
  const [observations,setObservations]=useState<LabObservation[]>([]);const observed=useRef<LabObservation[]>([]);
  const clearObserved=()=>{observed.current=[];setObservations([]);};
- const initializedRun=useRef(''),alive=useRef(true),epoch=useRef(0),eventAbort=useRef<AbortController|null>(null),eventCursor=useRef(0),eventObservedCursor=useRef(0),summary=useRef<HTMLParagraphElement>(null);
+ const initializedRun=useRef(''),account=useRef<string|null>(null),alive=useRef(true),epoch=useRef(0),eventAbort=useRef<AbortController|null>(null),eventCursor=useRef(0),eventObservedCursor=useRef(0),summary=useRef<HTMLParagraphElement>(null);
  const manifest=catalogue?.items.find(item=>item.id===selected),scenario=manifest?.scenarios.find(item=>item.id===scenarioId),runManifest=catalogue?.items.find(item=>item.id===run?.manifestId),runScenario=runManifest?.scenarios.find(item=>item.id===run?.scenarioId);
  const runAvailable=!!runManifest&&!!runScenario&&runManifest.availability?.enabled!==false;
  useEffect(()=>{if(manifest)observeArtifact('lab_view',manifest.id);},[manifest?.id]);
- const privateReset=()=>{epoch.current++;setBusy(false);setLoading(false);setAuthenticated(false);setQuota(null);setRun(null);setEvents([]);clearObserved();setResponse(null);eventCursor.current=0;eventObservedCursor.current=0;eventAbort.current?.abort();};
+ const clearRun=()=>{setRun(null);setEvents([]);clearObserved();setResponse(null);setRequestAttempt(null);initializedRun.current='';eventCursor.current=0;eventObservedCursor.current=0;eventAbort.current?.abort();};
+ const privateReset=()=>{epoch.current++;account.current=null;setBusy(false);setLoading(false);setAuthenticated(false);setQuota(null);clearRun();setAttempt(null);setRequestValues({});setOperationId('');setInputs(emptyInputs(scenario?.inputs||[]));setFieldErrors({});setRequestErrors({});setNotice('');setRuntimeFallback(false);};
  useEffect(()=>{if(error)summary.current?.focus();},[error]);
  useEffect(()=>{alive.current=true;void load();const clock=window.setInterval(()=>setNow(Date.now()),10000);return()=>{alive.current=false;epoch.current++;eventAbort.current?.abort();window.clearInterval(clock);};},[]);
  useEffect(()=>{if(run&&labTerminal(run.status))eventAbort.current?.abort();},[run?.status]);
  useEffect(()=>{if(!run||!runScenario||initializedRun.current===run.id)return;initializedRun.current=run.id;setOperationId(runScenario.operations[0]?.id||'');setRequestValues(previous=>Object.keys(previous).length?previous:emptyInputs(runScenario.inputs));},[run?.id,runScenario]);
  async function load(userInitiated=false){
-  const token=++epoch.current;setLoading(true);setError('');setPassiveError('');setQuotaError('');
-  const [catalogueResult,quotaResult]=await Promise.allSettled([labApi('/lab-manifests'),labApi('/lab-quota')]);
+  let token=++epoch.current;setLoading(true);setAuthenticated(false);setError('');setPassiveError('');setQuotaError('');eventAbort.current?.abort();
+  const [catalogueResult,actorResult]=await Promise.allSettled([labApi('/lab-manifests'),labApi('/me')]);
   if(!alive.current||token!==epoch.current)return;
   if(catalogueResult.status==='fulfilled'){
    const next=catalogueResult.value as LabCatalogue;setCatalogue(next);
    if(!selected&&next.items.length){const first=next.items[0],step=first.scenarios[0];setSelected(first.id);setScenarioId(step?.id||'');setInputs(emptyInputs(step?.inputs||[]));}
   }else{setCatalogue(null);if(userInitiated)setError(message(catalogueResult.reason));else setPassiveError(message(catalogueResult.reason));}
-  if(quotaResult.status==='fulfilled'){
-   const next=quotaResult.value as LabQuota;setQuota(next);setAuthenticated(true);
-   if(next.activeRunId&&!run)try{const active=labRunResponse(await labApi('/lab-runs/'+encodeURIComponent(next.activeRunId)));if(alive.current&&token===epoch.current)setRun(active);}catch(problem){if(alive.current&&token===epoch.current){if(problem instanceof ApiError&&[401,403].includes(problem.status))privateReset();setQuotaError(message(problem));}}
-  }else{setQuota(null);setAuthenticated(false);if(quotaResult.reason instanceof ApiError&&[401,403].includes(quotaResult.reason.status))privateReset();if(quotaResult.reason instanceof ApiError&&quotaResult.reason.status===401)setQuotaError('Sign in to check your free run allowance.');else setQuotaError(message(quotaResult.reason));}
+  try{
+   if(actorResult.status==='rejected')throw actorResult.reason;
+   const actor=actorResult.value as {id?:unknown};if(typeof actor.id!=='string'||!actor.id)throw new ApiError('Your current account could not be verified.','ACCOUNT_CHANGED',401);
+   if(account.current&&account.current!==actor.id){privateReset();token=epoch.current;setLoading(true);}
+   account.current=actor.id;
+   const next=await privateLabApi(actor.id,'/lab-quota') as LabQuota;if(!alive.current||token!==epoch.current)return;
+   setQuota(next);setAuthenticated(true);
+   if(next.activeRunId){const active=labRunResponse(await privateLabApi(actor.id,'/lab-runs/'+encodeURIComponent(next.activeRunId)));if(!alive.current||token!==epoch.current)return;if(run&&run.id!==active.id)clearRun();setRun(previous=>previous?.id===active.id&&labTerminal(previous.status)&&!labTerminal(active.status)?previous:active);}
+  }catch(problem){if(alive.current&&token===epoch.current){setQuota(null);setAuthenticated(false);if(actorResult.status==='rejected'||problem instanceof ApiError&&[401,403].includes(problem.status))privateReset();setQuotaError(problem instanceof ApiError&&problem.status===401?'Sign in to check your free run allowance.':message(problem));}}
   if(alive.current&&token===epoch.current)setLoading(false);
  }
  function chooseManifest(id:string){const item=catalogue?.items.find(value=>value.id===id),step=item?.scenarios[0];setSelected(id);setScenarioId(step?.id||'');setInputs(emptyInputs(step?.inputs||[]));setFieldErrors({});setError('');}
  function chooseScenario(id:string){const step=manifest?.scenarios.find(value=>value.id===id);setScenarioId(id);setInputs(emptyInputs(step?.inputs||[]));setFieldErrors({});setError('');}
- async function activity(current:LabRun){
+ async function activity(current:LabRun,actor:string,token:number){
+  if(!alive.current||token!==epoch.current||actor!==account.current)return;
   eventAbort.current?.abort();const controller=new AbortController();eventAbort.current=controller;
   const timeout=window.setTimeout(()=>controller.abort(),15000);
   try{
-   const reply=await fetch(labEventsPath(current.id),{credentials:'same-origin',headers:{Accept:'text/event-stream','X-Requested-With':'getlancer','Last-Event-ID':String(eventCursor.current)},signal:controller.signal});
+   const reply=await fetch(labEventsPath(current.id),{credentials:'same-origin',headers:{Accept:'text/event-stream','X-Requested-With':'getlancer','X-GetLancer-Account':actor,'Last-Event-ID':String(eventCursor.current)},signal:controller.signal});
    if(!reply.ok){const body=await reply.json().catch(()=>({}));throw new ApiError(body.error?.message||'Activity is unavailable.',body.error?.code||'REQUEST_FAILED',reply.status,body.error?.requestId);}
    if(!reply.headers.get('Content-Type')?.toLowerCase().includes('text/event-stream'))throw Error('Activity returned an unsupported response.');
    const reader=reply.body?.getReader();if(!reader)throw Error('Activity could not be read.');const decoder=new TextDecoder();let text='',bytes=0;
    try{while(true){const chunk=await reader.read();if(chunk.done)break;bytes+=chunk.value.byteLength;if(bytes>65536)throw Error('The activity response exceeded its limit.');text+=decoder.decode(chunk.value,{stream:true});}text+=decoder.decode();}finally{await reader.cancel().catch(()=>{});reader.releaseLock();}
-   if(!alive.current||controller.signal.aborted)return;
+   if(!alive.current||controller.signal.aborted||token!==epoch.current||actor!==account.current)return;
    const sourceHash=catalogue?.items.find(item=>item.id===current.manifestId)?.sourceSha256;
    const fresh=parseLabEvents(text,current.id,eventCursor.current,sourceHash),incoming=fresh.flatMap(item=>item.data.observation?[item.data.observation]:[]),merged=labMergeObservations(observed.current,incoming,current.id,sourceHash,eventObservedCursor.current);
    if(incoming.length)eventObservedCursor.current=incoming.at(-1)!.events.at(-1)!.sequence;
@@ -69,30 +77,30 @@ export default function LabWorkbench(){
    if(fresh.length){eventCursor.current=fresh[fresh.length-1].sequence;setEvents(previous=>[...previous,...fresh].slice(-100));setRun(previous=>previous?.id===current.id?labApplyEvents(previous,fresh):previous);}
   }finally{window.clearTimeout(timeout);}
  }
- async function refresh(){if(!run)return;setBusy(true);setError('');setNotice('');const token=epoch.current;
-  try{const current=labRunResponse(await labApi('/lab-runs/'+encodeURIComponent(run.id)));if(!alive.current||token!==epoch.current)return;setRun(previous=>previous&&labTerminal(previous.status)&&!labTerminal(current.status)?previous:current);if(!labTerminal(current.status)&&!labExpired(current))await activity(current);else eventAbort.current?.abort();setNotice('Current run status checked.');}
-  catch(problem){if(alive.current&&token===epoch.current){if(problem instanceof ApiError&&[401,403].includes(problem.status))privateReset();else if(problem instanceof ApiError&&[404,410].includes(problem.status)){setRun(null);setEvents([]);clearObserved();eventAbort.current?.abort();}setError(message(problem));}}
+ async function refresh(){const actor=account.current;if(!authenticated||!actor||!run)return;setBusy(true);setError('');setNotice('');const token=epoch.current;
+  try{const current=labRunResponse(await privateLabApi(actor,'/lab-runs/'+encodeURIComponent(run.id)));if(!alive.current||token!==epoch.current)return;setRun(previous=>previous&&labTerminal(previous.status)&&!labTerminal(current.status)?previous:current);if(!labTerminal(current.status)&&!labExpired(current))await activity(current,actor,token);else eventAbort.current?.abort();if(alive.current&&token===epoch.current)setNotice('Current run status checked.');}
+  catch(problem){if(alive.current&&token===epoch.current){if(problem instanceof ApiError&&[401,403].includes(problem.status))privateReset();else if(problem instanceof ApiError&&[404,410].includes(problem.status))clearRun();setError(message(problem));}}
   finally{if(alive.current&&token===epoch.current)setBusy(false);}
  }
- async function start(event:React.FormEvent){event.preventDefault();if(!manifest||!scenario)return;const errors=labFieldErrors(scenario.inputs,inputs);setFieldErrors(errors);setError('');setNotice('');if(Object.keys(errors).length){setError('Check the labelled inputs before running.');return;}
+ async function start(event:React.FormEvent){event.preventDefault();const actor=account.current;if(!authenticated||!actor||!manifest||!scenario)return;const errors=labFieldErrors(scenario.inputs,inputs);setFieldErrors(errors);setError('');setNotice('');if(Object.keys(errors).length){setError('Check the labelled inputs before running.');return;}
   setRuntimeFallback(false);const token=epoch.current;let pending:LabAttempt<LabRunBody>;try{pending=labAttempt({manifestId:manifest.id,scenarioId:scenario.id,inputs},attempt);}catch(problem){setError(message(problem));return;}setAttempt(pending);setBusy(true);
-  try{const current=labRunResponse(await labApi('/lab-runs',{method:'POST',headers:{'Idempotency-Key':pending.key},body:JSON.stringify(pending.body)}));if(!alive.current||token!==epoch.current)return;setRun(current);setAttempt(null);setEvents([]);clearObserved();setResponse(null);setRequestAttempt(null);eventCursor.current=0;eventObservedCursor.current=0;setRequestValues({...inputs});setOperationId(scenario.operations[0]?.id||'');setNotice('Run accepted. Execution is verified only after the isolated worker becomes healthy.');try{await activity(current);}catch(problem){if(!alive.current||token!==epoch.current)return;if(problem instanceof ApiError&&[401,403].includes(problem.status))privateReset();else if(problem instanceof ApiError&&[404,410].includes(problem.status)){setRun(null);setEvents([]);clearObserved();}setError('The run was accepted; '+message(problem)+' Refresh this run to verify its state.');}if(token===epoch.current)void reloadQuota();}
-  catch(problem){if(alive.current&&token===epoch.current){if(problem instanceof ApiError&&problem.status===429)setRuntimeFallback(true);const denied=definitiveDenial(problem)&&!attempt;if(denied)setAttempt(null);if(problem instanceof ApiError&&[401,403].includes(problem.status))privateReset();if(problem instanceof ApiError)setFieldErrors(problem.fieldErrors);setError(message(problem)+(denied?' Your inputs have been kept.':' The result is uncertain. Retry the same request to recover its original run; its identity and inputs are retained.'));}}
+  try{const current=labRunResponse(await privateLabApi(actor,'/lab-runs',{method:'POST',headers:{'Idempotency-Key':pending.key},body:JSON.stringify(pending.body)}));if(!alive.current||token!==epoch.current)return;setRun(current);setAttempt(null);setEvents([]);clearObserved();setResponse(null);setRequestAttempt(null);eventCursor.current=0;eventObservedCursor.current=0;setRequestValues({...inputs});setOperationId(scenario.operations[0]?.id||'');setNotice('Run accepted. Execution is verified only after the isolated worker becomes healthy.');try{await activity(current,actor,token);}catch(problem){if(!alive.current||token!==epoch.current)return;if(problem instanceof ApiError&&[401,403].includes(problem.status))privateReset();else if(problem instanceof ApiError&&[404,410].includes(problem.status))clearRun();setError('The run was accepted; '+message(problem)+' Refresh this run to verify its state.');}if(token===epoch.current)void reloadQuota();}
+  catch(problem){if(alive.current&&token===epoch.current){if(problem instanceof ApiError&&problem.status===429)setRuntimeFallback(true);const denied=definitiveDenial(problem)&&!attempt,accessDenied=problem instanceof ApiError&&[401,403].includes(problem.status);if(denied)setAttempt(null);if(accessDenied)privateReset();if(problem instanceof ApiError&&!accessDenied)setFieldErrors(problem.fieldErrors);setError(message(problem)+(accessDenied?' Refresh availability to verify your current account.':denied?' Your inputs have been kept.':' The result is uncertain. Retry the same request to recover its original run; its identity and inputs are retained.'));}}
   finally{if(alive.current&&token===epoch.current)setBusy(false);}
  }
- async function reloadQuota(){const token=epoch.current;try{const next=await labApi('/lab-quota') as LabQuota;if(alive.current&&token===epoch.current)setQuota(next);}catch(problem){if(alive.current&&token===epoch.current){setQuota(null);setQuotaError(message(problem));if(problem instanceof ApiError&&[401,403].includes(problem.status))privateReset();}}}
- async function stop(){if(!run||!labCanStop(run))return;const token=epoch.current;setBusy(true);setError('');setNotice('');eventAbort.current?.abort();
-  try{const current=labRunResponse(await labApi('/lab-runs/'+encodeURIComponent(run.id)+'/stop',{method:'POST',body:'{}'}));if(!alive.current||token!==epoch.current)return;setRun(current);setNotice(labTerminal(current.status)?'The current run is stopped.':'Stop requested. Cleanup has not yet been confirmed.');void reloadQuota();}
-  catch(problem){if(alive.current&&token===epoch.current){if(problem instanceof ApiError&&[401,403,404,410].includes(problem.status)){setRun(null);setEvents([]);clearObserved();}setError(message(problem)+' Refresh this same run to confirm its stop status.');}}
+ async function reloadQuota(){const token=epoch.current,actor=account.current;try{const next=await privateLabApi(actor,'/lab-quota') as LabQuota;if(alive.current&&token===epoch.current)setQuota(next);}catch(problem){if(alive.current&&token===epoch.current){setQuota(null);setQuotaError(message(problem));if(problem instanceof ApiError&&[401,403].includes(problem.status))privateReset();}}}
+ async function stop(){const actor=account.current;if(!authenticated||!actor||!run||!labCanStop(run))return;const token=epoch.current;setBusy(true);setError('');setNotice('');eventAbort.current?.abort();
+  try{const current=labRunResponse(await privateLabApi(actor,'/lab-runs/'+encodeURIComponent(run.id)+'/stop',{method:'POST',body:'{}'}));if(!alive.current||token!==epoch.current)return;setRun(current);setNotice(labTerminal(current.status)?'The current run is stopped.':'Stop requested. Cleanup has not yet been confirmed.');void reloadQuota();}
+  catch(problem){if(alive.current&&token===epoch.current){const accessDenied=problem instanceof ApiError&&[401,403].includes(problem.status);if(accessDenied)privateReset();else if(problem instanceof ApiError&&[404,410].includes(problem.status))clearRun();setError(message(problem)+(accessDenied?' Refresh availability to verify your current account.':' Refresh this same run to confirm its stop status.'));}}
   finally{if(alive.current&&token===epoch.current)setBusy(false);}
  }
- async function send(event:React.FormEvent){event.preventDefault();if(!authenticated||!run||!runScenario||!runAvailable||!labCanRequest(run)||!operationId)return;const errors=labFieldErrors(runScenario.inputs,requestValues);setRequestErrors(errors);setError('');setNotice('');if(Object.keys(errors).length){setError('Check the operation inputs.');return;}
+ async function send(event:React.FormEvent){event.preventDefault();const actor=account.current;if(!authenticated||!actor||!run||!runScenario||!runAvailable||!labCanRequest(run)||!operationId)return;const errors=labFieldErrors(runScenario.inputs,requestValues);setRequestErrors(errors);setError('');setNotice('');if(Object.keys(errors).length){setError('Check the operation inputs.');return;}
   const token=epoch.current;let pending:LabAttempt<{operationId:string;inputs:Record<string,string>}>;try{pending=labAttempt({operationId,inputs:requestValues},requestAttempt);}catch(problem){setError(message(problem));return;}setRequestAttempt(pending);setBusy(true);
-  try{const result=await labApi('/lab-runs/'+encodeURIComponent(run.id)+'/requests',{method:'POST',headers:{'Idempotency-Key':pending.key},body:JSON.stringify(pending.body)});if(!alive.current||token!==epoch.current)return;
+  try{const result=await privateLabApi(actor,'/lab-runs/'+encodeURIComponent(run.id)+'/requests',{method:'POST',headers:{'Idempotency-Key':pending.key},body:JSON.stringify(pending.body)});if(!alive.current||token!==epoch.current)return;
    const resultValue=result as {runId?:string;observation?:unknown};if(resultValue.runId!==undefined&&resultValue.runId!==run.id)throw Error('The operation response could not be verified.');
    if(resultValue.observation!==undefined&&resultValue.observation!==null){const next=labObservation(resultValue.observation,run.id,runManifest?.sourceSha256),merged=labMergeObservations(observed.current,[next],run.id,runManifest?.sourceSha256);observed.current=merged;setObservations(merged);}
    setRequestAttempt(null);setResponse(JSON.stringify(result,null,2).slice(0,65536));setNotice('Certified operation response received.');}
-  catch(problem){if(alive.current&&token===epoch.current){const denied=problem instanceof ApiError&&[400,429].includes(problem.status)&&!requestAttempt;if(denied)setRequestAttempt(null);if(problem instanceof ApiError&&([401,403,404,410].includes(problem.status)||problem.code==='LAB_ISOLATION_LOST')){setRun(null);setEvents([]);clearObserved();setResponse(null);eventAbort.current?.abort();}if(problem instanceof ApiError)setRequestErrors(problem.fieldErrors);setError(message(problem)+(denied?' Operation inputs have been kept.':' Retry the same operation to recover its response.'));}}
+  catch(problem){if(alive.current&&token===epoch.current){const denied=problem instanceof ApiError&&[400,429].includes(problem.status)&&!requestAttempt;if(denied)setRequestAttempt(null);const accessDenied=problem instanceof ApiError&&[401,403].includes(problem.status);if(accessDenied)privateReset();else if(problem instanceof ApiError&&([404,410].includes(problem.status)||problem.code==='LAB_ISOLATION_LOST'))clearRun();if(problem instanceof ApiError&&!accessDenied)setRequestErrors(problem.fieldErrors);setError(message(problem)+(accessDenied?' Refresh availability to verify your current account.':denied?' Operation inputs have been kept.':' Retry the same operation to recover its response.'));}}
   finally{if(alive.current&&token===epoch.current)setBusy(false);}
  }
  const source=labSourceUrl(manifest?.sourceUrl),runtime=catalogue?.runtime,canStart=!!manifest&&!!scenario&&manifest.availability?.enabled!==false&&authenticated&&(!!attempt||!!quota&&runtime?.enabled&&quota.runtime.enabled&&quota.remaining>0&&!quota.activeRunId&&(!run||labTerminal(run.status)));

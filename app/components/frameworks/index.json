@@ -10,8 +10,8 @@
       "primaryFile": "src/App.vue",
       "compiler": "@vue/compiler-sfc 3.5.43",
       "previewSha256": "5619abbb4e786d99c4c4a1f303219a9c1b5157353abc15f4970744eace8045ef",
-      "sourceSha256": "d56bca25b3e31722e5afc2fe8574a127a0443b3e2a4a5c191480745435480180",
-      "archiveSha256": "fce4d2b909b1ca8b3ba24933fa4705520fbf92335374b3d7a5917ea948beaea5",
+      "sourceSha256": "377f0e53ab920438b3ac16ac4ee0d4c10a34acd0116d6c11b8ce798e0bb67cc3",
+      "archiveSha256": "615538a05957838e744de8f7f046cafcc81ea1923225ec231595906589ba5652",
       "sourceUrl": "/components/frameworks/source/vue",
       "previewUrl": "/components/frameworks/preview/vue",
       "files": [
@@ -22,8 +22,8 @@
         },
         {
           "name": "build.mjs",
-          "sha256": "9708dd7092ab134c1dddc763eb13837aeab18fd877aeb85323578a4c6b09fa4e",
-          "bytes": 869
+          "sha256": "86364babcda964f08e25c6d910ed5f94ebfaf1f015705fdbad21a1e2d69112f9",
+          "bytes": 915
         },
         {
           "name": "LICENSE",
@@ -81,8 +81,8 @@
       "primaryFile": "src/App.svelte",
       "compiler": "svelte/compiler 5.57.2",
       "previewSha256": "2daaa62ce7755b02aa1efa3ec1669f3f05404ab549c37f78e33a42b2e4b61454",
-      "sourceSha256": "6899c8b737588b49f2d6eaa4aa03455375b49cc99380da4486b75606c627de8a",
-      "archiveSha256": "55af9157d315da115761a51f6c2881b3c01d2046a7a4084a3b45107ffb5669c3",
+      "sourceSha256": "de913a175351bd5a3759cec375c1cd5a86e36b15c854fd62dcc470323a05eded",
+      "archiveSha256": "dde8c3450e71a5e982e87dc5f2cfefa933392cb409661a725ca9b198d3f8ad6d",
       "sourceUrl": "/components/frameworks/source/svelte",
       "previewUrl": "/components/frameworks/preview/svelte",
       "files": [
@@ -93,8 +93,8 @@
         },
         {
           "name": "build.mjs",
-          "sha256": "89b67725e006101acd37682b1aaadbef6490b7d25b8b9af7cc0368a306799dee",
-          "bytes": 662
+          "sha256": "07bdedc5677627c18064daaa585197924e95c0bd0f1c2ed19d58db8ec9513726",
+          "bytes": 708
         },
         {
           "name": "LICENSE",

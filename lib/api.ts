@@ -5,6 +5,13 @@ export class ApiError extends Error {
  }
 }
 
+/** Bind retained private state to its session actor; this header never selects an account. */
+export function accountApi<T=any>(accountId:string|null|undefined,path:string,init:RequestInit={}):Promise<T>{
+ if(!accountId)return Promise.reject(new ApiError('Reload your account before continuing.','ACCOUNT_CHANGED',401));
+ const headers=new Headers(init.headers);headers.set('X-GetLancer-Account',accountId);
+ return api(path,{...init,headers});
+}
+
 function fallbackMessage(status:number,mutation:boolean){
  if(status===401)return 'Your session has ended. Sign in to continue.';
  if(status===403)return 'You do not have permission to complete this action.';

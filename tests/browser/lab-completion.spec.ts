@@ -2,6 +2,7 @@ import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {test,expect,type Page,type Route} from '@playwright/test';
 const axe=readFileSync(createRequire(import.meta.url).resolve('axe-core/axe.min.js'),'utf8');
+test.beforeEach(async({page})=>{await page.route('**/api/v1/me',route=>json(route,{id:'00000000-0000-4000-8000-000000000001',roles:['CLIENT']}));});
 async function scan(page:Page){await page.evaluate(axe);const result=await page.evaluate(async()=> (window as unknown as {axe:{run:(root:Element|null,options:unknown)=>Promise<{violations:{id:string;impact:string}[]}>}}).axe.run(document.querySelector('main'),{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa','wcag22aa']}}));expect(result.violations.filter(item=>['critical','serious'].includes(item.impact))).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);}
 const id='11111111-1111-4111-8111-111111111111',sourceHash='a'.repeat(64),requestId='22222222-2222-4222-8222-222222222222';
 const runtime={enabled:true,reason:'Controlled browser fixture only; no provider qualification.'};

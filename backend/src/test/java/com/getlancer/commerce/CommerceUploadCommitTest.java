@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 
 import com.getlancer.publishing.PublishingCapacity;
 import com.getlancer.security.Security;
+import com.getlancer.shared.ApiError;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -117,6 +118,30 @@ class CommerceUploadCommitTest {
     var f = new Fixture(Outcome.COMMITTED); var result = f.upload();
     assertEquals("2.0.0", result.get("version")); assertEquals(2, f.manager.committed.size());
     assertNotNull(f.objects.get(f.uploadedKey)); verify(f.storage, never()).discardUnlinked(anyString());
+    f.existingPurchaseUnchanged();
+  }
+
+  @Test void retainedOwnerLimitRejectsBeforeOpeningOrStoringAnotherArchive() throws Exception {
+    var f = new Fixture(Outcome.COMMITTED);
+    when(f.repo.retainedVersions(f.seller, 100)).thenReturn(100);
+    var file = spy(new MockMultipartFile("file", "source.zip", "application/zip", archive()));
+    var error = assertThrows(ApiError.class,
+        () -> f.service.upload(f.template, file, "2.0.0", "Complete immutable release notes.", true, f.request));
+    assertEquals("SOURCE_RETENTION_LIMIT", error.code);
+    verify(file, never()).getInputStream();
+    verify(f.storage, never()).put(any(UUID.class), any(byte[].class), anyString());
+    f.existingPurchaseUnchanged();
+  }
+
+  @Test void ownerLimitIsRecheckedAfterStorageAndRollbackDiscardsOnlyTheNewObject() throws Exception {
+    var f = new Fixture(Outcome.COMMITTED);
+    when(f.repo.retainedVersions(f.seller, 100)).thenReturn(99, 100);
+    var error = assertThrows(ApiError.class, f::upload);
+    assertEquals("SOURCE_RETENTION_LIMIT", error.code);
+    verify(f.repo, times(2)).retainedVersions(f.seller, 100);
+    verify(f.storage).discardUnlinked(f.uploadedKey);
+    assertFalse(f.objects.containsKey(f.uploadedKey));
+    assertEquals(1, f.manager.committed.size());
     f.existingPurchaseUnchanged();
   }
 

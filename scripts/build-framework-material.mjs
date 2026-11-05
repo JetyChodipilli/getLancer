@@ -50,7 +50,7 @@ export async function buildFrameworkMaterial({native=false,verify=false}={}){
  }
  const material={schemaVersion:'getlancer-native-framework-material-v1',items:entries},index={schemaVersion:'getlancer-native-framework-index-v1',items:entries.map(({html,policy,scriptHash,styleHash,archiveBase64,source,mount,...entry})=>entry)};
  const outputs=[[materialPath,JSON.stringify(material,null,2)+'\n'],[indexPath,JSON.stringify(index,null,2)+'\n']];
- for(const [path,bytes] of outputs){if(verify)assert.equal(await readFile(path,'utf8'),bytes,'Native preview material drift');else{await mkdir(dirname(path),{recursive:true});await writeFile(path,bytes);}}
+ for(const [path,bytes] of outputs){if(verify)assert((await readFile(path,'utf8'))===bytes,'Native preview material drift: '+path.slice(root.length+1));else{await mkdir(dirname(path),{recursive:true});await writeFile(path,bytes);}}
  return {frameworks:3,nativeBuild:native,sourceSha256:entries.map(({id,sourceSha256,previewSha256})=>({id,sourceSha256,previewSha256}))};
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){

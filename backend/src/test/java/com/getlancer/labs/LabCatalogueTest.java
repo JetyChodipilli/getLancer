@@ -1,16 +1,19 @@
 package com.getlancer.labs;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.getlancer.security.Security;
 import com.getlancer.shared.ApiError;
 import java.time.Instant;
-import java.util.ArrayList;
+import java.nio.charset.StandardCharsets;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.Signature;
 import java.util.Arrays;
+import java.util.Base64;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -48,19 +51,20 @@ class LabCatalogueTest {
 
   private static final class Harness {
     final TreeMap<String,Boolean> identities=new TreeMap<>();
-    final List<String> reviewed=new ArrayList<>();
+    final Set<String> reviewed=new LinkedHashSet<>();
     final LabService labs;
     int pages;
 
     Harness(int count,Set<Integer> visible){
       for(int i=0;i<count;i++)identities.put(String.format(Locale.ROOT,"candidate-%04d",i),visible.contains(i));
-      var json=new ObjectMapper();var config=mock(LabConfiguration.class);
-      when(config.projection()).thenReturn(new LabConfiguration.Runtime(false,"Offline source-only catalogue fixture."));
-      when(config.sourceManifest(anyString(),anyString(),anyString(),same(json))).thenAnswer(call->{
-        String id=call.getArgument(0);reviewed.add(id);
-        if(!Boolean.TRUE.equals(identities.get(id)))throw new ApiError(503,"LAB_MANIFEST_UNAVAILABLE","Rejected fixture candidate.");
-        return manifest(id);
-      });
+      var json=new ObjectMapper().findAndRegisterModules();
+      final KeyPair key;
+      try {key=KeyPairGenerator.getInstance("Ed25519").generateKeyPair();}
+      catch(Exception failure){throw new AssertionError("Cannot prepare signed catalogue fixtures",failure);}
+      // Use the real final configuration and signature parser. Execution stays
+      // disabled and no evidence file or provider connection is needed here.
+      var config=new LabConfiguration(false,"http://127.0.0.1","fixture-secret-never-production-0123456789",
+          Base64.getEncoder().encodeToString(key.getPublic().getEncoded()),"",new UUID(0,1).toString(),1000,json);
       JdbcTemplate db=mock(JdbcTemplate.class,call->{
         if(call.getMethod().getName().equals("toString"))return "Offline catalogue inventory";
         Object[] arguments=call.getArguments();String sql=(String)arguments[0];
@@ -72,14 +76,18 @@ class LabCatalogueTest {
             return identities.tailMap(after,false).keySet().stream().limit(limit).toList();
           }
           if(sql.startsWith("SELECT id,payload_text,payload_sha256,signature")){
-            String id=(String)values[0];
-            return List.of(Map.of("id",id,"payload_text",id,"payload_sha256","a".repeat(64),"signature","unit-fixture","execution_approved",false));
+            String id=(String)values[0];reviewed.add(id);
+            String payload=Boolean.TRUE.equals(identities.get(id))?json.writeValueAsString(manifest(id)):"{}";
+            byte[] bytes=payload.getBytes(StandardCharsets.UTF_8);
+            var signer=Signature.getInstance("Ed25519");signer.initSign(key.getPrivate());signer.update(bytes);
+            return List.of(Map.of("id",id,"payload_text",payload,"payload_sha256",LabConfiguration.hex(bytes),
+                "signature",Base64.getEncoder().encodeToString(signer.sign()),"execution_approved",false));
           }
           if(sql.startsWith("SELECT c.owner_id,c.slug FROM component_entries"))return List.of(Map.of("owner_id",new UUID(0,1),"slug","offline-source"));
         }
         throw new AssertionError("Unexpected catalogue database operation: "+call.getMethod().getName()+" "+sql);
       });
-      labs=new LabService(db,mock(Security.class),config,mock(LabProviderClient.class),json,mock(PlatformTransactionManager.class),new LabDataAiPolicy(false),new LabIotPolicy(false),new LabAdapterPolicy());
+      labs=new LabService(db,mock(Security.class),config,new LabProviderClient(config,json),json,mock(PlatformTransactionManager.class),new LabDataAiPolicy(false),new LabIotPolicy(false),new LabAdapterPolicy());
     }
 
     private static LabManifest manifest(String id){

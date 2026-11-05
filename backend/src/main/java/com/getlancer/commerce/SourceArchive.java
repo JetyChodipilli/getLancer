@@ -11,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
@@ -32,7 +33,35 @@ public final class SourceArchive {
   }
   private record Entry(String name,long size,long crc) {}
   private static ApiError unsafe(String message) { return new ApiError(400,"UNSAFE_SOURCE_ARCHIVE",message); }
-  private static final Pattern SECRET=Pattern.compile("(?is)-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----|\\bAKIA[A-Z0-9]{16}\\b|\\b(?:ghp_|github_pat_)[A-Za-z0-9_]{20,}\\b|\\brzp_live_[A-Za-z0-9]{8,}\\b|(?m)^\\s*(?:export\\s+)?(?:(?:const|let|var|public|private|protected|static|final|String)\\s+)*[\"']?(?:[A-Z0-9_]*(?:SECRET|PRIVATE_?KEY|PASSWORD|ACCESS_?TOKEN|API_?KEY)[A-Z0-9_]*)[\"']?\\s*[:=]\\s*[\"']?(?![\"']?(?:$|\\$|<|your|example|change|placeholder|process\\.|env\\.|test|demo|false|true|null|undefined))[A-Za-z0-9+/=_-]{16,}");
+  // Explicit ASCII boundaries cover both the old byte and decoded-text views;
+  // Unicode word-boundary differences must not hide an ASCII credential marker.
+  private static final Pattern SECRET_MARKER=Pattern.compile("(?is)-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----|(?<![A-Za-z0-9_])(?:AKIA[A-Z0-9]{16}|(?:ghp_|github_pat_)[A-Za-z0-9_]{20,}|rzp_live_[A-Za-z0-9]{8,})(?![A-Za-z0-9_])");
+  private static final List<String> SENSITIVE_KEYS=List.of("SECRET","PRIVATE_KEY","PRIVATEKEY","PASSWORD","ACCESS_TOKEN","ACCESSTOKEN","API_KEY","APIKEY");
+  private static final List<String> PLACEHOLDERS=List.of("your","example","change","placeholder","process.","env.","test","demo","false","true","null","undefined");
+  private static boolean identifier(char c) {return c>='A'&&c<='Z'||c>='a'&&c<='z'||c>='0'&&c<='9'||c=='_';}
+  private static boolean space(char c) {return c==' '||c=='\t'||c=='\r'||c=='\n'||c=='\f'||c=='\u000b';}
+  private static boolean quote(char c) {return c=='\''||c=='"';}
+  private static boolean value(char c) {return identifier(c)||c=='+'||c=='/'||c=='='||c=='-';}
+  /** Each identifier/value is consumed once; whitespace lookahead is revisited at most once.
+   * Fixed marker/key lists add only a constant factor, including arbitrarily long keys. */
+  private static boolean secret(String text) {
+    if(SECRET_MARKER.matcher(text).find())return true;
+    for(int i=0;i<text.length();) {
+      if(!identifier(text.charAt(i))){i++;continue;}
+      int start=i;while(i<text.length()&&identifier(text.charAt(i)))i++;
+      String key=text.substring(start,i).toUpperCase(Locale.ROOT);
+      if(SENSITIVE_KEYS.stream().noneMatch(key::contains))continue;
+      int next=i;if(next<text.length()&&quote(text.charAt(next)))next++;
+      while(next<text.length()&&space(text.charAt(next)))next++;
+      if(next==text.length()||(text.charAt(next)!=':'&&text.charAt(next)!='='))continue;
+      next++;while(next<text.length()&&space(text.charAt(next)))next++;
+      if(next<text.length()&&quote(text.charAt(next)))next++;
+      int from=next;while(next<text.length()&&value(text.charAt(next)))next++;
+      if(next-from>=16&&PLACEHOLDERS.stream().noneMatch(prefix->text.regionMatches(true,from,prefix,0,prefix.length())))return true;
+      i=next;
+    }
+    return false;
+  }
   public static Inspection inspect(byte[] bytes) {
     if(bytes.length<22 || bytes.length>MAX_COMPRESSED) throw unsafe("Choose a valid ZIP archive up to 5 MiB.");
     try {
@@ -42,7 +71,7 @@ public final class SourceArchive {
       if(end<0 || u16(b,end+4)!=0 || u16(b,end+6)!=0) throw unsafe("Split or incomplete ZIP archives are not supported.");
       int count=u16(b,end+10);long cdSize=u32(b,end+12),cdOffset=u32(b,end+16);
       if(count<2 || count>MAX_ENTRIES || u16(b,end+8)!=count || cdOffset+cdSize!=end || cdOffset>Integer.MAX_VALUE) throw unsafe("Use 2–500 files and a standard ZIP archive.");
-      Map<String,Entry> entries=new LinkedHashMap<>();Set<String> folded=new HashSet<>();long expanded=0;int p=(int)cdOffset;
+      Map<String,Entry> entries=new LinkedHashMap<>();Set<String> folded=new HashSet<>();var prefixes=new HashMap<String,String>();long expanded=0;int p=(int)cdOffset;
       for(int n=0;n<count;n++) {
         if(p+46>end || b.getInt(p)!=0x02014b50) throw unsafe("Invalid ZIP directory.");
         int flags=u16(b,p+8),method=u16(b,p+10),nameLength=u16(b,p+28),extra=u16(b,p+30),comment=u16(b,p+32);
@@ -52,7 +81,9 @@ public final class SourceArchive {
         int unixType=(int)((attrs>>>16)&0170000);
         if(unixType!=0 && unixType!=0100000 && unixType!=0040000) throw unsafe("Links and special files are not accepted.");
         if((attrs & 0x400)!=0) throw unsafe("Reparse points are not accepted.");
-        if(!folded.add(name.toLowerCase(Locale.ROOT)) || entries.containsKey(name)) throw unsafe("Duplicate file paths are not accepted.");
+        String canonical=name.endsWith("/")?name.substring(0,name.length()-1):name;
+        if(!folded.add(canonical.toLowerCase(Locale.ROOT)) || entries.containsKey(name)) throw unsafe("Duplicate or case-colliding paths are not accepted.");
+        String cumulative="";for(String segment:canonical.split("/")){cumulative=cumulative.isEmpty()?segment:cumulative+"/"+segment;String prior=prefixes.putIfAbsent(cumulative.toLowerCase(Locale.ROOT),cumulative);if(prior!=null&&!prior.equals(cumulative))throw unsafe("Directory-prefix case collisions are not accepted.");}
         if((name.endsWith("/") && size!=0) || size>5*1024*1024 || (expanded+=size)>MAX_EXPANDED) throw unsafe("Expanded source must stay below 25 MiB, each file below 5 MiB, and directories must be empty.");
         if(offset+30>=cdOffset || b.getInt((int)offset)!=0x04034b50) throw unsafe("Invalid ZIP local entry.");
         int localName=u16(b,(int)offset+26),localExtra=u16(b,(int)offset+28);
@@ -60,6 +91,7 @@ public final class SourceArchive {
         entries.put(name,new Entry(name,size,u32(b,p+16)));p+=46+nameLength+extra+comment;
       }
       if(p!=end) throw unsafe("Invalid ZIP directory bounds.");
+      for(String name:entries.keySet())if(!name.endsWith("/"))for(String other:entries.keySet())if(other.toLowerCase(Locale.ROOT).startsWith(name.toLowerCase(Locale.ROOT)+"/"))throw unsafe("A file cannot also be a directory.");
       boolean readme=false,license=false;int actual=0;long total=0;List<String> manifests=new ArrayList<>(),files=new ArrayList<>();
       try(var stream=new ZipInputStream(new ByteArrayInputStream(bytes),StandardCharsets.UTF_8)) {
         ZipEntry z;
@@ -94,11 +126,12 @@ public final class SourceArchive {
   }
   private static void inspectFile(String name,byte[] file) throws CharacterCodingException {
     if(name.matches(".*\\.(?:exe|dll|so|dylib|class|jar|war|pyc|pyo|bin|com|msi|apk|ipa|zip|gz|bz2|xz|7z|rar|tar|pem|p12|pfx|key)$")) throw unsafe("Executable binaries, nested archives and private keys are not accepted.");
-    if((file.length>64 && file[0]=='M' && file[1]=='Z') || (file.length>=4 && file[0]==127 && file[1]=='E' && file[2]=='L' && file[3]=='F') || SECRET.matcher(new String(file,StandardCharsets.ISO_8859_1)).find()) throw unsafe("Executable binaries or credentials are not accepted.");
+    if((file.length>64 && file[0]=='M' && file[1]=='Z') || (file.length>=4 && file[0]==127 && file[1]=='E' && file[2]=='L' && file[3]=='F') || secret(new String(file,StandardCharsets.ISO_8859_1))) throw unsafe("Executable binaries or credentials are not accepted.");
     if(name.endsWith(".png") && file.length>=8 && file[0]==(byte)137 && file[1]==80 && file[2]==78 && file[3]==71) return;
     if(name.matches(".*\\.jpe?g") && file.length>=3 && file[0]==(byte)255 && file[1]==(byte)216 && file[2]==(byte)255) return;
     if(name.endsWith(".webp") && file.length>=12 && new String(file,0,4,StandardCharsets.US_ASCII).equals("RIFF") && new String(file,8,4,StandardCharsets.US_ASCII).equals("WEBP")) return;
     String text=decode(file);
-    if(text.indexOf('\0')>=0 || SECRET.matcher(text).find()) throw unsafe("Remove binary executables and live credentials from the source package.");
+    // ASCII credential syntax was already scanned in the byte-preserving view above.
+    if(text.indexOf('\0')>=0) throw unsafe("Remove binary executables and live credentials from the source package.");
   }
 }

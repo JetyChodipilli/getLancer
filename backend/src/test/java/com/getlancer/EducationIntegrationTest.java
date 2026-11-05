@@ -147,6 +147,22 @@ class EducationIntegrationTest {
     for(String url:List.of("https://127.0.0.1/demo","http://localhost/demo","https://user:password@example.com/demo")){var command=draftBody("SHOWCASE",0);command.put("demoMode","EXTERNAL");command.put("demoUrl",url);var release=ok(body(post("/api/v1/me/college-projects/"+product+"/releases"),"owner",command));mvc.perform(body(post("/api/v1/me/education-releases/"+release.path("id").asText()+"/submit"),"owner",Map.of("revision",1,"rightsConsent",true))).andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("UNSAFE_EXTERNAL_URL"));}
     var command=draftBody("SHOWCASE",0);command.put("demoMode","HOSTED");var release=ok(body(post("/api/v1/me/college-projects/"+product+"/releases"),"owner",command));mvc.perform(body(post("/api/v1/me/education-releases/"+release.path("id").asText()+"/submit"),"owner",Map.of("revision",1,"rightsConsent",true))).andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("EDUCATION_DEMO_UNAVAILABLE"));
   }
+  @Test void sourceUploadChecksCurrentOwnerApprovalAndRevisionBeforeArchiveInspection()throws Exception{
+    var draft=create("FREE",0);String id=draft.path("id").asText();byte[] malformed={1,2,3};
+    mvc.perform(as(multipart("/api/v1/me/education-releases/"+id+"/source")
+        .file(new MockMultipartFile("file","malformed.zip","application/zip",malformed)).param("revision","1").param("rightsConsent","true"),"other")
+        .header("Origin","http://localhost:3000").header("X-Requested-With","getlancer"))
+        .andExpect(status().isNotFound()).andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
+    db.update("UPDATE developer_profiles SET approval_status='DRAFT' WHERE user_id=?",owner);
+    mvc.perform(upload(draft,malformed,true)).andExpect(status().isForbidden());
+    db.update("UPDATE developer_profiles SET approval_status='APPROVED' WHERE user_id=?",owner);
+    mvc.perform(as(multipart("/api/v1/me/education-releases/"+id+"/source")
+        .file(new MockMultipartFile("file","malformed.zip","application/zip",malformed)).param("revision","0").param("rightsConsent","true"),"owner")
+        .header("Origin","http://localhost:3000").header("X-Requested-With","getlancer"))
+        .andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("EDUCATION_REVISION_CONFLICT"));
+    verify(storage,never()).put(any(UUID.class),any(byte[].class),anyString());
+    assertEquals(0,db.queryForObject("SELECT count(*) FROM education_free_packages",Integer.class));
+  }
   @Test void privateFreeUploadHasExactFilesAndNeverCreatesPurchaseAccounting()throws Exception{
     var draft=create("FREE",0);mvc.perform(upload(draft,archive(0),false)).andExpect(status().isBadRequest());mvc.perform(upload(draft,new byte[32],true)).andExpect(status().isBadRequest());var uploaded=ok(upload(draft,archive(0),true));assertEquals(2,uploaded.path("revision").asInt());assertEquals(SourceArchive.inspect(archive(0)).sha256(),uploaded.path("sourceBinding").path("sha256").asText());assertEquals(SourceArchive.inspect(archive(0)).files().size(),ok(as(get("/api/v1/me/education-releases/"+uploaded.path("id").asText()),"owner")).path("sourceBinding").path("files").size());mvc.perform(upload(draft,archive(0),true)).andExpect(status().isConflict());assertEquals(0,db.queryForObject("SELECT count(*) FROM template_purchases",Integer.class));assertEquals(SourceArchive.inspect(archive(0)).files(),json.readValue(db.queryForObject("SELECT files::text FROM education_free_packages",String.class),List.class));assertFalse(uploaded.toString().contains("storage_key"));assertFalse(uploaded.toString().contains("commerce/"));
   }

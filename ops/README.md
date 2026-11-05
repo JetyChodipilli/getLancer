@@ -66,3 +66,5 @@ This runbook does not claim that external services have been provisioned, migrat
 
 
 V3 Razorpay setup and acceptance: [commercial workflow contract](../docs/09_V3_COMMERCIAL_WORKFLOWS.md). Keep `PAYMENTS_ENABLED=false` until policies, Route, seller onboarding and provider verification are approved. The private frontend preview cannot accept real payments; a hosted Java service and public signed webhook endpoint are required.
+
+Source-commerce upload admission retains at most 100 immutable versions per seller across all listings and statuses, in addition to the 50-version listing limit; each compressed package is at most 5MiB. Draft, rejected, archived and suspended history all count. `SOURCE_RETENTION_LIMIT` requires operator planning before further uploads. Existing over-limit history remains readable and eligible buyer entitlements remain in force; do not delete paid or historical versions to reset the allowance. Review the [source marketplace contract](../docs/V3_5_CONTRACT.md) for the exact package and admission rules.

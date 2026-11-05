@@ -17,6 +17,41 @@ class SourceArchiveTest {
   @Test void traversalAbsoluteBackslashRepeatedSegmentsAndDrivePathsFail() throws Exception {for(String path:List.of("../escape.ts","/absolute.ts","dir/../../x.ts","C:/x.ts","dir\\x.ts","dir//x.ts","dir//")) {var files=valid();files.put(path,"source".getBytes());assertThrows(ApiError.class,()->SourceArchive.inspect(zip(files)),path);}}
   @Test void dependencyFoldersCredentialsAndPrivateKeysAreRejected() throws Exception {for(String path:List.of(".env",".env.production",".git/config","node_modules/a.ts","id_rsa","private-key.pem","credentials.json","app.exe","file.zip")) {var files=valid();files.put(path,"source data".getBytes());assertThrows(ApiError.class,()->SourceArchive.inspect(zip(files)),path);}}
   @Test void highConfidenceSecretsAreRejectedAndPlaceholderEnvironmentFileIsAllowed() throws Exception {for(String value:List.of("-----BEGIN PRIVATE KEY-----\nsecret","const token = 'ghp_abcdefghijklmnopqrstuvwxyz1234';","AWS = AKIA1234567890ABCDEF","KEY = rzp_live_abcdefgh12345678","API_SECRET=supersecret1234567890123456","export const keySecret = 'actualhardcodedsecret123456';","\"apiKey\": \"hardcodedcredential123456\"")) {var files=valid();files.put("config.ts",value.getBytes());assertThrows(ApiError.class,()->SourceArchive.inspect(zip(files)),value);}var files=valid();files.put(".env.example","API_SECRET=your_secret_placeholder".getBytes());assertDoesNotThrow(()->SourceArchive.inspect(zip(files)));}
+  @Test void longAssignmentLikeInputsRemainInspectableAndLongSecretKeysRemainProtected() throws Exception {
+    var files=valid();
+    files.put("long-input.txt",("SECRET".repeat(16_384)+"\n"+" ".repeat(16_384)+"const ordinaryName = 'not a credential';\n").getBytes(StandardCharsets.UTF_8));
+    assertDoesNotThrow(()->SourceArchive.inspect(zip(files)));
+    for(String name:List.of("PASSWORD","PRIVATE_KEY","privateKey","ACCESS_TOKEN","accessToken","apiKey","API_KEY","prefix"+"A".repeat(16_384)+"SECRET_suffix")) {
+      for(String quote:List.of("","\"","'")) {
+        var secretFiles=valid();secretFiles.put("config.ts",("export const "+name+" = "+quote+"realcredential1234567890123456"+quote+";\n").getBytes(StandardCharsets.UTF_8));
+        assertThrows(ApiError.class,()->SourceArchive.inspect(zip(secretFiles)),name+" "+quote);
+      }
+    }
+  }
+  @Test void ordinarySourceAndPlaceholderAssignmentsAreAccepted() throws Exception {
+    var files=valid();
+    files.put("config.ts",("const API_KEY = process.env.API_KEY;\nconst SECRET = 'your_placeholder_value';\n"
+        +"PASSWORD=${PASSWORD};\nACCESS_TOKEN=<provided at deployment>;\n"
+        +"const ordinaryName = 'a long ordinary string';\nexport const API_SECRET = 'example_configuration_value';\n").getBytes(StandardCharsets.UTF_8));
+    assertDoesNotThrow(()->SourceArchive.inspect(zip(files)));
+  }
+  @Test void unicodeSeparatorsCannotHideAsciiCredentialMarkersInTheByteView() throws Exception {
+    // Their UTF-8 trailing byte is Latin-1's word character U+00AA, whereas
+    // the decoded code points are non-word: the old views had different boundaries.
+    for(int point:List.of(0x202A,0x20AA)) {
+      String separator=String.valueOf((char)point);var files=valid();
+      files.put("config.ts",("const fixture = '"+separator+"AKIA"+"A".repeat(16)+separator+"';").getBytes(StandardCharsets.UTF_8));
+      assertThrows(ApiError.class,()->SourceArchive.inspect(zip(files)));
+    }
+  }
+  @Test void implicitDirectoryCaseAndFileDirectoryCollisionsAreRejectedInEitherOrder() throws Exception {
+    for(var pair:List.of(List.of("Assets/a.ts","assets/b.ts"),List.of("src/a.ts","src/a.ts/child.ts"),List.of("src/a.ts/child.ts","src/a.ts"),List.of("folder/","folder"))) {
+      var files=valid();for(String path:pair)files.put(path,path.endsWith("/")?new byte[0]:"ordinary source".getBytes(StandardCharsets.UTF_8));
+      assertThrows(ApiError.class,()->SourceArchive.inspect(zip(files)),pair.toString());
+    }
+    var files=valid();files.put("assets/",new byte[0]);files.put("assets/a.ts","ordinary source".getBytes(StandardCharsets.UTF_8));files.put("assets/nested/b.ts","more ordinary source".getBytes(StandardCharsets.UTF_8));
+    assertDoesNotThrow(()->SourceArchive.inspect(zip(files)));
+  }
   @Test void expandedBombAndEntryCountBoundsAreEnforced() throws Exception {var huge=valid();huge.put("bomb.txt",new byte[6*1024*1024]);assertThrows(ApiError.class,()->SourceArchive.inspect(zip(huge)));var many=valid();for(int n=0;n<500;n++) many.put("src/f"+n+".ts","source".getBytes());assertThrows(ApiError.class,()->SourceArchive.inspect(zip(many)));var expanded=valid();for(int n=0;n<6;n++) expanded.put("large"+n+".txt",new byte[5*1024*1024]);assertThrows(ApiError.class,()->SourceArchive.inspect(zip(expanded)));}
   @Test void compressedBoundAndInvalidZipFail() {assertThrows(ApiError.class,()->SourceArchive.inspect(new byte[SourceArchive.MAX_COMPRESSED+1]));assertThrows(ApiError.class,()->SourceArchive.inspect("not a zip archive".getBytes()));}
   @Test void unixSymlinksAndEncryptedEntriesAreRejected() throws Exception {for(boolean link:List.of(true,false)) {byte[] bytes=zip(valid());ByteBuffer buffer=ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);for(int p=0;p<bytes.length-46;p++) if(buffer.getInt(p)==0x02014b50) {if(link) {buffer.putShort(p+4,(short)(3*256+20));buffer.putInt(p+38,0120777<<16);} else buffer.putShort(p+8,(short)(buffer.getShort(p+8)|1));break;}assertThrows(ApiError.class,()->SourceArchive.inspect(bytes));}}
