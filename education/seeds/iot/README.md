@@ -17,6 +17,8 @@ node simulate.mjs
 
 Deterministic five-reading simulation. No physical board, firmware flashing, cloud broker or verified hardware operation.
 
+The regression checks the documented CLI from an extracted directory containing spaces and non-ASCII characters, as well as repeatable readings and alert counts.
+
 ## License and support
 
 MIT, preserving LICENSE and NOTICE. This self-guided example includes no maintenance contract, paid support, university certification, marks or authorship transfer.

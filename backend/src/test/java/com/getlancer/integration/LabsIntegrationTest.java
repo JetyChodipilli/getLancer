@@ -264,6 +264,34 @@ class LabsIntegrationTest {
     mvc.perform(body(post("/api/v1/lab-runs"),"lab-other",Map.of("manifestId","latest-fixture","scenarioId","request","inputs",Map.of("message","Version two"))).header("Idempotency-Key","latest-version-run")).andExpect(status().isAccepted());
   }
 
+  @Test void catalogueReachesCurrentSourceOnlyManifestAfterOneHundredSupersededIdentities()throws Exception{
+    db.execute("TRUNCATE lab_manifests CASCADE");
+    for(int i=0;i<100;i++)certifyDataAi("a-historical-"+String.format(java.util.Locale.ROOT,"%03d",i),"request",null);
+    var source=Map.of("kind","BACKEND","sha256","f".repeat(64),"archiveSha256","9".repeat(64),"manifestSha256","8".repeat(64),"version","2.0.0","files",Map.of("README.md","Version two test-only backend protocol fixture."));
+    db.update("INSERT INTO component_releases(component_id,revision,source,context,source_sha256) VALUES(?,2,?::jsonb,'{}'::jsonb,?)",component,json.writeValueAsString(source),"f".repeat(64));
+    var manifest=(com.fasterxml.jackson.databind.node.ObjectNode)json.valueToTree(fixture.manifest(component));
+    manifest.put("id","z-current-source-only").put("revision",2).put("sourceSha256","f".repeat(64)).put("archiveSha256","9".repeat(64)).put("manifestSha256","8".repeat(64)).put("buildSourceSha256","9".repeat(64));
+    String payload=manifest.toString();db.update("INSERT INTO lab_manifests(id,payload_text,payload_sha256,signature,execution_approved) VALUES(?,?,?,?,false)","z-current-source-only",payload,Support.hash(payload),fixture.sign(payload));
+    var catalogue=json.readTree(mvc.perform(get("/api/v1/lab-manifests")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+    assertEquals(101,db.queryForObject("SELECT count(*) FROM lab_manifests",Integer.class));assertEquals(1,catalogue.path("items").size());
+    var current=catalogue.path("items").get(0);assertEquals("z-current-source-only",current.path("id").asText());assertEquals("f".repeat(64),current.path("sourceSha256").asText());
+    assertEquals("Source only",current.path("executionMode").asText());assertFalse(current.path("availability").path("enabled").asBoolean());assertEquals(0,db.queryForObject("SELECT count(*) FROM lab_runs",Integer.class));
+  }
+
+  @Test void catalogueSkipsMalformedForgedAndPolicyHiddenRowsWithoutGrantingExecution()throws Exception{
+    db.execute("TRUNCATE lab_manifests CASCADE");String malformed="{";
+    db.update("INSERT INTO lab_manifests(id,payload_text,payload_sha256,signature) VALUES('a-malformed',?,?,?)",malformed,Support.hash(malformed),fixture.sign(malformed));
+    var forged=(com.fasterxml.jackson.databind.node.ObjectNode)json.valueToTree(fixture.manifest(component));forged.put("id","b-forged-matching-source");String forgedPayload=forged.toString();
+    db.update("INSERT INTO lab_manifests(id,payload_text,payload_sha256,signature) VALUES('b-forged-matching-source',?,?,?)",forgedPayload,Support.hash(forgedPayload),fixture.sign(forgedPayload+" "));
+    certifyDataAi("data-ai-hidden-catalogue","revenue-summary","DATA_ANALYTICS");
+    var signed=(com.fasterxml.jackson.databind.node.ObjectNode)json.valueToTree(fixture.manifest(component));signed.put("id","z-signed-source-only").put("approvedUntil",java.time.Instant.now().minusSeconds(1).toString());String payload=signed.toString();
+    db.update("INSERT INTO lab_manifests(id,payload_text,payload_sha256,signature,execution_approved) VALUES('z-signed-source-only',?,?,?,false)",payload,Support.hash(payload),fixture.sign(payload));
+    var catalogue=json.readTree(mvc.perform(get("/api/v1/lab-manifests")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+    assertEquals(1,catalogue.path("items").size());assertEquals("z-signed-source-only",catalogue.path("items").get(0).path("id").asText());
+    assertEquals("Source only",catalogue.path("items").get(0).path("executionMode").asText());assertFalse(catalogue.path("items").get(0).path("availability").path("enabled").asBoolean());
+    assertEquals(0,db.queryForObject("SELECT count(*) FROM lab_runs",Integer.class));assertEquals(0,db.queryForObject("SELECT count(*) FROM lab_outbox",Integer.class));
+  }
+
   @Test void lostHealthyStartResponseStillConsumesQuotaAfterCertifiedCleanup()throws Exception{
     fixture.slowBody=true;UUID id=reserve("lab-owner","lost-healthy-start");labs.tick();assertNull(db.queryForObject("SELECT healthy_at FROM lab_runs WHERE id=?",java.sql.Timestamp.class,id));
     fixture.slowBody=false;mvc.perform(body(post("/api/v1/lab-runs/"+id+"/stop"),"lab-owner",Map.of())).andExpect(status().isOk());

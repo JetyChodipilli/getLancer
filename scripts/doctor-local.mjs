@@ -2,6 +2,7 @@ import net from 'node:net';
 import {spawnSync} from 'node:child_process';
 import {readEnvironment,localDatabase,placeholder} from './local-config.mjs';
 import {requireSupportedNodeVersion} from './node-version.mjs';
+import {resolvePythonRuntime} from './python-runtime.mjs';
 
 const connect=(host,port)=>new Promise(resolve=>{
   const socket=net.createConnection({host,port});const finish=ok=>{socket.destroy();resolve(ok)};
@@ -11,6 +12,7 @@ try {
   requireSupportedNodeVersion();
   const values={...readEnvironment(),...process.env};const db=localDatabase(values);let failed=false;
   const report=(ok,message)=>{console.log((ok?'OK: ':'NEEDS SETUP: ')+message);if(!ok)failed=true};
+  try{const python=resolvePythonRuntime();report(true,'Python '+python.version+' available for local material verification');}catch(error){report(false,error.message);}
   for(const key of ['DB_USERNAME','DB_PASSWORD','OBJECT_STORAGE_ACCESS_KEY','OBJECT_STORAGE_SECRET_KEY'])report(!placeholder(values[key]),key+' configured');
   const env={...process.env,PGHOST:db.host,PGPORT:String(db.port),PGDATABASE:db.database,PGUSER:values.DB_USERNAME,PGPASSWORD:values.DB_PASSWORD,PGCONNECT_TIMEOUT:'4',PGOPTIONS:'-c default_transaction_read_only=on'};
   const psql=process.env.PSQL_PATH||'psql';

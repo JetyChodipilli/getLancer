@@ -12,6 +12,8 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: {persist-credentials: false}
+      - name: Verify tested checkout revision
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with: {node-version: '22.23.4'}
       - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
@@ -78,7 +80,7 @@ jobs:
     # plus packaging/dependency evidence (see docs/CI_VALIDATION.md).
     timeout-minutes: 30
     env:
-      SECURITY_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      SECURITY_SOURCE_SHA: ${{ github.sha }}
     services:
       postgres:
         image: postgres:16-alpine
@@ -95,6 +97,8 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: {persist-credentials: false}
+      - name: Verify tested checkout revision
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
       - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with: {distribution: temurin, java-version: '17', cache: maven}
       - name: Check expected backend fixture sources and clear generated reports
@@ -141,7 +145,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
-          name: backend-round3-smoke-${{ github.event.pull_request.head.sha || github.sha }}
+          name: backend-round3-smoke-${{ github.sha }}
           path: backend/target/round3-smoke-reports
           retention-days: 7
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -151,16 +155,16 @@ jobs:
       - name: Bind named implementation repairs to passing PostgreSQL tests
         run: node scripts/phase-completion-evidence.mjs backend
         env:
-          PHASE_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PHASE_SOURCE_SHA: ${{ github.sha }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
-          name: backend-verification-${{ github.event.pull_request.head.sha || github.sha }}
+          name: backend-verification-${{ github.sha }}
           path: backend/target/surefire-reports
           retention-days: 7
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: phase-backend-evidence-${{ github.event.pull_request.head.sha || github.sha }}
+          name: phase-backend-evidence-${{ github.sha }}
           path: backend/target/phase-completion-evidence.json
           retention-days: 7
       - name: Verify production JAR excludes test mocks and frontend simulations
@@ -194,6 +198,8 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: {persist-credentials: false, fetch-depth: 0}
+      - name: Verify tested checkout revision
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with: {node-version: '22.23.4', cache: npm}
       - run: npm ci
@@ -217,7 +223,46 @@ jobs:
           LINT_HEAD_SHA: ${{ github.sha }}
       - run: npx tsc --noEmit
       - name: Rebuild original Vue, Svelte and Angular previews from pinned source
+        id: framework_material_verification
         run: node scripts/verify-framework-previews.mjs --native
+      - name: Verify native framework builds from portable filesystem paths
+        run: node --test tests/framework-portability.native.mjs
+      # Keep the original verification failure blocking. These public outputs
+      # support reviewed regeneration in environments unable to run the builder.
+      - name: Regenerate changed public source material for review after verification failure
+        id: review_material
+        if: failure() && steps.framework_material_verification.outcome == 'failure'
+        run: |
+          node scripts/build-framework-material.mjs --native
+          python3 scripts/build-education-material.py
+          mkdir -p material-review
+          python3 - <<'PYREVIEW'
+          import hashlib,json,os
+          from pathlib import Path
+          paths=['public/education/full-stack.zip','public/education/study-planner.zip','public/education/iot.zip','backend/src/main/resources/catalog/education.json','app/components/frameworks/material.json','app/components/frameworks/index.json']
+          files=[]
+          for name in paths:
+              path=Path(name)
+              assert path.is_file() and not path.is_symlink() and path.stat().st_size<=16*1024*1024, 'Unsafe or missing generated material'
+              data=path.read_bytes()
+              files.append({'path':name,'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest()})
+          inventory={'schemaVersion':'getlancer-generated-material-review-v1','sourceSha':os.environ['GITHUB_SHA'],'workflowRunId':os.environ['GITHUB_RUN_ID'],'workflowRunAttempt':os.environ['GITHUB_RUN_ATTEMPT'],'purpose':'Public regeneration review only; original verification remains failed','files':files}
+          Path('material-review/inventory.json').write_text(json.dumps(inventory,indent=2)+'\n')
+          PYREVIEW
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: failure() && steps.review_material.outcome == 'success'
+        with:
+          name: review-generated-material-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            public/education/full-stack.zip
+            public/education/study-planner.zip
+            public/education/iot.zip
+            backend/src/main/resources/catalog/education.json
+            app/components/frameworks/material.json
+            app/components/frameworks/index.json
+            material-review/inventory.json
+          if-no-files-found: error
+          retention-days: 7
       - run: npm run build
       - name: Check published frontend assets for private keys and source maps
         run: node scripts/check-frontend-security.mjs
@@ -301,6 +346,8 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: {persist-credentials: false}
+      - name: Verify tested checkout revision
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with: {node-version: '22.23.4'}
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
@@ -354,7 +401,7 @@ jobs:
       - name: Bind all six original browser journeys and viewport results
         run: node scripts/phase-completion-evidence.mjs connected
         env:
-          PHASE_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PHASE_SOURCE_SHA: ${{ github.sha }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
@@ -375,7 +422,7 @@ jobs:
   secrets-and-sast:
     needs: backend
     env:
-      SECURITY_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      SECURITY_SOURCE_SHA: ${{ github.sha }}
       # The release gate must include existing findings on PRs as well as pushes.
       CODEQL_ACTION_DIFF_INFORMED_QUERIES: 'false'
     strategy:
@@ -393,6 +440,8 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: {fetch-depth: 0, persist-credentials: false}
+      - name: Verify tested checkout revision
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
       - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with: {distribution: temurin, java-version: '17', cache: maven}
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -426,7 +475,7 @@ jobs:
         if: matrix.language == 'java-kotlin'
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: backend-verification-${{ github.event.pull_request.head.sha || github.sha }}
+          name: backend-verification-${{ github.sha }}
           path: backend/target/surefire-reports
       - uses: github/codeql-action/analyze@87ef0dc97def48aa960fbf026a2563ee9dbdb470 # v3
         with:
@@ -452,12 +501,14 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: {persist-credentials: false}
+      - name: Verify tested checkout revision
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with: {node-version: '22.23.4'}
       - name: Retrieve passing runtime MVC security evidence from this workflow
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: backend-verification-${{ github.event.pull_request.head.sha || github.sha }}
+          name: backend-verification-${{ github.sha }}
           path: backend/target/surefire-reports
       - name: Retrieve current dependency applicability evidence from this workflow
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4

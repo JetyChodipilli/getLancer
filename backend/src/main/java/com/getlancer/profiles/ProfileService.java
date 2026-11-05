@@ -7,12 +7,13 @@ import com.getlancer.security.Security;
 import com.getlancer.shared.ApiError;
 import com.getlancer.shared.Rules;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.Date;
+import java.time.Clock;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,10 +22,17 @@ import org.springframework.transaction.annotation.Transactional;
 public class ProfileService {
   private final JdbcTemplate db;
   private final Security security;
+  private final Clock clock;
 
+  @Autowired
   public ProfileService(JdbcTemplate db, Security security) {
+    this(db, security, Clock.systemUTC());
+  }
+
+  public ProfileService(JdbcTemplate db, Security security, Clock clock) {
     this.db = db;
     this.security = security;
+    this.clock = clock;
   }
 
   @Transactional
@@ -38,7 +46,7 @@ public class ProfileService {
         .contains(availability))
       throw new ApiError(400, "VALIDATION_ERROR", "Choose a valid availability.");
     var details = ProfileDetails.read(b, previous);
-    java.sql.Date date = details.bookedUntil(b, availability);
+    java.sql.Date date = details.bookedUntil(b, availability, clock);
     String github = text(b, "githubUrl", 0, 500), linkedin = text(b, "linkedinUrl", 0, 500);
     Rules.safeUrl(github);
     Rules.safeUrl(linkedin);

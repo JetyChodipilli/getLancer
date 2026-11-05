@@ -70,7 +70,7 @@ Historical V1 checkpoints: [implementation status](docs/V1_IMPLEMENTATION.md), [
 
 For laptop testing with no cloud provider, follow [the local Docker guide](ops/LAPTOP_TESTING.md). `npm run labs:docker` executes all eighteen native learning labs with actual Redis, the data/AI scenarios and local MQTT simulator in a disposable container. `/labs/scenarios`, `/labs/iot` and `/components/frameworks` provide free source and clearly labelled execution modes. Live hosted execution remains a separate deployment milestone.
 
-The current local setup uses [Docker PostgreSQL](ops/DOCKER_LOCAL.md), database `getLancer`, with the API, local email and private storage. For cloud flow testing without services, open `/preview/workspace`; the [interactive UAT guide](docs/UAT_DEMO.md) lists supported journeys and simulation boundaries.
+The current local setup requires Docker Desktop, supported Node/npm and host Python 3.12+ for the frontend's material verification. It uses [Docker PostgreSQL](ops/DOCKER_LOCAL.md), database `getLancer`, with the API, local email and private storage. The guide covers Windows Python launcher selection and the optional `PYTHON` executable-path override. For cloud flow testing without services, open `/preview/workspace`; the [interactive UAT guide](docs/UAT_DEMO.md) lists supported journeys and simulation boundaries.
 
 ```sh
 npm ci

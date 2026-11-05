@@ -1,10 +1,24 @@
-# V1–V4.5 security release and operator handoff
+# V1–V5.2 security release and operator handoff
 
-This procedure activates the repository controls on a hosted installation. A green CI run uses disposable services and does not certify a production host, provider credentials, backups, alerts or policy approval. The full supplied-plan reconciliation is in [SECURITY_REMEDIATION.md](../docs/SECURITY_REMEDIATION.md). V4.6 remains a separate, unfinished phase.
+This procedure activates the repository controls on a hosted installation. A green CI run uses disposable services and does not certify a production host, provider credentials, backups, alerts or policy approval. The earlier security-remediation record is in [SECURITY_REMEDIATION.md](../docs/SECURITY_REMEDIATION.md); current release coverage and production qualification must be assessed against the reviewed checkout.
 
 ## Review and repository protection
 
-Require the reviewed commit's `backend`, `frontend`, `docker-startup`, `container-security`, `secrets-and-sast (java-kotlin, manual)` and `secrets-and-sast (javascript-typescript, none)` jobs to pass. Verify the PR merge tree matches the reviewed head tree and record the full commit and run URL. Retain the JUnit, browser, raw and assessed image scans, source/history secret scans, SARIF, dependency inventories and applicability evidence in an access-controlled release archive; CI artifacts expire after seven days. Review any skipped browser tests and the scope of dependency dispositions. An application-specific `not_affected` finding remains visible in the report; it is not a zero-advisory claim.
+Require all nine jobs in `getLancer validation (V1-V5.2)` to succeed:
+
+| Required job | Scope |
+|---|---|
+| `lab-scenarios` | Native lab/runtime and downloadable-source verification |
+| `backend` | Complete PostgreSQL/Maven verification and dependency evidence |
+| `frontend` | Types, changed-source lint, content/security contracts and browser acceptance |
+| `docker-startup` | Connected services/browser journeys and encrypted synthetic restore |
+| `secrets-and-sast (java-kotlin, manual)` | Java CodeQL plus tree/history secrets |
+| `secrets-and-sast (javascript-typescript, none)` | JavaScript/TypeScript CodeQL plus tree/history secrets |
+| `secrets-and-sast (python, none)` | Python CodeQL plus tree/history secrets |
+| `container-security` | Image advisories and exact current applicability evidence |
+| `validation-status` | Fail-closed aggregate of all required job groups and matrix entries |
+
+Record the actual tested full commit SHA and run URL/attempt. PR checks test the merge checkout; retain the reviewed PR head/base separately and review the merge result rather than requiring it to equal the head. Require the current main revision to pass before release. Retain JUnit, browser, raw/assessed image scans, source/history scans, SARIF, dependency inventories and applicability evidence in an access-controlled release archive; CI artifacts expire after seven days, and the intermediate frontend distribution after one day. Review skipped browser tests and dependency dispositions. An application-specific `not_affected` remains visible; it is not a zero-advisory claim. A failed run's public regeneration-review artifact is input for a reviewed follow-up commit, not release approval.
 
 The repository owner must install a main-branch ruleset requiring these checks, an independent approving review, dismissal of stale reviews, resolution of review threads and blocking force pushes/deletion. Require review of CODEOWNERS paths and restrict bypass to a documented emergency process. The managed repository connection has no administration capability; adding CODEOWNERS and workflows does not enable a ruleset. Verify the actual ruleset before allowing releases. Pin deployable images to the reviewed immutable digest and keep a software inventory with the release.
 
@@ -56,6 +70,6 @@ Do not invent legal retention periods from this table. Record approved durations
 
 For suspected account or provider compromise, restrict the affected operation, revoke relevant sessions/challenges and exposed provider credentials, preserve append-only events/request IDs and coordinate recovery through the approved operator process. For MFA key loss or corrupt envelopes, follow the fail-closed recovery procedure in `MFA_KEY_ROTATION.md`; never enable plaintext fallback or grant a new administrator to bypass verification. Confirm recovery with current credentials and cross-account checks before restoring traffic.
 
-Application rollback must preserve compatibility with V26–V28 and encrypted MFA/session fields. Do not deploy a pre-hardening image that requires plaintext secrets, and do not reverse Flyway automatically. Use a separately rehearsed database/object restore only when necessary, with the corresponding historical keys, verified permissions and provider-state reconciliation. Record the decision, approved image digest, recovery evidence and follow-up actions.
+Application rollback must preserve compatibility with every migration applied to the reviewed release and its encrypted MFA/session fields. Do not deploy a pre-hardening image that requires plaintext secrets, and do not reverse Flyway automatically. Use a separately rehearsed database/object restore only when necessary, with the corresponding historical keys, verified permissions and provider-state reconciliation. Record the decision, approved image digest, recovery evidence and follow-up actions.
 
-Resume V4.6 only after this remediation is reviewed. Its unpublished V26/V27 migration names collide with this release; renumber them to V29/V30 and reconcile its request and authorization contracts before integration. Keep the preserved V4.6 checkout intact during this release.
+For later integrations, inspect the actual migration inventory and request/authorization contracts in the reviewed checkout. Do not reuse the historical V4.6 hold or migration-renumbering instructions as current release evidence. Live production admission, signed qualification, provider custody and recovery remain separate operator gates.

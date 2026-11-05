@@ -106,9 +106,10 @@ async function oracle(item, input) {
     const modelBytes = await readFile(join(base, assets.modelPath)), heldBytes = await readFile(join(base, assets.evaluationPath)), model = JSON.parse(modelBytes), held = JSON.parse(heldBytes);
     assert.equal(sha(modelBytes), item.modelSha256); assert.equal(sha(heldBytes), item.evaluationSha256); assert.notEqual(item.dataSha256, item.evaluationSha256);
     assert.equal(model.format, 'getlancer-linear-json-v1'); assert.equal(model.id, item.id);
+    const tokenWeights = new Map(Object.entries(model.weights));
     function probabilities(value) {
       const score = model.bias + (item.id === 'sentiment-inference'
-        ? (value.text.toLowerCase().match(/[a-z]+/g) || []).reduce((sum, token) => sum + (model.weights[token] || 0), 0)
+        ? (value.text.toLowerCase().match(/[a-z]+/g) || []).reduce((sum, token) => sum + (tokenWeights.get(token) ?? 0), 0)
         : Object.entries(model.weights).reduce((sum, [key, weight]) => sum + weight * Number(value[key]), 0));
       const second = rounded(1 / (1 + Math.exp(-Math.max(-30, Math.min(30, score))))); return [rounded(1 - second), second];
     }
@@ -142,7 +143,7 @@ test('boundary analytics, ties, tokenization and tiny logistic probabilities ret
   const app = await start(t), cases = [
     ['revenue-summary', {region: 'north', upliftPercent: '-20'}], ['revenue-summary', {region: 'all', upliftPercent: '20'}],
     ['sensor-quality', {channel: 'vibration', tolerance: '1'}], ['sensor-quality', {channel: 'all', tolerance: '10'}],
-    ['sentiment-inference', {text: 'unseen neutral words'}], ['sentiment-inference', {text: 'EXCELLENT, reliable!'}], ['sentiment-inference', {text: 'terrible '.repeat(7).trim()}],
+    ['sentiment-inference', {text: 'constructor'}], ['sentiment-inference', {text: 'unseen neutral words'}], ['sentiment-inference', {text: 'great broken'}], ['sentiment-inference', {text: 'constructor good'}], ['sentiment-inference', {text: 'EXCELLENT, reliable!'}], ['sentiment-inference', {text: 'terrible '.repeat(7).trim()}],
     ['equipment-inference', {temperature: '0', vibration: '0'}], ['equipment-inference', {temperature: '100', vibration: '20'}],
   ];
   for (const [id, input] of cases) {const item = catalogue.items.find(value => value.id === id), result = await execute(app, item, input); assert.deepEqual(result.result, await oracle(item, input));}

@@ -6,16 +6,16 @@ The existing private Site hosts the React frontend. It cannot run the Java API o
 
 ## Prepare a reviewed release
 
-1. Choose a reviewed commit whose six `getLancer validation (V1-V4.5 security)` jobs have passed, including both SAST languages and connected browser acceptance. Record the full SHA. Build `backend/Dockerfile` from that checkout and tag it with that SHA: `docker build -t getlancer-api:FULL_COMMIT_SHA backend`. Set `BACKEND_IMAGE` to that exact tag if building on the host, or push to your chosen registry and use its immutable digest. Keep a schema-compatible preceding image for application rollback.
-2. Copy `.env.example` to the ignored `.env.staging`. Set `APP_ENV=staging`, `SECURE_COOKIES=true`, the actual HTTPS frontend `APP_BASE_URL`, HTTPS `BACKEND_URL`, `DEMO_MODE=false`, and a random `BACKEND_PROXY_SECRET` of at least 32 characters. The proxy secret must match the frontend runtime secret.
+1. Choose a reviewed commit with all nine `getLancer validation (V1-V5.2)` jobs successful: `lab-scenarios`, `backend`, `frontend`, `docker-startup`, `container-security`, all three `secrets-and-sast` matrix entries (Java/Kotlin, JavaScript/TypeScript and Python), and `validation-status`. Record the tested full SHA and run URL. On a PR this is the merge checkout SHA, with the reviewed PR head recorded separately; require a successful current main run before release. Build `backend/Dockerfile` from the tested checkout and tag it with that SHA: `docker build -t getlancer-api:FULL_COMMIT_SHA backend`. Set `BACKEND_IMAGE` to that exact tag if building on the host, or push to your chosen registry and use its immutable digest. Keep a schema-compatible preceding image for application rollback.
+2. Inject staging configuration through the host's secret manager or protected process environment. Use `.env.example` only as a list of setting names; hosted commands do not load an environment file. Set `APP_ENV=staging`, `SPRING_PROFILES_ACTIVE=staging`, `SECURE_COOKIES=true`, the actual HTTPS frontend `APP_BASE_URL`, HTTPS `BACKEND_URL`, `DEMO_MODE=false`, and a random `BACKEND_PROXY_SECRET` of at least 32 characters. The proxy secret must match the frontend runtime secret.
 3. Use a separate staging PostgreSQL database, private `DB_SCHEMA=getlancer`, and `DB_USERNAME=getlancer_runtime` with its separate secret. Complete migrations and permission provisioning through the separate migration role first; hosted API Flyway is disabled. Set `DB_URL=jdbc:postgresql://YOUR_HOST:5432/getLancer?sslmode=verify-full&sslrootcert=/run/secrets/postgres-ca.crt`. Download the database provider's CA certificate, set `DB_CA_FILE` to its absolute host path and ensure the non-root container user can read it. The template refuses to create a missing certificate path.
-4. Configure private S3-compatible storage and a verified SMTP sender in `.env.staging`. Both storage endpoints must use HTTPS; the upload endpoint must be browser-reachable. Restrict storage CORS to the exact frontend origin, PUT and required signed headers. Use TLS or SSL with SMTP. Supply separate staging administrator bootstrap credentials, authenticator secret and the external `MFA_ACTIVE_KEY_ID`/`MFA_KEYRING`. OAuth may remain blank until provider applications are ready.
-5. Add `BACKEND_IMAGE` and `DB_CA_FILE` to `.env.staging`. Validate without printing secrets:
+4. Inject private S3-compatible storage and verified SMTP sender settings. Both storage endpoints must use HTTPS; the upload endpoint must be browser-reachable. Restrict storage CORS to the exact frontend origin, PUT and required signed headers. Use TLS or SSL with SMTP. Supply separate staging administrator bootstrap credentials, authenticator secret and the external `MFA_ACTIVE_KEY_ID`/`MFA_KEYRING`. OAuth may remain blank until provider applications are ready.
+5. Inject `BACKEND_IMAGE` and `DB_CA_FILE`. Disable Compose's automatic local `.env` interpolation and validate without printing secrets:
 
 ```sh
-node scripts/check-environment.mjs .env.staging
-docker compose --env-file .env.staging -f compose.staging.yaml config --quiet
-docker compose --env-file .env.staging -f compose.staging.yaml up -d --wait --wait-timeout 240
+node scripts/check-environment.mjs --from-env
+docker compose --env-file /dev/null -f compose.staging.yaml config --quiet
+docker compose --env-file /dev/null -f compose.staging.yaml up -d --wait --wait-timeout 240
 ```
 
 The manifest explicitly runs staging mode, binds the API to loopback, mounts the CA read-only, uses the image's non-root user, drops capabilities and limits writable files to `/tmp`. It is deliberately separate from local Compose and starts no development database, Mailpit or MinIO service.
@@ -26,19 +26,19 @@ Configure the host's HTTPS reverse proxy to forward to `127.0.0.1:8080`, includi
 
 Set `BACKEND_URL`, `DEMO_MODE=false`, `BACKEND_PROXY_SECRET` and `APP_BASE_URL` in the existing frontend's server runtime. BACKEND_URL always switches to real services, including if an old DEMO_MODE=true value remains; false additionally rejects a missing URL. Preview routes then redirect to the real workspaces. Keep `INDEX_PUBLIC_PAGES=false`. Database, SMTP, S3 and administrator secrets belong only on the backend.
 
-Check both `/actuator/health/readiness` and `/actuator/health/liveness` from the API's loopback namespace; hosted ingress must deny these paths. On the API host, use `docker compose --env-file .env.staging -f compose.staging.yaml exec -T api wget -qO- http://127.0.0.1:8080/actuator/health/readiness`. Readiness includes PostgreSQL; liveness intentionally does not. A stopped database must remove the instance from ready traffic without triggering a database-dependent restart loop. Email and storage require independent delivery/upload checks and alerts; readiness does not certify those services.
+Check both `/actuator/health/readiness` and `/actuator/health/liveness` from the API's loopback namespace; hosted ingress must deny these paths. On the API host, use `docker compose --env-file /dev/null -f compose.staging.yaml exec -T api wget -qO- http://127.0.0.1:8080/actuator/health/readiness`. Readiness includes PostgreSQL; liveness intentionally does not. A stopped database must remove the instance from ready traffic without triggering a database-dependent restart loop. Email and storage require independent delivery/upload checks and alerts; readiness does not certify those services.
 
 Run all six journeys in `docs/10_TESTING_QA.txt` in the real browser through the actual frontend proxy. Verify provider storage CORS, signed upload and thumbnail access, email delivery and expiry, admin password plus MFA, client confirmation, review moderation, cross-account access and proxy rate-limit identity. The Docker CI suite exercises equivalent backend service journeys, but cannot certify the chosen host, provider or browser configuration.
 
 Run the read-only deployed check after connecting the frontend:
 
 ```sh
-node scripts/verify-staging.mjs .env.staging
+node scripts/verify-staging.mjs --from-env
 ```
 
 It verifies HTTPS origins, rejection of externally exposed health probes, exact frontend-to-Java provider responses, anonymous rejection and redirects for all four preview workspaces. It measures eight catalog reads at concurrency two and reports observed p95 latency. This small availability measurement is not a capacity/load certification; set the launch traffic target and measure that load separately against staging. The script never creates accounts, sends messages, uploads files, resets data or prints credentials. Use `--existing-admin` only with the verified administrator precondition described below.
 
-For the owner-private Site, provide its short-lived Sites access token as `FRONTEND_SITE_ACCESS_TOKEN` in the checker's process environment through your secure credential workflow. The checker sends `OAI-Sites-Authorization` only to the configured frontend origin, never to a separate Java origin. Keep this token out of Git and the backend's `.env.staging`; the site's audience stays private. Without authorized Site access, the check should fail at the access wall.
+For the owner-private Site, provide its short-lived Sites access token as `FRONTEND_SITE_ACCESS_TOKEN` in the checker's process environment through your secure credential workflow. The checker sends `OAI-Sites-Authorization` only to the configured frontend origin, never to a separate Java origin. Keep this token out of Git and the backend's environment; the site's audience stays private. Without authorized Site access, the check should fail at the access wall.
 
 V2.5 provider acceptance must also record these browser results with owner-controlled staging accounts:
 

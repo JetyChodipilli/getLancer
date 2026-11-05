@@ -22,7 +22,7 @@ test('local setup refuses remote hosts and preserves database name case',()=>{
 
 test('local doctor recognizes encrypted MFA and refuses absent, legacy, suspended or duplicate administrators',t=>{
   const dir=mkdtempSync(join(tmpdir(),'getlancer-doctor-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));mkdirSync(join(dir,'scripts'));
-  for(const name of ['doctor-local.mjs','local-config.mjs','node-version.mjs'])copyFileSync(new URL('../scripts/'+name,import.meta.url),join(dir,'scripts',name));
+  for(const name of ['doctor-local.mjs','local-config.mjs','node-version.mjs','python-runtime.mjs'])copyFileSync(new URL('../scripts/'+name,import.meta.url),join(dir,'scripts',name));
   writeFileSync(join(dir,'.env'),'APP_ENV=local\nDB_URL=jdbc:postgresql://localhost:5433/getLancer\nDB_USERNAME=postgres\nDB_PASSWORD=synthetic-test-database\nDB_SCHEMA=getlancer\nSMTP_HOST=localhost\nSMTP_PORT=1025\nOBJECT_STORAGE_ENDPOINT=http://localhost:9000\nOBJECT_STORAGE_ACCESS_KEY=synthetic-access\nOBJECT_STORAGE_SECRET_KEY=synthetic-storage\n');
   const hook=join(dir,'doctor-services.mjs');
   writeFileSync(hook,`import cp from 'node:child_process';
@@ -30,6 +30,7 @@ import net from 'node:net';
 import {syncBuiltinESMExports} from 'node:module';
 const rows=JSON.parse(process.env.DOCTOR_TEST_ADMINS);
 cp.spawnSync=(_command,args,options)=>{
+ if(args.at(-1)==='--version')return process.env.DOCTOR_TEST_PYTHON==='missing'?{status:null,error:{code:'ENOENT'}}:{status:0,stdout:'Python '+process.env.DOCTOR_TEST_PYTHON+'\\n',stderr:''};
  if(options.env.PGOPTIONS!=='-c default_transaction_read_only=on')throw Error('Doctor must stay read-only');
  const sql=args.at(-1);let result;
  if(sql==='SELECT current_database()')result='getLancer';
@@ -48,8 +49,10 @@ net.createConnection=()=>{
 syncBuiltinESMExports();
 `);
   const encrypted={account_status:'ACTIVE',admin_totp:null,admin_totp_key_version:'fixture-v1',admin_totp_nonce:'synthetic-nonce',admin_totp_ciphertext:'synthetic-ciphertext'};
-  const run=rows=>spawnSync(process.execPath,['--import',hook,join(dir,'scripts/doctor-local.mjs')],{encoding:'utf8',env:{...process.env,APP_ENV:'local',DOCTOR_TEST_ADMINS:JSON.stringify(rows)}});
+  const run=(rows,python='3.12.9')=>spawnSync(process.execPath,['--import',hook,join(dir,'scripts/doctor-local.mjs')],{encoding:'utf8',env:{...process.env,APP_ENV:'local',DOCTOR_TEST_PYTHON:python,DOCTOR_TEST_ADMINS:JSON.stringify(rows)}});
   const healthy=run([encrypted]);assert.equal(healthy.status,0,healthy.stdout+healthy.stderr);assert.match(healthy.stdout,/OK: Exactly one active administrator with authenticator configured/);
+  assert.match(healthy.stdout,/OK: Python 3\.12\.9 available for local material verification/);
+  for(const python of ['missing','3.11.9']){const failed=run([encrypted],python);assert.equal(failed.status,1,failed.stdout+failed.stderr);assert.match(failed.stdout,/NEEDS SETUP: Python 3\.12\+.*set PYTHON/);}
   for(const rows of [[],[{account_status:'ACTIVE',admin_totp:'legacy-plaintext'}],[{...encrypted,account_status:'SUSPENDED'}],[encrypted,{account_status:'ACTIVE',admin_totp:null}], [{...encrypted,admin_totp_ciphertext:null}]]){
     const failed=run(rows);assert.equal(failed.status,1,failed.stdout+failed.stderr);assert.match(failed.stdout,/NEEDS SETUP: Exactly one active administrator with authenticator configured/);
   }

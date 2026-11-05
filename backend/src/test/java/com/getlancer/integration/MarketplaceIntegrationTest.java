@@ -904,6 +904,48 @@ class MarketplaceIntegrationTest {
             "SELECT current_status FROM inquiries WHERE id=?", String.class, renewed));
   }
 
+  @Test
+  void renewedOldestHundredInquiriesDoNotStarveAbandonedInquiry() {
+    for (int i = 0; i < 100; i++) {
+      UUID renewed = inquiry("CREATED_UNVERIFIED");
+      db.update("UPDATE inquiries SET updated_at=now()-interval '3 days' WHERE id=?", renewed);
+      db.update(
+          "INSERT INTO account_tokens(id,token_hash,kind,inquiry_id,email,expires_at)"
+              + " VALUES(?,?,'CLIENT_INQUIRY_CONFIRMATION',?,'other@example.com',"
+              + " now()+interval '1 hour')",
+          UUID.randomUUID(),
+          Support.hash("renewed-batch-" + i),
+          renewed);
+    }
+    UUID abandoned = inquiry("CREATED_UNVERIFIED");
+    db.update("UPDATE inquiries SET updated_at=now()-interval '2 days' WHERE id=?", abandoned);
+
+    var maintenance = new Maintenance(db);
+    new TransactionTemplate(tm).executeWithoutResult(tx -> maintenance.expire());
+
+    assertEquals(
+        "EXPIRED",
+        db.queryForObject(
+            "SELECT current_status FROM inquiries WHERE id=?", String.class, abandoned));
+    assertEquals(
+        100,
+        db.queryForObject(
+            "SELECT count(*) FROM inquiries WHERE current_status='CREATED_UNVERIFIED'",
+            Integer.class));
+    assertEquals(
+        1,
+        db.queryForObject(
+            "SELECT count(*) FROM inquiry_events WHERE inquiry_id=? AND event_type='EXPIRED'",
+            Integer.class,
+            abandoned));
+
+    new TransactionTemplate(tm).executeWithoutResult(tx -> maintenance.expire());
+    assertEquals(
+        1,
+        db.queryForObject(
+            "SELECT count(*) FROM inquiry_events WHERE event_type='EXPIRED'", Integer.class));
+  }
+
   String adminSession() {
     db.update("INSERT INTO user_roles(user_id,role) VALUES(?,'ADMIN')", owner);
     db.update("UPDATE sessions SET mfa_verified=true WHERE user_id=?", owner);

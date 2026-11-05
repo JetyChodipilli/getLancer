@@ -2,7 +2,7 @@
 
 Docker Compose runs PostgreSQL 16, Spring Boot, Mailpit and private MinIO storage locally. It creates database **getLancer**, user **postgres**, and uses `DB_PASSWORD` from your private `.env`. The requested local password is `postgres`. The database listens on **localhost:5433**, leaving port 5432 free for the PostgreSQL already installed on your computer.
 
-Install Docker Desktop (Compose v2) and stable Node 22.23.4+ in Node 22, or 24.22.1+ in Node 24, then run from the repository root. CI and Node Docker images use Node 22.23.4:
+Install Docker Desktop (Compose v2), Python 3.12+, and stable Node 22.23.4+ in Node 22, or 24.22.1+ in Node 24, then run from the repository root. Python runs the local data/AI material checks before the frontend starts; Docker does not replace this host prerequisite. CI and Node Docker images use Node 22.23.4:
 
 ```sh
 npm ci
@@ -10,6 +10,8 @@ npm run setup:docker
 npm run services:docker
 npm run dev:local
 ```
+
+Python 3.12+ is the existing [data/AI source requirement](../labs/data-ai/README.md); the same source is verified before local frontend startup. Selection uses `python3` on macOS/Linux. On Windows it tries `python`, the `py -3` launcher, then `python3`, accepting a stable Python 3.12+ version. Set `PYTHON` to one executable path when needed, including paths with spaces; do not include arguments or quote characters in the value. For PowerShell, for example: `$env:PYTHON = 'C:\Program Files\Python312\python.exe'`. `npm run doctor:local` reports the selected Python version or actionable setup instructions without running the material checks.
 
 Open `http://localhost:3000`. The backend runs inside Docker, so a separate local Java/Maven process is unnecessary. Stop a previous `backend:local` process before starting the containers. If the old mail/storage stack is running, stop it with `docker compose -f compose.local-services.yaml stop` first to free ports 1025/8025/9000/9001; its data volumes are preserved.
 

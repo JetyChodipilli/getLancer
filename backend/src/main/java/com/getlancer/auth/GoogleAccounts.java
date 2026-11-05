@@ -48,6 +48,14 @@ public class GoogleAccounts {
         email = email(Map.of("email", jwt.getClaimAsString("email")), "email");
     if (email.equals(adminEmail))
       throw new ApiError(403, "admin_password", "Use administrator password sign-in.");
+    // Google's verified flag can outlive ownership of a third-party mailbox.
+    // Do not create or reuse a permanent credential from that assertion, including
+    // a legacy mapping left behind after the mailbox owner recovered the account.
+    if (!GoogleTokens.authoritativeEmail(jwt))
+      throw new ApiError(
+          409,
+          "email_password_required",
+          "Use email and password for this address. If you already have an account, reset your password.");
     // Serialize concurrent callbacks for the same Google identity.
     db.queryForList("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", "google:" + subject);
     var linked =

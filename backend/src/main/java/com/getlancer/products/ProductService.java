@@ -13,6 +13,7 @@ import com.getlancer.shared.ApiError;
 import com.getlancer.shared.Pages;
 import com.getlancer.shared.Rules;
 import com.getlancer.shared.Support;
+import com.getlancer.trust.DemoHealth;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -88,11 +89,7 @@ public class ProductService {
             "availability",
             "visibility")) x.put(k, p.get(k));
     x.put("bookedUntil", p.get("booked_until"));
-    x.put(
-        "demoHealth",
-        Objects.equals(p.get("live_url"), p.get("demo_checked_url"))
-            ? Objects.toString(p.get("demo_health"), "UNKNOWN")
-            : "UNKNOWN");
+    x.put("demoHealth", DemoHealth.current(p, (String) p.get("live_url"), null));
     x.put("demoCheckedAt", p.get("demo_checked_at"));
     String[] old = {
       "builder_slug",

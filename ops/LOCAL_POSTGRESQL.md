@@ -7,6 +7,7 @@ This is the alternative for PostgreSQL installed directly on your computer. The 
 - PostgreSQL running on port 5432 and an existing database named exactly `getLancer`.
 - Java 17+ and Maven 3.9+ on PATH.
 - Stable Node.js 22.23.4+ in Node 22, or 24.22.1+ in Node 24, and npm. CI uses Node 22.23.4; `.nvmrc` and `.node-version` select that version.
+- Python 3.12+ on the host for the frontend's data/AI material verification. See [Python selection and the `PYTHON` executable override](DOCKER_LOCAL.md) for Windows and custom installations; `doctor:local` checks the version without executing material.
 - Docker Desktop / Compose for the local email inbox and private proof-image storage below. PostgreSQL itself stays on your computer.
 
 If the database is absent, create it in pgAdmin with the name `getLancer`, or run `CREATE DATABASE "getLancer";` once while connected to the maintenance database `postgres`. PostgreSQL folds unquoted SQL identifiers to lowercase, so the quotes matter for this database name. Do not recreate or drop an existing database.
