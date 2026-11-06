@@ -113,7 +113,7 @@ for(const kind of ['developer inquiries','client requests','notifications'] as c
  if(kind==='developer inquiries'){await page.getByRole('tab',{name:/^Inquiries/}).click();path='/api/v1/developer/inquiries?page=1&size=1';await page.getByRole('button',{name:'Load more',exact:true}).click();}
  else if(kind==='client requests'){await page.getByRole('tab',{name:'My requests',exact:true}).click();await respond(page,'/api/v1/me/inquiries',first([request()],true),200,'GET',A);path='/api/v1/me/inquiries?page=1&size=1';await page.getByRole('button',{name:'Load more',exact:true}).click();}
  else{await account(page);await page.getByText('Close my account',{exact:true}).click();await page.getByLabel('Type your email to request a confirmation link',{exact:true}).fill('a@example.test');path='/api/v1/notifications?page=1&size=1';await page.getByRole('button',{name:'Load more notifications',exact:true}).click();}
- await pending(page,path,'GET',A);await respond(page,path,denied,401,'GET',A);await loggedOut(page);await expect(page.getByRole('alert')).toContainText('no longer current');expect(await page.locator('input').evaluateAll(inputs=>inputs.some(input=>input.value==='a@example.test'))).toBe(false);
+ await pending(page,path,'GET',A);await respond(page,path,denied,401,'GET',A);await loggedOut(page);await expect(page.getByRole('alert')).toContainText('no longer current');expect(await page.locator('input').evaluateAll(inputs=>inputs.some(input=>(input as HTMLInputElement).value==='a@example.test'))).toBe(false);
 });
 
 for(const status of [401,403])test('unmounted child '+status+' denial invalidates a pending same-actor parent load',async({page})=>{
@@ -149,7 +149,7 @@ test('export succeeds for the bound actor and a new actor cannot reuse an old ex
 
 test('a retained profile cannot write through a different cookie actor',async({page})=>{
  await mount(page);await load(page);await page.getByRole('tab',{name:'Profile',exact:true}).click();await page.getByLabel('Display name',{exact:true}).fill('Private actor A unsaved profile');await page.getByRole('button',{name:'Save profile',exact:true}).click();
- await pending(page,'/api/v1/developer/profile','PUT',A);await respond(page,'/api/v1/developer/profile',denied,401,'PUT',A);await loggedOut(page);expect(await page.locator('input').evaluateAll(inputs=>inputs.some(input=>input.value==='Private actor A unsaved profile'))).toBe(false);
+ await pending(page,'/api/v1/developer/profile','PUT',A);await respond(page,'/api/v1/developer/profile',denied,401,'PUT',A);await loggedOut(page);expect(await page.locator('input').evaluateAll(inputs=>inputs.some(input=>(input as HTMLInputElement).value==='Private actor A unsaved profile'))).toBe(false);
  expect(await page.evaluate(()=>(window as unknown as Harness).calls.filter(call=>call.path==='/api/v1/me').length)).toBe(1);
 });
 
