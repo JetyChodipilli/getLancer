@@ -28,21 +28,28 @@ public class Maintenance {
   @Transactional
   public void expire() {
     if (!enabled) return;
-    // Lock inquiry rows before checking tokens, matching the confirmation path.
+    // Renewed rows must not fill the batch ahead of abandoned inquiries. This
+    // preliminary token read takes no token locks; lock inquiries first and
+    // recheck in a fresh statement below, matching the confirmation lock order.
     var rows =
         db.queryForList(
-            "SELECT id FROM inquiries WHERE current_status='CREATED_UNVERIFIED' AND"
-                + " updated_at<now()-interval '24 hours' ORDER BY updated_at LIMIT 100 FOR UPDATE"
-                + " SKIP LOCKED");
+            "SELECT i.id FROM inquiries i WHERE i.current_status='CREATED_UNVERIFIED' AND"
+                + " i.updated_at<clock_timestamp()-interval '24 hours' AND NOT EXISTS(SELECT 1"
+                + " FROM account_tokens t WHERE t.inquiry_id=i.id AND"
+                + " t.kind='CLIENT_INQUIRY_CONFIRMATION' AND t.used_at IS NULL AND"
+                + " t.expires_at>clock_timestamp()) ORDER BY i.updated_at,i.id LIMIT 100"
+                + " FOR UPDATE OF i SKIP LOCKED");
     for (var row : rows) {
       Object id = row.get("id");
       if (db.queryForObject(
               "SELECT count(*) FROM account_tokens WHERE inquiry_id=? AND"
-                  + " kind='CLIENT_INQUIRY_CONFIRMATION' AND used_at IS NULL AND expires_at>now()",
+                  + " kind='CLIENT_INQUIRY_CONFIRMATION' AND used_at IS NULL AND"
+                  + " expires_at>clock_timestamp()",
               Integer.class,
               id)
           > 0) continue;
-      db.update("UPDATE inquiries SET current_status='EXPIRED',updated_at=now() WHERE id=?", id);
+      db.update(
+          "UPDATE inquiries SET current_status='EXPIRED',updated_at=clock_timestamp() WHERE id=?", id);
       db.update(
           "INSERT INTO inquiry_events(id,inquiry_id,event_type,actor_type)"
               + " VALUES(?,?,'EXPIRED','SYSTEM')",

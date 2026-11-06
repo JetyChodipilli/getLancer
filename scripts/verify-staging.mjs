@@ -2,8 +2,8 @@
 import assert from 'node:assert/strict';
 import {performance} from 'node:perf_hooks';
 import {fileURLToPath} from 'node:url';
+import {resolve} from 'node:path';
 import {execFileSync} from 'node:child_process';
-import {readEnvironment} from './local-config.mjs';
 
 function origin(value){
  const url=new URL(value);
@@ -48,12 +48,19 @@ export async function verifyStaging(config,request=fetch){
  return {requests:durations.length,concurrency:2,p95Ms:Math.round(durations[Math.ceil(durations.length*.95)-1]),providerAcceptance:'pending operator delivery/upload/MFA journeys'};
 }
 
-if(process.argv[1]&&fileURLToPath(import.meta.url)===process.argv[1]){
+// Hosted verification uses one injected snapshot for both the configuration
+// checker and requests. This command never loads a local environment file.
+export async function runStagingCli(args,{environment=process.env,request=fetch,check=(flags,env)=>execFileSync(process.execPath,[fileURLToPath(new URL('./check-environment.mjs',import.meta.url)),...flags],{stdio:'inherit',env})}={}){
+ assert.ok(args.includes('--from-env')&&args.length===new Set(args).size&&args.every(value=>['--from-env','--existing-admin'].includes(value)),'Use --from-env [--existing-admin]; inject hosted configuration without an environment file.');
+ const config={...environment};
+ const flags=['--from-env',...(args.includes('--existing-admin')?['--existing-admin']:[])];
+ check(flags,config);
+ return verifyStaging(config,request);
+}
+
+if(process.argv[1]&&fileURLToPath(import.meta.url)===resolve(process.argv[1])){
  try{
-  const file=process.argv[2]||'.env.staging';
-  assert.ok(process.argv.length<=4&&(!process.argv[3]||process.argv[3]==='--existing-admin'),'Use [file] [--existing-admin].');
-  execFileSync(process.execPath,[fileURLToPath(new URL('./check-environment.mjs',import.meta.url)),file,...process.argv.slice(3)],{stdio:'inherit'});
-  const result=await verifyStaging({...readEnvironment(file),FRONTEND_SITE_ACCESS_TOKEN:process.env.FRONTEND_SITE_ACCESS_TOKEN});
+  const result=await runStagingCli(process.argv.slice(2));
   console.log('Hosted read-only acceptance passed: '+JSON.stringify(result));
- }catch{console.error('Hosted acceptance failed. Check HTTPS configuration, health, proxy responses and connected redirects. No credentials are printed.');process.exitCode=1;}
+ }catch{console.error('Hosted acceptance failed. Use --from-env [--existing-admin] with injected configuration; check HTTPS, health, proxy responses and connected redirects. No credentials are printed.');process.exitCode=1;}
 }

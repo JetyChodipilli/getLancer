@@ -6,19 +6,21 @@ import static com.getlancer.shared.Support.text;
 
 import com.getlancer.products.ProductRepository;
 import com.getlancer.products.ProductService;
+import com.getlancer.profiles.AvailabilityDates;
 import com.getlancer.security.Security;
 import com.getlancer.shared.ApiError;
 import com.getlancer.shared.Pages;
 import com.getlancer.shared.Support;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
-import java.util.Date;
+import java.time.Clock;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,12 +31,24 @@ public class TrustService {
   final Security security;
   final ProductService products;
   final com.getlancer.publishing.PublishingCapacity publishing;
+  private final Clock clock;
 
+  @Autowired
   public TrustService(JdbcTemplate db, Security security, ProductService products, com.getlancer.publishing.PublishingCapacity publishing) {
+    this(db, security, products, publishing, Clock.systemUTC());
+  }
+
+  public TrustService(
+      JdbcTemplate db,
+      Security security,
+      ProductService products,
+      com.getlancer.publishing.PublishingCapacity publishing,
+      Clock clock) {
     this.db = db;
     this.security = security;
     this.products = products;
     this.publishing = publishing;
+    this.clock = clock;
   }
 
   static boolean githubRepository(String raw) {
@@ -109,19 +123,14 @@ public class TrustService {
     if (!Set.of("AVAILABLE_NOW", "ONE_SLOT_LEFT", "LIMITED", "BOOKED_UNTIL", "NOT_ACCEPTING")
         .contains(status))
       throw new ApiError(400, "VALIDATION_ERROR", "Choose an availability status.");
-    java.sql.Date until = null;
+    String timeZone = "";
     if (status.equals("BOOKED_UNTIL")) {
-      try {
-        var date = java.time.LocalDate.parse(text(b, "bookedUntil", 10, 10));
-        if (date.isBefore(java.time.LocalDate.now())
-            || date.isAfter(java.time.LocalDate.now().plusYears(2)))
-          throw new IllegalArgumentException();
-        until = java.sql.Date.valueOf(date);
-      } catch (Exception e) {
-        throw new ApiError(
-            400, "VALIDATION_ERROR", "Choose a future booked-until date within two years.");
-      }
+      // Serialize the saved calendar with profile edits before validating its date.
+      timeZone =
+          db.queryForObject(
+              "SELECT time_zone FROM developer_profiles WHERE user_id=? FOR UPDATE", String.class, u);
     }
+    java.sql.Date until = AvailabilityDates.bookedUntil(b, status, timeZone, clock);
     db.update(
         "UPDATE developer_profiles SET"
             + " availability_status=?,booked_until=?,availability_confirmed_at=now(),updated_at=now()"

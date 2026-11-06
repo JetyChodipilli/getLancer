@@ -7,6 +7,6 @@
     "test": "node test.mjs"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=24.22.2 <25"
   }
 }

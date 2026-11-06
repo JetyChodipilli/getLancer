@@ -4,7 +4,7 @@ Original dependency-free educational exercise. It is source only; no live platfo
 
 ## Setup
 
-Install Node.js 22 or newer. No packages or credentials are required. Approximate setup: five minutes after the runtime is installed.
+Install stable Node.js 24.22.2 or later 24.x. No packages or credentials are required. Approximate setup: five minutes after the runtime is installed.
 
 Run the regression first:
 
@@ -16,6 +16,8 @@ node simulate.mjs
 ## Included and excluded
 
 Deterministic five-reading simulation. No physical board, firmware flashing, cloud broker or verified hardware operation.
+
+The regression checks the documented CLI from an extracted directory containing spaces and non-ASCII characters, as well as repeatable readings and alert counts.
 
 ## License and support
 

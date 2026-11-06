@@ -138,7 +138,8 @@ function draftRelease(body: EducationDraft, revision = 1): EducationRelease {ret
 async function educationWorkspace(page: Page, onSave: (body: EducationDraft) => void) {
   let record: EducationRelease | undefined;
   await page.route('**/api/v1/**', async route => {const request = route.request(), path = new URL(request.url()).pathname; let body: unknown = {};
-    if (path.endsWith('/submit')) {body = {...record, status: 'PENDING', sourceHash: 'c'.repeat(64)};}
+    if (path === '/api/v1/me') body = {id:'00000000-0000-4000-8000-000000000001',roles:['DEVELOPER']};
+    else if (path.endsWith('/submit')) {body = {...record, status: 'PENDING', sourceHash: 'c'.repeat(64)};}
     else if (request.method() === 'POST' || request.method() === 'PATCH') {const input = request.postDataJSON() as EducationDraft; onSave(input); record = draftRelease(input, (record?.revision || 0) + 1); body = record;}
     else if (path.includes('/developer/products')) body = {items: [{id: sample.productId, title: 'Original data project'}], hasMore: false};
     else if (path.includes('/me/college-projects') || path.includes('/me/education-releases')) body = {items: [], hasMore: false};
@@ -192,6 +193,7 @@ test('frozen disclosures show separate dataset/model rights and actual evaluatio
 test('historical missing structured evidence stays explicitly absent and readable', async ({page}) => {await packageHarness(page, false); await expect(page.getByText(/This historical release has no structured data\/AI evidence/)).toBeVisible(); await expect(page.getByText('Confirmed', {exact: true})).toHaveCount(0); await expect(page.getByRole('heading', {name: 'Project artifacts & license', exact: true})).toBeVisible(); await scan(page);});
 
 test('private reviewer sees frozen provenance before the exact hash decision', async ({page}, testInfo) => {
+  await page.route('**/api/v1/me', route => route.fulfill({contentType: 'application/json', body: JSON.stringify({id:'00000000-0000-4000-8000-000000000001',roles:['ADMIN']})}));
   const pending: EducationRelease = {...sample, status: 'PENDING', sourceHash: 'd'.repeat(64), snapshot: {...sample.snapshot, category: 'AI_ML', mode: 'SHOWCASE', dataAiEvidence: evidence, sourceBinding: undefined}};
   let decision: {revision: number; sourceHash: string; rightsReviewed: boolean; packageReviewed: boolean} | undefined;
   await page.route('**/api/v1/admin/education-releases**', async route => {if (route.request().method() === 'GET') await route.fulfill({contentType: 'application/json', body: JSON.stringify({items: [pending], hasMore: false})}); else {decision = route.request().postDataJSON(); await route.fulfill({contentType: 'application/json', body: JSON.stringify({...pending, status: 'APPROVED'})});}});

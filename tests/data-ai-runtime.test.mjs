@@ -8,12 +8,20 @@ import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {randomUUID} from 'node:crypto';
 import {parseStrictJson,validateCatalogue,sourceFiles,readSourceFile,archiveFor,unpackArchive,sha,base} from '../scripts/build-data-ai-material.mjs';
-import {canonical,digest,validateEnvelope,validateRecording,validateRecordedResults,startRuntime,send,verifyRuntime} from '../scripts/verify-data-ai.mjs';
+import {canonical,digest,expectedResult,validateEnvelope,validateRecording,validateRecordedResults,startRuntime,send,verifyRuntime} from '../scripts/verify-data-ai.mjs';
 const catalogue=parseStrictJson(await readFile(join(base,'catalogue.json'),'utf8'));
 const sourceSha256=sha(await readFile(join(base,'runtime.py')));
 const itemFor=id=>catalogue.items.find(item=>item.id===id);
 const fields=(runtime,id,input)=>({runId:runtime.runId,scenarioId:id,operationId:'execute',...input});
 function rawRequest(runtime,text){return new Promise((done,reject)=>{const socket=connect(runtime.port,'127.0.0.1'),chunks=[];socket.setTimeout(2500);socket.on('connect',()=>socket.write(text));socket.on('data',chunk=>chunks.push(chunk));socket.on('error',reject);socket.on('timeout',()=>socket.destroy(Error('Raw deadline exceeded')));socket.on('close',()=>done(Buffer.concat(chunks).toString()));});}
+
+test('pinned sentiment oracle treats inherited names as unknown tokens and preserves known weights and ties',async()=>{
+ const item=itemFor('sentiment-inference'),contract=catalogue.contracts[item.id],assets=catalogue.assets[item.id];
+ for(const [text,probabilities,label] of [['constructor',[0.5,0.5],'negative'],['unseen neutral words',[0.5,0.5],'negative'],['great broken',[0.5,0.5],'negative'],['good',[0.268941,0.731059],'positive'],['constructor good',[0.268941,0.731059],'positive']]){
+  const result=await expectedResult(item,contract,assets,{text}),observed=result.tables[0].rows.map(row=>row.probability);
+  assert(observed.every(Number.isFinite));assert.deepEqual(observed,probabilities);assert.deepEqual(result.prediction,{label,probability:Math.max(...probabilities)});
+ }
+});
 
 // Every negative has an original positive control; no source-text-only assertions stand in for execution.
 test('all four original actual recordings validate; hash/identity/time/unknown-field corruption rejects',async()=>{

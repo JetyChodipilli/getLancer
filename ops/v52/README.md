@@ -2,7 +2,7 @@
 
 V5.2 software can merge after reviewed final-head CI. Production launch remains **UNMET** until the deployment supplies actual load, seven-day runtime, incident, provider and manual assessment evidence. These commands collect or verify evidence; they never enable runtime execution, publish a source package, charge a payment or modify a database.
 
-Use Linux and stable Node 22.23.4+ in Node 22, or 24.22.1+ in Node 24, for the descriptor-bound evidence verifier. CI uses Node 22.23.4. The collector and verifier use Node standard libraries and the existing strict JSON parser. No new service or dependency is required. CI fixtures have `purpose: TEST`; even a trusted signature cannot turn them into production release evidence.
+Use Linux and stable Node 24.22.2+ in Node 24 for the descriptor-bound evidence verifier. CI uses Node 24.22.2. The collector and verifier use Node standard libraries and the existing strict JSON parser. No new service or dependency is required. CI fixtures have `purpose: TEST`; even a trusted signature cannot turn them into production release evidence.
 
 ## Declare the environment before measuring
 

@@ -15,7 +15,7 @@ test('college contexts continue independently, retain records on retry and clear
    return route.fulfill({status:403,json:{error:{code:'FORBIDDEN',message:'Current builder authentication required.'}}});
   }
   if(url.pathname==='/api/v1/developer/products')return route.fulfill({json:{items:[{id:ids[0],title:'Owned showcase'}],page:0,hasMore:false}});
-  if(url.pathname==='/api/v1/me')return route.fulfill({json:{roles:['DEVELOPER'],emailVerified:true,profile:{approval_status:'APPROVED'}}});
+  if(url.pathname==='/api/v1/me')return route.fulfill({json:{id:'00000000-0000-4000-8000-000000000001',roles:['DEVELOPER'],emailVerified:true,profile:{approval_status:'APPROVED'}}});
   return route.fulfill({json:{items:[],hasMore:false}});
  });
  await page.goto('/workspace/college-projects');

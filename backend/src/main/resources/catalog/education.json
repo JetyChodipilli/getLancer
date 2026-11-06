@@ -8,7 +8,7 @@
       "productId": "stockroom",
       "revision": 1,
       "status": "APPROVED",
-      "sourceHash": "80f360c4e440ed84a1c90e32d862b34f09ef74186c8abcbee6985f8782655d11",
+      "sourceHash": "5d94ecdf2138133e25ffd950d70848d342435e3f1a819cf4155566a766b7699d",
       "snapshot": {
         "slug": "stockroom",
         "title": "Task-board API",
@@ -54,8 +54,8 @@
         "productId": "stockroom",
         "sourceBinding": {
           "packageId": "20000000-0000-4000-8000-000000000001",
-          "sha256": "156259d9c5d6db099f0531884e470308885f4f69040c74e239511b0f1ad42e44",
-          "sizeBytes": 4974,
+          "sha256": "00569c52f98594314096d67a4c47ce57dec4b898faab1398cd93ce9f2f6b7f50",
+          "sizeBytes": 11112,
           "entryCount": 6,
           "files": [
             "LICENSE",
@@ -81,8 +81,8 @@
     },
     "packageAudit": {
       "packageId": "20000000-0000-4000-8000-000000000001",
-      "sha256": "156259d9c5d6db099f0531884e470308885f4f69040c74e239511b0f1ad42e44",
-      "sizeBytes": 4974,
+      "sha256": "00569c52f98594314096d67a4c47ce57dec4b898faab1398cd93ce9f2f6b7f50",
+      "sizeBytes": 11112,
       "entryCount": 6,
       "files": [
         "LICENSE",
@@ -416,8 +416,8 @@
     },
     "packageAudit": {
       "packageId": "20000000-0000-4000-8000-000000000004",
-      "sha256": "e1dd0a3d4915f3e0a26b34b2bc234f9535f8002d76028d703441da6eaa364392",
-      "sizeBytes": 3421,
+      "sha256": "6a1a7d2a3769d1b6cf5419ca8e7fb13b25b9185cb9b935aac5d66e0d81fc0d21",
+      "sizeBytes": 4380,
       "entryCount": 6,
       "files": [
         "LICENSE",
@@ -444,7 +444,7 @@
       "productId": "study-planner",
       "revision": 1,
       "status": "APPROVED",
-      "sourceHash": "7240fc8d0e6539f17cd460a412d3f1773aee7251303b681681215469e3fd4400",
+      "sourceHash": "1f70c69612de2245ac5cf07ac2e380020613b31d033ea5eec357997cf528e310",
       "snapshot": {
         "slug": "study-planner",
         "title": "Persistent local study planner",
@@ -491,8 +491,8 @@
         "productId": "study-planner",
         "sourceBinding": {
           "packageId": "20000000-0000-4000-8000-000000000005",
-          "sha256": "33dad6c48f2f88e1fb6f77f13b26df0e26d2d14629a5379424e9582d93dba3c3",
-          "sizeBytes": 17376,
+          "sha256": "107dbbd28de6e5a1d19d8814f3455ad394a2b4b7f660596eb55e546a5a4941ad",
+          "sizeBytes": 21400,
           "entryCount": 9,
           "files": [
             "LICENSE",
@@ -521,8 +521,8 @@
     },
     "packageAudit": {
       "packageId": "20000000-0000-4000-8000-000000000005",
-      "sha256": "33dad6c48f2f88e1fb6f77f13b26df0e26d2d14629a5379424e9582d93dba3c3",
-      "sizeBytes": 17376,
+      "sha256": "107dbbd28de6e5a1d19d8814f3455ad394a2b4b7f660596eb55e546a5a4941ad",
+      "sizeBytes": 21400,
       "entryCount": 9,
       "files": [
         "LICENSE",

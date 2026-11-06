@@ -14,7 +14,7 @@ async function render(page:Page,demo=false){
  await page.route('**/component-upload-fixture',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html lang="en"><head><title>Component upload recovery</title></head><body><div id="root"></div></body></html>'}));
  await page.goto('/component-upload-fixture');await page.addScriptTag({content:result.outputFiles[0].text});
 }
-function reads(path:string){if(path==='/api/v1/me')return{roles:['DEVELOPER']};if(path==='/api/v1/me/components')return own;return{items:[],hasMore:false};}
+function reads(path:string){if(path==='/api/v1/me')return{id:'00000000-0000-4000-8000-000000000001',roles:['DEVELOPER']};if(path==='/api/v1/me/components')return own;return{items:[],hasMore:false};}
 async function draft(page:Page){
  await page.getByRole('button',{name:'New component',exact:true}).click();const dialog=page.getByRole('dialog');
  await dialog.getByLabel('Component title',{exact:true}).fill('Original upload for recovery');await dialog.getByLabel('Summary',{exact:true}).fill('A complete source ZIP with original attribution.');await dialog.getByRole('button',{name:'Continue to contribution',exact:true}).click();

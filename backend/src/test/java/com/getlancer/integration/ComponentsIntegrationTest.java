@@ -365,6 +365,191 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
       executor.shutdownNow();
     }
   }
+  String slotRefund(String id){return "{\"event\":\"refund.created\",\"payload\":{\"refund\":{\"entity\":{\"id\":\""+id+"\",\"payment_id\":\"pay_component123\"}}}}";}
+  MockHttpServletRequestBuilder slotHook(String event,String payload){return post("/api/v1/components/razorpay/webhook").contentType("application/json").content(payload).header("x-razorpay-event-id",event).header("X-Razorpay-Signature","a".repeat(64));}
+  JsonNode slotRefundFact(String id,String state){return json.valueToTree(Map.of("entity","refund","id",id,"payment_id","pay_component123","amount",2500,"currency","INR","status",state));}
+  @Test void adverseInboxFencesEveryPaidPoolBeforeFirstProviderLookupAndSurvivesRetry()throws Exception{
+    for(String pool:List.of("PROJECT","TEMPLATE","COMPONENT")){
+      db.execute("TRUNCATE component_slot_purchases CASCADE");db.execute("TRUNCATE component_slot_events");
+      slotPrice(pool,10000);String id=response(poolBuy(pool,UUID.randomUUID().toString(),10000)).path("id").asText();captured=true;
+      String reconcile="/api/v1/me/publishing-slot-purchases/"+id+"/reconcile";
+      assertTrue(response(body(post(reconcile),"builder",Map.of())).path("grantsSlot").asBoolean());assertEquals(1,publishing().path(pool).path("purchased").asInt());
+      JsonNode valid=provider.payment("pay_component123");doThrow(com.getlancer.payments.ProviderFailureFixture.unavailable()).when(provider).payment(anyString());
+      String payload=slotRefund("rfnd_componentpending123"),event="pending_refund_"+pool;
+      mvc.perform(slotHook(event,payload)).andExpect(status().isBadGateway());
+      assertEquals("rfnd_componentpending123",db.queryForObject("SELECT refund_id FROM component_slot_events WHERE event_id=?",String.class,event));
+      assertNull(db.queryForObject("SELECT processed_at FROM component_slot_events WHERE event_id=?",java.sql.Timestamp.class,event));
+      assertEquals(0,publishing().path(pool).path("purchased").asInt());
+      assertFalse(response(as(get("/api/v1/me/publishing-slot-purchases?pool="+pool),"builder")).path("items").get(0).path("grantsSlot").asBoolean());
+      doReturn(valid).when(provider).payment(anyString());doReturn(slotRefundFact("rfnd_componentpending123","pending")).when(provider).refund(anyString());
+      response(body(post(reconcile),"builder",Map.of()));assertEquals(0,publishing().path(pool).path("purchased").asInt());
+      mvc.perform(slotHook(event,payload+" ")).andExpect(status().isConflict());
+      doReturn(slotRefundFact("rfnd_componentpending123","failed")).when(provider).refund(anyString());
+      assertTrue(response(slotHook(event,payload)).path("duplicate").asBoolean());assertEquals(1,publishing().path(pool).path("purchased").asInt());
+      doThrow(com.getlancer.payments.ProviderFailureFixture.unavailable()).when(provider).payment(anyString());
+      String dispute="{\"event\":\"payment.dispute.created\",\"payload\":{\"dispute\":{\"entity\":{\"id\":\"disp_componentpending123\",\"payment_id\":\"pay_component123\"}}}}";
+      mvc.perform(slotHook("pending_dispute_"+pool,dispute)).andExpect(status().isBadGateway());assertEquals(0,publishing().path(pool).path("purchased").asInt());
+      doReturn(valid).when(provider).payment(anyString());
+      when(provider.dispute(anyString())).thenReturn(json.valueToTree(Map.of("id","disp_componentpending123","payment_id","pay_component123","amount",10000,"amount_deducted",0,"currency","INR","status","won")));
+      response(slotHook("pending_dispute_"+pool,dispute));assertEquals(1,publishing().path(pool).path("purchased").asInt());
+    }
+  }
+  @Test void exactSlotRefundFactsOverrideStaleAggregateAndWrongMembershipStaysHeld()throws Exception{
+    price(10000);String id=response(buy("builder",UUID.randomUUID().toString(),10000)).path("id").asText();captured=true;
+    response(body(post("/api/v1/me/component-slot-purchases/"+id+"/reconcile"),"builder",Map.of()));
+    String payload=slotRefund("rfnd_componentexact123");
+    var wrong=(com.fasterxml.jackson.databind.node.ObjectNode)slotRefundFact("rfnd_componentexact123","processed");wrong.put("payment_id","pay_wrongfixture123");
+    when(provider.refund(anyString())).thenReturn(wrong);
+    mvc.perform(slotHook("slot_exact_refund",payload)).andExpect(status().isConflict());assertEquals(0,publishing().path("COMPONENT").path("purchased").asInt());
+    when(provider.refund(anyString())).thenReturn(slotRefundFact("rfnd_componentexact123","processed"));
+    response(slotHook("slot_exact_refund",payload));
+    assertEquals(2500L,db.queryForObject("SELECT refunded_minor FROM component_slot_purchases",Long.class));assertEquals("REFUNDED",db.queryForObject("SELECT status FROM component_slot_purchases",String.class));
+    assertEquals(0,publishing().path("COMPONENT").path("purchased").asInt());assertEquals(2500L,db.queryForObject("SELECT sum(amount_minor) FROM component_slot_ledger WHERE kind='REFUND'",Long.class));
+  }
+  @Test void lateBindingCannotGrantWhileAnEarlierAuthenticatedRefundIsPending()throws Exception{
+    price(10000);
+    when(provider.createPlatformOrder(any(UUID.class),anyLong())).thenAnswer(i->{order=json.valueToTree(Map.of("id","order_component123","receipt",i.getArgument(0).toString(),"amount",10000,"currency","INR"));throw new ApiError(409,"PROVIDER_MISMATCH","Uncertain fixture order.");});
+    mvc.perform(buy("builder",UUID.randomUUID().toString(),10000)).andExpect(status().isConflict());captured=true;
+    JsonNode valid=provider.payment("pay_component123");doThrow(com.getlancer.payments.ProviderFailureFixture.unavailable()).when(provider).payment(anyString());
+    mvc.perform(slotHook("slot_early_refund",slotRefund("rfnd_componentearly123"))).andExpect(status().isBadGateway());
+    doReturn(valid).when(provider).payment(anyString());when(provider.refund(anyString())).thenReturn(slotRefundFact("rfnd_componentearly123","pending"));
+    UUID id=db.queryForObject("SELECT id FROM component_slot_purchases",UUID.class);
+    assertFalse(response(body(post("/api/v1/admin/component-slot-purchases/"+id+"/bind-order"),"admin",Map.of("orderId","order_component123"))).path("grantsSlot").asBoolean());assertEquals(0,publishing().path("COMPONENT").path("purchased").asInt());
+    when(provider.refund(anyString())).thenReturn(slotRefundFact("rfnd_componentearly123","failed"));
+    assertTrue(response(body(post("/api/v1/me/component-slot-purchases/"+id+"/reconcile"),"builder",Map.of())).path("grantsSlot").asBoolean());
+  }
+  @Test void exactLegacySlotRedeliveryRecoversMetadataAndReopensRefundVerification()throws Exception{
+    price(10000);String id=response(buy("builder",UUID.randomUUID().toString(),10000)).path("id").asText();captured=true;
+    response(body(post("/api/v1/me/component-slot-purchases/"+id+"/reconcile"),"builder",Map.of()));
+    String payload=slotRefund("rfnd_componentlegacy123");
+    db.update("INSERT INTO component_slot_events(event_id,payload_hash,processed_at) VALUES('slot_legacy_refund',?,clock_timestamp())",Support.hash(payload));
+    assertEquals(1,publishing().path("COMPONENT").path("purchased").asInt());
+    mvc.perform(slotHook("slot_legacy_refund",payload+" ")).andExpect(status().isConflict());
+    when(provider.refund(anyString())).thenReturn(slotRefundFact("rfnd_componentlegacy123","pending"));
+    assertTrue(response(slotHook("slot_legacy_refund",payload)).path("duplicate").asBoolean());
+    assertEquals("refund.created",db.queryForObject("SELECT event_kind FROM component_slot_events WHERE event_id='slot_legacy_refund'",String.class));
+    assertEquals(0,publishing().path("COMPONENT").path("purchased").asInt());
+    assertNull(db.queryForObject("SELECT processed_at FROM component_slot_events WHERE event_id='slot_legacy_refund'",java.sql.Timestamp.class));
+    when(provider.refund(anyString())).thenReturn(slotRefundFact("rfnd_componentlegacy123","failed"));
+    response(slotHook("slot_legacy_refund",payload));assertEquals(1,publishing().path("COMPONENT").path("purchased").asInt());
+    assertThrows(org.springframework.dao.DataAccessException.class,()->db.update("UPDATE component_slot_events SET refund_id='rfnd_replaced123' WHERE event_id='slot_legacy_refund'"));
+  }
+  @Test void winningOneSlotDisputeCannotEraseAnotherDisputesStoredHold()throws Exception{
+    price(10000);String id=response(buy("builder",UUID.randomUUID().toString(),10000)).path("id").asText();captured=true;
+    response(body(post("/api/v1/me/component-slot-purchases/"+id+"/reconcile"),"builder",Map.of()));
+    when(provider.dispute(anyString())).thenAnswer(i->json.valueToTree(Map.of("id",i.getArgument(0).toString(),"payment_id","pay_component123","amount",10000,"amount_deducted",0,"currency","INR","status",i.getArgument(0).equals("disp_componentlost123")?"lost":"won")));
+    for(String dispute:List.of("disp_componentlost123","disp_componentwon123")){
+      String payload="{\"event\":\"payment.dispute.created\",\"payload\":{\"dispute\":{\"entity\":{\"id\":\""+dispute+"\",\"payment_id\":\"pay_component123\"}}}}";
+      response(slotHook("event_"+dispute,payload));
+    }
+    assertEquals(2,db.queryForObject("SELECT count(*) FROM component_slot_disputes",Integer.class));assertEquals(0,publishing().path("COMPONENT").path("purchased").asInt());assertEquals("DISPUTED",db.queryForObject("SELECT status FROM component_slot_purchases",String.class));
+  }
+  String capturedSlotPurchase()throws Exception{
+    price(10000);String id=response(buy("builder",UUID.randomUUID().toString(),10000)).path("id").asText();captured=true;reconcileSlot(id);return id;
+  }
+  JsonNode reconcileSlot(String id)throws Exception{return response(body(post("/api/v1/me/component-slot-purchases/"+id+"/reconcile"),"builder",Map.of()));}
+  String storedSlotDispute(String purchase,int n,String state){
+    String id="disp_slotbatch"+String.format(Locale.ROOT,"%02d",n);
+    db.update("INSERT INTO component_slot_disputes(id,purchase_id,status,deducted_minor,updated_at) VALUES(?,?,?,0,'2000-01-01T00:00:00Z')",id,UUID.fromString(purchase),state);return id;
+  }
+  JsonNode slotDisputeFact(String id,String state){return json.valueToTree(Map.of("id",id,"payment_id","pay_component123","amount",10000,"amount_deducted",0,"currency","INR","status",state));}
+  @Test void wonSlotDisputesRetainPositiveDeductionsAcrossEveryPublishingPool()throws Exception{
+    String dispute="disp_slotdeduction123";
+    String payload="{\"event\":\"payment.dispute.won\",\"payload\":{\"dispute\":{\"entity\":{\"id\":\""+dispute+"\",\"payment_id\":\"pay_component123\"}}}}";
+    for(String pool:List.of("PROJECT","TEMPLATE","COMPONENT")){
+      db.execute("TRUNCATE component_slot_purchases CASCADE");db.execute("TRUNCATE component_slot_events");
+      captured=false;slotPrice(pool,10000);var receipt=response(poolBuy(pool,UUID.randomUUID().toString(),10000));captured=true;
+      String id=receipt.path("id").asText(),reconcile="/api/v1/me/publishing-slot-purchases/"+id+"/reconcile";
+      assertEquals(pool,receipt.path("pool").asText());assertTrue(response(body(post(reconcile),"builder",Map.of())).path("grantsSlot").asBoolean());
+      var deducted=(com.fasterxml.jackson.databind.node.ObjectNode)slotDisputeFact(dispute,"won");deducted.put("amount_deducted",2500);
+      when(provider.dispute(dispute)).thenReturn(deducted);
+      response(slotHook("slot_deduction_"+pool,payload));
+      assertEquals(2500L,db.queryForObject("SELECT deducted_minor FROM component_slot_disputes WHERE id=?",Long.class,dispute));
+      assertEquals("DISPUTED",db.queryForObject("SELECT status FROM component_slot_purchases WHERE id=?",String.class,UUID.fromString(id)));
+      assertNotNull(db.queryForObject("SELECT processed_at FROM component_slot_events WHERE event_id=?",java.sql.Timestamp.class,"slot_deduction_"+pool));
+      assertEquals(0,publishing().path(pool).path("purchased").asInt());assertFalse(capacity.grantsSlot(UUID.fromString(id)));
+      when(provider.dispute(dispute)).thenReturn(slotDisputeFact(dispute,"won"));
+      assertTrue(response(body(post(reconcile),"builder",Map.of())).path("grantsSlot").asBoolean());
+      assertEquals(0L,db.queryForObject("SELECT deducted_minor FROM component_slot_disputes WHERE id=?",Long.class,dispute));
+      assertEquals(1,publishing().path(pool).path("purchased").asInt());
+    }
+  }
+  @Test void zeroDeductionForOneWonDisputeCannotClearAnotherDisputesPositiveFact()throws Exception{
+    String id=capturedSlotPurchase(),first="disp_slotpositivefirst123",second="disp_slotpositivesecond123";
+    for(String dispute:List.of(first,second)){
+      var fact=(com.fasterxml.jackson.databind.node.ObjectNode)slotDisputeFact(dispute,"won");fact.put("amount_deducted",2500);
+      when(provider.dispute(dispute)).thenReturn(fact);
+      String payload="{\"event\":\"payment.dispute.won\",\"payload\":{\"dispute\":{\"entity\":{\"id\":\""+dispute+"\",\"payment_id\":\"pay_component123\"}}}}";
+      response(slotHook("deduction_"+dispute,payload));
+    }
+    when(provider.dispute(first)).thenReturn(slotDisputeFact(first,"won"));
+    assertFalse(reconcileSlot(id).path("grantsSlot").asBoolean());
+    assertEquals(0L,db.queryForObject("SELECT deducted_minor FROM component_slot_disputes WHERE id=?",Long.class,first));
+    assertEquals(2500L,db.queryForObject("SELECT deducted_minor FROM component_slot_disputes WHERE id=?",Long.class,second));
+    assertEquals(0,publishing().path("COMPONENT").path("purchased").asInt());
+    when(provider.dispute(second)).thenReturn(slotDisputeFact(second,"won"));
+    assertTrue(reconcileSlot(id).path("grantsSlot").asBoolean());assertEquals(1,publishing().path("COMPONENT").path("purchased").asInt());
+  }
+  @Test void legacyWonSlotStatusNeedsItsExactZeroDeductionBeforeCapacityReturns()throws Exception{
+    String id=capturedSlotPurchase(),dispute="disp_slotunknownlegacy123";
+    db.update("INSERT INTO component_slot_disputes(id,purchase_id,status) VALUES(?,?,'won')",dispute,UUID.fromString(id));
+    db.update("UPDATE component_slot_purchases SET dispute_id=?,dispute_status='won' WHERE id=?",dispute,UUID.fromString(id));
+    assertNull(db.queryForObject("SELECT deducted_minor FROM component_slot_disputes WHERE id=?",Long.class,dispute));
+    assertFalse(capacity.grantsSlot(UUID.fromString(id)));assertEquals(0,publishing().path("COMPONENT").path("purchased").asInt());
+    var wrong=(com.fasterxml.jackson.databind.node.ObjectNode)slotDisputeFact(dispute,"won");wrong.put("payment_id","pay_wronglegacy123");
+    when(provider.dispute(dispute)).thenReturn(wrong);
+    mvc.perform(body(post("/api/v1/me/component-slot-purchases/"+id+"/reconcile"),"builder",Map.of())).andExpect(status().isConflict());
+    assertNull(db.queryForObject("SELECT deducted_minor FROM component_slot_disputes WHERE id=?",Long.class,dispute));assertFalse(capacity.grantsSlot(UUID.fromString(id)));
+    when(provider.dispute(dispute)).thenReturn(slotDisputeFact(dispute,"won"));
+    assertTrue(reconcileSlot(id).path("grantsSlot").asBoolean());
+    assertEquals(0L,db.queryForObject("SELECT deducted_minor FROM component_slot_disputes WHERE id=?",Long.class,dispute));
+  }
+  @Test void wonSlotHistoryCannotStarveLaterHoldsOrGrantBeforeEveryDisputeIsWon()throws Exception{
+    String id=capturedSlotPurchase();for(int n=0;n<8;n++)storedSlotDispute(id,n,"won");
+    String ninth=storedSlotDispute(id,8,"open"),tenth=storedSlotDispute(id,9,"lost");
+    var states=new HashMap<String,String>();states.put(tenth,"lost");var reads=new ArrayList<String>();
+    when(provider.dispute(anyString())).thenAnswer(i->{String dispute=i.getArgument(0);reads.add(dispute);return slotDisputeFact(dispute,states.getOrDefault(dispute,"won"));});
+    assertFalse(reconcileSlot(id).path("grantsSlot").asBoolean());assertEquals(8,reads.size());assertEquals(List.of(ninth,tenth),reads.subList(0,2));
+    assertEquals("won",db.queryForObject("SELECT status FROM component_slot_disputes WHERE id=?",String.class,ninth));assertEquals(0,publishing().path("COMPONENT").path("purchased").asInt());
+    states.put(tenth,"won");reads.clear();assertTrue(reconcileSlot(id).path("grantsSlot").asBoolean());assertEquals(8,reads.size());assertTrue(reads.contains(tenth));assertEquals(1,publishing().path("COMPONENT").path("purchased").asInt());
+  }
+  @Test void positiveAndUnknownWonSlotFactsRotateWithinTheHeldBatch()throws Exception{
+    String id=capturedSlotPurchase();var ids=new ArrayList<String>();
+    for(int n=0;n<9;n++){String dispute=storedSlotDispute(id,n,"won");ids.add(dispute);db.update("UPDATE component_slot_disputes SET deducted_minor=2500 WHERE id=?",dispute);}
+    String unknown=ids.get(8);db.update("UPDATE component_slot_disputes SET deducted_minor=NULL WHERE id=?",unknown);
+    var reads=new ArrayList<String>();var clearing=new java.util.concurrent.atomic.AtomicBoolean(false);
+    when(provider.dispute(anyString())).thenAnswer(i->{String dispute=i.getArgument(0);reads.add(dispute);var fact=(com.fasterxml.jackson.databind.node.ObjectNode)slotDisputeFact(dispute,"won");if(!clearing.get()&&!dispute.equals(unknown))fact.put("amount_deducted",2500);return fact;});
+    assertFalse(reconcileSlot(id).path("grantsSlot").asBoolean());assertEquals(ids.subList(0,8),reads);
+    assertNull(db.queryForObject("SELECT deducted_minor FROM component_slot_disputes WHERE id=?",Long.class,unknown));
+    reads.clear();assertFalse(reconcileSlot(id).path("grantsSlot").asBoolean());assertEquals(8,reads.size());assertEquals(unknown,reads.get(0));
+    assertEquals(0L,db.queryForObject("SELECT deducted_minor FROM component_slot_disputes WHERE id=?",Long.class,unknown));
+    assertEquals(0,publishing().path("COMPONENT").path("purchased").asInt());
+    clearing.set(true);reads.clear();assertTrue(reconcileSlot(id).path("grantsSlot").asBoolean());assertEquals(8,reads.size());
+  }
+  @Test void unchangedHeldSlotObservationsRotateBeyondTheFirstEight()throws Exception{
+    String id=capturedSlotPurchase();var ids=new ArrayList<String>();for(int n=0;n<9;n++)ids.add(storedSlotDispute(id,n,"open"));
+    var states=new HashMap<String,String>();states.put(ids.get(8),"won");var reads=new ArrayList<String>();
+    when(provider.dispute(anyString())).thenAnswer(i->{String dispute=i.getArgument(0);reads.add(dispute);return slotDisputeFact(dispute,states.getOrDefault(dispute,"open"));});
+    assertFalse(reconcileSlot(id).path("grantsSlot").asBoolean());assertEquals(ids.subList(0,8),reads);
+    assertTrue(db.queryForObject("SELECT updated_at>'2000-01-01T00:00:00Z'::timestamptz FROM component_slot_disputes WHERE id=?",Boolean.class,ids.get(0)));
+    reads.clear();assertFalse(reconcileSlot(id).path("grantsSlot").asBoolean());assertEquals(8,reads.size());assertEquals(ids.get(8),reads.get(0));
+    assertEquals("won",db.queryForObject("SELECT status FROM component_slot_disputes WHERE id=?",String.class,ids.get(8)));assertEquals(0,publishing().path("COMPONENT").path("purchased").asInt());
+    for(String dispute:ids)states.put(dispute,"won");reads.clear();assertTrue(reconcileSlot(id).path("grantsSlot").asBoolean());assertEquals(8,reads.size());assertEquals(1,publishing().path("COMPONENT").path("purchased").asInt());
+  }
+  @Test void unrelatedSlotObservationsLeaveAFreshPendingDisputeForItsOwnRead()throws Exception{
+    String id=capturedSlotPurchase();for(int n=0;n<8;n++)storedSlotDispute(id,n,"won");
+    var reads=new CopyOnWriteArrayList<String>();var entered=new CountDownLatch(1);var release=new CountDownLatch(1);
+    when(provider.dispute(anyString())).thenAnswer(i->{String dispute=i.getArgument(0);reads.add(dispute);if(reads.size()==1){entered.countDown();assertTrue(release.await(5,TimeUnit.SECONDS));}return slotDisputeFact(dispute,"won");});
+    var executor=Executors.newSingleThreadExecutor();var pending=executor.submit(()->reconcileSlot(id));
+    try{
+      assertTrue(entered.await(2,TimeUnit.SECONDS));
+      db.update("INSERT INTO component_slot_events(event_id,payload_hash,event_kind,payment_id,dispute_id) VALUES('slot_fresh_batch',?,'payment.dispute.created','pay_component123','disp_slotbatch99')",Support.hash("fresh authenticated slot receipt fixture"));
+      assertEquals(0,publishing().path("COMPONENT").path("purchased").asInt());release.countDown();assertFalse(pending.get(5,TimeUnit.SECONDS).path("grantsSlot").asBoolean());
+      assertEquals(8,reads.size());assertFalse(reads.contains("disp_slotbatch99"));assertNull(db.queryForObject("SELECT processed_at FROM component_slot_events WHERE event_id='slot_fresh_batch'",java.sql.Timestamp.class));
+      reads.clear();assertTrue(reconcileSlot(id).path("grantsSlot").asBoolean());assertEquals(8,reads.size());assertEquals("disp_slotbatch99",reads.get(0));
+      assertNotNull(db.queryForObject("SELECT processed_at FROM component_slot_events WHERE event_id='slot_fresh_batch'",java.sql.Timestamp.class));assertEquals(1,publishing().path("COMPONENT").path("purchased").asInt());
+    }finally{release.countDown();executor.shutdownNow();}
+  }
   @Test void signedRawWebhookDedupDisputeAndMalformedSignaturesProtectCapacity()throws Exception{
     price(10000);
     String id=response(buy("builder",UUID.randomUUID().toString(),10000)).path("id").asText();

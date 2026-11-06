@@ -4,7 +4,7 @@ Loopback web UI and JSON API plan study minutes, mark tasks done and persist a b
 
 ## Reproduce from a clean extraction
 
-Use Node.js 22 or newer with no third-party installation. In this package directory:
+Use stable Node.js 24.22.2 or later 24.x with no third-party installation. In this package directory:
 
 ```sh
 node test.mjs
@@ -16,6 +16,8 @@ Open http://127.0.0.1:3101. The default planner-data.json is created with privat
 ## What is measured
 
 Two concurrent writes create distinct tasks, marking one done changes remaining study time, and a restart keeps the data. Tests include positive/negative HTTP responses. No actual study productivity is measured.
+
+Regression also splits UTF-8 titles at every interior byte of two-byte and four-byte characters, checks malformed text and the exact 4096-byte bound, and reopens the persisted titles. New tasks take the first unused ID from 1-100, so a valid sparse file containing ID 100 remains usable after creation and restart. A full file rejects creation without changing its bytes.
 
 ## Negative controls and bounds
 

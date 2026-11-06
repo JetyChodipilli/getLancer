@@ -155,11 +155,13 @@ test('fixture verification rejects empty, failed, errored, skipped, malformed an
 });
 
 test('smoke and complete evidence retain SHA names and scan dependencies', () => {
-  const source = '${{ github.event.pull_request.head.sha || github.sha }}';
+  const source = '${{ github.sha }}';
+  assert(!workflow.includes('github.event.pull_request.head.sha'), 'Evidence must identify the tested merge checkout, rather than the PR head');
   assert(backend.includes(`name: backend-round3-smoke-${source}\n          path: backend/target/round3-smoke-reports`));
   assert(backend.includes(`name: backend-verification-${source}\n          path: backend/target/surefire-reports`));
   assert(backend.includes(`SECURITY_SOURCE_SHA: ${source}`));
   assert(backend.includes(`PHASE_SOURCE_SHA: ${source}`));
+  assert(job('docker-startup').includes(`PHASE_SOURCE_SHA: ${source}`));
   assert(backend.indexOf('Verify expected backend fixtures in complete-suite reports') < backend.indexOf('node scripts/sast-dispositions.mjs --write-evidence'));
   for (const name of ['secrets-and-sast', 'container-security']) {
     const block = job(name);
@@ -167,6 +169,43 @@ test('smoke and complete evidence retain SHA names and scan dependencies', () =>
     assert(block.includes(`name: backend-verification-${source}`));
     assert.doesNotMatch(block.split('    steps:')[0], /if: always\(\)/);
   }
+});
+
+test('every checkout asserts the tested commit and rejects head-versus-merge identity mismatch', t => {
+  const root=temporary(t),tested='a'.repeat(40),reviewHead='b'.repeat(40);
+  for(const name of requiredJobs){
+    const block=job(name),identity=step(block,'Verify tested checkout revision');
+    assert(block.indexOf('uses: actions/checkout@')<block.indexOf(identity));
+    const command=identity.match(/^        run: (.+)$/m)?.[1];assert(command);
+    const shell='git() { printf "%s\\n" "$FIXTURE_CHECKOUT_SHA"; }\n'+command;
+    for(const event of ['push','pull_request']){
+      const env={...process.env,GITHUB_EVENT_NAME:event,GITHUB_SHA:tested,FIXTURE_CHECKOUT_SHA:tested,REVIEW_HEAD_SHA:reviewHead};
+      assert.equal(spawnSync('bash',['-c',shell],{cwd:root,env,encoding:'utf8'}).status,0,name+' '+event);
+      assert.notEqual(spawnSync('bash',['-c',shell],{cwd:root,env:{...env,FIXTURE_CHECKOUT_SHA:reviewHead},encoding:'utf8'}).status,0,name+' must reject a different checked-out tree');
+    }
+  }
+});
+
+test('failed native verification remains blocking while exact public regeneration is retained for review',()=>{
+  const frontend=job('frontend');
+  const verification=step(frontend,'Rebuild original Vue, Svelte and Angular previews from pinned source');
+  assert(verification.includes('id: framework_material_verification'));
+  assert(verification.includes('run: node scripts/verify-framework-previews.mjs --native'));
+  assert(!verification.includes('continue-on-error'));
+  const portability=step(frontend,'Verify native framework builds from portable filesystem paths');
+  assert(portability.includes('run: node --test tests/framework-portability.native.mjs'));
+  assert(!portability.includes('if: failure()'));
+  const regeneration=step(frontend,'Regenerate changed public source material for review after verification failure');
+  assert(regeneration.includes("if: failure() && steps.framework_material_verification.outcome == 'failure'"));
+  assert(regeneration.includes('node scripts/build-framework-material.mjs --native'));
+  assert(regeneration.includes('python3 scripts/build-education-material.py'));
+  assert(regeneration.includes("'sourceSha':os.environ['GITHUB_SHA']"));
+  assert(regeneration.includes("'workflowRunAttempt':os.environ['GITHUB_RUN_ATTEMPT']"));
+  const upload=frontend.match(/      - uses: actions\/upload-artifact@[^\n]+\n        if: failure\(\) && steps\.review_material\.outcome == 'success'\n[\s\S]*?(?=      - |$)/)?.[0];assert(upload);
+  assert(upload.includes('review-generated-material-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}'));
+  const paths=upload.split('          path: |\n')[1].split('          if-no-files-found:')[0].trim().split('\n').map(value=>value.trim());
+  assert.deepEqual(paths,['public/education/full-stack.zip','public/education/study-planner.zip','public/education/iot.zip','public/education/campus-poll.zip','public/education/water-tank.zip','public/education/packet-gateway.zip','backend/src/main/resources/catalog/education.json','app/components/frameworks/material.json','app/components/frameworks/index.json','material-review/inventory.json']);
+  assert(upload.includes('if-no-files-found: error'));
 });
 
 test('final status always observes every required job, including the security matrix', () => {

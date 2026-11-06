@@ -14,6 +14,7 @@ const googleErrors:Record<string,string>={
  unavailable:'Google sign-in is unavailable. Please use email and password.',
  signup_required:'Create your getLancer account first. Continue with Google below to join.',
  email_account:'This email already has an account. Use the sign-in method you originally chose.',
+ email_password_required:'Use email and password for this address. If you already have an account, reset your password to sign in.',
  admin_password:'Administrator sign-in requires your password and authenticator code.',
  account_unavailable:'This account cannot sign in. Use your existing account or contact support.',
 };

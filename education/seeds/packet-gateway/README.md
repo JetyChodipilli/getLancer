@@ -4,7 +4,7 @@ Original simulated six-byte frames demonstrate checksum, fixed payload decoding 
 
 ## Reproduce from a clean extraction
 
-Use Node.js 22 or newer with no third-party installation. In this package directory:
+Use stable Node.js 24.22.2 or later 24.x with no third-party installation. In this package directory:
 
 ```sh
 node test.mjs

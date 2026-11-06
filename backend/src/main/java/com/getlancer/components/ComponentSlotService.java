@@ -7,11 +7,13 @@ import static com.getlancer.shared.Support.uuid;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.getlancer.payments.RazorpayClient;
+import com.getlancer.payments.RefundReconciliation;
 import com.getlancer.publishing.PublishingCapacity;
 import com.getlancer.security.Security;
 import com.getlancer.shared.ApiError;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -114,7 +116,7 @@ public class ComponentSlotService {
     out.put("orderId",p.get("order_id"));
     out.put("refundedMinor",p.get("refunded_minor"));
     out.put("createdAt",p.get("created_at"));
-    out.put("grantsSlot","live".equals(p.get("mode"))&&"CAPTURED".equals(p.get("status"))&&number(p,"refunded_minor")==0&&(p.get("dispute_status")==null||"won".equals(p.get("dispute_status"))));
+    out.put("grantsSlot",publishing.grantsSlot((UUID)p.get("id")));
     return out;
   }
   Map<String,Object> checkout(Map<String,Object>p){
@@ -199,6 +201,7 @@ public class ComponentSlotService {
   }
   void validateOrder(Map<String,Object>p,JsonNode order){
     RazorpayClient.providerId(order.path("id").asText(),"order_");
+    if(p.get("order_id")!=null&&!p.get("order_id").equals(order.path("id").asText()))throw mismatch();
     if(!Objects.toString(p.get("id")).equals(order.path("receipt").asText())||integer(order,"amount")!=number(p,"amount_minor")||!"INR".equals(order.path("currency").asText())||order.path("partial_payment").asBoolean(false))throw mismatch();
     var transfers=order.path("transfers");
     if(!transfers.isMissingNode()&&!transfers.isNull()){
@@ -241,31 +244,69 @@ public class ComponentSlotService {
     }
     return captured==null?summary(p):reconcilePayment(p,captured.path("id").asText(),r,admin);
   }
+  private record DisputeFact(String status,long deductedMinor) {}
+  private record DisputeObservation(String id,DisputeFact fact,List<String> events) {}
+  private List<String> disputes(UUID purchase,String order,String payment) {
+    // updated_at records every accepted observation, even an unchanged status.
+    // Rotate within pending/held/won tiers; the purchase field is a fallback
+    // only until its independent dispute fact has been retained.
+    return db.queryForList("SELECT work.id FROM (SELECT id,CASE WHEN status<>'won' OR deducted_minor IS NULL OR deducted_minor>0 THEN 1 ELSE 2 END AS priority FROM component_slot_disputes WHERE purchase_id=? UNION ALL SELECT p.dispute_id,1 AS priority FROM component_slot_purchases p WHERE p.id=? AND p.dispute_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM component_slot_disputes d WHERE d.id=p.dispute_id AND d.purchase_id=p.id) UNION ALL SELECT dispute_id,0 AS priority FROM component_slot_events WHERE processed_at IS NULL AND event_kind LIKE 'payment.dispute.%' AND dispute_id IS NOT NULL AND (order_id=? OR payment_id=?)) work LEFT JOIN component_slot_disputes observed ON observed.id=work.id GROUP BY work.id,observed.updated_at ORDER BY min(priority),observed.updated_at NULLS FIRST,work.id LIMIT 8",String.class,purchase,purchase,order,payment);
+  }
+  private List<Map<String,Object>> refundEvents(String order,String payment) {
+    return db.queryForList("SELECT event_id,refund_id FROM component_slot_events WHERE processed_at IS NULL AND event_kind LIKE 'refund.%' AND (order_id=? OR payment_id=?) ORDER BY received_at,event_id LIMIT 200",order,payment);
+  }
+  private void processedEvent(String event) {db.update("UPDATE component_slot_events SET processed_at=clock_timestamp() WHERE event_id=? AND processed_at IS NULL",event);}
+  private void refund(UUID purchase,String id,long amount,String status) {
+    int changed=db.update("INSERT INTO component_slot_refunds(id,purchase_id,amount_minor,status) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET status=CASE WHEN component_slot_refunds.status='processed' THEN 'processed' WHEN component_slot_refunds.status='failed' AND excluded.status='pending' THEN 'failed' ELSE excluded.status END,updated_at=now() WHERE component_slot_refunds.purchase_id=excluded.purchase_id AND component_slot_refunds.amount_minor=excluded.amount_minor",id,purchase,amount,status);
+    if(changed!=1)throw mismatch();
+  }
   Object reconcilePayment(Map<String,Object>p,String payment,HttpServletRequest r,boolean admin){
-    mode(p);
+    mode(p);UUID purchase=(UUID)p.get("id"),owner=(UUID)p.get("owner_id");
+    long generation=tx(()->{lock(owner);if(r!=null)current(purchase,r,admin);return db.queryForObject("UPDATE component_slot_purchases SET reconciliation_generation=reconciliation_generation+1 WHERE id=? RETURNING reconciliation_generation",Long.class,purchase);});
     try{
+      var events=refundEvents(Objects.toString(p.get("order_id")),payment);
       var entity=provider.payment(RazorpayClient.providerId(payment,"pay_"));
       if(!payment.equals(entity.path("id").asText())||!Objects.toString(p.get("order_id")).equals(entity.path("order_id").asText())||integer(entity,"amount")!=number(p,"amount_minor")||!"INR".equals(entity.path("currency").asText()))throw mismatch();
-      if(!entity.path("captured").asBoolean(false)||!Set.of("captured","refunded").contains(entity.path("status").asText()))return summary(p);
-      long refunded=integer(entity,"amount_refunded");
-      if(refunded<0||refunded>number(p,"amount_minor"))throw mismatch();
-      String dispute=p.get("dispute_id")==null?null:verifiedDispute(p,Objects.toString(p.get("dispute_id")),payment);
-      return tx(()->{
-        lock((UUID)p.get("owner_id"));if(r!=null)current((UUID)p.get("id"),r,admin);var row=purchase((UUID)p.get("id"));if(row.get("payment_id")!=null&&!payment.equals(row.get("payment_id")))throw mismatch();       // A concurrently recorded dispute cannot be cleared by a payment-only observation.
-        String ds=Objects.equals(row.get("dispute_id"),p.get("dispute_id"))&&Objects.equals(row.get("dispute_status"),p.get("dispute_status"))?dispute:Objects.toString(row.get("dispute_status"),null);       long total=Math.max(refunded,number(row,"refunded_minor"));String status=total>0?"REFUNDED":ds!=null&&!ds.equals("won")?"DISPUTED":"CAPTURED";       db.update("INSERT INTO component_slot_ledger(id,purchase_id,entry_key,kind,amount_minor) VALUES(?,?,?,'CAPTURE',?) ON CONFLICT(purchase_id,entry_key) DO NOTHING",id(),row.get("id"),"capture:"+payment,number(row,"amount_minor"));       if(total>number(row,"refunded_minor"))db.update("INSERT INTO component_slot_ledger(id,purchase_id,entry_key,kind,amount_minor) VALUES(?,?,?,'REFUND',?) ON CONFLICT(purchase_id,entry_key) DO NOTHING",id(),row.get("id"),"refund-total:"+total,total-number(row,"refunded_minor"));       db.update("UPDATE component_slot_purchases SET payment_id=?,refunded_minor=?,dispute_status=?,status=?,updated_at=now() WHERE id=?",payment,total,ds,status,row.get("id"));       if(!status.equals(row.get("status"))||total!=number(row,"refunded_minor"))audit((UUID)row.get("owner_id"),(UUID)row.get("id"),"SLOT_"+status,"Authoritative provider reconciliation; refunded minor units "+total+"; mode "+row.get("mode"));publishing.trim((UUID)row.get("owner_id"),Objects.toString(row.get("pool")));return summary(purchase((UUID)p.get("id")));
+      if(!entity.path("captured").asBoolean(false)||!Set.of("captured","refunded").contains(entity.path("status").asText())){if(r!=null)current(purchase,r,admin);return summary(purchase(purchase));}
+      long aggregate=integer(entity,"amount_refunded");if(aggregate<0||aggregate>number(p,"amount_minor"))throw mismatch();
+      var refunds=RefundReconciliation.observe(provider,events,payment,number(p,"amount_minor"));
+      var observed=new ArrayList<DisputeObservation>();
+      for(String dispute:disputes(purchase,Objects.toString(p.get("order_id")),payment)){
+        var pending=db.queryForList("SELECT event_id FROM component_slot_events WHERE processed_at IS NULL AND dispute_id=? AND (order_id=? OR payment_id=?) ORDER BY received_at,event_id LIMIT 200",String.class,dispute,p.get("order_id"),payment);
+        observed.add(new DisputeObservation(dispute,verifiedDispute(p,dispute,payment),pending));
       }
-      );
-    }
-    catch(RazorpayClient.ProviderFailure ex){
-      throw unavailable();
-    }
+      tx(()->{
+        lock(owner);var row=purchase(purchase);
+        if(db.queryForObject("SELECT reconciliation_generation FROM component_slot_purchases WHERE id=?",Long.class,purchase)!=generation)return null;
+        if(row.get("payment_id")!=null&&!payment.equals(row.get("payment_id")))throw mismatch();
+        for(var entry:refunds.refunds().entrySet())refund(purchase,entry.getKey(),integer(entry.getValue(),"amount"),entry.getValue().path("status").asText());
+        String ds=Objects.toString(row.get("dispute_status"),null),disputeId=Objects.toString(row.get("dispute_id"),null);
+        for(var dispute:observed){
+          int changed=db.update("INSERT INTO component_slot_disputes(id,purchase_id,status,deducted_minor,updated_at) VALUES(?,?,?,?,clock_timestamp()) ON CONFLICT(id) DO UPDATE SET status=excluded.status,deducted_minor=excluded.deducted_minor,updated_at=clock_timestamp() WHERE component_slot_disputes.purchase_id=excluded.purchase_id",dispute.id(),purchase,dispute.fact().status(),dispute.fact().deductedMinor());
+          if(changed!=1)throw mismatch();ds=dispute.fact().status();disputeId=dispute.id();
+        }
+        long confirmed=db.queryForObject("SELECT coalesce(sum(amount_minor),0) FROM component_slot_refunds WHERE purchase_id=? AND status='processed'",Long.class,purchase);
+        long total=Math.max(number(row,"refunded_minor"),Math.max(aggregate,confirmed));if(total>number(row,"amount_minor"))throw mismatch();
+        boolean held=db.queryForObject("SELECT count(*) FROM component_slot_disputes WHERE purchase_id=? AND (status<>'won' OR deducted_minor IS NULL OR deducted_minor>0)",Integer.class,purchase)>0;
+        String state=total>0?"REFUNDED":held||(ds!=null&&!ds.equals("won"))?"DISPUTED":"CAPTURED";
+        db.update("INSERT INTO component_slot_ledger(id,purchase_id,entry_key,kind,amount_minor) VALUES(?,?,?,'CAPTURE',?) ON CONFLICT(purchase_id,entry_key) DO NOTHING",id(),purchase,"capture:"+payment,number(row,"amount_minor"));
+        if(total>number(row,"refunded_minor"))db.update("INSERT INTO component_slot_ledger(id,purchase_id,entry_key,kind,amount_minor) VALUES(?,?,?,'REFUND',?) ON CONFLICT(purchase_id,entry_key) DO NOTHING",id(),purchase,"refund-total:"+total,total-number(row,"refunded_minor"));
+        db.update("UPDATE component_slot_purchases SET payment_id=?,refunded_minor=?,dispute_id=?,dispute_status=?,status=?,updated_at=now() WHERE id=?",payment,total,disputeId,ds,state,purchase);
+        for(String event:refunds.terminalEvents())processedEvent(event);
+        for(var dispute:observed)for(String event:dispute.events())processedEvent(event);
+        if(!state.equals(row.get("status"))||total!=number(row,"refunded_minor"))audit(owner,purchase,"SLOT_"+state,"Authoritative provider reconciliation; refunded minor units "+total+"; mode "+row.get("mode"));
+        publishing.trim(owner,Objects.toString(row.get("pool")));return null;
+      });
+      if(r!=null)current(purchase,r,admin);
+      return summary(purchase(purchase));
+    }catch(RazorpayClient.ProviderFailure ex){throw unavailable();}
   }
-  String verifiedDispute(Map<String,Object>p,String id,String payment){
+  DisputeFact verifiedDispute(Map<String,Object>p,String id,String payment){
     var d=provider.dispute(RazorpayClient.providerId(id,"disp_"));
     String state=d.path("status").asText();
     long value=integer(d,"amount"),deducted=integer(d,"amount_deducted");
     if(!id.equals(d.path("id").asText())||!payment.equals(d.path("payment_id").asText())||!"INR".equals(d.path("currency").asText())||value<=0||value>number(p,"amount_minor")||deducted<0||deducted>value||!Set.of("open","under_review","action_required","lost","closed","won").contains(state))throw mismatch();
-    return state;
+    return new DisputeFact(state,deducted);
   }
   public Object bind(UUID id,Map<String,Object>b,HttpServletRequest r){
     var p=current(id,r,true);
@@ -273,6 +314,7 @@ public class ComponentSlotService {
     String orderId=RazorpayClient.providerId(text(b,"orderId",10,40),"order_");
     try{
       var order=provider.order(orderId);
+      if(!orderId.equals(order.path("id").asText()))throw mismatch();
       validateOrder(p,order);
       tx(()->{
         lock((UUID)p.get("owner_id"));UUID admin=security.admin(r);var row=purchase(id);if(row.get("order_id")!=null&&!orderId.equals(row.get("order_id")))throw mismatch();db.update("UPDATE component_slot_purchases SET order_id=?,status=CASE WHEN order_id IS NULL THEN 'ORDER_CREATED' ELSE status END,updated_at=now() WHERE id=?",orderId,id);audit(admin,id,"SLOT_ORDER_BOUND","Verified provider order, frozen receipt and amount recovered.");return null;
@@ -284,61 +326,87 @@ public class ComponentSlotService {
       throw unavailable();
     }
   }
+  private Map<String,Object> existingEvent(String event){
+    var rows=db.queryForList("SELECT payload_hash,event_kind,processed_at IS NULL AS pending FROM component_slot_events WHERE event_id=?",event);
+    return rows.isEmpty()?null:rows.get(0);
+  }
+  private Map<String,Object> eventPurchase(String order,String payment){
+    var rows=db.queryForList("SELECT id,owner_id,pool FROM component_slot_purchases WHERE order_id=? OR payment_id=?",order,payment);
+    if(rows.size()>1)throw mismatch();return rows.isEmpty()?null:rows.get(0);
+  }
+  private void associateEvent(String event,String order){
+    if(db.update("UPDATE component_slot_events SET order_id=? WHERE event_id=? AND (order_id IS NULL OR order_id=?)",order,event,order)!=1)throw mismatch();
+  }
+  private boolean acceptEvent(String event,String digest,String kind,String order,String payment,String dispute,String refund){
+    return tx(()->{
+      db.queryForObject("SELECT pg_advisory_xact_lock(hashtextextended(?,0))",Object.class,"component-event:"+event);
+      var prior=existingEvent(event);
+      if(prior!=null&&!digest.equals(prior.get("payload_hash")))throw new ApiError(409,"WEBHOOK_EVENT_CONFLICT","Conflicting webhook redelivery.");
+      var known=eventPurchase(order,payment);if(known!=null)lock((UUID)known.get("owner_id"));
+      if(prior==null){
+        db.update("INSERT INTO component_slot_events(event_id,payload_hash,event_kind,order_id,payment_id,dispute_id,refund_id,processed_at) VALUES(?,?,?,nullif(?,''),nullif(?,''),nullif(?,''),nullif(?,''),CASE WHEN ?='' AND ?='' THEN clock_timestamp() ELSE NULL END)",event,digest,kind,order,payment,dispute,refund,order,payment);
+      }else{
+        // A matching signed legacy replay can supply its previously unknown
+        // type/references. Reopened adverse evidence then gets the new checks.
+        int changed=db.update("UPDATE component_slot_events SET event_kind=coalesce(event_kind,?),order_id=coalesce(order_id,nullif(?,'')),payment_id=coalesce(payment_id,nullif(?,'')),dispute_id=coalesce(dispute_id,nullif(?,'')),refund_id=coalesce(refund_id,nullif(?,'')),processed_at=CASE WHEN event_kind IS NULL AND (?<>'' OR ?<>'') THEN NULL ELSE processed_at END WHERE event_id=? AND (event_kind IS NULL OR event_kind=?) AND (?='' OR order_id IS NULL OR order_id=?) AND (?='' OR payment_id IS NULL OR payment_id=?) AND (?='' OR dispute_id IS NULL OR dispute_id=?) AND (?='' OR refund_id IS NULL OR refund_id=?)",kind,order,payment,dispute,refund,order,payment,event,kind,order,order,payment,payment,dispute,dispute,refund,refund);
+        if(changed!=1)throw mismatch();
+      }
+      if(known!=null&&(kind.startsWith("refund.")||kind.startsWith("payment.dispute.")))publishing.trim((UUID)known.get("owner_id"),Objects.toString(known.get("pool")));
+      return prior!=null;
+    });
+  }
   public Object webhook(HttpServletRequest r)throws IOException{
-    provider.requireCredentials();
-    byte[] raw=r.getInputStream().readNBytes(65537);
+    provider.requireCredentials();byte[] raw=r.getInputStream().readNBytes(65537);
     if(raw.length>65536)throw new ApiError(413,"PAYLOAD_TOO_LARGE","Webhook exceeds the bounded limit.");
     if(!provider.maintenanceWebhookSignature(raw,r.getHeader("X-Razorpay-Signature")))throw new ApiError(400,"INVALID_WEBHOOK_SIGNATURE","Webhook signature verification failed.");
-    String event=r.getHeader("x-razorpay-event-id");
-    if(event==null||!event.matches("[A-Za-z0-9_-]{1,100}"))throw new ApiError(400,"INVALID_WEBHOOK_EVENT","Missing event identifier.");
+    String event=r.getHeader("x-razorpay-event-id");if(event==null||!event.matches("[A-Za-z0-9_-]{1,100}"))throw new ApiError(400,"INVALID_WEBHOOK_EVENT","Missing event identifier.");
     String digest;
-    try{
-      digest=HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(raw));
+    try{digest=HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(raw));}catch(java.security.NoSuchAlgorithmException ex){throw new IllegalStateException(ex);}
+    var prior=existingEvent(event);
+    if(prior!=null){
+      if(!digest.equals(prior.get("payload_hash")))throw new ApiError(409,"WEBHOOK_EVENT_CONFLICT","Conflicting webhook redelivery.");
+      if(prior.get("event_kind")!=null&&!Boolean.TRUE.equals(prior.get("pending")))return Map.of("received",true,"duplicate",true);
     }
-    catch(java.security.NoSuchAlgorithmException ex){
-      throw new IllegalStateException(ex);
-    }
-    JsonNode node;
-    try{
-      node=json.readTree(raw);
-    }
-    catch(IOException ex){
-      throw new ApiError(400,"INVALID_WEBHOOK_EVENT","Invalid webhook JSON.");
-    }
+    JsonNode node;try{node=json.readTree(raw);}catch(IOException ex){throw new ApiError(400,"INVALID_WEBHOOK_EVENT","Invalid webhook JSON.");}
     if(node==null||!node.isObject()||node.path("event").asText().isBlank()||node.path("event").asText().length()>100)throw new ApiError(400,"INVALID_WEBHOOK_EVENT","Invalid webhook event.");
+    String kind=node.path("event").asText(),payment="",order="",dispute="",refund="";var payload=node.path("payload");
+    if(kind.startsWith("payment.dispute.")){
+      var d=payload.path("dispute").path("entity");dispute=RazorpayClient.providerId(d.path("id").asText(),"disp_");payment=RazorpayClient.providerId(d.path("payment_id").asText(),"pay_");
+    }else if(Set.of("payment.captured","payment.authorized","payment.failed").contains(kind)){
+      var p=payload.path("payment").path("entity");payment=RazorpayClient.providerId(p.path("id").asText(),"pay_");order=RazorpayClient.providerId(p.path("order_id").asText(),"order_");
+    }else if(kind.startsWith("refund.")){
+      var f=payload.path("refund").path("entity");payment=RazorpayClient.providerId(f.path("payment_id").asText(),"pay_");refund=RazorpayClient.providerId(f.path("id").asText(),"rfnd_");
+    }else if(kind.equals("order.paid"))order=RazorpayClient.providerId(payload.path("order").path("entity").path("id").asText(),"order_");
+    boolean duplicate=acceptEvent(event,digest,kind,order,payment,dispute,refund);
     try{
-      return tx(()->{
-        db.queryForObject("SELECT pg_advisory_xact_lock(hashtextextended(?,0))",Object.class,"component-event:"+event);var prior=db.queryForList("SELECT payload_hash FROM component_slot_events WHERE event_id=?",event);if(!prior.isEmpty()){
-          if(!digest.equals(prior.get(0).get("payload_hash")))throw new ApiError(409,"WEBHOOK_EVENT_CONFLICT","Conflicting webhook redelivery.");return Map.of("received",true,"duplicate",true);
-        }
-        String kind=node.path("event").asText(),payment="",order="",dispute="";var payload=node.path("payload");       if(kind.startsWith("payment.dispute.")){
-          var d=payload.path("dispute").path("entity");dispute=d.path("id").asText();payment=d.path("payment_id").asText();order=provider.payment(payment).path("order_id").asText();
-        }
-        else if(Set.of("payment.captured","payment.authorized","payment.failed").contains(kind)){
-          var e=payload.path("payment").path("entity");payment=e.path("id").asText();order=e.path("order_id").asText();
-        }
-        else if(kind.startsWith("refund.")){
-          payment=payload.path("refund").path("entity").path("payment_id").asText();order=provider.payment(payment).path("order_id").asText();
-        }
-        var matches=order.isBlank()?List.<Map<String,Object>>of():db.queryForList("SELECT id,owner_id,idempotency_key,amount_minor,currency,mode,status,order_id,payment_id,refunded_minor,dispute_id,dispute_status,created_at,updated_at,pool FROM component_slot_purchases WHERE order_id=?",order);       // Recover a committed reservation from authoritative receipt facts before recording an unmatched event.
-        JsonNode providerOrder=null;       if(matches.isEmpty()&&!order.isBlank()){
-          providerOrder=provider.order(RazorpayClient.providerId(order,"order_"));String receipt=providerOrder.path("receipt").asText();if(receipt.matches("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"))matches=db.queryForList("SELECT id,owner_id,idempotency_key,amount_minor,currency,mode,status,order_id,payment_id,refunded_minor,dispute_id,dispute_status,created_at,updated_at,pool FROM component_slot_purchases WHERE id=?",UUID.fromString(receipt));
-        }
-        if(!matches.isEmpty()){
-          var p=matches.get(0);mode(p);validateOrder(p,providerOrder==null?provider.order(order):providerOrder);lock((UUID)p.get("owner_id"));p=purchase((UUID)p.get("id"));if(p.get("order_id")!=null&&!order.equals(p.get("order_id")))throw mismatch();if(p.get("order_id")==null){
-            db.update("UPDATE component_slot_purchases SET order_id=?,status='ORDER_CREATED',updated_at=now() WHERE id=?",order,p.get("id"));audit((UUID)p.get("owner_id"),(UUID)p.get("id"),"SLOT_ORDER_RECOVERED","Signed event matched authoritative frozen receipt and amount.");p=purchase((UUID)p.get("id"));
-          }
-          if(!dispute.isBlank()){
-            String state=verifiedDispute(p,dispute,payment);db.update("UPDATE component_slot_purchases SET dispute_id=?,dispute_status=?,updated_at=now() WHERE id=?",dispute,state,p.get("id"));p=purchase((UUID)p.get("id"));
-          }
-          reconcilePayment(p,payment,null,false);
-        }
-        db.update("INSERT INTO component_slot_events(event_id,payload_hash) VALUES(?,?)",event,digest);return Map.of("received",true,"duplicate",false);
+      if(order.isBlank()&&!payment.isBlank()){
+        var entity=provider.payment(payment);if(!payment.equals(entity.path("id").asText()))throw mismatch();order=RazorpayClient.providerId(entity.path("order_id").asText(),"order_");
+        final String associatedOrder=order,paymentRef=payment;
+        tx(()->{var known=eventPurchase(associatedOrder,paymentRef);if(known!=null)lock((UUID)known.get("owner_id"));associateEvent(event,associatedOrder);if(known!=null&&(kind.startsWith("refund.")||kind.startsWith("payment.dispute.")))publishing.trim((UUID)known.get("owner_id"),Objects.toString(known.get("pool")));return null;});
       }
-      );
-    }
-    catch(RazorpayClient.ProviderFailure ex){
-      throw unavailable();
-    }
+      if(order.isBlank())return Map.of("received",true,"duplicate",duplicate);
+      JsonNode providerOrder=provider.order(order);if(!order.equals(providerOrder.path("id").asText()))throw mismatch();
+      var known=eventPurchase(order,payment);
+      if(known==null){
+        String receipt=providerOrder.path("receipt").asText();
+        if(receipt.matches("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")){
+          var rows=db.queryForList("SELECT id,owner_id,pool FROM component_slot_purchases WHERE id=?",UUID.fromString(receipt));if(!rows.isEmpty())known=rows.get(0);
+        }
+      }
+      if(known!=null){
+        UUID purchase=(UUID)known.get("id");var snapshot=purchase(purchase);mode(snapshot);validateOrder(snapshot,providerOrder);final String orderRef=order;
+        var bound=tx(()->{
+          lock((UUID)snapshot.get("owner_id"));var row=purchase(purchase);
+          if(row.get("order_id")!=null&&!orderRef.equals(row.get("order_id")))throw mismatch();
+          if(row.get("order_id")==null){db.update("UPDATE component_slot_purchases SET order_id=?,status='ORDER_CREATED',updated_at=now() WHERE id=?",orderRef,purchase);audit((UUID)row.get("owner_id"),purchase,"SLOT_ORDER_RECOVERED","Signed event matched authoritative frozen receipt and amount.");}
+          associateEvent(event,orderRef);
+          if(kind.startsWith("refund.")||kind.startsWith("payment.dispute."))publishing.trim((UUID)row.get("owner_id"),Objects.toString(row.get("pool")));
+          return purchase(purchase);
+        });
+        if(payment.isBlank())reconcileOrder(bound,null,false);else reconcilePayment(bound,payment,null,false);
+        if(dispute.isBlank()&&refund.isBlank())tx(()->{processedEvent(event);return null;});
+      }
+      return Map.of("received",true,"duplicate",duplicate);
+    }catch(RazorpayClient.ProviderFailure ex){throw unavailable();}
   }
 }

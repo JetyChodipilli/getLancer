@@ -41,7 +41,7 @@ public final class LabAdapterPolicy {
   }
   static boolean supportedVersion(String runtime,String version){
     String[] parts=version.split("\\.");int major=Integer.parseInt(parts[0]),minor=Integer.parseInt(parts[1]),patch=Integer.parseInt(parts[2]);
-    return switch(runtime){case "jdk"->major==17;case "node"->major==22&&(minor>23||minor==23&&patch>=4);
+    return switch(runtime){case "jdk"->major==17;case "node"->major==24&&(minor>22||minor==22&&patch>=2);
       case "python"->major==3&&minor==12;case "go"->major==1&&minor==24;case "dotnet"->major==8;case "php"->major==8&&minor==3;default->false;};
   }
   private static ApiError unavailable(boolean admission,String code,String reason){return new ApiError(admission?503:403,code,reason);}
