@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=22.23.4 <23 || >=24.22.1 <25"
+    "node": ">=24.22.2 <25"
   },
   "scripts": {
     "check:node": "node scripts/node-version.mjs",

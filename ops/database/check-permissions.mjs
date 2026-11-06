@@ -44,6 +44,7 @@ assert.ok(known.has('component_recipe_enforcement')&&updates.has('component_reci
 
 for(const table of financialFacts)assert.ok(known.has(table)&&!updates.has(table)&&!deletes.has(table));
 assert.ok(permissions.includes('GRANT UPDATE (status,updated_at) ON'));
+assert.ok(permissions.includes("ELSIF table_name='component_slot_disputes' THEN")&&permissions.includes('GRANT UPDATE (status,deducted_minor,updated_at) ON'));
 assert.ok(permissions.includes("IF table_name='component_slot_events' THEN")&&permissions.includes('GRANT UPDATE (refund_id) ON')&&permissions.includes('GRANT UPDATE (event_kind) ON'));
 
 assert.ok(permissions.includes('GRANT USAGE ON SEQUENCE %I.moderation_decision_order_seq TO getlancer_runtime'));

@@ -244,12 +244,13 @@ public class ComponentSlotService {
     }
     return captured==null?summary(p):reconcilePayment(p,captured.path("id").asText(),r,admin);
   }
-  private record DisputeObservation(String id,String status,List<String> events) {}
+  private record DisputeFact(String status,long deductedMinor) {}
+  private record DisputeObservation(String id,DisputeFact fact,List<String> events) {}
   private List<String> disputes(UUID purchase,String order,String payment) {
     // updated_at records every accepted observation, even an unchanged status.
     // Rotate within pending/held/won tiers; the purchase field is a fallback
     // only until its independent dispute fact has been retained.
-    return db.queryForList("SELECT work.id FROM (SELECT id,CASE WHEN status<>'won' THEN 1 ELSE 2 END AS priority FROM component_slot_disputes WHERE purchase_id=? UNION ALL SELECT p.dispute_id,CASE WHEN p.dispute_status<>'won' THEN 1 ELSE 2 END AS priority FROM component_slot_purchases p WHERE p.id=? AND p.dispute_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM component_slot_disputes d WHERE d.id=p.dispute_id AND d.purchase_id=p.id) UNION ALL SELECT dispute_id,0 AS priority FROM component_slot_events WHERE processed_at IS NULL AND event_kind LIKE 'payment.dispute.%' AND dispute_id IS NOT NULL AND (order_id=? OR payment_id=?)) work LEFT JOIN component_slot_disputes observed ON observed.id=work.id GROUP BY work.id,observed.updated_at ORDER BY min(priority),observed.updated_at NULLS FIRST,work.id LIMIT 8",String.class,purchase,purchase,order,payment);
+    return db.queryForList("SELECT work.id FROM (SELECT id,CASE WHEN status<>'won' OR deducted_minor IS NULL OR deducted_minor>0 THEN 1 ELSE 2 END AS priority FROM component_slot_disputes WHERE purchase_id=? UNION ALL SELECT p.dispute_id,1 AS priority FROM component_slot_purchases p WHERE p.id=? AND p.dispute_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM component_slot_disputes d WHERE d.id=p.dispute_id AND d.purchase_id=p.id) UNION ALL SELECT dispute_id,0 AS priority FROM component_slot_events WHERE processed_at IS NULL AND event_kind LIKE 'payment.dispute.%' AND dispute_id IS NOT NULL AND (order_id=? OR payment_id=?)) work LEFT JOIN component_slot_disputes observed ON observed.id=work.id GROUP BY work.id,observed.updated_at ORDER BY min(priority),observed.updated_at NULLS FIRST,work.id LIMIT 8",String.class,purchase,purchase,order,payment);
   }
   private List<Map<String,Object>> refundEvents(String order,String payment) {
     return db.queryForList("SELECT event_id,refund_id FROM component_slot_events WHERE processed_at IS NULL AND event_kind LIKE 'refund.%' AND (order_id=? OR payment_id=?) ORDER BY received_at,event_id LIMIT 200",order,payment);
@@ -281,12 +282,12 @@ public class ComponentSlotService {
         for(var entry:refunds.refunds().entrySet())refund(purchase,entry.getKey(),integer(entry.getValue(),"amount"),entry.getValue().path("status").asText());
         String ds=Objects.toString(row.get("dispute_status"),null),disputeId=Objects.toString(row.get("dispute_id"),null);
         for(var dispute:observed){
-          int changed=db.update("INSERT INTO component_slot_disputes(id,purchase_id,status,updated_at) VALUES(?,?,?,clock_timestamp()) ON CONFLICT(id) DO UPDATE SET status=excluded.status,updated_at=clock_timestamp() WHERE component_slot_disputes.purchase_id=excluded.purchase_id",dispute.id(),purchase,dispute.status());
-          if(changed!=1)throw mismatch();ds=dispute.status();disputeId=dispute.id();
+          int changed=db.update("INSERT INTO component_slot_disputes(id,purchase_id,status,deducted_minor,updated_at) VALUES(?,?,?,?,clock_timestamp()) ON CONFLICT(id) DO UPDATE SET status=excluded.status,deducted_minor=excluded.deducted_minor,updated_at=clock_timestamp() WHERE component_slot_disputes.purchase_id=excluded.purchase_id",dispute.id(),purchase,dispute.fact().status(),dispute.fact().deductedMinor());
+          if(changed!=1)throw mismatch();ds=dispute.fact().status();disputeId=dispute.id();
         }
         long confirmed=db.queryForObject("SELECT coalesce(sum(amount_minor),0) FROM component_slot_refunds WHERE purchase_id=? AND status='processed'",Long.class,purchase);
         long total=Math.max(number(row,"refunded_minor"),Math.max(aggregate,confirmed));if(total>number(row,"amount_minor"))throw mismatch();
-        boolean held=db.queryForObject("SELECT count(*) FROM component_slot_disputes WHERE purchase_id=? AND status<>'won'",Integer.class,purchase)>0;
+        boolean held=db.queryForObject("SELECT count(*) FROM component_slot_disputes WHERE purchase_id=? AND (status<>'won' OR deducted_minor IS NULL OR deducted_minor>0)",Integer.class,purchase)>0;
         String state=total>0?"REFUNDED":held||(ds!=null&&!ds.equals("won"))?"DISPUTED":"CAPTURED";
         db.update("INSERT INTO component_slot_ledger(id,purchase_id,entry_key,kind,amount_minor) VALUES(?,?,?,'CAPTURE',?) ON CONFLICT(purchase_id,entry_key) DO NOTHING",id(),purchase,"capture:"+payment,number(row,"amount_minor"));
         if(total>number(row,"refunded_minor"))db.update("INSERT INTO component_slot_ledger(id,purchase_id,entry_key,kind,amount_minor) VALUES(?,?,?,'REFUND',?) ON CONFLICT(purchase_id,entry_key) DO NOTHING",id(),purchase,"refund-total:"+total,total-number(row,"refunded_minor"));
@@ -300,12 +301,12 @@ public class ComponentSlotService {
       return summary(purchase(purchase));
     }catch(RazorpayClient.ProviderFailure ex){throw unavailable();}
   }
-  String verifiedDispute(Map<String,Object>p,String id,String payment){
+  DisputeFact verifiedDispute(Map<String,Object>p,String id,String payment){
     var d=provider.dispute(RazorpayClient.providerId(id,"disp_"));
     String state=d.path("status").asText();
     long value=integer(d,"amount"),deducted=integer(d,"amount_deducted");
     if(!id.equals(d.path("id").asText())||!payment.equals(d.path("payment_id").asText())||!"INR".equals(d.path("currency").asText())||value<=0||value>number(p,"amount_minor")||deducted<0||deducted>value||!Set.of("open","under_review","action_required","lost","closed","won").contains(state))throw mismatch();
-    return state;
+    return new DisputeFact(state,deducted);
   }
   public Object bind(UUID id,Map<String,Object>b,HttpServletRequest r){
     var p=current(id,r,true);

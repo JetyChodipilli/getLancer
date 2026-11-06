@@ -2,7 +2,7 @@
 
 Docker Compose runs PostgreSQL 16, Spring Boot, Mailpit and private MinIO storage locally. It creates database **getLancer**, user **postgres**, and uses `DB_PASSWORD` from your private `.env`. The requested local password is `postgres`. The database listens on **localhost:5433**, leaving port 5432 free for the PostgreSQL already installed on your computer.
 
-Install Docker Desktop (Compose v2), Python 3.12+, and stable Node 22.23.4+ in Node 22, or 24.22.1+ in Node 24, then run from the repository root. Python runs the local data/AI material checks before the frontend starts; Docker does not replace this host prerequisite. CI and Node Docker images use Node 22.23.4:
+Install Docker Desktop (Compose v2), Python 3.12+, and stable Node 24.22.2+ in Node 24, then run from the repository root. Python runs the local data/AI material checks before the frontend starts; Docker does not replace this host prerequisite. CI and Node Docker images use Node 24.22.2:
 
 ```sh
 npm ci

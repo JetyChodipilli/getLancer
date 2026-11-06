@@ -68,7 +68,8 @@ const pageSource=readFileSync(new URL('../app/components/delivery-operations.tsx
 const pageCode=stripTypeScriptTypes(pageSource.slice(pageSource.indexOf('export function operationPage('),pageSource.indexOf('export function appendOperationRecords(')).replace('export ',''),{mode:'transform'});
 const operationPage=items=>({items,page:0,size:12,hasMore:false,totalItems:items.length,totalPages:items.length?1:0});
 function operations(){
- const state={page:null,busy:false,error:'',note:''},context={ApiError,JSON,Error,page:null,mounted:{current:true},generation:{current:0},mutating:{current:false},setPage:value=>{state.page=value;},setBusy:value=>{state.busy=value;},setError:value=>{state.error=value;},setNote:value=>{state.note=value;},api:async()=>operationPage([{id:'current'}])};
+ const state={page:null,busy:false,error:'',note:''},context={ApiError,JSON,Error,reload:undefined,page:null,mounted:{current:true},generation:{current:0},mutating:{current:false},setPage:value=>{state.page=value;},setBusy:value=>{state.busy=value;},setError:value=>{state.error=value;},setNote:value=>{state.note=value;},api:async()=>operationPage([{id:'current'}])};
+ context.request=(...args)=>context.api(...args);
  return {...runInNewContext(pageCode+operationsCode+';({load,save})',context),state,context};
 }
 test('an older maintenance operations response cannot restore records after a newer denied refresh',async()=>{

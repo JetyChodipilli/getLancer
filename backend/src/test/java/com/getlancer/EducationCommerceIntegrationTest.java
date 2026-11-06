@@ -77,7 +77,7 @@ class EducationCommerceIntegrationTest {
     snapshot.put("contribution",Map.of("text","Built the original application and its setup guide."));snapshot.put("componentLinks",links);
     snapshot.put("institution","private-university");snapshot.put("academicYear","private-year");snapshot.put("branch","private-branch");
     snapshot.put("package",Map.of("includedAssets",List.of("Original application, tests and setup guide."),"excludedAssets",List.of("Hosting and production data."),
-      "setupSteps",List.of("Run local migrations then start the application."),"prerequisites",List.of("Java 17 and Node 22."),"limitations",List.of("Original demonstration application; no production operations."),
+      "setupSteps",List.of("Run local migrations then start the application."),"prerequisites",List.of("Java 17 and Node 24.22.2."),"limitations",List.of("Original demonstration application; no production operations."),
       "supportTerms","Seven days of setup support. No customization.","licenseTerms","One end product with third-party notices."));
     var bound=new LinkedHashMap<>(education.freezePaid(version,product,seller));snapshot.put("priceMinor",bound.remove("priceMinor"));snapshot.put("currency",bound.remove("currency"));snapshot.put("sourceBinding",bound);
     String frozen=json.writeValueAsString(snapshot);UUID id=UUID.randomUUID();
@@ -94,7 +94,7 @@ class EducationCommerceIntegrationTest {
     db.update("INSERT INTO college_project_metadata(product_id,category,language,problem,outcome,prerequisites,contribution,status) VALUES(?,'FULL_STACK','Java','Booking without conflicts','Repeatable source results','Java 17','Original implementation','APPROVED')",product);
     db.update("INSERT INTO payment_accounts(id,builder_user_id,account_id,mode,provider_status,activation_confirmed,verified_by) VALUES(?,?,?,'test','created',true,?)",UUID.randomUUID(),seller,CommerceProviderIntegrationTest.ACCOUNT,admin);
     var bytes=new ByteArrayOutputStream();try(var zip=new ZipOutputStream(bytes)) {
-      for(var entry:Map.of("README.md","Run locally with Java 17 and Node 22. Setup instructions and complete project source.","LICENSE","One commercial end product with modification allowed. Keep all third-party MIT notices.","pom.xml","<project><modelVersion>4.0.0</modelVersion></project>","src/Main.java","class Main { public static void main(String[] args) { System.out.println(\"College project\"); } }").entrySet()) {
+      for(var entry:Map.of("README.md","Run locally with Java 17 and Node 24.22.2. Setup instructions and complete project source.","LICENSE","One commercial end product with modification allowed. Keep all third-party MIT notices.","pom.xml","<project><modelVersion>4.0.0</modelVersion></project>","src/Main.java","class Main { public static void main(String[] args) { System.out.println(\"College project\"); } }").entrySet()) {
         zip.putNextEntry(new ZipEntry(entry.getKey()));zip.write(entry.getValue().getBytes(StandardCharsets.UTF_8));zip.closeEntry();
       }
     }

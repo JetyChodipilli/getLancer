@@ -11,11 +11,13 @@ const {ApiError}=await import('data:text/javascript;base64,'+Buffer.from(apiSour
 function routine(source,start,end,context){
  const first=source.indexOf(start),last=source.indexOf(end,first);assert.ok(first>=0&&last>first,'Executable routine boundaries exist');
  const js=stripTypeScriptTypes(source.slice(first,last),{mode:'transform'});
+ if(context.api&&!context.request)context.request=(...args)=>context.api(...args);
  return Function(...Object.keys(context),js+';return '+start.match(/function (\w+)/)[1]+';')(...Object.values(context));
 }
 function deferred(){let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no});return{promise,resolve,reject};}
 function stateContext(extra={}){
- const values={},context={ApiError,submitPointer:{current:false},...extra};
+ const values={},context={ApiError,submitPointer:{current:false},reload:undefined,revokeExports:()=>{},needsReload:false,...extra};
+ context.uncertain=routine(profile,'function uncertain(','\nconst fields',{ApiError});
  for(const name of new Set((profile+account+auth).match(/\bset[A-Z]\w*/g)))context[name]=value=>{values[name]=typeof value==='function'?value(values[name]):value;};
  return{values,context};
 }
@@ -60,7 +62,7 @@ test('notification reads prevent duplicate requests, retain failed rows, and ret
 
 test('account export ignores a previous identity response and clears stale outcome text on retry',async()=>{
  const pending=deferred();let requests=0;const {values,context}=accountContext({active:{current:true},mutation:{current:false},api:()=>{requests++;return pending.promise;},document:{createElement:()=>assert.fail('A stale identity must not trigger a download')},URL:{createObjectURL:()=>assert.fail('A stale export must not create a blob URL')}});
- const exportData=routine(account,'async function exportData(','\n  async function markRead',context),first=exportData();await exportData();assert.equal(requests,1);assert.equal(values.setMessage,'');assert.equal(values.setError,'');
+ const exportData=routine(account,'async function exportData(','\n  async function refreshAccount',context),first=exportData();await exportData();assert.equal(requests,1);assert.equal(values.setMessage,'');assert.equal(values.setError,'');
  context.active.current=false;pending.resolve({account:{id:'previous'}});await first;assert.equal(context.mutation.current,false);assert.equal(values.setMessage,'');
 });
 

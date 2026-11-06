@@ -4,7 +4,7 @@ Original dependency-free educational exercise. It is source only; no live platfo
 
 ## Setup
 
-Install Node.js 22 or newer. No packages or credentials are required. Approximate setup: five minutes after the runtime is installed.
+Install stable Node.js 24.22.2 or later 24.x. No packages or credentials are required. Approximate setup: five minutes after the runtime is installed.
 
 Run the regression first:
 

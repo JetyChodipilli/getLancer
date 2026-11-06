@@ -450,9 +450,60 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
   JsonNode reconcileSlot(String id)throws Exception{return response(body(post("/api/v1/me/component-slot-purchases/"+id+"/reconcile"),"builder",Map.of()));}
   String storedSlotDispute(String purchase,int n,String state){
     String id="disp_slotbatch"+String.format(Locale.ROOT,"%02d",n);
-    db.update("INSERT INTO component_slot_disputes(id,purchase_id,status,updated_at) VALUES(?,?,?,'2000-01-01T00:00:00Z')",id,UUID.fromString(purchase),state);return id;
+    db.update("INSERT INTO component_slot_disputes(id,purchase_id,status,deducted_minor,updated_at) VALUES(?,?,?,0,'2000-01-01T00:00:00Z')",id,UUID.fromString(purchase),state);return id;
   }
   JsonNode slotDisputeFact(String id,String state){return json.valueToTree(Map.of("id",id,"payment_id","pay_component123","amount",10000,"amount_deducted",0,"currency","INR","status",state));}
+  @Test void wonSlotDisputesRetainPositiveDeductionsAcrossEveryPublishingPool()throws Exception{
+    String dispute="disp_slotdeduction123";
+    String payload="{\"event\":\"payment.dispute.won\",\"payload\":{\"dispute\":{\"entity\":{\"id\":\""+dispute+"\",\"payment_id\":\"pay_component123\"}}}}";
+    for(String pool:List.of("PROJECT","TEMPLATE","COMPONENT")){
+      db.execute("TRUNCATE component_slot_purchases CASCADE");db.execute("TRUNCATE component_slot_events");
+      captured=false;slotPrice(pool,10000);var receipt=response(poolBuy(pool,UUID.randomUUID().toString(),10000));captured=true;
+      String id=receipt.path("id").asText(),reconcile="/api/v1/me/publishing-slot-purchases/"+id+"/reconcile";
+      assertEquals(pool,receipt.path("pool").asText());assertTrue(response(body(post(reconcile),"builder",Map.of())).path("grantsSlot").asBoolean());
+      var deducted=(com.fasterxml.jackson.databind.node.ObjectNode)slotDisputeFact(dispute,"won");deducted.put("amount_deducted",2500);
+      when(provider.dispute(dispute)).thenReturn(deducted);
+      response(slotHook("slot_deduction_"+pool,payload));
+      assertEquals(2500L,db.queryForObject("SELECT deducted_minor FROM component_slot_disputes WHERE id=?",Long.class,dispute));
+      assertEquals("DISPUTED",db.queryForObject("SELECT status FROM component_slot_purchases WHERE id=?",String.class,UUID.fromString(id)));
+      assertNotNull(db.queryForObject("SELECT processed_at FROM component_slot_events WHERE event_id=?",java.sql.Timestamp.class,"slot_deduction_"+pool));
+      assertEquals(0,publishing().path(pool).path("purchased").asInt());assertFalse(capacity.grantsSlot(UUID.fromString(id)));
+      when(provider.dispute(dispute)).thenReturn(slotDisputeFact(dispute,"won"));
+      assertTrue(response(body(post(reconcile),"builder",Map.of())).path("grantsSlot").asBoolean());
+      assertEquals(0L,db.queryForObject("SELECT deducted_minor FROM component_slot_disputes WHERE id=?",Long.class,dispute));
+      assertEquals(1,publishing().path(pool).path("purchased").asInt());
+    }
+  }
+  @Test void zeroDeductionForOneWonDisputeCannotClearAnotherDisputesPositiveFact()throws Exception{
+    String id=capturedSlotPurchase(),first="disp_slotpositivefirst123",second="disp_slotpositivesecond123";
+    for(String dispute:List.of(first,second)){
+      var fact=(com.fasterxml.jackson.databind.node.ObjectNode)slotDisputeFact(dispute,"won");fact.put("amount_deducted",2500);
+      when(provider.dispute(dispute)).thenReturn(fact);
+      String payload="{\"event\":\"payment.dispute.won\",\"payload\":{\"dispute\":{\"entity\":{\"id\":\""+dispute+"\",\"payment_id\":\"pay_component123\"}}}}";
+      response(slotHook("deduction_"+dispute,payload));
+    }
+    when(provider.dispute(first)).thenReturn(slotDisputeFact(first,"won"));
+    assertFalse(reconcileSlot(id).path("grantsSlot").asBoolean());
+    assertEquals(0L,db.queryForObject("SELECT deducted_minor FROM component_slot_disputes WHERE id=?",Long.class,first));
+    assertEquals(2500L,db.queryForObject("SELECT deducted_minor FROM component_slot_disputes WHERE id=?",Long.class,second));
+    assertEquals(0,publishing().path("COMPONENT").path("purchased").asInt());
+    when(provider.dispute(second)).thenReturn(slotDisputeFact(second,"won"));
+    assertTrue(reconcileSlot(id).path("grantsSlot").asBoolean());assertEquals(1,publishing().path("COMPONENT").path("purchased").asInt());
+  }
+  @Test void legacyWonSlotStatusNeedsItsExactZeroDeductionBeforeCapacityReturns()throws Exception{
+    String id=capturedSlotPurchase(),dispute="disp_slotunknownlegacy123";
+    db.update("INSERT INTO component_slot_disputes(id,purchase_id,status) VALUES(?,?,'won')",dispute,UUID.fromString(id));
+    db.update("UPDATE component_slot_purchases SET dispute_id=?,dispute_status='won' WHERE id=?",dispute,UUID.fromString(id));
+    assertNull(db.queryForObject("SELECT deducted_minor FROM component_slot_disputes WHERE id=?",Long.class,dispute));
+    assertFalse(capacity.grantsSlot(UUID.fromString(id)));assertEquals(0,publishing().path("COMPONENT").path("purchased").asInt());
+    var wrong=(com.fasterxml.jackson.databind.node.ObjectNode)slotDisputeFact(dispute,"won");wrong.put("payment_id","pay_wronglegacy123");
+    when(provider.dispute(dispute)).thenReturn(wrong);
+    mvc.perform(body(post("/api/v1/me/component-slot-purchases/"+id+"/reconcile"),"builder",Map.of())).andExpect(status().isConflict());
+    assertNull(db.queryForObject("SELECT deducted_minor FROM component_slot_disputes WHERE id=?",Long.class,dispute));assertFalse(capacity.grantsSlot(UUID.fromString(id)));
+    when(provider.dispute(dispute)).thenReturn(slotDisputeFact(dispute,"won"));
+    assertTrue(reconcileSlot(id).path("grantsSlot").asBoolean());
+    assertEquals(0L,db.queryForObject("SELECT deducted_minor FROM component_slot_disputes WHERE id=?",Long.class,dispute));
+  }
   @Test void wonSlotHistoryCannotStarveLaterHoldsOrGrantBeforeEveryDisputeIsWon()throws Exception{
     String id=capturedSlotPurchase();for(int n=0;n<8;n++)storedSlotDispute(id,n,"won");
     String ninth=storedSlotDispute(id,8,"open"),tenth=storedSlotDispute(id,9,"lost");
@@ -461,6 +512,19 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     assertFalse(reconcileSlot(id).path("grantsSlot").asBoolean());assertEquals(8,reads.size());assertEquals(List.of(ninth,tenth),reads.subList(0,2));
     assertEquals("won",db.queryForObject("SELECT status FROM component_slot_disputes WHERE id=?",String.class,ninth));assertEquals(0,publishing().path("COMPONENT").path("purchased").asInt());
     states.put(tenth,"won");reads.clear();assertTrue(reconcileSlot(id).path("grantsSlot").asBoolean());assertEquals(8,reads.size());assertTrue(reads.contains(tenth));assertEquals(1,publishing().path("COMPONENT").path("purchased").asInt());
+  }
+  @Test void positiveAndUnknownWonSlotFactsRotateWithinTheHeldBatch()throws Exception{
+    String id=capturedSlotPurchase();var ids=new ArrayList<String>();
+    for(int n=0;n<9;n++){String dispute=storedSlotDispute(id,n,"won");ids.add(dispute);db.update("UPDATE component_slot_disputes SET deducted_minor=2500 WHERE id=?",dispute);}
+    String unknown=ids.get(8);db.update("UPDATE component_slot_disputes SET deducted_minor=NULL WHERE id=?",unknown);
+    var reads=new ArrayList<String>();var clearing=new java.util.concurrent.atomic.AtomicBoolean(false);
+    when(provider.dispute(anyString())).thenAnswer(i->{String dispute=i.getArgument(0);reads.add(dispute);var fact=(com.fasterxml.jackson.databind.node.ObjectNode)slotDisputeFact(dispute,"won");if(!clearing.get()&&!dispute.equals(unknown))fact.put("amount_deducted",2500);return fact;});
+    assertFalse(reconcileSlot(id).path("grantsSlot").asBoolean());assertEquals(ids.subList(0,8),reads);
+    assertNull(db.queryForObject("SELECT deducted_minor FROM component_slot_disputes WHERE id=?",Long.class,unknown));
+    reads.clear();assertFalse(reconcileSlot(id).path("grantsSlot").asBoolean());assertEquals(8,reads.size());assertEquals(unknown,reads.get(0));
+    assertEquals(0L,db.queryForObject("SELECT deducted_minor FROM component_slot_disputes WHERE id=?",Long.class,unknown));
+    assertEquals(0,publishing().path("COMPONENT").path("purchased").asInt());
+    clearing.set(true);reads.clear();assertTrue(reconcileSlot(id).path("grantsSlot").asBoolean());assertEquals(8,reads.size());
   }
   @Test void unchangedHeldSlotObservationsRotateBeyondTheFirstEight()throws Exception{
     String id=capturedSlotPurchase();var ids=new ArrayList<String>();for(int n=0;n<9;n++)ids.add(storedSlotDispute(id,n,"open"));

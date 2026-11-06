@@ -10,7 +10,7 @@
       "label": "TypeScript",
       "primary": "labs/typescript/server.ts",
       "command": "node --experimental-strip-types labs/typescript/server.ts",
-      "requires": "Stable Node 22.23.4 or later in Node 22"
+      "requires": "Stable Node 24.22.2 or later in Node 24"
     },
     "python": {
       "label": "Python",

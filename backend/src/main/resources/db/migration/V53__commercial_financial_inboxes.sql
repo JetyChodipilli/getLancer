@@ -68,11 +68,14 @@ CREATE TABLE component_slot_disputes (
   id varchar(40) PRIMARY KEY,
   purchase_id uuid NOT NULL REFERENCES component_slot_purchases(id),
   status varchar(32) NOT NULL CHECK(status IN ('open','under_review','action_required','lost','closed','won')),
+  -- A legacy status alone does not prove that the provider deducted zero funds.
+  deducted_minor bigint CHECK(deducted_minor BETWEEN 0 AND 1000000000),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX component_slot_disputes_purchase ON component_slot_disputes(purchase_id);
 -- The prior schema retained only the latest dispute. Preserve it as a held fact;
--- no unknown historic dispute ID/status is synthesized.
+-- no unknown historic dispute ID/status or zero deduction is synthesized.
+-- NULL deduction holds capacity until this exact dispute is observed again.
 INSERT INTO component_slot_disputes(id,purchase_id,status)
   SELECT dispute_id,id,dispute_status FROM component_slot_purchases
   WHERE dispute_id IS NOT NULL AND dispute_status IN ('open','under_review','action_required','lost','closed','won');

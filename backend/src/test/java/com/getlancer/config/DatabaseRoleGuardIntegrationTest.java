@@ -152,6 +152,8 @@ class DatabaseRoleGuardIntegrationTest {
       upgrade.update("INSERT INTO users(id,email,password_hash,email_verified_at) VALUES(?,?,'synthetic-hash',now())",owner,owner+"@example.test");
       upgrade.update("INSERT INTO component_slot_purchases(id,owner_id,idempotency_key,amount_minor,mode,status,order_id,payment_id,pool) VALUES(?,?,?,10000,'live','CAPTURED','order_legacyfixture123','pay_legacyfixture123','PROJECT')",purchase,owner,UUID.randomUUID());
       upgrade.update("INSERT INTO component_slot_events(event_id,payload_hash,received_at) VALUES('legacy-slot',?,'2026-11-01T00:00:00Z')","a".repeat(64));
+      UUID legacyDisputed=UUID.randomUUID();
+      upgrade.update("INSERT INTO component_slot_purchases(id,owner_id,idempotency_key,amount_minor,mode,status,order_id,payment_id,pool,dispute_id,dispute_status) VALUES(?,?,?,10000,'live','CAPTURED','order_legacydispute123','pay_legacydispute123','PROJECT','disp_legacydispute123','won')",legacyDisputed,owner,UUID.randomUUID());
       UUID buyer=UUID.randomUUID(),unaffectedBuyer=UUID.randomUUID(),product=UUID.randomUUID(),template=UUID.randomUUID(),version=UUID.randomUUID(),sourcePurchase=UUID.randomUUID(),unaffectedPurchase=UUID.randomUUID();
       for(UUID id:List.of(buyer,unaffectedBuyer))upgrade.update("INSERT INTO users(id,email,password_hash) VALUES(?,?,'synthetic-hash')",id,id+"@example.test");
       upgrade.update("INSERT INTO user_roles(user_id,role) VALUES(?,'DEVELOPER')",owner);
@@ -176,6 +178,9 @@ class DatabaseRoleGuardIntegrationTest {
       assertNull(upgrade.queryForObject("SELECT event_kind FROM component_slot_events WHERE event_id='legacy-slot'",String.class));
       assertNull(upgrade.queryForObject("SELECT payment_id FROM component_slot_events WHERE event_id='legacy-slot'",String.class));
       assertEquals("CAPTURED",upgrade.queryForObject("SELECT status FROM component_slot_purchases WHERE id=?",String.class,purchase));
+      assertNull(upgrade.queryForObject("SELECT deducted_minor FROM component_slot_disputes WHERE id='disp_legacydispute123'",Long.class));
+      var slotCapacity=new com.getlancer.publishing.PublishingCapacity(upgrade);
+      assertTrue(slotCapacity.grantsSlot(purchase));assertFalse(slotCapacity.grantsSlot(legacyDisputed));
       assertNull(upgrade.queryForObject("SELECT processed_at FROM commerce_webhook_events WHERE event_id='legacy-commerce-refund'",java.sql.Timestamp.class));
       assertNull(upgrade.queryForObject("SELECT refund_id FROM commerce_webhook_events WHERE event_id='legacy-commerce-refund'",String.class));
       assertEquals(ignoredCompletions,upgrade.queryForList("SELECT event_id,processed_at FROM commerce_webhook_events WHERE event_id IN ('legacy-unknown-refund','legacy-unassociable-refund') ORDER BY event_id"));
@@ -225,6 +230,7 @@ class DatabaseRoleGuardIntegrationTest {
   @Test void providerRefundEvidenceAllowsStatusProgressWithoutIdentityOrAmountMutation() throws Exception {
     for(String table:List.of("payment_provider_refunds","commerce_provider_refunds","component_slot_refunds","component_slot_disputes")){
       assertEquals(0,runtime.update("UPDATE "+table+" SET status=status,updated_at=clock_timestamp() WHERE false"));
+      if(table.equals("component_slot_disputes"))assertEquals(0,runtime.update("UPDATE component_slot_disputes SET deducted_minor=deducted_minor WHERE false"));
       String ownerColumn=table.equals("payment_provider_refunds")?"attempt_id":"purchase_id";
       for(String column:List.of("id",ownerColumn))assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE "+table+" SET "+column+"="+column+" WHERE false"));
       if(!table.equals("component_slot_disputes"))assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE "+table+" SET amount_minor=amount_minor WHERE false"));
@@ -234,6 +240,10 @@ class DatabaseRoleGuardIntegrationTest {
         assertRejected(runtime,"refund_evidence_permissions");
       } finally {provision("10_permissions.sql");}
     }
+    try {
+      adminSql("REVOKE UPDATE (deducted_minor) ON "+SCHEMA+".component_slot_disputes FROM getlancer_runtime");
+      assertRejected(runtime,"refund_evidence_permissions");
+    } finally {provision("10_permissions.sql");}
     assertDoesNotThrow(()->guard(runtime));
   }
   @Test void mediaRecoveryCanChangeDeadlineWithoutRewritingObjectIdentity() throws Exception {

@@ -32,19 +32,19 @@ test('raw pins verify the same captured bytes including harmless serialization c
  writeFileSync(f.args.manifestPath,readFileSync(f.args.manifestPath,'utf8')+'\n');assert.equal(verifyBundle(pinned).provider,'unit-fixture');assert.throws(()=>verifyManifestBundle(pinned),/expected digest/);
 });
 
-test('signed Node fixture must meet the security patch floor and retain exact certification',t=>{
- const f=fixture(t);f.manifest.language='TypeScript';f.manifest.adapter={runtime:'node',version:'22.23.4',state:'ACTIVE'};
- for(const version of ['22.23.4','22.23.5','22.24.0']){
+test('signed Node fixture must meet the Node 24 patch floor and retain exact certification',t=>{
+ const f=fixture(t);f.manifest.language='TypeScript';f.manifest.adapter={runtime:'node',version:'24.22.2',state:'ACTIVE'};
+ for(const version of ['24.22.2','24.22.3','24.23.0']){
   f.manifest.adapter.version=version;f.manifest.certification.frameworkVersion=version;f.save();
   assert.equal(verifyManifestBundle(f.args).runtimeVersion,version);
  }
- for(const version of ['22.13.0','22.18.0','22.22.99','22.23.3','23.0.0','24.22.1','26.12.1']){
+ for(const version of ['22.13.0','22.18.0','22.23.3','22.23.4','22.24.0','23.0.0','24.21.99','24.22.0','24.22.1','25.0.0','26.13.0']){
   f.manifest.adapter.version=version;f.manifest.certification.frameworkVersion=version;f.save();
   assert.throws(()=>verifyManifestBundle(f.args),/Framework and runtime combination is not reviewed/,version);
  }
- f.manifest.adapter.version='22.23.4';f.manifest.certification.frameworkVersion='22.23.3';f.save();
+ f.manifest.adapter.version='24.22.2';f.manifest.certification.frameworkVersion='24.22.1';f.save();
  assert.throws(()=>verifyManifestBundle(f.args),/Exact maintainer and reproduction certification/);
- f.manifest.certification.frameworkVersion='22.23.4';f.manifest.certification.reproductionVerified=false;f.save();
+ f.manifest.certification.frameworkVersion='24.22.2';f.manifest.certification.reproductionVerified=false;f.save();
  assert.throws(()=>verifyManifestBundle(f.args),/Every certification attestation/);
 });
 

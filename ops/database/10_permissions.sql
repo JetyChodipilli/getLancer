@@ -80,7 +80,11 @@ BEGIN
       -- Recovery can update only the deadline; deterministic object identity stays immutable.
       EXECUTE format('GRANT UPDATE (expires_at) ON %I.%I TO getlancer_runtime',schema_name,table_name);
       EXECUTE format('CREATE POLICY getlancer_service_update ON %I.%I FOR UPDATE TO getlancer_runtime USING (true) WITH CHECK (true)',schema_name,table_name);
-    ELSIF table_name IN ('payment_provider_refunds','commerce_provider_refunds','component_slot_refunds','component_slot_disputes') THEN
+    ELSIF table_name='component_slot_disputes' THEN
+      -- Only authoritative status/deduction observations can change; membership stays immutable.
+      EXECUTE format('GRANT UPDATE (status,deducted_minor,updated_at) ON %I.%I TO getlancer_runtime',schema_name,table_name);
+      EXECUTE format('CREATE POLICY getlancer_service_update ON %I.%I FOR UPDATE TO getlancer_runtime USING (true) WITH CHECK (true)',schema_name,table_name);
+    ELSIF table_name IN ('payment_provider_refunds','commerce_provider_refunds','component_slot_refunds') THEN
       -- Provider membership and amount stay immutable after insertion.
       EXECUTE format('GRANT UPDATE (status,updated_at) ON %I.%I TO getlancer_runtime',schema_name,table_name);
       EXECUTE format('CREATE POLICY getlancer_service_update ON %I.%I FOR UPDATE TO getlancer_runtime USING (true) WITH CHECK (true)',schema_name,table_name);

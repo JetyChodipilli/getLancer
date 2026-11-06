@@ -58,15 +58,15 @@ syncBuiltinESMExports();
   }
   assert.ok(!healthy.stdout.includes(encrypted.admin_totp_ciphertext));
 });
-test('local setup rejects a vulnerable runtime before creating configuration or secrets',t=>{
+test('local setup rejects a stale or unsupported runtime before creating configuration or secrets',t=>{
   const dir=mkdtempSync(join(tmpdir(),'getlancer-node-floor-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));mkdirSync(join(dir,'scripts'));
   for(const file of ['setup-local.mjs','local-config.mjs','node-version.mjs'])copyFileSync(new URL('../scripts/'+file,import.meta.url),join(dir,'scripts',file));
   writeFileSync(join(dir,'.env.example'),'APP_ENV=local\n');
   const hook=join(dir,'runtime-version.mjs');
-  for(const version of ['v22.23.3','v24.22.0','v25.0.0']){
+  for(const version of ['v22.23.4','v24.22.0','v24.22.1','v25.0.0','v26.13.0']){
     writeFileSync(hook,'Object.defineProperty(process,"version",{value:'+JSON.stringify(version)+'});\n');
     const result=spawnSync(process.execPath,['--import',hook,join(dir,'scripts/setup-local.mjs')],{encoding:'utf8'});
-    assert.equal(result.status,1,result.stderr);assert.match(result.stderr,/Use stable Node 22\.23\.4/);
+    assert.equal(result.status,1,result.stderr);assert.match(result.stderr,/Use stable Node 24\.22\.2/);
     assert.throws(()=>statSync(join(dir,'.env')),{code:'ENOENT'});
   }
 });

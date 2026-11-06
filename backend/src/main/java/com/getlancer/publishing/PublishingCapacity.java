@@ -28,7 +28,7 @@ public class PublishingCapacity {
   }
   int count(String sql,Object...args) { return db.queryForObject(sql,Integer.class,args); }
   private static final String PAID_ELIGIBLE="p.mode='live' AND p.status='CAPTURED' AND p.refunded_minor=0 AND (p.dispute_status IS NULL OR p.dispute_status='won')"
-      +" AND NOT EXISTS(SELECT 1 FROM component_slot_disputes d WHERE d.purchase_id=p.id AND d.status<>'won')"
+      +" AND NOT EXISTS(SELECT 1 FROM component_slot_disputes d WHERE d.purchase_id=p.id AND (d.status<>'won' OR d.deducted_minor IS NULL OR d.deducted_minor>0))"
       +" AND NOT EXISTS(SELECT 1 FROM component_slot_events w WHERE w.processed_at IS NULL AND (w.event_kind LIKE 'refund.%' OR w.event_kind LIKE 'payment.dispute.%' OR w.event_kind IS NULL) AND (w.order_id=p.order_id OR w.payment_id=p.payment_id OR (w.order_id IS NULL AND w.payment_id IS NULL)))";
   int paid(UUID owner,String pool) {
     return count("SELECT count(*) FROM component_slot_purchases p WHERE p.owner_id=? AND p.pool=? AND "+PAID_ELIGIBLE,owner,pool);

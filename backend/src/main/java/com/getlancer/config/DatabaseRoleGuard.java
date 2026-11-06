@@ -133,10 +133,10 @@ public class DatabaseRoleGuard implements ApplicationRunner {
         WHERE c.oid IS NULL OR has_table_privilege(current_user,c.oid,'UPDATE')
           OR has_table_privilege(current_user,c.oid,'DELETE')
           OR NOT has_table_privilege(current_user,c.oid,'INSERT')
-          OR 2<>(SELECT count(*) FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
-            AND a.attname IN ('status','updated_at') AND has_column_privilege(current_user,c.oid,a.attnum,'UPDATE'))
+          OR (CASE WHEN required.name='component_slot_disputes' THEN 3 ELSE 2 END)<>(SELECT count(*) FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+            AND (a.attname IN ('status','updated_at') OR (required.name='component_slot_disputes' AND a.attname='deducted_minor')) AND has_column_privilege(current_user,c.oid,a.attnum,'UPDATE'))
           OR EXISTS(SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
-            AND a.attname NOT IN ('status','updated_at') AND has_column_privilege(current_user,c.oid,a.attnum,'UPDATE'))
+            AND NOT (a.attname IN ('status','updated_at') OR (required.name='component_slot_disputes' AND a.attname='deducted_minor')) AND has_column_privilege(current_user,c.oid,a.attnum,'UPDATE'))
         """, Integer.class, schema);
     if (unsafeRefunds == null || unsafeRefunds != 0) reject("refund_evidence_permissions");
     Integer unsafeMediaWrites = db.queryForObject("""

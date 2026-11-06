@@ -204,7 +204,7 @@ test('failed native verification remains blocking while exact public regeneratio
   const upload=frontend.match(/      - uses: actions\/upload-artifact@[^\n]+\n        if: failure\(\) && steps\.review_material\.outcome == 'success'\n[\s\S]*?(?=      - |$)/)?.[0];assert(upload);
   assert(upload.includes('review-generated-material-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}'));
   const paths=upload.split('          path: |\n')[1].split('          if-no-files-found:')[0].trim().split('\n').map(value=>value.trim());
-  assert.deepEqual(paths,['public/education/full-stack.zip','public/education/study-planner.zip','public/education/iot.zip','backend/src/main/resources/catalog/education.json','app/components/frameworks/material.json','app/components/frameworks/index.json','material-review/inventory.json']);
+  assert.deepEqual(paths,['public/education/full-stack.zip','public/education/study-planner.zip','public/education/iot.zip','public/education/campus-poll.zip','public/education/water-tank.zip','public/education/packet-gateway.zip','backend/src/main/resources/catalog/education.json','app/components/frameworks/material.json','app/components/frameworks/index.json','material-review/inventory.json']);
   assert(upload.includes('if-no-files-found: error'));
 });
 
