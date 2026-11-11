@@ -11,7 +11,7 @@ async function mount(page:Page,kind:Kind){
   import {createRoot} from 'react-dom/client';import Workspace from '${component}';import {${factory}} from './lib/${kind}-demo';
   const demo=${factory}(),state=window.writeRecovery={mode:'success',writes:0,saved:0,holdRead:false};
   window.fetch=async(path,init={})=>{
-   const route=String(path).replace(/^\\/api\\/v1/,''),write=(init.method||'GET')!=='GET';
+   const route=String(path).startsWith('/api/v1')?String(path).slice(7):String(path),write=(init.method||'GET')!=='GET';
    const respond=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json'}});
    if(write){state.writes++;if(state.mode==='invalid')return respond({error:{code:'VALIDATION_FAILED',message:'Correct the workspace name before trying again.'}},422);}
    if(!write&&state.failNextRead&&route==='${kind==='team'?'/me/teams':'/businesses'}'){state.failNextRead=false;return respond({error:{code:'UNAVAILABLE',message:'Synthetic workspace refresh failed.'}},503);}
