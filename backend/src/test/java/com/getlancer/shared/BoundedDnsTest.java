@@ -48,8 +48,11 @@ class BoundedDnsTest {
       assertEquals(address, BoundedDns.resolve(executor, () -> new InetAddress[] {address}, 1000)[0]);
       assertThrows(IOException.class, () -> BoundedDns.resolve(executor,
           () -> { throw new IOException("synthetic resolver failure"); }, 1000));
+      var interruptedCalls = new AtomicInteger();
       Thread.currentThread().interrupt();
-      assertThrows(IOException.class, () -> BoundedDns.resolve(executor, () -> new InetAddress[] {address}, 1000));
+      assertThrows(IOException.class, () -> BoundedDns.resolve(executor,
+          () -> { interruptedCalls.incrementAndGet(); return new InetAddress[] {address}; }, 1000));
+      assertEquals(0, interruptedCalls.get());
       assertTrue(Thread.currentThread().isInterrupted());
     } finally { Thread.interrupted(); executor.shutdownNow(); }
   }

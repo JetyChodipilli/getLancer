@@ -83,6 +83,8 @@ public class PrivacyService {
                 + " d.user_id=? AND u.account_status='DELETED' FOR UPDATE OF d,u",
             id);
     if (rows.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Deletion request not found.");
+    // The target lock may have waited while this operator's session or role was revoked.
+    if (!actor.equals(security.admin(r))) throw new ApiError(403, "FORBIDDEN", "Administrator access changed.");
     String originalEmail = (String) rows.get(0).get("email");
     if (action.equals("ANONYMIZE_PROFILE")) {
       if (!approved)

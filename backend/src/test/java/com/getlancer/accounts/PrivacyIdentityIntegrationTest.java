@@ -18,6 +18,9 @@ import jakarta.servlet.http.Cookie;
 import java.sql.Timestamp;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.LockSupport;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -92,6 +95,47 @@ class PrivacyIdentityIntegrationTest {
     db.update("INSERT INTO sessions(token_hash,user_id,expires_at) VALUES(?,?,now()+interval '1 hour')", Support.hash("replacement"), id);
     var request = new MockHttpServletRequest(); request.setCookies(new Cookie("gl_session", "replacement"));
     return request;
+  }
+
+  void revokedOperatorAfterTargetLock(boolean removeRole) throws Exception {
+    var executor = Executors.newSingleThreadExecutor();
+    try (var holder = db.getDataSource().getConnection()) {
+      holder.setAutoCommit(false);
+      int pid;
+      try (var statement = holder.createStatement(); var row = statement.executeQuery("SELECT pg_backend_pid()")) {
+        assertTrue(row.next()); pid = row.getInt(1);
+      }
+      try (var statement = holder.prepareStatement("SELECT id FROM users WHERE id=? FOR UPDATE")) {
+        statement.setObject(1, closed); try (var row = statement.executeQuery()) { assertTrue(row.next()); }
+      }
+      var pending = executor.submit(() -> mvc.perform(post("/api/v1/admin/deletion-requests/" + closed + "/review")
+          .cookie(new Cookie("gl_session", "operator-session")).header("Origin", "http://localhost:3000")
+          .header("X-Requested-With", "getlancer").contentType("application/json")
+          .content("{\"action\":\"ANONYMIZE_PROFILE\",\"reason\":\"Synthetic review waiting for target lock\"}"))
+          .andReturn().getResponse().getStatus());
+      long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5); boolean waiting = false;
+      while (System.nanoTime() < deadline) {
+        waiting = db.queryForObject("SELECT count(*) FROM pg_stat_activity WHERE ?=ANY(pg_blocking_pids(pid))", Integer.class, pid) > 0;
+        if (waiting) break;
+        LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(5));
+      }
+      assertTrue(waiting, "The real target lock wait must precede operator revocation.");
+      if (removeRole) db.update("DELETE FROM user_roles WHERE role='ADMIN' AND user_id=(SELECT user_id FROM sessions WHERE token_hash=?)", Support.hash("operator-session"));
+      else db.update("DELETE FROM sessions WHERE token_hash=?", Support.hash("operator-session"));
+      holder.commit();
+      assertEquals(removeRole ? 403 : 401, pending.get(10, TimeUnit.SECONDS));
+      assertEquals(originalEmail, db.queryForObject("SELECT email FROM users WHERE id=?", String.class, closed));
+      assertEquals("Fixture person", db.queryForObject("SELECT display_name FROM developer_profiles WHERE user_id=?", String.class, closed));
+      assertEquals(1, db.queryForObject("SELECT count(*) FROM product_access_grants WHERE product_id=? AND client_email=?", Integer.class, product, originalEmail));
+    } finally { executor.shutdownNow(); assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS)); }
+  }
+
+  @Test void sessionRevokedDuringTargetLockWaitCannotAnonymizeProfile() throws Exception {
+    revokedOperatorAfterTargetLock(false);
+  }
+
+  @Test void administratorRoleRemovedDuringTargetLockWaitCannotAnonymizeProfile() throws Exception {
+    revokedOperatorAfterTargetLock(true);
   }
 
   @Test void replacementAccountCannotInheritRetainedInquiryExportMutationsOrPrivateGrants() throws Exception {

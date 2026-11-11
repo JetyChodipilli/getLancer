@@ -28,6 +28,7 @@ public final class BoundedDns {
 
   public static InetAddress[] resolve(ThreadPoolExecutor executor,
       Callable<InetAddress[]> lookup, long timeoutMillis) throws IOException {
+    if (Thread.currentThread().isInterrupted()) throw new IOException("DNS interrupted");
     Future<InetAddress[]> task;
     try { task = executor.submit(lookup); }
     catch (RejectedExecutionException exception) { throw new IOException("DNS resolver busy", exception); }

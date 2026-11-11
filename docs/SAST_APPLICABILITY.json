@@ -67,7 +67,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/accounts/PrivacyService.java",
-      "sha256": "b41f17b7a956e02e479ef0936fbe1a91341c1cfb00f6952f1980bec09ecf7945"
+      "sha256": "cba015e4f32c67a2373440d9b99a52f5c4fa6d97d26be95e42b1d1da9ae740ae"
     },
     {
       "path": "backend/src/main/java/com/getlancer/admin/AdminController.java",
@@ -559,7 +559,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/products/PrivateProjectService.java",
-      "sha256": "2ea5495034d246542d59d8f7fbf770b38df54eb5d5c31886f1aaac7bde03b3bb"
+      "sha256": "6bc533a4f44beb63e7035d4e261e1cb5e6b4310ef63919212fb15d83dcae583c"
     },
     {
       "path": "backend/src/main/java/com/getlancer/products/PrivateProjectsController.java",
@@ -707,7 +707,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/shared/BoundedDns.java",
-      "sha256": "7920794df37ab2971b15c317f08c59150db5dc3470905811def62026630fd7ba"
+      "sha256": "fcfad8ce262be6d407deb72996562e69c421c4f2aa668e906453c03613887a28"
     },
     {
       "path": "backend/src/main/java/com/getlancer/shared/Errors.java",
@@ -1017,7 +1017,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/accounts/PrivacyIdentityIntegrationTest.java",
-      "sha256": "d1603246edb50d93c8ba1286ae27d2326e2bf0efd9aced04ba57aaa49b4f3c1a"
+      "sha256": "11f61cdc9093aec2fbee70d07b1a2dca2e6fabc62d85f136066dced209cd67b0"
     },
     {
       "path": "backend/src/test/java/com/getlancer/analytics/ArtifactModeTest.java",
@@ -1221,7 +1221,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/PrivateAccessPaginationIntegrationTest.java",
-      "sha256": "7e97a542f9c47bc28e065c90c3c82842045a35569cc861f52b8e982dcaec20c1"
+      "sha256": "30f6630d1a6ae4476e49c1746d66d27534870a337e732d944cce7d4664d4f086"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/PublishingAuditRegressionTest.java",
@@ -1405,7 +1405,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/shared/BoundedDnsTest.java",
-      "sha256": "27010dc13544c5dd517c6821ccab81fa12eb71066926f309b9ff34c39df943cd"
+      "sha256": "9cf71f4660b8c300ea4933a19c11c565ca9d325f539f088fb8a56c72eba86c8c"
     },
     {
       "path": "backend/src/test/java/com/getlancer/shared/RulesSmoke.java",

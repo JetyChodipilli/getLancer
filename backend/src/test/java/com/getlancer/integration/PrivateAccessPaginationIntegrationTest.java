@@ -12,6 +12,9 @@ import jakarta.servlet.http.Cookie;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.LockSupport;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -67,6 +70,43 @@ class PrivateAccessPaginationIntegrationTest {
     return as(request, token).header("Origin", "http://localhost:3000").header("X-Requested-With", "getlancer").contentType("application/json").content(value);
   }
   JsonNode ok(MockHttpServletRequestBuilder request) throws Exception { return json.readTree(mvc.perform(request).andExpect(status().isOk()).andReturn().getResponse().getContentAsString()); }
+
+  void revokedOwnerAfterProductLock(boolean removeRole) throws Exception {
+    var executor = Executors.newSingleThreadExecutor();
+    try (var holder = db.getDataSource().getConnection()) {
+      holder.setAutoCommit(false);
+      int pid;
+      try (var statement = holder.createStatement(); var row = statement.executeQuery("SELECT pg_backend_pid()")) {
+        assertTrue(row.next()); pid = row.getInt(1);
+      }
+      try (var statement = holder.prepareStatement("SELECT id FROM products WHERE id=? FOR UPDATE")) {
+        statement.setObject(1, product); try (var row = statement.executeQuery()) { assertTrue(row.next()); }
+      }
+      var pending = executor.submit(() -> mvc.perform(body(post(access()), "grant-owner", "{\"email\":\"new-client@example.test\"}"))
+          .andReturn().getResponse().getStatus());
+      long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5); boolean waiting = false;
+      while (System.nanoTime() < deadline) {
+        waiting = db.queryForObject("SELECT count(*) FROM pg_stat_activity WHERE ?=ANY(pg_blocking_pids(pid))", Integer.class, pid) > 0;
+        if (waiting) break;
+        LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(5));
+      }
+      assertTrue(waiting, "The real product lock wait must precede owner revocation.");
+      if (removeRole) db.update("DELETE FROM user_roles WHERE user_id=? AND role='DEVELOPER'", owner);
+      else db.update("DELETE FROM sessions WHERE token_hash=?", Support.hash("grant-owner"));
+      holder.commit();
+      assertEquals(removeRole ? 403 : 401, pending.get(10, TimeUnit.SECONDS));
+      assertEquals(0, db.queryForObject("SELECT count(*) FROM product_access_grants WHERE product_id=? AND client_email='new-client@example.test'", Integer.class, product));
+      assertEquals(55, db.queryForObject("SELECT count(*) FROM product_access_grants WHERE product_id=?", Integer.class, product));
+    } finally { executor.shutdownNow(); assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS)); }
+  }
+
+  @Test void sessionRevokedDuringProductLockWaitCannotGrantPrivateAccess() throws Exception {
+    revokedOwnerAfterProductLock(false);
+  }
+
+  @Test void developerRoleRemovedDuringProductLockWaitCannotGrantPrivateAccess() throws Exception {
+    revokedOwnerAfterProductLock(true);
+  }
 
   @Test void ownerCanContinueCurrentGrantsAndRevokeTheClientOnPageTwo() throws Exception {
     JsonNode first = ok(as(get(access()), "grant-owner"));
