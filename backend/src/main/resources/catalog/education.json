@@ -8,7 +8,7 @@
       "productId": "stockroom",
       "revision": 1,
       "status": "APPROVED",
-      "sourceHash": "5d94ecdf2138133e25ffd950d70848d342435e3f1a819cf4155566a766b7699d",
+      "sourceHash": "7e67a509d0820b7ff2b0a257fbe5a915f7d447d42f528b61220ff7cb86111501",
       "snapshot": {
         "slug": "stockroom",
         "title": "Task-board API",
@@ -24,7 +24,7 @@
           "schemaApi": "Task fields id, title and completed; JSON responses and explicit 400/404 limits.",
           "demoAccounts": "No authentication or accounts; bind only local loopback for the exercise.",
           "setupMigrations": "Run node test.mjs then node server.mjs; all state resets on process restart.",
-          "versions": "Node.js 22 or newer; only built-in node:http and assertions are used.",
+          "versions": "Stable Node.js 24.22.2 or later 24.x; only built-in node:http and assertions are used.",
           "tests": "Regression exercises empty list, trimmed task creation, completion, invalid JSON and missing task.",
           "deployment": "Local loopback only; persistence, access control and production deployment are excluded."
         },
@@ -37,11 +37,11 @@
             "HTTP task creation and completion in local memory. No database, authentication, frontend or hosted production deployment."
           ],
           "setupSteps": [
-            "Install Node.js 22 or newer.",
+            "Install stable Node.js 24.22.2 or later 24.x.",
             "Run node test.mjs before node server.mjs. Approximately five minutes after runtime installation."
           ],
           "prerequisites": [
-            "Node.js 22 or newer and command-line fundamentals. No third-party dependencies or credentials."
+            "Stable Node.js 24.22.2 or later 24.x and command-line fundamentals. No third-party dependencies or credentials."
           ],
           "limitations": [
             "HTTP task creation and completion in local memory. No database, authentication, frontend or hosted production deployment.",
@@ -54,8 +54,8 @@
         "productId": "stockroom",
         "sourceBinding": {
           "packageId": "20000000-0000-4000-8000-000000000001",
-          "sha256": "00569c52f98594314096d67a4c47ce57dec4b898faab1398cd93ce9f2f6b7f50",
-          "sizeBytes": 11112,
+          "sha256": "c0eb1fed133bedc00e2063908f04c6f48e716a6b908179e25af059f149f22f48",
+          "sizeBytes": 11138,
           "entryCount": 6,
           "files": [
             "LICENSE",
@@ -81,8 +81,8 @@
     },
     "packageAudit": {
       "packageId": "20000000-0000-4000-8000-000000000001",
-      "sha256": "00569c52f98594314096d67a4c47ce57dec4b898faab1398cd93ce9f2f6b7f50",
-      "sizeBytes": 11112,
+      "sha256": "c0eb1fed133bedc00e2063908f04c6f48e716a6b908179e25af059f149f22f48",
+      "sizeBytes": 11138,
       "entryCount": 6,
       "files": [
         "LICENSE",
@@ -361,7 +361,7 @@
       "productId": "fieldnote",
       "revision": 1,
       "status": "APPROVED",
-      "sourceHash": "4072a95afedcbeac20704cfedbb735769ab04206e62cd1a569b9d93847ae6ee0",
+      "sourceHash": "7fb6b47f0d8bb3a184d9776b5fd37329c4fd2e8a2c7ee820bea2359b13435f77",
       "snapshot": {
         "slug": "fieldnote",
         "title": "Simulated sensor flow",
@@ -374,7 +374,7 @@
         "demoUrl": "",
         "categoryEvidence": {
           "boardFirmware": "No board or firmware; simulate.mjs emits five deterministic in-memory readings.",
-          "billOfMaterials": "Computer and Node.js 22 only; physical sensors and electronics are excluded.",
+          "billOfMaterials": "Computer and stable Node.js 24.22.2 or later 24.x only; physical sensors and electronics are excluded.",
           "wiring": "No wiring or electrical work; hardware safety and physical calibration are not verified.",
           "powerConnectivity": "Runs locally offline without battery, network service or MQTT broker.",
           "topics": "simulated/temperature records tick, temperature, unit C, alert and simulated true.",
@@ -389,11 +389,11 @@
             "Deterministic five-reading simulation. No physical board, firmware flashing, cloud broker or verified hardware operation."
           ],
           "setupSteps": [
-            "Install Node.js 22 or newer.",
+            "Install stable Node.js 24.22.2 or later 24.x.",
             "Run node test.mjs before node simulate.mjs. Approximately five minutes after runtime installation."
           ],
           "prerequisites": [
-            "Node.js 22 or newer and command-line fundamentals. No third-party dependencies or credentials."
+            "Stable Node.js 24.22.2 or later 24.x and command-line fundamentals. No third-party dependencies or credentials."
           ],
           "limitations": [
             "Deterministic five-reading simulation. No physical board, firmware flashing, cloud broker or verified hardware operation.",
@@ -416,8 +416,8 @@
     },
     "packageAudit": {
       "packageId": "20000000-0000-4000-8000-000000000004",
-      "sha256": "6a1a7d2a3769d1b6cf5419ca8e7fb13b25b9185cb9b935aac5d66e0d81fc0d21",
-      "sizeBytes": 4380,
+      "sha256": "049e453a208e9c800d65fd5e6c62cae19f12bab25f36fb8a86885631f8a79455",
+      "sizeBytes": 4406,
       "entryCount": 6,
       "files": [
         "LICENSE",
@@ -444,7 +444,7 @@
       "productId": "study-planner",
       "revision": 1,
       "status": "APPROVED",
-      "sourceHash": "1f70c69612de2245ac5cf07ac2e380020613b31d033ea5eec357997cf528e310",
+      "sourceHash": "5ed8a9948b363f4921d82e229caa949595c1812fdbf8f8c3c6317294ffaaedc6",
       "snapshot": {
         "slug": "study-planner",
         "title": "Persistent local study planner",
@@ -460,7 +460,7 @@
           "schemaApi": "GET /api/tasks, POST title/minutes and PATCH boolean done; 100 tasks, title100 chars and minutes1-600.",
           "demoAccounts": "No accounts; local Host/Origin checks require 127.0.0.1. This is not authentication.",
           "setupMigrations": "No migration dependency: missing private data file initializes empty; corrupt data prevents startup. Write/rename commits are serialized.",
-          "versions": "Node.js22 or newer; node:http/fs only. No database, packages or remote assets.",
+          "versions": "Stable Node.js 24.22.2 or later 24.x; node:http/fs only. No database, packages or remote assets.",
           "tests": "Clean regression checks concurrent writes, restart persistence, remaining minutes, invalid inputs, origin denial and payload limits.",
           "deployment": "Run node server.mjs on loopback port3101 only; one process per private data file. No production hosting."
         },
@@ -474,11 +474,11 @@
             "No authentication, concurrent multi-process writes, database, backups, multi-user isolation or hosted production deployment."
           ],
           "setupSteps": [
-            "Install Node.js 22 or newer.",
+            "Install stable Node.js 24.22.2 or later 24.x.",
             "Run node test.mjs, then node server.mjs."
           ],
           "prerequisites": [
-            "Node.js 22 or newer; standard library only, no downloads, credentials or package installation."
+            "Stable Node.js 24.22.2 or later 24.x; standard library only, no downloads, credentials or package installation."
           ],
           "limitations": [
             "No authentication, concurrent multi-process writes, database, backups, multi-user isolation or hosted production deployment.",
@@ -491,8 +491,8 @@
         "productId": "study-planner",
         "sourceBinding": {
           "packageId": "20000000-0000-4000-8000-000000000005",
-          "sha256": "107dbbd28de6e5a1d19d8814f3455ad394a2b4b7f660596eb55e546a5a4941ad",
-          "sizeBytes": 21400,
+          "sha256": "6f09d6006afe7587754e9ad50aedb9f0f200633644387869a93111b36781d6ed",
+          "sizeBytes": 21426,
           "entryCount": 9,
           "files": [
             "LICENSE",
@@ -521,8 +521,8 @@
     },
     "packageAudit": {
       "packageId": "20000000-0000-4000-8000-000000000005",
-      "sha256": "107dbbd28de6e5a1d19d8814f3455ad394a2b4b7f660596eb55e546a5a4941ad",
-      "sizeBytes": 21400,
+      "sha256": "6f09d6006afe7587754e9ad50aedb9f0f200633644387869a93111b36781d6ed",
+      "sizeBytes": 21426,
       "entryCount": 9,
       "files": [
         "LICENSE",
@@ -552,7 +552,7 @@
       "productId": "campus-poll",
       "revision": 1,
       "status": "APPROVED",
-      "sourceHash": "0a37e28bc76de05ca46504523ef99de099ea10eda9e9e8ea87035abeb82e8db1",
+      "sourceHash": "e646809799b7c610a568e5cc0f457274387ff62ccf40f149adbff4415f4ee072",
       "snapshot": {
         "slug": "campus-poll",
         "title": "Persistent synthetic campus poll",
@@ -568,7 +568,7 @@
           "schemaApi": "GET /api/poll and POST /api/ballots with random ballotId and choice0-2. Same ballot retries once; changed choice conflicts.",
           "demoAccounts": "No accounts or real voters. Ballot identity is a per-page random retry key, not identity verification.",
           "setupMigrations": "Empty missing file initializes poll; exact ballot schema and duplicates validated on startup. Writes serialized and atomically renamed.",
-          "versions": "Node.js22 or newer; HTTP/fs standard library and browser DOM only.",
+          "versions": "Stable Node.js 24.22.2 or later 24.x; HTTP/fs standard library and browser DOM only.",
           "tests": "Clean regression proves duplicate concurrency, restart persistence, conflict/invalid/body/origin denial and100-ballot boundary.",
           "deployment": "Loopback3102 local exercise, one process per private poll file. No campus endorsement or production election."
         },
@@ -582,11 +582,11 @@
             "No authentication, ballot secrecy, one-person-one-vote, tamper resistance, cryptographic election verification or campus endorsement."
           ],
           "setupSteps": [
-            "Install Node.js 22 or newer.",
+            "Install stable Node.js 24.22.2 or later 24.x.",
             "Run node test.mjs, then node server.mjs."
           ],
           "prerequisites": [
-            "Node.js 22 or newer; standard library only, no downloads, credentials or package installation."
+            "Stable Node.js 24.22.2 or later 24.x; standard library only, no downloads, credentials or package installation."
           ],
           "limitations": [
             "No authentication, ballot secrecy, one-person-one-vote, tamper resistance, cryptographic election verification or campus endorsement.",
@@ -599,8 +599,8 @@
         "productId": "campus-poll",
         "sourceBinding": {
           "packageId": "20000000-0000-4000-8000-000000000006",
-          "sha256": "122b31f59adafdeebb1a6faffae9ecb5b26ab8a9b127cfbf9a28abd01d1313c9",
-          "sizeBytes": 15532,
+          "sha256": "ecf6d88abbdb197f2f387f49a3bbf2bf0d4f9123e4d51068fa35f808ccc03831",
+          "sizeBytes": 15558,
           "entryCount": 9,
           "files": [
             "LICENSE",
@@ -629,8 +629,8 @@
     },
     "packageAudit": {
       "packageId": "20000000-0000-4000-8000-000000000006",
-      "sha256": "122b31f59adafdeebb1a6faffae9ecb5b26ab8a9b127cfbf9a28abd01d1313c9",
-      "sizeBytes": 15532,
+      "sha256": "ecf6d88abbdb197f2f387f49a3bbf2bf0d4f9123e4d51068fa35f808ccc03831",
+      "sizeBytes": 15558,
       "entryCount": 9,
       "files": [
         "LICENSE",
@@ -1164,7 +1164,7 @@
       "productId": "water-tank",
       "revision": 1,
       "status": "APPROVED",
-      "sourceHash": "f3252c77b0ee65fda2c5b83aeab418f3e6b89ba1cbd0039dd9433fb341ce1521",
+      "sourceHash": "02339fe3e999fc6536541959dd0c5cd86b038be43d0331e8a4fcdbfe4a714706",
       "snapshot": {
         "slug": "water-tank",
         "title": "Simulated water-tank hysteresis",
@@ -1177,7 +1177,7 @@
         "demoUrl": "",
         "categoryEvidence": {
           "boardFirmware": "Pure Node.js simulated state machine; no board, firmware or actuator.",
-          "billOfMaterials": "Computer and Node.js22 only. Pumps, relays, tanks and sensors excluded.",
+          "billOfMaterials": "Computer and stable Node.js 24.22.2 or later 24.x only. Pumps, relays, tanks and sensors excluded.",
           "wiring": "No wiring or electrical activity; motor protection and physical safety are not verified.",
           "powerConnectivity": "Offline in-memory ticks; no battery, network, broker or physical power.",
           "topics": "simulated/water-tank: tick,levelPercent|null,pump,alarm,simulated:true. Null reading turns pump off.",
@@ -1193,11 +1193,11 @@
             "No physical tank, pump, sensor, actuator, firmware, electrical safety, calibration or hardware verification."
           ],
           "setupSteps": [
-            "Install Node.js 22 or newer.",
+            "Install stable Node.js 24.22.2 or later 24.x.",
             "Run node test.mjs, then node simulate.mjs."
           ],
           "prerequisites": [
-            "Node.js 22 or newer; standard library only, no downloads, credentials or package installation."
+            "Stable Node.js 24.22.2 or later 24.x; standard library only, no downloads, credentials or package installation."
           ],
           "limitations": [
             "No physical tank, pump, sensor, actuator, firmware, electrical safety, calibration or hardware verification.",
@@ -1210,8 +1210,8 @@
         "productId": "water-tank",
         "sourceBinding": {
           "packageId": "20000000-0000-4000-8000-000000000011",
-          "sha256": "0064daf79655eaa4d55ff4590aad19f8c7e382641bf5df2b15ba5e6bf40e0f91",
-          "sizeBytes": 5735,
+          "sha256": "cecacc969930b40cf5ea438d40d3d57bae4b56bdd5ccf4792dace13d1f601d36",
+          "sizeBytes": 5761,
           "entryCount": 6,
           "files": [
             "LICENSE",
@@ -1237,8 +1237,8 @@
     },
     "packageAudit": {
       "packageId": "20000000-0000-4000-8000-000000000011",
-      "sha256": "0064daf79655eaa4d55ff4590aad19f8c7e382641bf5df2b15ba5e6bf40e0f91",
-      "sizeBytes": 5735,
+      "sha256": "cecacc969930b40cf5ea438d40d3d57bae4b56bdd5ccf4792dace13d1f601d36",
+      "sizeBytes": 5761,
       "entryCount": 6,
       "files": [
         "LICENSE",
@@ -1265,7 +1265,7 @@
       "productId": "packet-gateway",
       "revision": 1,
       "status": "APPROVED",
-      "sourceHash": "1a6711ef30a6615ff47f5e4d9ca7eb274b871ee9d2e362017aea0363ae66c8e5",
+      "sourceHash": "bd3654d44816130489eb4c116e20adb57bfa549c7e59322d63e49fc62343d8c2",
       "snapshot": {
         "slug": "packet-gateway",
         "title": "Simulated binary packet gateway",
@@ -1278,7 +1278,7 @@
         "demoUrl": "",
         "categoryEvidence": {
           "boardFirmware": "Local byte-array encoder/decoder and gateway only; no MCU, flashed firmware or physical sensor.",
-          "billOfMaterials": "Computer and Node.js22; no radio, serial adapter, board or broker.",
+          "billOfMaterials": "Computer and stable Node.js 24.22.2 or later 24.x; no radio, serial adapter, board or broker.",
           "wiring": "No electrical or radio operation; no physical wiring/safety validation.",
           "powerConnectivity": "Offline fixed local frames, no MQTT, serial, radio or external network.",
           "topics": "simulated packet: version1,sequence1-255,sensor0/1,signed temperature tenths, XOR checksum. Sequence wrap is unsupported.",
@@ -1294,11 +1294,11 @@
             "No physical transport, cryptographic authenticity, replay window across restarts, sequence wrapping, firmware or hardware verification."
           ],
           "setupSteps": [
-            "Install Node.js 22 or newer.",
+            "Install stable Node.js 24.22.2 or later 24.x.",
             "Run node test.mjs, then node gateway.mjs."
           ],
           "prerequisites": [
-            "Node.js 22 or newer; standard library only, no downloads, credentials or package installation."
+            "Stable Node.js 24.22.2 or later 24.x; standard library only, no downloads, credentials or package installation."
           ],
           "limitations": [
             "No physical transport, cryptographic authenticity, replay window across restarts, sequence wrapping, firmware or hardware verification.",
@@ -1311,8 +1311,8 @@
         "productId": "packet-gateway",
         "sourceBinding": {
           "packageId": "20000000-0000-4000-8000-000000000012",
-          "sha256": "aba0c2ca24468ab7dbd2005ba29d44dd61fd32997bb29dca99f209e063fd330c",
-          "sizeBytes": 9511,
+          "sha256": "90bb2298adf990a54db2970c46681559284896be5e7772e6708147f01b26351b",
+          "sizeBytes": 9537,
           "entryCount": 8,
           "files": [
             "DATA_LICENSE",
@@ -1340,8 +1340,8 @@
     },
     "packageAudit": {
       "packageId": "20000000-0000-4000-8000-000000000012",
-      "sha256": "aba0c2ca24468ab7dbd2005ba29d44dd61fd32997bb29dca99f209e063fd330c",
-      "sizeBytes": 9511,
+      "sha256": "90bb2298adf990a54db2970c46681559284896be5e7772e6708147f01b26351b",
+      "sizeBytes": 9537,
       "entryCount": 8,
       "files": [
         "DATA_LICENSE",
