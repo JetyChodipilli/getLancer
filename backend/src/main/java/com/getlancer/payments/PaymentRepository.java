@@ -73,6 +73,13 @@ public class PaymentRepository {
     return PaymentResponses.Summary.fromPaymentRow(row);
   }
 
+  long claimReconciliation(UUID attempt) {
+    return db.queryForObject("UPDATE payment_attempts SET reconciliation_generation=reconciliation_generation+1 WHERE id=? RETURNING reconciliation_generation",Long.class,attempt);
+  }
+  boolean ownsReconciliation(UUID attempt,long generation) {
+    return db.queryForObject("SELECT reconciliation_generation FROM payment_attempts WHERE id=?",Long.class,attempt)==generation;
+  }
+
   void captured(UUID id,String payment,long refunded,String transfer,String settlement) {
     var prior=attempt(id,false);
     String status=refunded==0?"CAPTURED":refunded==number(attempt(id,false),"amount_minor")?"REFUNDED":"PARTIALLY_REFUNDED";

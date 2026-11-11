@@ -215,6 +215,51 @@ class PaymentIntegrationTest {
     assertFalse(liveCompletionEligible());
     db.update("UPDATE payment_webhook_events SET processed_at=clock_timestamp() WHERE event_id='legacy_dispute'");assertTrue(liveCompletionEligible());
   }
+  void overlappingDisputeObservation(boolean laterReceipt) throws Exception {
+    mvc.perform(create("buyer",key)).andExpect(status().isOk());fixture.captured=true;fixture.nextDisputeSnapshot="open";
+    var executor=Executors.newSingleThreadExecutor();
+    var older=executor.submit(()->mvc.perform(webhook("older_observation",disputeEvent())).andExpect(status().isOk()));
+    try {
+      assertTrue(fixture.disputeEntered.await(5,TimeUnit.SECONDS));
+      fixture.disputeStatus="won";
+      mvc.perform(json(post("/api/v1/admin/payments/"+attempt()+"/reconcile"),"admin","{}")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("CAPTURED"));
+      assertTrue(liveCompletionEligible());
+      if(laterReceipt)db.update("INSERT INTO payment_webhook_events(event_id,payload_hash,event_kind,order_id,payment_id,dispute_id) VALUES('after_newer_observation',?,'payment.dispute.created',?,?,'disp_fixture123456')",Support.hash("later synthetic receipt"),fixture.orderId(),fixture.paymentId());
+    } finally {fixture.releaseDispute.countDown();try{older.get(5,TimeUnit.SECONDS);}finally{executor.shutdownNow();}}
+    assertEquals("won",db.queryForObject("SELECT status FROM payment_provider_disputes WHERE id='disp_fixture123456'",String.class));
+    assertEquals("CAPTURED",state());
+    assertEquals(1,db.queryForObject("SELECT count(*) FROM payment_ledger WHERE kind='CAPTURE'",Integer.class));
+    assertTrue(db.queryForObject("SELECT processed_at IS NOT NULL FROM payment_webhook_events WHERE event_id='older_observation'",Boolean.class));
+    if(laterReceipt){
+      assertTrue(db.queryForObject("SELECT processed_at IS NULL FROM payment_webhook_events WHERE event_id='after_newer_observation'",Boolean.class));
+      assertFalse(liveCompletionEligible());
+      mvc.perform(json(post("/api/v1/payments/"+attempt()+"/reconcile"),"buyer","{}")).andExpect(status().isOk());
+    }
+    assertTrue(liveCompletionEligible());
+  }
+  @Test void olderOpenDisputeObservationCannotOverwriteNewerVerifiedWin() throws Exception {
+    overlappingDisputeObservation(false);
+  }
+  @Test void staleDisputeObservationLeavesLaterReceiptPending() throws Exception {
+    overlappingDisputeObservation(true);
+  }
+  @Test void olderOrderDiscoveryCannotRestartGenerationAndConsumeNewerReceipt() throws Exception {
+    mvc.perform(create("buyer",key)).andExpect(status().isOk());fixture.captured=true;fixture.blockNextOrderPayments=true;
+    var executor=Executors.newSingleThreadExecutor();
+    var older=executor.submit(()->mvc.perform(json(post("/api/v1/payments/"+attempt()+"/reconcile"),"buyer","{}")).andExpect(status().isOk()));
+    try {
+      assertTrue(fixture.orderPaymentsEntered.await(5,TimeUnit.SECONDS));
+      fixture.disputeStatus="won";
+      mvc.perform(webhook("newer_observation",disputeEvent())).andExpect(status().isOk());
+      assertTrue(liveCompletionEligible());
+      db.update("INSERT INTO payment_webhook_events(event_id,payload_hash,event_kind,order_id,payment_id,dispute_id) VALUES('after_order_discovery',?,'payment.dispute.created',?,?,'disp_fixture123456')",Support.hash("later order receipt"),fixture.orderId(),fixture.paymentId());
+    } finally {fixture.releaseOrderPayments.countDown();try{older.get(5,TimeUnit.SECONDS);}finally{executor.shutdownNow();}}
+    assertEquals("CAPTURED",state());
+    assertTrue(db.queryForObject("SELECT processed_at IS NULL FROM payment_webhook_events WHERE event_id='after_order_discovery'",Boolean.class));
+    assertFalse(liveCompletionEligible());
+    mvc.perform(json(post("/api/v1/admin/payments/"+attempt()+"/reconcile"),"admin","{}")).andExpect(status().isOk());
+    assertTrue(liveCompletionEligible());
+  }
   @Test void firstProviderFailurePersistsHoldAndSignedReplayRecoversLegacyReceipt() throws Exception {
     mvc.perform(create("buyer",key)).andExpect(status().isOk());fixture.captured=true;
     mvc.perform(json(post("/api/v1/payments/"+attempt()+"/verify"),"buyer",callback())).andExpect(status().isOk());assertTrue(liveCompletionEligible());

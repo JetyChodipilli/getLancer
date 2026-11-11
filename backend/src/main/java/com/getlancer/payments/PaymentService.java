@@ -165,10 +165,20 @@ public class PaymentService {
     return tx(() -> PaymentRepository.summary(request==null?system(id):accessible(id,request,"BUYER")));
   }
 
+  private long claimReconciliation(UUID id,HttpServletRequest request) {
+    return tx(()->{
+      var current=request==null?system(id):accessible(id,request,"BUYER");
+      mode(current);
+      return repo.claimReconciliation(id);
+    });
+  }
+
   private PaymentResponses.Summary reconcileOrder(Map<String,Object> row,HttpServletRequest request) {
+    // Order discovery, capture/refunds and disputes keep one ownership claim.
+    long generation=claimReconciliation((UUID)row.get("id"),request);
     try {
       if (row.get("payment_id")!=null) {
-        var summary=reconcilePayment(row,Objects.toString(row.get("payment_id")),request);
+        reconcilePayment(row,Objects.toString(row.get("payment_id")),request,generation);
         return visibleSummary((UUID)row.get("id"),request);
       }
       JsonNode collection=provider.orderPayments(Objects.toString(row.get("order_id")));
@@ -179,10 +189,13 @@ public class PaymentService {
         if (captured!=null) throw mismatch(); captured=payment;
       }
       if (captured==null) return visibleSummary((UUID)row.get("id"),request);
-      return reconcilePayment(row,captured.path("id").asText(),request);
+      return reconcilePayment(row,captured.path("id").asText(),request,generation);
     } catch (RazorpayClient.ProviderFailure ex) { throw new ApiError(502,"PAYMENT_RECONCILIATION_UNAVAILABLE","Provider status is unavailable. The stored payment has not been changed; try reconciliation later."); }
   }
   private PaymentResponses.Summary reconcilePayment(Map<String,Object> snapshot,String payment,HttpServletRequest request) {
+    return reconcilePayment(snapshot,payment,request,claimReconciliation((UUID)snapshot.get("id"),request));
+  }
+  private PaymentResponses.Summary reconcilePayment(Map<String,Object> snapshot,String payment,HttpServletRequest request,long generation) {
     try {
       var started=java.time.Instant.now();
       mode(snapshot);
@@ -221,8 +234,9 @@ public class PaymentService {
       } catch (RazorpayClient.ProviderFailure | ApiError ex) { transferUnknown=true; }
       final TransferState confirmedTransfer=transfer; final boolean unknown=transferUnknown;
       // Verified provider effects are recorded independently of a caller revoked during the read.
-      tx(()-> {
+      boolean applied=tx(()-> {
         var current=system((UUID)snapshot.get("id"));
+        if(!repo.ownsReconciliation((UUID)current.get("id"),generation))return false;
         if (current.get("payment_id")!=null && !payment.equals(current.get("payment_id"))) throw mismatch();
         for(var refund:refunds.entrySet())repo.refund((UUID)current.get("id"),refund.getKey(),integer(refund.getValue(),"amount"),refund.getValue().path("status").asText());
         long confirmedRefund=Math.max(refunded,repo.refunded((UUID)current.get("id")));if(confirmedRefund>number(current,"amount_minor"))throw mismatch();
@@ -236,10 +250,11 @@ public class PaymentService {
         if (first) delivery.event((UUID)milestone.get("engagementId"),null,"PAYMENT_CAPTURED","Razorpay confirmed payment capture. This does not establish seller bank settlement.");
         if (total>previous) delivery.event((UUID)milestone.get("engagementId"),null,"PAYMENT_REFUNDED","Razorpay confirmed an increased refund total; milestone completion is held.");
         for(String event:terminalEvents)repo.processedEvent(event);
-        return PaymentRepository.summary(repo.attempt((UUID)current.get("id"),false));
+        return true;
       });
+      if(!applied)return visibleSummary((UUID)snapshot.get("id"),request);
       var disputedRow=new LinkedHashMap<>(snapshot); disputedRow.put("payment_id",payment);
-      for (String dispute:repo.disputes((UUID)snapshot.get("id"))) reconcileDispute(disputedRow,dispute);
+      for (String dispute:repo.disputes((UUID)snapshot.get("id"))) reconcileDispute(disputedRow,dispute,generation);
       return visibleSummary((UUID)snapshot.get("id"),request);
     } catch (RazorpayClient.ProviderFailure ex) { throw new ApiError(502,"PAYMENT_RECONCILIATION_UNAVAILABLE","Provider status is unavailable. The stored payment has not been changed; try reconciliation later."); }
   }
@@ -261,14 +276,16 @@ public class PaymentService {
       return tx(()->{ security.admin(request); repo.mapAccount(builderId,teamId,account,provider.mode,admin); return PageResponse.from(repo.accounts(request),PaymentResponses.Account::from); });
     } catch (RazorpayClient.ProviderFailure ex) { throw new ApiError(502,"ACCOUNT_VERIFICATION_UNAVAILABLE","Razorpay account verification failed. No seller mapping was saved."); }
   }
-  private void reconcileDispute(Map<String,Object> row,String id) {
+  private void reconcileDispute(Map<String,Object> row,String id,long generation) {
     var pending=repo.pendingDisputeEvents(Objects.toString(row.get("order_id")),Objects.toString(row.get("payment_id")),id);
     var dispute=provider.dispute(id);
     if (!id.equals(dispute.path("id").asText()) || !Objects.toString(row.get("payment_id")).equals(dispute.path("payment_id").asText())
         || !"INR".equals(dispute.path("currency").asText()) || integer(dispute,"amount")<=0 || integer(dispute,"amount")>number(row,"amount_minor")) throw mismatch();
     String state=dispute.path("status").asText();
     if (!Set.of("open","under_review","action_required","lost","closed","won").contains(state)) throw mismatch();
-    tx(()->{ var current=system((UUID)row.get("id")); long deducted=integer(dispute,"amount_deducted");
+    tx(()->{ var current=system((UUID)row.get("id"));
+    if(!repo.ownsReconciliation((UUID)current.get("id"),generation))return null;
+    long deducted=integer(dispute,"amount_deducted");
     if (deducted<0 || deducted>number(row,"amount_minor")) throw mismatch();
     repo.dispute((UUID)current.get("id"),id,state,deducted);
     for (String event:pending) repo.processedEvent(event);

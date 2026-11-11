@@ -543,11 +543,11 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/payments/PaymentRepository.java",
-      "sha256": "be876d333a93ab6bdd213b7b7f07402f71e63782057197e095810a95983213b1"
+      "sha256": "707079a6197753efc0e6b7b0fd5dff18201a76b9eddd978a92d2d935bb3c27ae"
     },
     {
       "path": "backend/src/main/java/com/getlancer/payments/PaymentService.java",
-      "sha256": "86df7c7d5c1322beb47ee71abc92e1eb4a2225a431663aca858a366909b58c8c"
+      "sha256": "de50b763a7298520758036daa183ed964a1192703ef36f5473d0989f9ebaa03e"
     },
     {
       "path": "backend/src/main/java/com/getlancer/payments/RazorpayClient.java",
@@ -787,7 +787,7 @@
     },
     {
       "path": "backend/src/main/resources/catalog/education.json",
-      "sha256": "fcbacd7448b72b0bebbc038a05b2cf0274196f296454f1eed684d4658ce4ccb9"
+      "sha256": "4c0b8c27d9a4cbee38e8f37ba26eae3ac27a736851a8ce5ebab9c9ab20d9894d"
     },
     {
       "path": "backend/src/main/resources/db/migration/V10__profile_details_and_review_identity.sql",
@@ -980,6 +980,10 @@
     {
       "path": "backend/src/main/resources/db/migration/V53__commercial_financial_inboxes.sql",
       "sha256": "c0613dac1a17debf8848d05d163270bb110a6050777a048d916daf4d68da8415"
+    },
+    {
+      "path": "backend/src/main/resources/db/migration/V54__payment_reconciliation_generation.sql",
+      "sha256": "687eeb821fc28906e78e84940ec201ce8ed89d2b2dcb589d5b41429b5edba888"
     },
     {
       "path": "backend/src/main/resources/db/migration/V5__google_and_login_challenges.sql",
@@ -1209,7 +1213,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/PaymentIntegrationTest.java",
-      "sha256": "36e7ad286b05795146934cba98cd268269c2d0d11275c1047a6944822e1a0aaf"
+      "sha256": "349737fcc3ac8eedcc254bb8480c4855fee96da2a23026946e9f08bc076e7304"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/PaymentLifecycleAuditRegressionTest.java",
@@ -1333,7 +1337,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/payments/RazorpayFixture.java",
-      "sha256": "f5518c0bb9aee3af5f6bd28618f90a3d64cbf9b54c79de715012af933c97a74f"
+      "sha256": "cd98af470c04c83245d03f691c5601eb9021ea3eca5a75d109fd1e7d11878293"
     },
     {
       "path": "backend/src/test/java/com/getlancer/payments/RefundReconciliationTest.java",
