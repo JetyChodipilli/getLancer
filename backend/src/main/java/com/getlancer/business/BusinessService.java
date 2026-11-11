@@ -60,7 +60,7 @@ public class BusinessService {
   @Transactional
   public Map<String, Object> workspace(UUID id, HttpServletRequest r) {
     UUID u = repo.verified(r);
-    String role = repo.access(id, u, false);
+    String role = repo.access(id, u, false, r);
     var members = repo.page(r,
         "SELECT m.user_id AS \"userId\",coalesce(d.display_name,'Hiring manager') AS name,m.role"
             + " FROM business_members m JOIN users u ON u.id=m.user_id LEFT JOIN developer_profiles d ON d.user_id=m.user_id"
@@ -86,7 +86,7 @@ public class BusinessService {
   @Transactional
   public Map<String, Object> edit(UUID id, Map<String, Object> b, HttpServletRequest r) {
     UUID u = repo.verified(r);
-    repo.access(id, u, true);
+    repo.access(id, u, true, r);
     repo.jdbc()
         .update(
             "UPDATE businesses SET name=?,summary=? WHERE id=?",
@@ -100,7 +100,7 @@ public class BusinessService {
   @Transactional
   public Map<String, Object> invite(UUID business, Map<String, Object> b, HttpServletRequest r) {
     UUID u = repo.verified(r);
-    repo.access(business, u, true);
+    repo.access(business, u, true, r);
     var target =
         repo.jdbc()
             .queryForList(
@@ -165,6 +165,7 @@ public class BusinessService {
                 + " FOR UPDATE",
             invitation,
             u);
+    repo.requireCurrent(u, r);
     // Read wall time only after both locking statements have returned.
     var observedAt = repo.jdbc().queryForObject("SELECT clock_timestamp()", Timestamp.class);
     if (!i.get("status").equals("PENDING")
@@ -187,7 +188,7 @@ public class BusinessService {
   @Transactional
   public Map<String, Object> remove(UUID business, UUID user, HttpServletRequest r) {
     UUID u = repo.verified(r);
-    repo.access(business, u, !u.equals(user));
+    repo.access(business, u, !u.equals(user), r);
     var target =
         repo.one(
             "SELECT role FROM business_members WHERE business_id=? AND user_id=?", business, user);

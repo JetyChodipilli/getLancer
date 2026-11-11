@@ -57,8 +57,18 @@ public class TeamService {
     return repository.team(t);
   }
 
+  void requireCurrentActor(UUID u, HttpServletRequest r) {
+    if (!u.equals(security.user(r)))
+      throw new ApiError(403, "FORBIDDEN", "Team account access changed.");
+  }
+
   void lock(UUID t) {
     repository.lock(t);
+  }
+
+  void lock(UUID t, UUID u, HttpServletRequest r) {
+    lock(t);
+    requireCurrentActor(u, r);
   }
 
   void active(UUID t) {
@@ -76,9 +86,15 @@ public class TeamService {
     return role;
   }
 
-  String access(UUID t, UUID u, String capability) {
-    lock(t);
+  String member(UUID t, UUID u, HttpServletRequest r) {
     String role = member(t, u);
+    requireCurrentActor(u, r);
+    return role;
+  }
+
+  String access(UUID t, UUID u, String capability, HttpServletRequest r) {
+    lock(t);
+    String role = member(t, u, r);
     TeamPolicy.require(role, capability);
     return role;
   }
@@ -193,7 +209,7 @@ public class TeamService {
 
   @Transactional
   public Map<String, Object> leadNotes(UUID id, UUID leadId, HttpServletRequest r) {
-    TeamPolicy.require(member(id, security.user(r)), "commercial");
+    TeamPolicy.require(member(id, security.user(r), r), "commercial");
     one("SELECT id FROM team_leads WHERE team_id=? AND id=?", id, leadId);
     return Pages.query(db, r, NOTES + "WHERE n.lead_id=? ORDER BY n.created_at,n.id", leadId);
   }
@@ -312,7 +328,7 @@ public class TeamService {
   @Transactional
   public Map<String, Object> workspace(UUID id, HttpServletRequest r) {
     UUID viewer = security.user(r);
-    String role = member(id, viewer);
+    String role = member(id, viewer, r);
     Map<String, Object> x = new LinkedHashMap<>();
     x.put("team", team(id));
     x.put("myRole", role);
@@ -354,7 +370,7 @@ public class TeamService {
   @Transactional
   public Map<String, Object> edit(UUID id, Map<String, Object> b, HttpServletRequest r) {
     UUID u = security.user(r);
-    access(id, u, "owner");
+    access(id, u, "owner", r);
     active(id);
     db.update(
         "UPDATE teams SET name=?,summary=?,availability=?,project_range=? WHERE id=?",
@@ -368,7 +384,7 @@ public class TeamService {
   }
 
   public Map<String, Object> candidates(UUID id, String q, HttpServletRequest r) {
-    TeamPolicy.require(member(id, security.user(r)), "recruit");
+    TeamPolicy.require(member(id, security.user(r), r), "recruit");
     active(id);
     if (q.length() > 200) throw new ApiError(400, "VALIDATION_ERROR", "Search is too long.");
     return Pages.query(db, r,
@@ -408,7 +424,7 @@ public class TeamService {
   @Transactional
   public Map<String, Object> invite(UUID id, Map<String, Object> b, HttpServletRequest r) {
     UUID u = security.user(r);
-    String actor = access(id, u, "recruit");
+    String actor = access(id, u, "recruit", r);
     active(id);
     String role = text(b, "role", 1, 30);
     TeamPolicy.invitationRole(actor, role);
@@ -425,13 +441,14 @@ public class TeamService {
     UUID u = security.user(r);
     var initial = one("SELECT team_id FROM team_invitations WHERE id=? AND user_id=?", id, u);
     UUID t = (UUID) initial.get("team_id");
-    lock(t);
+    lock(t, u, r);
     var i =
         one(
             "SELECT id,team_id,user_id,role,membership_type,expires_at,respond_by,project_label,status,created_at FROM"
                 + " team_invitations WHERE id=? AND user_id=? FOR UPDATE",
             id,
             u);
+    requireCurrentActor(u, r);
     // A validity projection in SELECT FOR UPDATE may run before its row-lock wait.
     var observedAt = db.queryForObject("SELECT clock_timestamp()", Timestamp.class);
     if (!"PENDING".equals(i.get("status"))
@@ -467,7 +484,7 @@ public class TeamService {
   public Map<String, Object> changeRole(
       UUID id, UUID userId, Map<String, Object> b, HttpServletRequest r) {
     UUID u = security.user(r);
-    access(id, u, "owner");
+    access(id, u, "owner", r);
     String current = member(id, userId), next = TeamPolicy.choice(b, "role", TeamPolicy.ROLES);
     if (current.equals("OWNER") || next.equals("OWNER"))
       throw new ApiError(
@@ -480,8 +497,8 @@ public class TeamService {
   @Transactional
   public Map<String, Object> remove(UUID id, UUID userId, HttpServletRequest r) {
     UUID u = security.user(r);
-    lock(id);
-    String actor = member(id, u);
+    lock(id, u, r);
+    String actor = member(id, u, r);
     var target = one("SELECT role FROM team_members WHERE team_id=? AND user_id=?", id, userId);
     if (!u.equals(userId)) TeamPolicy.require(actor, "owner");
     if ("OWNER".equals(target.get("role"))) {
@@ -517,7 +534,7 @@ public class TeamService {
   @Transactional
   public Map<String, Object> createRole(UUID id, Map<String, Object> b, HttpServletRequest r) {
     UUID u = security.user(r);
-    access(id, u, "recruit");
+    access(id, u, "recruit", r);
     active(id);
     UUID role = id();
     db.update(
@@ -539,7 +556,7 @@ public class TeamService {
   public Map<String, Object> roleStatus(
       UUID id, UUID roleId, Map<String, Object> b, HttpServletRequest r) {
     UUID u = security.user(r);
-    access(id, u, "recruit");
+    access(id, u, "recruit", r);
     active(id);
     one(ROLE + "WHERE team_id=? AND id=?", id, roleId);
     db.update(
@@ -554,7 +571,9 @@ public class TeamService {
   public Map<String, Object> apply(
       UUID id, UUID roleId, Map<String, Object> b, HttpServletRequest r) {
     UUID u = security.developer(r, true);
-    lock(id);
+    lock(id, u, r);
+    if (!u.equals(security.developer(r, true)))
+      throw new ApiError(403, "FORBIDDEN", "Builder access changed.");
     active(id);
     if (role(id, u) != null) throw new ApiError(409, "CONFLICT", "Team members cannot apply.");
     one(ROLE + "WHERE team_id=? AND id=? AND status='OPEN'", id, roleId);
@@ -574,7 +593,7 @@ public class TeamService {
   public Map<String, Object> decision(
       UUID id, UUID applicationId, Map<String, Object> b, HttpServletRequest r) {
     UUID u = security.user(r);
-    access(id, u, "recruit");
+    access(id, u, "recruit", r);
     active(id);
     var a =
         one(
@@ -608,7 +627,9 @@ public class TeamService {
     UUID u = (UUID) p.get("id");
     if (p.get("email_verified_at") == null)
       throw new ApiError(403, "EMAIL_NOT_VERIFIED", "Verify your email first.");
-    lock(id);
+    lock(id, u, r);
+    if (security.principal(r).get("email_verified_at") == null)
+      throw new ApiError(403, "EMAIL_NOT_VERIFIED", "Verify your email first.");
     active(id);
     if (db.queryForObject(
             "SELECT count(*) FROM team_members WHERE team_id=? AND user_id=? AND (expires_at IS"
@@ -639,7 +660,9 @@ public class TeamService {
     UUID u = (UUID) principal.get("id");
     if (principal.get("email_verified_at") == null)
       throw new ApiError(403, "EMAIL_NOT_VERIFIED", "Verify your email first.");
-    lock(id);
+    lock(id, u, r);
+    if (security.principal(r).get("email_verified_at") == null)
+      throw new ApiError(403, "EMAIL_NOT_VERIFIED", "Verify your email first.");
     active(id);
     var lead =
         one(
@@ -668,7 +691,7 @@ public class TeamService {
   public Map<String, Object> updateLead(
       UUID id, UUID leadId, Map<String, Object> b, HttpServletRequest r) {
     UUID u = security.user(r);
-    access(id, u, "commercial");
+    access(id, u, "commercial", r);
     active(id);
     var l = one("SELECT id,team_id,client_id,title,description,budget,timeline,status,assignee_id,follow_up_at,created_at FROM team_leads WHERE team_id=? AND id=? FOR UPDATE", id, leadId);
     String status =
@@ -719,8 +742,10 @@ public class TeamService {
   @Transactional
   public Map<String, Object> addProject(UUID id, Map<String, Object> b, HttpServletRequest r) {
     UUID u = security.developer(r, true), p = uuid(b.get("productId"));
-    lock(id);
-    member(id, u);
+    lock(id, u, r);
+    member(id, u, r);
+    if (!u.equals(security.developer(r, true)))
+      throw new ApiError(403, "FORBIDDEN", "Builder access changed.");
     active(id);
     one(
         ProductRepository.SELECT
@@ -741,13 +766,13 @@ public class TeamService {
   @Transactional
   public Map<String, Object> removeProject(UUID id, UUID productId, HttpServletRequest r) {
     UUID u = security.user(r);
-    lock(id);
+    lock(id, u, r);
     var p =
         one(
             "SELECT consented_by FROM team_projects WHERE team_id=? AND product_id=?",
             id,
             productId);
-    if (!u.equals(p.get("consented_by"))) TeamPolicy.require(member(id, u), "owner");
+    if (!u.equals(p.get("consented_by"))) TeamPolicy.require(member(id, u, r), "owner");
     db.update("DELETE FROM team_projects WHERE team_id=? AND product_id=?", id, productId);
     audit(id, u, "PROJECT_REMOVED", "Showcase consent removed", "member");
     return Map.of("ok", true);
@@ -766,7 +791,7 @@ public class TeamService {
   @Transactional
   public Map<String, Object> addStaffing(UUID id, Map<String, Object> b, HttpServletRequest r) {
     UUID u = security.user(r);
-    access(id, u, "staff");
+    access(id, u, "staff", r);
     active(id);
     UUID target = uuid(b.get("userId"));
     member(id, target);
@@ -792,7 +817,7 @@ public class TeamService {
   public Map<String, Object> updateStaffing(
       UUID id, UUID staffingId, Map<String, Object> b, HttpServletRequest r) {
     UUID u = security.user(r);
-    access(id, u, "staff");
+    access(id, u, "staff", r);
     active(id);
     var s =
         one(
@@ -821,7 +846,8 @@ public class TeamService {
   @Transactional
   public Map<String, Object> moderate(UUID id, Map<String, Object> b, HttpServletRequest r) {
     UUID u = security.admin(r);
-    lock(id);
+    lock(id, u, r);
+    security.admin(r);
     String status = TeamPolicy.choice(b, "status", Set.of("ACTIVE", "SUSPENDED")),
         reason = text(b, "reason", 10, 3000);
     db.update("UPDATE teams SET status=? WHERE id=?", status, id);

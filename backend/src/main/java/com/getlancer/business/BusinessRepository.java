@@ -69,8 +69,14 @@ public class BusinessRepository {
     return (UUID) p.get("id");
   }
 
-  String access(UUID business, UUID user, boolean owner) {
+  void requireCurrent(UUID user, HttpServletRequest request) {
+    if (!user.equals(verified(request)))
+      throw new ApiError(403, "FORBIDDEN", "Business account access changed.");
+  }
+
+  String access(UUID business, UUID user, boolean owner, HttpServletRequest request) {
     one("SELECT id FROM businesses WHERE id=? FOR UPDATE", business);
+    requireCurrent(user, request);
     var rows = db.queryForList("SELECT m.role" + MEMBER + "AND m.user_id=?", business, user);
     if (rows.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Business workspace not found.");
     String role = (String) rows.get(0).get("role");

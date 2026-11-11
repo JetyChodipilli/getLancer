@@ -10,8 +10,8 @@
       "primaryFile": "src/App.vue",
       "compiler": "@vue/compiler-sfc 3.5.43",
       "previewSha256": "5619abbb4e786d99c4c4a1f303219a9c1b5157353abc15f4970744eace8045ef",
-      "sourceSha256": "408ca6369b924b06d71d889fa3e9a4a76d77a10773762e16dbf7fc51bb6c7917",
-      "archiveSha256": "548f33dbe14bd21cf767c4f9f7b18837173881a7f5000e77c96b7727c747c64e",
+      "sourceSha256": "d0859f2735391cc3f550715389287480ae3ced0fe21df30a604aa71990232398",
+      "archiveSha256": "845fb1699ec1e03a3c32b66d49597309862408d0b9f3b674c5c7119c13cc767a",
       "sourceUrl": "/components/frameworks/source/vue",
       "previewUrl": "/components/frameworks/preview/vue",
       "files": [
@@ -22,8 +22,8 @@
         },
         {
           "name": "build.mjs",
-          "sha256": "86364babcda964f08e25c6d910ed5f94ebfaf1f015705fdbad21a1e2d69112f9",
-          "bytes": 915
+          "sha256": "034cdbee0ebd3017f94b73b76b8d353090dbba72bff01785c2d1b70ad8a65e31",
+          "bytes": 965
         },
         {
           "name": "LICENSE",
@@ -80,9 +80,9 @@
       "summary": "A filtered list with reactive completion state.",
       "primaryFile": "src/App.svelte",
       "compiler": "svelte/compiler 5.57.2",
-      "previewSha256": "2daaa62ce7755b02aa1efa3ec1669f3f05404ab549c37f78e33a42b2e4b61454",
-      "sourceSha256": "4436acb7452f3a703a0b7a3b828445c2026b06e32dc260219bceef161219d5e2",
-      "archiveSha256": "244569b1522ecfca167e30ea0525c82dd01fa8ad1f3bba2000bff46398626242",
+      "previewSha256": "58417a7e33dc6f7825d8a924ac224700b090d60184af95696638bd62f739c8b3",
+      "sourceSha256": "ef307de80d8e7d05daf85facdb15fb76ca47a1c072327ddc8434d65dbfc19ee4",
+      "archiveSha256": "fa087f8c8ab972237983fa973e1be5774eaf1315d37f3c9af919f352c7383a11",
       "sourceUrl": "/components/frameworks/source/svelte",
       "previewUrl": "/components/frameworks/preview/svelte",
       "files": [
@@ -93,8 +93,8 @@
         },
         {
           "name": "build.mjs",
-          "sha256": "07bdedc5677627c18064daaa585197924e95c0bd0f1c2ed19d58db8ec9513726",
-          "bytes": 708
+          "sha256": "7129f074d9f46b5b00dce97fa68d682c7ea863cfc9d1098dc2fbd618361f680a",
+          "bytes": 758
         },
         {
           "name": "LICENSE",

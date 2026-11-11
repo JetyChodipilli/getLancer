@@ -39,13 +39,13 @@ test('applicability retains exact advisory and hashed evidence while other match
 test('changed advisories and expired assessments fail closed',t=>{
  const {root}=fixture(t);
  assert.throws(()=>assessBackendFindings([{...finding,modified:'2026-10-07T00:00:00Z'}],root,now),/advisory changed/);
- assert.throws(()=>assessBackendFindings([finding],root,new Date('2026-11-12T00:00:00Z')),/expired/);
+ assert.throws(()=>assessBackendFindings([finding],root,new Date('2026-11-18T00:00:00Z')),/expired/);
 });
 test('reassessed application still needs current runtime proof during its one-week review window',t=>{
- const reviewedNow=new Date('2026-11-05T12:00:00Z'),{root}=fixture(t,reviewedNow);
+ const reviewedNow=new Date('2026-11-11T12:00:00Z'),{root}=fixture(t,reviewedNow);
  const disposition=assessBackendFindings([finding],root,reviewedNow)[0].disposition;
- assert.equal(disposition.reviewedAt,'2026-11-05');
- assert.equal(disposition.expiresAt,'2026-11-12T00:00:00.000Z');
+ assert.equal(disposition.reviewedAt,'2026-11-11');
+ assert.equal(disposition.expiresAt,'2026-11-18T00:00:00.000Z');
  assert.throws(()=>assessBackendFindings([finding],root,new Date(reviewedNow.getTime()+3600001)),/last hour/);
 });
 test('missing, failed, skipped and wrong-class MVC test evidence cannot authorize assessment',t=>{
