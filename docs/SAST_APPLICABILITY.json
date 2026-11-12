@@ -1101,7 +1101,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/config/DatabaseRoleGuardIntegrationTest.java",
-      "sha256": "c721cb5094a02edc50b8429ac608c44327d2d1faf5d8df32db4c247aa59a95ee"
+      "sha256": "ec3f63ed92b8d6a658bd615c86442cca0917dd4d1aac3c9aeb6ba5e287f10572"
     },
     {
       "path": "backend/src/test/java/com/getlancer/config/DefaultSecurityBootstrapIntegrationTest.java",
@@ -1145,7 +1145,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/AdminAuthorityLockIntegrationTest.java",
-      "sha256": "9f486fa556e1f56e5141ab0ad091216d8754ff7d342740a752169c8ab0a45960"
+      "sha256": "6484b3f05731908798666a41e30f4bc1d68eb4075ee43f477945eed0825c21b0"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/AdminHostingAuditRegressionTest.java",
@@ -1209,7 +1209,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/LabsIntegrationTest.java",
-      "sha256": "d806dc97b48d3bbafadc356c2cc766ec94862c8224c396f5644a2926322cd296"
+      "sha256": "f97436f31d8d2522f6e39e5163b41ad7a98f22229b84f7834a533b55dbf88665"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/MaintenanceIntegrationTest.java",
@@ -1301,7 +1301,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/labs/LabProtocolFixture.java",
-      "sha256": "7c025805e022eb643d52168c8d8314688cf475b46cffc29acc49307e1d933757"
+      "sha256": "3d7f97bc94d9062fc51af6216f6b182a03a993934d093696d163febcce3fa221"
     },
     {
       "path": "backend/src/test/java/com/getlancer/labs/LabProtocolTest.java",

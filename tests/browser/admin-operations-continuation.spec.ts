@@ -50,21 +50,36 @@ test('first-page collection errors preserve the other collections and retry only
  expect(f.calls.disputes).toEqual([0]);expect(f.calls.accounts).toEqual([0,0]);expect(f.calls.attention).toEqual([0]);
 });
 
-test('ordinary mutation failures retain typed decisions, unrelated fields and the current continuation cursor',async({page})=>{
+test('rejected 400/409 decisions retain typed decisions, unrelated fields and the current continuation cursor',async({page})=>{
  const f=await fixture(page);await open(page);const disputes=region(page,'disputes');
  await disputes.getByRole('button',{name:'Load more delivery disputes',exact:true}).click();await expect(disputes.locator('form')).toHaveCount(100);
  const form=disputes.locator('form').filter({has:page.getByText('Open dispute 99',{exact:true})});
  const reason='Retain this independently reviewed decision while the service recovers.';
  await form.getByLabel('Decision reason',{exact:true}).fill(reason);await form.getByLabel('Resolution',{exact:true}).selectOption('CANCEL');
  const order=region(page,'attention').getByLabel('Provider order ID',{exact:true}).first();await order.fill('order_retained123');
- for(const status of [400,409,503]){
+ for(const status of [400,409]){
   f.failMutation(status);await form.getByRole('button',{name:'Record dispute resolution',exact:true}).click();
   await expect(page.getByRole('alert')).toHaveText('The decision was not saved. Please retry.');
   await expect(form.getByLabel('Decision reason',{exact:true})).toHaveValue(reason);await expect(form.getByLabel('Resolution',{exact:true})).toHaveValue('CANCEL');await expect(order).toHaveValue('order_retained123');
   await expect(disputes.locator('form')).toHaveCount(100);await expect(form.getByRole('button',{name:'Record dispute resolution',exact:true})).toBeEnabled();
  }
- expect(f.writes).toEqual(Array.from({length:3},()=>({resolution:'CANCEL',reason})));
+ expect(f.writes).toEqual(Array.from({length:2},()=>({resolution:'CANCEL',reason})));
  await disputes.getByRole('button',{name:'Load more delivery disputes',exact:true}).click();await expect(disputes.locator('form')).toHaveCount(150);expect(f.calls.disputes).toEqual([0,1,2]);
+});
+
+for(const status of [502,503])test('unconfirmed '+status+' decision clears financial records and blocks another write until current records refresh',async({page})=>{
+ const f=await fixture(page);await open(page);const disputes=region(page,'disputes');
+ await disputes.getByRole('button',{name:'Load more delivery disputes',exact:true}).click();await expect(disputes.locator('form')).toHaveCount(100);
+ const form=disputes.locator('form').filter({has:page.getByText('Open dispute 99',{exact:true})}),reason='Reconcile this decision before attempting another financial operation.';
+ await form.getByLabel('Decision reason',{exact:true}).fill(reason);await form.getByLabel('Resolution',{exact:true}).selectOption('CANCEL');
+ f.failMutation(status);await form.getByRole('button',{name:'Record dispute resolution',exact:true}).click();
+ await expect(page.getByRole('alert')).toHaveText('The decision could not be confirmed. Refresh payment operations before repeating it. The decision was not saved. Please retry.');
+ await expect(disputes.locator('form')).toHaveCount(0);await expect(region(page,'accounts').getByText('builder-0 · acc_fixture0',{exact:true})).toHaveCount(0);await expect(region(page,'attention').locator('form')).toHaveCount(0);
+ await expect(region(page,'accounts').getByRole('button',{name:'Verify and map linked account',exact:true})).toBeDisabled();expect(f.writes).toEqual([{resolution:'CANCEL',reason}]);
+ f.failMutation(0);await page.getByRole('button',{name:'Refresh payment operations',exact:true}).click();await expect(disputes.locator('form')).toHaveCount(50);await expect(page.getByRole('alert')).toHaveCount(0);
+ expect(f.calls.disputes).toEqual([0,1,0]);expect(f.calls.accounts).toEqual([0,0]);expect(f.calls.attention).toEqual([0,0]);
+ const current=disputes.locator('form').first();await current.getByLabel('Decision reason',{exact:true}).fill(reason);await current.getByRole('button',{name:'Record dispute resolution',exact:true}).click();
+ await expect(page.getByRole('status').filter({hasText:/^Decision saved\.$/})).toBeVisible();expect(f.writes).toEqual([{resolution:'CANCEL',reason},{resolution:'RESUME',reason}]);
 });
 
 for(const status of [401,403,404])test('current authority denial '+status+' clears every protected admin collection',async({page})=>{

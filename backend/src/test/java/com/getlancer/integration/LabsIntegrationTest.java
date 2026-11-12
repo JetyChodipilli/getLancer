@@ -302,8 +302,9 @@ class LabsIntegrationTest {
     mvc.perform(as(get("/api/v1/admin/labs"),"lab-admin")).andExpect(status().isOk()).andExpect(jsonPath("$.dailyReservedMicros").value(1000));
   }
 
-  @Test void explicitIsolationLossClosesRoutingInCommittedFenceAndRetainsCapacity()throws Exception{
-    UUID id=reserve("lab-owner","unsafe-isolation-run");labs.tick();fixture.notIsolated=true;
+  @org.junit.jupiter.params.ParameterizedTest @org.junit.jupiter.params.provider.ValueSource(booleans={false,true})
+  void explicitIsolationLossClosesRoutingInCommittedFenceAndRetainsCapacity(boolean closedFailure)throws Exception{
+    UUID id=reserve("lab-owner","unsafe-isolation-run");labs.tick();fixture.notIsolated=!closedFailure;fixture.closedRequestFailure=closedFailure;
     mvc.perform(body(post("/api/v1/lab-runs/"+id+"/requests"),"lab-owner",Map.of("operationId","echo","inputs",Map.of("message","Hello"))).header("Idempotency-Key","unsafe-operation")).andExpect(status().isBadGateway()).andExpect(jsonPath("$.error.code").value("LAB_ISOLATION_LOST"));
     assertEquals("CANCELLING",db.queryForObject("SELECT status FROM lab_runs WHERE id=?",String.class,id));assertEquals(2,db.queryForObject("SELECT lease_generation FROM lab_runs WHERE id=?",Integer.class,id));assertEquals(1,db.queryForObject("SELECT count(*) FROM lab_outbox WHERE run_id=? AND action='STOP' AND delivered_at IS NULL",Integer.class,id));assertNull(db.queryForObject("SELECT response::text FROM lab_requests WHERE run_id=?",String.class,id));
     mvc.perform(start("lab-owner","unsafe-next-run")).andExpect(status().isTooManyRequests());

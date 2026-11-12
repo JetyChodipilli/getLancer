@@ -17,8 +17,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @org.springframework.test.context.ContextConfiguration(initializers = TestDatabaseGuard.class)
 @SpringBootTest(properties = {
@@ -183,10 +185,13 @@ class AdminAuthorityLockIntegrationTest {
   @Test
   void profileDecisionRejectsReplacementAdministratorIdentityDuringTargetLockWait() throws Exception {
     UUID replacement = user("authority-replacement");
-    db.update("INSERT INTO user_roles(user_id,role) VALUES(?,'ADMIN')", replacement);
     revokeAfterLockWait("SELECT user_id FROM developer_profiles WHERE user_id=? FOR UPDATE", builder,
         body("/admin/profiles/" + builder + "/suspend", "{\"reason\":\"Review the original operator decision\"}"),
-        () -> db.update("UPDATE sessions SET user_id=? WHERE token_hash=?", replacement, Support.hash("authority-admin")), 403);
+        () -> new TransactionTemplate(new DataSourceTransactionManager(db.getDataSource())).executeWithoutResult(tx -> {
+          assertEquals(1, db.update("UPDATE user_roles SET user_id=? WHERE user_id=? AND role='ADMIN'", replacement, operator));
+          assertEquals(1, db.update("UPDATE sessions SET user_id=? WHERE token_hash=?", replacement, Support.hash("authority-admin")));
+        }), 403);
+    assertEquals(replacement, db.queryForObject("SELECT user_id FROM user_roles WHERE role='ADMIN'", UUID.class));
     assertEquals("APPROVED", db.queryForObject("SELECT approval_status FROM developer_profiles WHERE user_id=?", String.class, builder));
   }
 

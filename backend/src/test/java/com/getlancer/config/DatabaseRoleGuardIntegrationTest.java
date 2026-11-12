@@ -193,10 +193,14 @@ class DatabaseRoleGuardIntegrationTest {
       when(provider.transfers("pay_legacysource123")).thenReturn(json.valueToTree(java.util.Map.of("items",List.of(transfer))));
       when(provider.refund("rfnd_legacyfixture123")).thenReturn(json.valueToTree(java.util.Map.of("entity","refund","id","rfnd_legacyfixture123","payment_id","pay_legacysource123","amount",2500,"currency","INR","status","failed")));
       String secret="legacy-commerce-webhook-fixture-only";
-      var payments=new com.getlancer.commerce.CommercePaymentService(commerce,mock(com.getlancer.security.Security.class),provider,mock(com.getlancer.commerce.CommerceService.class),json,new DataSourceTransactionManager(source),mock(com.getlancer.commerce.CommerceEducationBinding.class),secret);
+      String adminToken="legacy-upgrade-administrator";
+      upgrade.update("INSERT INTO user_roles(user_id,role) VALUES(?,'ADMIN')",owner);
+      upgrade.update("INSERT INTO sessions(token_hash,user_id,mfa_verified,expires_at) VALUES(?,?,true,clock_timestamp()+interval '1 hour')",com.getlancer.shared.Support.hash(adminToken),owner);
+      var administrator=new org.springframework.mock.web.MockHttpServletRequest();administrator.setCookies(new jakarta.servlet.http.Cookie("gl_session",adminToken));
+      var payments=new com.getlancer.commerce.CommercePaymentService(commerce,new com.getlancer.security.Security(upgrade,"http://localhost:3000",30),provider,mock(com.getlancer.commerce.CommerceService.class),json,new DataSourceTransactionManager(source),mock(com.getlancer.commerce.CommerceEducationBinding.class),secret);
       assertEquals(Boolean.TRUE,payments.webhook(signedCommerceReceipt("legacy-unknown-refund",unknown,secret)).get("duplicate"));
       assertEquals(Boolean.TRUE,payments.webhook(signedCommerceReceipt("legacy-unassociable-refund",unassociable,secret)).get("duplicate"));
-      var held=assertThrows(com.getlancer.shared.ApiError.class,()->payments.adminReconcile(sourcePurchase,new org.springframework.mock.web.MockHttpServletRequest()));assertEquals("REFUND_RECONCILIATION_REQUIRED",held.code);
+      var held=assertThrows(com.getlancer.shared.ApiError.class,()->payments.adminReconcile(sourcePurchase,administrator));assertEquals("REFUND_RECONCILIATION_REQUIRED",held.code);
       var conflict=assertThrows(com.getlancer.shared.ApiError.class,()->payments.webhook(signedCommerceReceipt("legacy-commerce-refund",known+" ",secret)));assertEquals(409,conflict.status);
       assertFalse(commerce.entitled(sourcePurchase,buyer));assertNull(upgrade.queryForObject("SELECT refund_id FROM commerce_webhook_events WHERE event_id='legacy-commerce-refund'",String.class));
       assertEquals(Boolean.TRUE,payments.webhook(signedCommerceReceipt("legacy-commerce-refund",known,secret)).get("duplicate"));
