@@ -158,7 +158,10 @@ public class LabService {
     });
     if(intent.cached()!=null)return intent.cached();
     // The committed claim bounds retries without holding admission, account or source locks across provider I/O.
-    try{var result=provider.send(intent.delivery());if(result.state().equals("FAILED"))throw new ApiError(502,"LAB_SCENARIO_FAILED","The isolated provider confirmed failure of this scenario operation.");if(!result.state().equals("RESULT"))throw new ApiError(502,"LAB_REQUEST_UNCONFIRMED","The isolated provider has not confirmed this request.");
+    try{var result=provider.send(intent.delivery());if(result.state().equals("FAILED")){
+      if(!result.healthy()||!result.isolated())throw new ApiError(502,"LAB_ISOLATION_LOST","The provider no longer confirms healthy isolated execution. Routing is closed pending cleanup.");
+      throw new ApiError(502,"LAB_SCENARIO_FAILED","The isolated provider confirmed failure of this scenario operation.");
+    }if(!result.state().equals("RESULT"))throw new ApiError(502,"LAB_REQUEST_UNCONFIRMED","The isolated provider has not confirmed this request.");
       return tx(()->{settings();UUID owner=actor(request,false);var run=owned(id,owner,false);current(run);actor(request,false);
       if(!run.get("status").equals("RUNNING")||number(run,"lease_generation")!=intent.delivery().leaseGeneration())throw new ApiError(403,"LAB_LEASE_STALE","This request belongs to an earlier closed lease.");
       if(!requestClaim(run,intent))throw new ApiError(409,"LAB_REQUEST_SUPERSEDED","A newer delivery attempt owns this request. Retry with the same request identity.");

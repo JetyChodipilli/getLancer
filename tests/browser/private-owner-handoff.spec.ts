@@ -27,7 +27,12 @@ async function mount(page:Page,kind:'lab'|'team'|'business'){
   plugin.onResolve({filter:/^next\/link$/},()=>({path:'link',namespace:'fixture'}));
   plugin.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:'export default function Link({children,prefetch,...props}){return <a {...props}>{children}</a>}',loader:'jsx',resolveDir:process.cwd()}));
  }}]})).outputFiles[0].text;
- await page.setContent('<div id="root"></div>');await page.addScriptTag({content:script});
+ // Native operation identities require the same trustworthy origin as the app.
+ // An opaque about:blank document does not expose crypto.randomUUID().
+ await page.route('**/private-owner-handoff-fixture',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Private owner handoff</title></head><body><div id="root"></div></body></html>'}));
+ await page.goto('/private-owner-handoff-fixture');
+ expect(await page.evaluate(()=>isSecureContext&&typeof crypto.randomUUID==='function')).toBe(true);
+ await page.addScriptTag({content:script});
 }
 async function pending(page:Page,path:string,method='GET',account?:string){await expect.poll(()=>page.evaluate(({path,method,account})=>(window as unknown as Harness).pending.some(call=>call.path===path&&call.method===method&&(account===undefined||call.account===account)),{path,method,account})).toBe(true);}
 async function respond(page:Page,path:string,body:unknown,status=200,method='GET',type='application/json',account?:string){

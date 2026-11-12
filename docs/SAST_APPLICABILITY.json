@@ -155,7 +155,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/business/BusinessRepository.java",
-      "sha256": "72ba6e7235694b91d85a6122c4ecd232388c592e6d2d30772f005ba6713bc8ea"
+      "sha256": "4f1946a3f49665e8e7032a92167d4df077ffcb202bb432ca19df3d87c126d454"
     },
     {
       "path": "backend/src/main/java/com/getlancer/business/BusinessService.java",
@@ -167,7 +167,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/business/ConciergeService.java",
-      "sha256": "513c1a727b66364ad9e64b788e40d872299655c6c1401076f1d96706d3e45cc8"
+      "sha256": "d8eb104afb0e3b6661d18dcf1e70c8cf7ce5f96be0d45c2963a0b3d7c497ce01"
     },
     {
       "path": "backend/src/main/java/com/getlancer/business/MatchingService.java",
@@ -491,7 +491,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/labs/LabService.java",
-      "sha256": "b76456889ab9e0ba5581d9d32e22145a5b4709a33d8948d93404b319496d1ec5"
+      "sha256": "6e7a8ba9840ef303db1c8f78d31f8bf6ed7b491453bbaee2a1f6d67d55957c52"
     },
     {
       "path": "backend/src/main/java/com/getlancer/maintenance/MaintenanceAccess.java",
@@ -1184,6 +1184,10 @@
       "sha256": "f02d4ad9bf6f4e823439ff976cee23b4619e9e519a4777a91a6822e2b7335fb3"
     },
     {
+      "path": "backend/src/test/java/com/getlancer/integration/ConciergeAuthorityLockIntegrationTest.java",
+      "sha256": "b132e377483cec8e19cacdbbd8ea0f53050cc459df62b079b4bf0ab0f21c9b2f"
+    },
+    {
       "path": "backend/src/test/java/com/getlancer/integration/DataExposureIntegrationTest.java",
       "sha256": "ac31b407cf02b0766363f44b0760a51f8b202bc5a910ee63909efc7fcd649ca2"
     },
@@ -1305,7 +1309,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/labs/LabRequestDeliveryTest.java",
-      "sha256": "92aa33cf02d1b8da960b5fd0103970773e971e1c6624e380ee2db681c4ad37f8"
+      "sha256": "ed994a8541064ed1b6151eeea4af03245239e688ef9e42a5501fe1638b360f92"
     },
     {
       "path": "backend/src/test/java/com/getlancer/labs/LabRequestsTest.java",

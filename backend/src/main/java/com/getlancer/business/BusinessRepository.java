@@ -55,6 +55,20 @@ public class BusinessRepository {
     return security.admin(r);
   }
 
+  UUID adminMutation(HttpServletRequest r) {
+    return security.adminMutation(r);
+  }
+
+  void requireCurrentAdmin(UUID actor, HttpServletRequest request) {
+    if (!actor.equals(adminMutation(request)))
+      throw new ApiError(403, "FORBIDDEN", "Administrator access changed.");
+  }
+
+  void requireCurrentAdminRead(UUID actor, HttpServletRequest request) {
+    if (!actor.equals(admin(request)))
+      throw new ApiError(403, "FORBIDDEN", "Administrator access changed.");
+  }
+
   Map<String, Object> one(String sql, Object... args) {
     var rows = db.queryForList(sql, args);
     if (rows.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Business record not found.");
