@@ -129,7 +129,7 @@ public class PaymentRepository {
   Map<String,Object> accounts(HttpServletRequest request) {
     return Pages.query(db, request, "SELECT id,builder_user_id AS \"builderUserId\",team_id AS \"teamId\",account_id AS \"accountId\",mode,provider_status AS \"providerStatus\",verified_at AS \"verifiedAt\" FROM payment_accounts ORDER BY verified_at DESC,id");
   }
-  void mapAccount(UUID builder,UUID team,String account,String mode,UUID admin) {
+  void mapAccount(UUID builder,UUID team,String account,String mode,UUID admin,Runnable currentAuthority) {
     if (builder!=null) {
       var allowed=db.queryForList("SELECT u.id FROM users u JOIN developer_profiles d ON d.user_id=u.id JOIN user_roles r ON r.user_id=u.id AND r.role='DEVELOPER' WHERE u.id=? AND u.account_status='ACTIVE' AND u.email_verified_at IS NOT NULL AND d.approval_status='APPROVED' FOR UPDATE OF u",builder);
       if (allowed.isEmpty()) throw new ApiError(404,"NOT_FOUND","Current approved seller not found.");
@@ -142,6 +142,8 @@ public class PaymentRepository {
     String previous=existing.isEmpty()?null:Objects.toString(existing.get(0).get("account_id"));
     if (db.queryForObject("SELECT count(*) FROM payment_accounts WHERE account_id=? AND id<>?",Integer.class,account,id)>0)
       throw new ApiError(409,"ACCOUNT_IN_USE","This linked account belongs to a different seller mapping.");
+    // Revalidate the operator after seller/team and existing mapping locks, before either write.
+    currentAuthority.run();
     if (existing.isEmpty()) db.update("INSERT INTO payment_accounts(id,builder_user_id,team_id,account_id,mode,provider_status,activation_confirmed,verified_by) VALUES(?,?,?,?,?,'created',true,?)",id,builder,team,account,mode,admin);
     else db.update("UPDATE payment_accounts SET account_id=?,mode=?,provider_status='created',activation_confirmed=true,verified_by=?,verified_at=now() WHERE id=?",account,mode,admin,id);
     db.update("INSERT INTO payment_account_audit(id,account_mapping_id,actor_id,previous_account_id,account_id) VALUES(?,?,?,?,?)",UUID.randomUUID(),id,admin,previous,account);

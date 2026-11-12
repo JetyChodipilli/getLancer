@@ -847,7 +847,7 @@ public class TeamService {
   public Map<String, Object> moderate(UUID id, Map<String, Object> b, HttpServletRequest r) {
     UUID u = security.admin(r);
     lock(id, u, r);
-    security.admin(r);
+    security.adminMutation(r);
     String status = TeamPolicy.choice(b, "status", Set.of("ACTIVE", "SUSPENDED")),
         reason = text(b, "reason", 10, 3000);
     db.update("UPDATE teams SET status=? WHERE id=?", status, id);

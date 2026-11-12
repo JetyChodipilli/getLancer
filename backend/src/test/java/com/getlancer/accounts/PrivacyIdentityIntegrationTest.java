@@ -98,6 +98,33 @@ class PrivacyIdentityIntegrationTest {
   }
 
   void revokedOperatorAfterTargetLock(boolean removeRole) throws Exception {
+    revokedOperatorDuringLock("SELECT id FROM users WHERE id=? FOR UPDATE", "%", () -> {
+      if (removeRole) db.update("DELETE FROM user_roles WHERE role='ADMIN' AND user_id=(SELECT user_id FROM sessions WHERE token_hash=?)", Support.hash("operator-session"));
+      else db.update("DELETE FROM sessions WHERE token_hash=?", Support.hash("operator-session"));
+    }, removeRole ? 403 : 401);
+  }
+
+  Map<String, Object> retainedPrivacyState() {
+    Map<String, Object> state = new java.util.LinkedHashMap<>();
+    state.put("user", db.queryForMap("SELECT * FROM users WHERE id=?", closed));
+    state.put("profile", db.queryForMap("SELECT * FROM developer_profiles WHERE user_id=?", closed));
+    state.put("deletionRequest", db.queryForMap("SELECT * FROM deletion_requests WHERE user_id=?", closed));
+    state.put("inquiry", db.queryForMap("SELECT * FROM inquiries WHERE id=?", inquiry));
+    state.put("grants", db.queryForList("SELECT * FROM product_access_grants WHERE product_id=? ORDER BY client_email", product));
+    state.put("tokens", db.queryForList("SELECT * FROM account_tokens WHERE user_id=? OR email=? ORDER BY id", closed, originalEmail));
+    state.put("sessions", db.queryForList("SELECT * FROM sessions WHERE user_id=? ORDER BY token_hash", closed));
+    state.put("loginChallenges", db.queryForList("SELECT * FROM login_challenges WHERE user_id=? ORDER BY token_hash", closed));
+    state.put("oauthIdentities", db.queryForList("SELECT * FROM oauth_identities WHERE user_id=? ORDER BY provider,subject", closed));
+    state.put("savedProducts", db.queryForList("SELECT * FROM saved_products WHERE user_id=? ORDER BY product_id", closed));
+    state.put("notifications", db.queryForList("SELECT * FROM notifications WHERE user_id=? ORDER BY id", closed));
+    state.put("outbox", db.queryForList("SELECT * FROM email_outbox WHERE recipient=? ORDER BY id", originalEmail));
+    state.put("audit", db.queryForList("SELECT * FROM moderation_actions WHERE target_type='DELETION' AND target_id=? ORDER BY id", closed));
+    return state;
+  }
+
+  void revokedOperatorDuringLock(String lockSql, String blockedQueryPattern, Runnable revoke,
+      int expectedStatus) throws Exception {
+    var before = retainedPrivacyState();
     var executor = Executors.newSingleThreadExecutor();
     try (var holder = db.getDataSource().getConnection()) {
       holder.setAutoCommit(false);
@@ -105,7 +132,7 @@ class PrivacyIdentityIntegrationTest {
       try (var statement = holder.createStatement(); var row = statement.executeQuery("SELECT pg_backend_pid()")) {
         assertTrue(row.next()); pid = row.getInt(1);
       }
-      try (var statement = holder.prepareStatement("SELECT id FROM users WHERE id=? FOR UPDATE")) {
+      try (var statement = holder.prepareStatement(lockSql)) {
         statement.setObject(1, closed); try (var row = statement.executeQuery()) { assertTrue(row.next()); }
       }
       var pending = executor.submit(() -> mvc.perform(post("/api/v1/admin/deletion-requests/" + closed + "/review")
@@ -114,19 +141,16 @@ class PrivacyIdentityIntegrationTest {
           .content("{\"action\":\"ANONYMIZE_PROFILE\",\"reason\":\"Synthetic review waiting for target lock\"}"))
           .andReturn().getResponse().getStatus());
       long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5); boolean waiting = false;
-      while (System.nanoTime() < deadline) {
-        waiting = db.queryForObject("SELECT count(*) FROM pg_stat_activity WHERE ?=ANY(pg_blocking_pids(pid))", Integer.class, pid) > 0;
+      while (System.nanoTime() < deadline && !pending.isDone()) {
+        waiting = db.queryForObject("SELECT count(*) FROM pg_stat_activity WHERE ?=ANY(pg_blocking_pids(pid)) AND query ILIKE ?", Integer.class, pid, blockedQueryPattern) > 0;
         if (waiting) break;
         LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(5));
       }
       assertTrue(waiting, "The real target lock wait must precede operator revocation.");
-      if (removeRole) db.update("DELETE FROM user_roles WHERE role='ADMIN' AND user_id=(SELECT user_id FROM sessions WHERE token_hash=?)", Support.hash("operator-session"));
-      else db.update("DELETE FROM sessions WHERE token_hash=?", Support.hash("operator-session"));
+      revoke.run();
       holder.commit();
-      assertEquals(removeRole ? 403 : 401, pending.get(10, TimeUnit.SECONDS));
-      assertEquals(originalEmail, db.queryForObject("SELECT email FROM users WHERE id=?", String.class, closed));
-      assertEquals("Fixture person", db.queryForObject("SELECT display_name FROM developer_profiles WHERE user_id=?", String.class, closed));
-      assertEquals(1, db.queryForObject("SELECT count(*) FROM product_access_grants WHERE product_id=? AND client_email=?", Integer.class, product, originalEmail));
+      assertEquals(expectedStatus, pending.get(10, TimeUnit.SECONDS).intValue());
+      assertEquals(before, retainedPrivacyState(), "Denied privacy reviews must roll back all target data and audit changes");
     } finally { executor.shutdownNow(); assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS)); }
   }
 
@@ -136,6 +160,21 @@ class PrivacyIdentityIntegrationTest {
 
   @Test void administratorRoleRemovedDuringTargetLockWaitCannotAnonymizeProfile() throws Exception {
     revokedOperatorAfterTargetLock(true);
+  }
+
+  @Test void mfaRevokedDuringLaterProfileWriteRollsBackEntirePrivacyReview() throws Exception {
+    db.update("INSERT INTO sessions(token_hash,user_id,expires_at) VALUES(?,?,now()+interval '1 hour')",
+        Support.hash("closed-account-session"), closed);
+    db.update("INSERT INTO login_challenges(token_hash,user_id,expires_at) VALUES(?,?,now()+interval '1 hour')",
+        Support.hash("closed-account-challenge"), closed);
+    db.update("INSERT INTO oauth_identities(provider,subject,user_id) VALUES('google','closed-account-google-subject',?)", closed);
+    db.update("INSERT INTO saved_products(user_id,product_id) VALUES(?,?)", closed, product);
+    db.update("INSERT INTO notifications(id,user_id,title) VALUES(?,?,'Retained private notification')", UUID.randomUUID(), closed);
+    db.update("INSERT INTO email_outbox(id,recipient,subject,body) VALUES(?,?,'Retained private subject','Retained sensitive delivery body')",
+        UUID.randomUUID(), originalEmail);
+    // This profile write follows the locked deletion request and the first canonical operator check.
+    revokedOperatorDuringLock("SELECT user_id FROM developer_profiles WHERE user_id=? FOR UPDATE", "%UPDATE developer_profiles%",
+        () -> db.update("UPDATE sessions SET mfa_verified=false WHERE token_hash=?", Support.hash("operator-session")), 403);
   }
 
   @Test void replacementAccountCannotInheritRetainedInquiryExportMutationsOrPrivateGrants() throws Exception {

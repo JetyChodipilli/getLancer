@@ -59,7 +59,9 @@ public class ModerationService {
         != 1)
       throw new ApiError(
           409, "INVALID_STATE_TRANSITION", "This report is missing or already resolved.");
+    admin.requireCurrentAdmin(actor, r);
     admin.audit(actor, "REPORT", id, "TRIAGE", severity + ": " + reason);
+    admin.requireCurrentAdmin(actor, r);
     return Map.of("ok", true);
   }
 
@@ -173,6 +175,7 @@ public class ModerationService {
       throw new ApiError(400, "VALIDATION_ERROR", "Choose a review outcome.");
     var rows = db.queryForList("SELECT id,decision_id,appellant_id,statement,evidence_url,status,resolution,reviewer_id,created_at,resolved_at FROM moderation_appeals WHERE id=? FOR UPDATE", id);
     if (rows.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Appeal not found.");
+    admin.requireCurrentAdmin(actor, r);
     var appeal = rows.get(0);
     if (Set.of("UPHELD", "OVERTURNED").contains(appeal.get("status")))
       throw new ApiError(409, "INVALID_STATE_TRANSITION", "This appeal has already been resolved.");
@@ -182,6 +185,7 @@ public class ModerationService {
       UUID target = (UUID) original.get("target_id");
       if (Set.of("ACCOUNT", "USER", "PRODUCT", "INQUIRY", "REVIEW").contains(original.get("target_type")))
         admin.requireCurrentAppealDecision(original);
+      admin.requireCurrentAdmin(actor, r);
       switch ((String) original.get("target_type")) {
         case "ACCOUNT" -> admin.accountAction(target, "restore", Map.of("reason", reason), r);
         case "USER" -> {
@@ -208,6 +212,7 @@ public class ModerationService {
                 409, "INVALID_STATE_TRANSITION", "This decision requires manual recovery.");
       }
     }
+    admin.requireCurrentAdmin(actor, r);
     db.update(
         "UPDATE moderation_appeals SET status=?,resolution=?,reviewer_id=?,resolved_at=CASE WHEN"
             + " ?='UNDER_REVIEW' THEN NULL ELSE now() END WHERE id=?",
@@ -218,6 +223,7 @@ public class ModerationService {
         id);
     admin.audit(actor, "APPEAL", id, state, reason);
     mail.notify((UUID) appeal.get("appellant_id"), "Your appeal is " + state + ". " + reason);
+    admin.requireCurrentAdmin(actor, r);
     return Map.of("ok", true);
   }
 
@@ -244,7 +250,9 @@ public class ModerationService {
           409,
           "MAIL_RENEWAL_REQUIRED",
           "This job cannot be retried. Ask the user to request a fresh confirmation link.");
+    admin.requireCurrentAdmin(actor, r);
     admin.audit(actor, "EMAIL", id, "RETRY", reason);
+    admin.requireCurrentAdmin(actor, r);
     return Map.of("ok", true);
   }
 }

@@ -49,9 +49,21 @@ public class PaymentService {
     return tx(()-> { delivery.lockEngagement(engagement,request,"ANY"); return new PaymentResponses.Summaries(repo.summaries(engagement)); });
   }
   private Map<String,Object> accessible(UUID id,HttpServletRequest request,String side) {
+    UUID actor=delivery.verified(request);
     var row=repo.attempt(id,false);
-    delivery.lockMilestone((UUID)row.get("milestone_id"),request,side);
-    return repo.attempt(id,true);
+    var milestone=delivery.lockMilestone((UUID)row.get("milestone_id"),request,side);
+    var current=repo.attempt(id,true);
+    delivery.requireCurrentParty(milestone,actor,request,side);
+    return current;
+  }
+  private void requireAdmin(UUID actor,HttpServletRequest request) {
+    if(!actor.equals(security.adminMutation(request)))throw new ApiError(403,"FORBIDDEN","Administrator access changed.");
+  }
+  private Map<String,Object> adminSystem(UUID id,HttpServletRequest request) {
+    UUID actor=security.admin(request);
+    var current=system(id);
+    requireAdmin(actor,request);
+    return current;
   }
   private Map<String,Object> system(UUID id) {
     var row=repo.attempt(id,false);
@@ -65,6 +77,7 @@ public class PaymentService {
     return PaymentResponses.Checkout.from(row, provider.keyId);
   }
   private PaymentResponses.Checkout availableCheckout(UUID id,HttpServletRequest request) {
+    UUID actor=delivery.verified(request);
     var before=repo.attempt(id,false);
     var milestone=delivery.lockMilestone((UUID)before.get("milestone_id"),request,"BUYER");
     var current=repo.attempt(id,true);
@@ -72,6 +85,7 @@ public class PaymentService {
       throw new ApiError(409,"PAYMENT_HELD","The engagement now has a hold. Contact the operator before checkout.");
     if (!Objects.equals(current.get("account_id"),repo.payee(milestone,provider.mode)))
       throw new ApiError(409,"PAYEE_CHANGED","The seller's linked account changed. Ask the operator to review the original order before checkout.");
+    delivery.requireCurrentParty(milestone,actor,request,"BUYER");
     return checkout(current);
   }
 
@@ -93,8 +107,12 @@ public class PaymentService {
       if (amount<100 || amount>1000000000 || !"INR".equals(m.get("currency")))
         throw new ApiError(409,"INVALID_AGREEMENT_AMOUNT","The agreed milestone amount cannot be collected.");
       UUID id=UUID.randomUUID();
-      repo.reserve(id,milestone,payer,key,amount,repo.payee(m,provider.mode),provider.mode);
+      String payee=repo.payee(m,provider.mode);
+      // Payee validation can wait after payer authorization; do not reserve for a revoked caller.
+      delivery.requireCurrentParty(m,payer,request,"BUYER");
+      repo.reserve(id,milestone,payer,key,amount,payee,provider.mode);
       delivery.event((UUID)m.get("engagementId"),payer,"PAYMENT_RESERVED","Payment reserved; provider capture is still required.");
+      delivery.requireCurrentParty(m,payer,request,"BUYER");
       var created=new LinkedHashMap<>(repo.attempt(id,false)); created.put("create",true); return created;
     });
     UUID id=(UUID)reservation.get("id");
@@ -273,7 +291,7 @@ public class PaymentService {
       var entity=provider.account(account);
       if (!account.equals(entity.path("id").asText()) || !"route".equals(entity.path("type").asText()) || !"created".equals(entity.path("status").asText()))
         throw new ApiError(409,"INVALID_LINKED_ACCOUNT","Razorpay did not confirm an available Route linked account.");
-      return tx(()->{ security.admin(request); repo.mapAccount(builderId,teamId,account,provider.mode,admin); return PageResponse.from(repo.accounts(request),PaymentResponses.Account::from); });
+      return tx(()->{ security.admin(request); repo.mapAccount(builderId,teamId,account,provider.mode,admin,()->requireAdmin(admin,request)); return PageResponse.from(repo.accounts(request),PaymentResponses.Account::from); });
     } catch (RazorpayClient.ProviderFailure ex) { throw new ApiError(502,"ACCOUNT_VERIFICATION_UNAVAILABLE","Razorpay account verification failed. No seller mapping was saved."); }
   }
   private void reconcileDispute(Map<String,Object> row,String id,long generation) {
@@ -292,7 +310,7 @@ public class PaymentService {
     return null; });
   }
   public PaymentResponses.Summary adminReconcile(UUID id,HttpServletRequest request) {
-    security.admin(request); provider.requireCredentials(); var row=tx(()->system(id)); mode(row);
+    security.admin(request); provider.requireCredentials(); var row=tx(()->adminSystem(id,request)); mode(row);
     if (row.get("order_id")==null) throw new ApiError(409,"ORDER_BINDING_REQUIRED","Find the reserved receipt in the provider dashboard and bind its order first.");
     var result=reconcileOrder(row,null);
     security.admin(request);
@@ -301,12 +319,12 @@ public class PaymentService {
   public PageResponse<PaymentResponses.Attention> attention(HttpServletRequest request) { security.admin(request); return PageResponse.from(repo.attention(request),PaymentResponses.Attention::from); }
   public PaymentResponses.Summary bind(UUID id,Map<String,Object> body,HttpServletRequest request) {
     security.admin(request); provider.requireCredentials();
-    var row=tx(()->system(id)); mode(row);
+    var row=tx(()->adminSystem(id,request)); mode(row);
     if (row.get("order_id")!=null || !Set.of("CREATING","UNKNOWN").contains(row.get("status"))) throw new ApiError(409,"ORDER_ALREADY_BOUND","Only an unresolved order can be bound.");
     String order=RazorpayClient.providerId(text(body,"orderId",10,40),"order_");
     try {
       var transfer=validateOrder(row,provider.order(order));
-      tx(()->{ security.admin(request); var current=system(id); if (current.get("order_id")!=null) throw new ApiError(409,"ORDER_ALREADY_BOUND","This order is already bound."); repo.bind(id,order,transfer.status(),transfer.settlement()); var m=delivery.lockMilestoneSystem((UUID)current.get("milestone_id")); delivery.event((UUID)m.get("engagementId"),security.user(request),"PAYMENT_ORDER_BOUND","Operator verified and recovered the provider order for its reserved receipt."); return null; });
+      tx(()->{ UUID actor=security.admin(request); var current=system(id); var m=delivery.lockMilestoneSystem((UUID)current.get("milestone_id")); requireAdmin(actor,request); if (current.get("order_id")!=null) throw new ApiError(409,"ORDER_ALREADY_BOUND","This order is already bound."); repo.bind(id,order,transfer.status(),transfer.settlement()); delivery.event((UUID)m.get("engagementId"),actor,"PAYMENT_ORDER_BOUND","Operator verified and recovered the provider order for its reserved receipt."); return null; });
       // Provider capture can already exist when recovering an uncertain create.
       var result=reconcileOrder(tx(()->system(id)),null);
       security.admin(request);

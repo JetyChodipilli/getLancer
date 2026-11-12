@@ -136,6 +136,16 @@ public class Security {
     return user;
   }
 
+  /** Revalidate privileged writes after waits using the current database clock. */
+  public UUID adminMutation(HttpServletRequest request) {
+    var current = loadPrincipal(request);
+    if (current == null)
+      throw new ApiError(401, "UNAUTHENTICATED", "Please log in to continue.");
+    if (!current.roles().contains("ADMIN") || !current.recentMfa())
+      throw new ApiError(403, "FORBIDDEN", "Recent administrator authentication is required.");
+    return current.userId();
+  }
+
   public UUID developer(HttpServletRequest request, boolean approved) {
     var principal = principal(request);
     UUID user = (UUID) principal.get("id");

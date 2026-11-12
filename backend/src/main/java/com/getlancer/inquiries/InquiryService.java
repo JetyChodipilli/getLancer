@@ -244,6 +244,7 @@ public class InquiryService {
             id,
             u);
     if (rows.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Inquiry not found.");
+    requireCurrentDeveloper(u, r);
     var p = rows.get(0);
     String next = Rules.transition((String) p.get("current_status"), action);
     if (action.equals("proposal-sent")
@@ -283,7 +284,13 @@ public class InquiryService {
     mail.notifyClient(
         (String) p.get("client_email"),
         "Your builder updated the request to " + next + ". Open My requests to review it.");
+    requireCurrentDeveloper(u, r);
     return Map.of("status", next);
+  }
+
+  void requireCurrentDeveloper(UUID expected, HttpServletRequest request) {
+    if (!expected.equals(security.developer(request, false)))
+      throw new ApiError(403, "FORBIDDEN", "Your inquiry access changed. Reload your account.");
   }
 
   @Transactional

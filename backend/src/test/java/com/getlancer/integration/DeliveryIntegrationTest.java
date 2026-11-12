@@ -9,6 +9,7 @@ import com.getlancer.shared.Support;
 import com.getlancer.testing.TestDatabaseGuard;
 import jakarta.servlet.http.Cookie;
 import java.util.*;
+import java.util.concurrent.*;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -106,6 +107,64 @@ class DeliveryIntegrationTest {
     db.update("INSERT INTO teams(id,slug,name,summary,availability,project_range,owner_id) VALUES(?,?,'Delivery studio','Customer software studio','AVAILABLE_NOW','1500 INR',?)", team, team.toString(), seller);
     db.update("INSERT INTO team_members(team_id,user_id,role,membership_type) VALUES(?,?,'OWNER','PERMANENT'),(?,?,'BUSINESS_MANAGER','PERMANENT')", team, seller, team, manager);
     db.update("INSERT INTO team_projects(team_id,product_id,consented_by) VALUES(?,?,?)", team, product, seller);
+  }
+
+  void revokeAfterDeliveryWait(String lockSql,UUID lockId,MockHttpServletRequestBuilder request,Runnable revoke,int expectedStatus)throws Exception {
+    var pool=Executors.newSingleThreadExecutor();
+    try(var holder=db.getDataSource().getConnection()) {
+      holder.setAutoCommit(false);int holderPid;
+      try(var statement=holder.createStatement();var result=statement.executeQuery("SELECT pg_backend_pid()")){assertTrue(result.next());holderPid=result.getInt(1);}
+      try(var statement=holder.prepareStatement(lockSql)){statement.setObject(1,lockId);try(var result=statement.executeQuery()){assertTrue(result.next());}}
+      var pending=pool.submit(()->mvc.perform(request).andReturn().getResponse().getStatus());
+      long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(5);boolean waiting=false;
+      while(System.nanoTime()<deadline&&!pending.isDone()) {
+        if(db.queryForObject("SELECT count(*) FROM pg_stat_activity WHERE ? = ANY(pg_blocking_pids(pid))",Integer.class,holderPid)>0){waiting=true;break;}
+        Thread.sleep(5);
+      }
+      assertTrue(waiting,"The delivery request must reach an actual PostgreSQL target-row lock wait");
+      revoke.run();holder.commit();assertEquals(expectedStatus,pending.get(10,TimeUnit.SECONDS).intValue());
+    } finally {pool.shutdownNow();assertTrue(pool.awaitTermination(5,TimeUnit.SECONDS));}
+  }
+
+  @Test void privateEngagementReadRejectsSessionRevokedDuringEngagementLockWait()throws Exception {
+    UUID engagement=createInquiry("seller");
+    revokeAfterDeliveryWait("SELECT id FROM delivery_engagements WHERE id=? FOR UPDATE",engagement,
+        as(get(route(engagement)),"buyer"),()->db.update("DELETE FROM sessions WHERE token_hash=?",Support.hash("buyer")),401);
+  }
+
+  @Test void milestoneMutationRejectsTeamAuthorityExpiredDuringFinalMilestoneLockWait()throws Exception {
+    db.update("DELETE FROM business_members WHERE business_id=? AND user_id=?",business,manager);
+    UUID engagement=createBusiness("buyer","TEAM",team),milestone=agreed(engagement);
+    int events=db.queryForObject("SELECT count(*) FROM delivery_activity WHERE engagement_id=?",Integer.class,engagement);
+    var request=body(post(route(engagement)+"/milestones/"+milestone+"/start"),"manager",Map.of());
+    db.update("UPDATE team_members SET membership_type='CONTRACT',expires_at=clock_timestamp()+interval '5 seconds' WHERE team_id=? AND user_id=?",team,manager);
+    revokeAfterDeliveryWait("SELECT id FROM delivery_milestones WHERE id=? FOR UPDATE",milestone,request,()->assertDoesNotThrow(()->{
+      long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(8);
+      while(!db.queryForObject("SELECT expires_at<=clock_timestamp() FROM team_members WHERE team_id=? AND user_id=?",Boolean.class,team,manager)) {
+        assertTrue(System.nanoTime()<deadline,"The membership must expire while the milestone lock is held");
+        Thread.sleep(25);
+      }
+    }),404);
+    assertEquals("PLANNED",db.queryForObject("SELECT status FROM delivery_milestones WHERE id=?",String.class,milestone));
+    assertEquals(events,db.queryForObject("SELECT count(*) FROM delivery_activity WHERE engagement_id=?",Integer.class,engagement).intValue());
+    assertEquals(1,db.queryForObject("SELECT count(*) FROM sessions WHERE user_id=? AND expires_at>clock_timestamp()",Integer.class,manager));
+    assertEquals(1,db.queryForObject("SELECT count(*) FROM user_roles WHERE user_id=? AND role='DEVELOPER'",Integer.class,manager));
+  }
+
+  @Test void disputeResolutionRejectsAdminRoleRevokedDuringFinalDisputeLockWait()throws Exception {
+    UUID engagement=createInquiry("seller");
+    mvc.perform(body(post(route(engagement)+"/disputes"),"buyer",Map.of("reason","Delivery requires independent operator review before any resolution."))).andExpect(status().isOk());
+    UUID dispute=db.queryForObject("SELECT id FROM delivery_disputes WHERE engagement_id=?",UUID.class,engagement);
+    int events=db.queryForObject("SELECT count(*) FROM delivery_activity WHERE engagement_id=?",Integer.class,engagement);
+    revokeAfterDeliveryWait("SELECT id FROM delivery_disputes WHERE id=? FOR UPDATE",dispute,
+        body(post("/api/v1/admin/delivery/disputes/"+dispute+"/resolve"),"admin",Map.of("resolution","CANCEL","reason","Revoked operator must not resolve this other-party dispute.")),
+        ()->db.update("DELETE FROM user_roles WHERE user_id=? AND role='ADMIN'",admin),403);
+    assertEquals("OPEN",db.queryForObject("SELECT status FROM delivery_disputes WHERE id=?",String.class,dispute));
+    assertNull(db.queryForObject("SELECT resolution FROM delivery_disputes WHERE id=?",String.class,dispute));
+    assertNull(db.queryForObject("SELECT resolved_by FROM delivery_disputes WHERE id=?",UUID.class,dispute));
+    assertNull(db.queryForObject("SELECT resolved_at FROM delivery_disputes WHERE id=?",java.sql.Timestamp.class,dispute));
+    assertEquals("DISPUTED",db.queryForObject("SELECT status FROM delivery_engagements WHERE id=?",String.class,engagement));
+    assertEquals(events,db.queryForObject("SELECT count(*) FROM delivery_activity WHERE engagement_id=?",Integer.class,engagement).intValue());
   }
 
   @Test

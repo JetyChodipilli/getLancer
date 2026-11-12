@@ -35,10 +35,16 @@ public class ProfileService {
     this.clock = clock;
   }
 
+  private void requireCurrentDeveloper(UUID actor, HttpServletRequest request) {
+    if (!actor.equals(security.developer(request, false)))
+      throw new ApiError(403, "FORBIDDEN", "Builder account access changed.");
+  }
+
   @Transactional
   public MutationResponse profile(Map<String, Object> b, HttpServletRequest r) {
     UUID u = security.developer(r, false);
     var previous = db.queryForMap("SELECT approval_status,display_name,headline,bio,technology,category,github_url,linkedin_url,website_url,country,time_zone,languages FROM developer_profiles WHERE user_id=? FOR UPDATE", u);
+    requireCurrentDeveloper(u, r);
     if (previous.get("approval_status").equals("SUSPENDED"))
       throw new ApiError(403, "FORBIDDEN", "This profile is suspended.");
     String availability = text(b, "availabilityStatus", 1, 30);
@@ -83,6 +89,7 @@ public class ProfileService {
             || !linkedin.equals(Objects.toString(previous.get("linkedin_url"), ""));
     if (material && Set.of("APPROVED", "PROFILE_PENDING").contains(previous.get("approval_status")))
       db.update("UPDATE developer_profiles SET approval_status='DRAFT' WHERE user_id=?", u);
+    requireCurrentDeveloper(u, r);
     return MutationResponse.success();
   }
 
@@ -94,6 +101,7 @@ public class ProfileService {
             "SELECT d.approval_status,d.display_name,d.headline,d.bio,d.technology,d.category,u.email_verified_at FROM developer_profiles d JOIN users u ON"
                 + " u.id=d.user_id WHERE d.user_id=? FOR UPDATE",
             u);
+    requireCurrentDeveloper(u, r);
     if (p.get("email_verified_at") == null)
       throw new ApiError(409, "EMAIL_NOT_VERIFIED", "Confirm your email first.");
     if (!Set.of("DRAFT", "CHANGES_REQUESTED").contains(p.get("approval_status")))
@@ -102,6 +110,7 @@ public class ProfileService {
       if (Objects.toString(p.get(k), "").isBlank())
         throw new ApiError(400, "VALIDATION_ERROR", "Complete your profile first.");
     db.update("UPDATE developer_profiles SET approval_status='PROFILE_PENDING' WHERE user_id=?", u);
+    requireCurrentDeveloper(u, r);
     return MutationResponse.success();
   }
 }

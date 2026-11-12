@@ -25,6 +25,8 @@ public final class RazorpayFixture implements AutoCloseable {
   public volatile CountDownLatch disputeEntered=new CountDownLatch(1), releaseDispute=new CountDownLatch(1);
   public volatile String disputeStatus="open";
   public volatile String nextDisputeSnapshot;
+  public volatile boolean blockNextOrderGet;
+  public volatile CountDownLatch orderGetEntered=new CountDownLatch(1),releaseOrderGet=new CountDownLatch(1);
   public volatile boolean blockNextOrderPayments;
   public volatile CountDownLatch orderPaymentsEntered=new CountDownLatch(1),releaseOrderPayments=new CountDownLatch(1);
   public volatile CountDownLatch createEntered=new CountDownLatch(1), releaseCreate=new CountDownLatch(1);
@@ -35,7 +37,7 @@ public final class RazorpayFixture implements AutoCloseable {
     this.db=db; this.json=json; server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);
     executor=Executors.newCachedThreadPool();server.setExecutor(executor);server.createContext("/",this::handle);server.start();
   }
-  public void reset() { creates.set(0);blockDispute=false;failDispute=false;failPayment=false;disputeEntered=new CountDownLatch(1);releaseDispute=new CountDownLatch(1);nextDisputeSnapshot=null;blockNextOrderPayments=false;orderPaymentsEntered=new CountDownLatch(1);releaseOrderPayments=new CountDownLatch(1);uncertain=false;wrongAmount=false;wrongPayee=false;captured=false;reservationCommitted=false;blocked=false;refunded=0;disputeStatus="open";orders.clear();lastBody=null;createEntered=new CountDownLatch(1);releaseCreate=new CountDownLatch(1); }
+  public void reset() { creates.set(0);blockDispute=false;failDispute=false;failPayment=false;disputeEntered=new CountDownLatch(1);releaseDispute=new CountDownLatch(1);nextDisputeSnapshot=null;blockNextOrderGet=false;orderGetEntered=new CountDownLatch(1);releaseOrderGet=new CountDownLatch(1);blockNextOrderPayments=false;orderPaymentsEntered=new CountDownLatch(1);releaseOrderPayments=new CountDownLatch(1);uncertain=false;wrongAmount=false;wrongPayee=false;captured=false;reservationCommitted=false;blocked=false;refunded=0;disputeStatus="open";orders.clear();lastBody=null;createEntered=new CountDownLatch(1);releaseCreate=new CountDownLatch(1); }
   public URI origin() { return URI.create("http://127.0.0.1:"+server.getAddress().getPort()); }
   public String orderId() { return orders.keySet().iterator().next(); }
   public String paymentId() { return "pay_fixture"+orderId().substring(6); }
@@ -86,7 +88,15 @@ public final class RazorpayFixture implements AutoCloseable {
         }
         response(exchange,200,snapshot);return;
       }
-      var copy=node.deepCopy();copy.set("transfers",json.createArrayNode().add(transfer(order)));response(exchange,200,copy);return;
+      var copy=node.deepCopy();copy.set("transfers",json.createArrayNode().add(transfer(order)));
+      boolean freeze;
+      synchronized(this){freeze=blockNextOrderGet;blockNextOrderGet=false;}
+      if(freeze){
+        orderGetEntered.countDown();
+        try{if(!releaseOrderGet.await(5,TimeUnit.SECONDS)){response(exchange,503,Map.of("error","fixture order release timed out"));return;}}
+        catch(InterruptedException ex){Thread.currentThread().interrupt();response(exchange,503,Map.of("error","fixture order interrupted"));return;}
+      }
+      response(exchange,200,copy);return;
     }
     if (path.startsWith("/v1/payments/")) {if(failPayment){response(exchange,503,Map.of("error","payment fixture unavailable"));return;}
       String[] parts=path.split("/");String id=parts[3];
@@ -95,7 +105,7 @@ public final class RazorpayFixture implements AutoCloseable {
     }
     response(exchange,404,Map.of("error","unsupported test path"));
   }
-  public void close() {releaseDispute.countDown();releaseOrderPayments.countDown();releaseCreate.countDown();server.stop(0);executor.shutdownNow();}
+  public void close() {releaseOrderGet.countDown();releaseDispute.countDown();releaseOrderPayments.countDown();releaseCreate.countDown();server.stop(0);executor.shutdownNow();}
 
   @TestConfiguration
   public static class Configuration {

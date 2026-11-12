@@ -60,6 +60,42 @@ class CommerceIntegrationTest {
     mvc.perform(order("buyer",key)).andExpect(status().isOk());provider.captured=true;
     mvc.perform(body(post("/api/v1/template-purchases/"+purchase()+"/verify"),"buyer",callback())).andExpect(status().isOk());
   }
+  void revokeAfterPurchaseLockWait(UUID id,MockHttpServletRequestBuilder call,Runnable revoke,int expectedStatus) throws Exception {
+    var executor=Executors.newSingleThreadExecutor();
+    try(var holder=db.getDataSource().getConnection()) {
+      holder.setAutoCommit(false);int holderPid;
+      try(var statement=holder.createStatement();var result=statement.executeQuery("SELECT pg_backend_pid()")) {assertTrue(result.next());holderPid=result.getInt(1);}
+      try(var statement=holder.prepareStatement("SELECT id FROM template_purchases WHERE id=? FOR UPDATE")) {
+        statement.setObject(1,id);try(var result=statement.executeQuery()) {assertTrue(result.next());}
+      }
+      var pending=executor.submit(()->mvc.perform(call).andReturn().getResponse().getStatus());
+      long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(5);boolean waiting=false;
+      while(System.nanoTime()<deadline&&!pending.isDone()) {
+        if(db.queryForObject("SELECT count(*) FROM pg_stat_activity WHERE ? = ANY(pg_blocking_pids(pid))",Integer.class,holderPid)>0) {waiting=true;break;}
+        Thread.sleep(5);
+      }
+      assertTrue(waiting,"The source purchase request must reach an actual PostgreSQL lock wait");
+      revoke.run();holder.commit();assertEquals(expectedStatus,pending.get(10,TimeUnit.SECONDS).intValue());
+    } finally {executor.shutdownNow();assertTrue(executor.awaitTermination(5,TimeUnit.SECONDS));}
+  }
+  @Test void buyerDisputeRejectsSessionRevokedDuringPurchaseLockWait() throws Exception {
+    capturedPurchase();UUID id=purchase();int audits=db.queryForObject("SELECT count(*) FROM commerce_audit",Integer.class);
+    revokeAfterPurchaseLockWait(id,body(post("/api/v1/template-purchases/"+id+"/disputes"),"buyer","{\"reason\":\"The session was revoked while this source purchase waited for its lock.\"}"),
+      ()->db.update("DELETE FROM sessions WHERE token_hash=?",Support.hash("buyer")),401);
+    assertEquals(0,db.queryForObject("SELECT count(*) FROM commerce_disputes WHERE purchase_id=?",Integer.class,id));
+    assertEquals("CAPTURED",db.queryForObject("SELECT status FROM template_purchases WHERE id=?",String.class,id));
+    assertEquals(audits,db.queryForObject("SELECT count(*) FROM commerce_audit",Integer.class).intValue());
+  }
+  @Test void operatorResolutionRejectsAdminRoleRevokedDuringPurchaseLockWait() throws Exception {
+    capturedPurchase();UUID id=purchase();
+    mvc.perform(body(post("/api/v1/template-purchases/"+id+"/disputes"),"buyer","{\"reason\":\"Request a licensed source review before any operator resolution.\"}")).andExpect(status().isOk());
+    int audits=db.queryForObject("SELECT count(*) FROM commerce_audit",Integer.class);
+    revokeAfterPurchaseLockWait(id,body(post("/api/v1/admin/template-purchases/"+id+"/resolve"),"admin","{\"resolution\":\"REVOKE\",\"reason\":\"A revoked administrator must not revoke this buyer entitlement.\"}"),
+      ()->db.update("DELETE FROM user_roles WHERE user_id=? AND role='ADMIN'",admin),403);
+    assertEquals("OPEN",db.queryForObject("SELECT status FROM commerce_disputes WHERE purchase_id=?",String.class,id));
+    assertFalse(db.queryForObject("SELECT entitlement_revoked FROM template_purchases WHERE id=?",Boolean.class,id));
+    assertEquals(audits,db.queryForObject("SELECT count(*) FROM commerce_audit",Integer.class).intValue());
+  }
   @Test void refundInboxSurvivesFirstProviderFailureAndAnAggregateCannotReleaseItsHold() throws Exception {
     capturedPurchase();String payload=refundEvent("rfnd_sourcepending123");provider.failPayment=true;
     mvc.perform(webhook("source_refund_outage",payload)).andExpect(status().isBadGateway());

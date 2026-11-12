@@ -53,6 +53,12 @@ public class AdminService {
     this.components = components;
   }
 
+  /** Revalidate the same operator after target locks; revocation aborts the current transaction. */
+  public void requireCurrentAdmin(UUID actor, HttpServletRequest request) {
+    if (!actor.equals(security.adminMutation(request)))
+      throw new ApiError(403, "FORBIDDEN", "Administrator access changed.");
+  }
+
   public OperationsResponse operations(HttpServletRequest request) {
     return operationsMetrics.snapshot(request);
   }
@@ -121,6 +127,7 @@ public class AdminService {
     products.lockOwner(owner);
     db.queryForMap("SELECT user_id,active_slot_limit,source FROM showcase_entitlements WHERE user_id=? FOR UPDATE", owner);
     var p = db.queryForMap("SELECT id,owner_user_id,slug,title,summary,description,project_type,category,technology,visibility,contribution_text,available_for_similar_work,approval_status,lifecycle_status,live_url,video_url,moderation_reason,rights_confirmed,created_at,updated_at,repository_url,pricing_note,demo_health,demo_checked_at,demo_checked_url,pricing_mode,price_min_minor,price_max_minor,currency_code FROM products WHERE id=? FOR UPDATE", id);
+    requireCurrentAdmin(admin, r);
     String reason = text(b, "reason", 3, 2000);
     String status =
         switch (action) {
@@ -143,8 +150,10 @@ public class AdminService {
         id);
     if (action.equals("approve") && !p.get("lifecycle_status").equals("ARCHIVED"))
       products.activate(id, owner, false);
+    requireCurrentAdmin(admin, r);
     audit(admin, "PRODUCT", id, action, reason);
     mail.notify(owner, "Your project review has an update: " + status + ". " + reason);
+    requireCurrentAdmin(admin, r);
     return Map.of("ok", true);
   }
 
@@ -154,6 +163,7 @@ public class AdminService {
     UUID admin = security.admin(r);
     String reason = text(b, "reason", 3, 2000);
     var p = db.queryForMap("SELECT approval_status FROM developer_profiles WHERE user_id=? FOR UPDATE", id);
+    requireCurrentAdmin(admin, r);
     String status =
         switch (action) {
           case "approve" -> "APPROVED";
@@ -179,6 +189,7 @@ public class AdminService {
         id);
     audit(admin, "USER", id, action, reason);
     mail.notify(id, "Your builder profile review has an update: " + status + ". " + reason);
+    requireCurrentAdmin(admin, r);
     return Map.of("ok", true);
   }
 
@@ -230,6 +241,7 @@ public class AdminService {
     String reason = text(body, "reason", 3, 2000), action = text(body, "targetAction", 0, 20);
     var reports = db.queryForList("SELECT id,reporter_id,target_type,target_id,reason,detail,status,resolution,created_at,severity,triage_note,updated_at,enforcement_action,education_release_id,source_hash,education_snapshot,component_revision,component_version,component_source_hash,component_snapshot FROM reports WHERE id=? FOR UPDATE", id);
     if (reports.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Report not found.");
+    requireCurrentAdmin(admin, request);
     var report = reports.get(0);
     if (report.get("status").equals("RESOLVED")) return Map.of("ok", true);
     UUID target = (UUID) report.get("target_id");
@@ -246,6 +258,7 @@ public class AdminService {
       inquiryAction(target, action.toLowerCase(Locale.ROOT), Map.of("reason", reason), request);
     else if (!Set.of("", "NONE").contains(action))
       throw new ApiError(400, "VALIDATION_ERROR", "Choose an action supported by this report.");
+    requireCurrentAdmin(admin, request);
     db.update(
         "UPDATE reports SET status='RESOLVED',resolution=?,enforcement_action=?,updated_at=now() WHERE id=?",
         reason, action.isBlank() ? "NONE" : action,
@@ -253,6 +266,7 @@ public class AdminService {
     if (report.get("reporter_id") != null)
       mail.notify((UUID) report.get("reporter_id"), "Your report was reviewed. " + reason);
     audit(admin, "REPORT", id, "RESOLVE", reason);
+    requireCurrentAdmin(admin, request);
     return Map.of("ok", true);
   }
 
@@ -269,6 +283,7 @@ public class AdminService {
                 + " i.id=r.inquiry_id WHERE r.id=? FOR UPDATE OF r",
             id);
     if (rows.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Review not found.");
+    requireCurrentAdmin(admin, r);
     db.update(
         "UPDATE reviews SET moderation_status=? WHERE id=?",
         action.equals("publish") ? "PUBLISHED" : "HIDDEN",
@@ -278,6 +293,7 @@ public class AdminService {
         "An engagement review was " + action + "ed. " + reason);
     mail.enqueue((String) rows.get(0).get("client_email"), "Your review moderation result", reason);
     audit(admin, "REVIEW", id, action, reason);
+    requireCurrentAdmin(admin, r);
     return Map.of("ok", true);
   }
 
@@ -290,6 +306,7 @@ public class AdminService {
     if (!slug.matches("[a-z0-9-]+"))
       throw new ApiError(400, "VALIDATION_ERROR", "Use a lowercase slug.");
     var previous = db.queryForList("SELECT name FROM " + kind + " WHERE slug=? FOR UPDATE", slug);
+    requireCurrentAdmin(admin, r);
     if (!previous.isEmpty()) {
       String old = (String) previous.get(0).get("name");
       if (kind.equals("categories"))
@@ -303,6 +320,8 @@ public class AdminService {
             name,
             old);
     }
+    // Cascading the label can wait for an owner's project mutation.
+    requireCurrentAdmin(admin, r);
     db.update(
         "INSERT INTO "
             + kind
@@ -311,7 +330,10 @@ public class AdminService {
         slug,
         name,
         !Boolean.FALSE.equals(b.get("active")));
+    // A concurrent insert of a previously absent slug can also wait in the upsert.
+    requireCurrentAdmin(admin, r);
     audit(admin, "TAXONOMY", admin, "UPSERT", kind + ":" + slug);
+    requireCurrentAdmin(admin, r);
     return Map.of("ok", true);
   }
 
@@ -349,6 +371,9 @@ public class AdminService {
       throw new ApiError(400, "VALIDATION_ERROR", "Unknown account action.");
     var rows = db.queryForList("SELECT account_status FROM users WHERE id=? FOR UPDATE", id);
     if (rows.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Account not found.");
+    requireCurrentAdmin(admin, r);
+    if (security.role(id, "ADMIN"))
+      throw new ApiError(409, "ADMIN_ACCOUNT_PROTECTED", "The sole administrator cannot be suspended.");
     if (rows.get(0).get("account_status").equals("DELETED"))
       throw new ApiError(
           409, "INVALID_STATE_TRANSITION", "Deleted accounts require operational recovery.");
@@ -360,8 +385,10 @@ public class AdminService {
     db.update("DELETE FROM sessions WHERE user_id=?", id);
     db.update("DELETE FROM login_challenges WHERE user_id=?", id);
     db.update("UPDATE account_tokens SET used_at=now() WHERE user_id=? AND used_at IS NULL", id);
+    requireCurrentAdmin(admin, r);
     audit(admin, "ACCOUNT", id, action, reason);
     mail.notify(id, "Your account status changed: " + action + ". " + reason);
+    requireCurrentAdmin(admin, r);
     return Map.of("ok", true);
   }
 
@@ -379,6 +406,7 @@ public class AdminService {
         };
     var rows = db.queryForList("SELECT developer_user_id FROM inquiries WHERE id=? FOR UPDATE", id);
     if (rows.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Inquiry not found.");
+    requireCurrentAdmin(admin, r);
     db.update(
         "UPDATE inquiries SET moderation_status=?,moderation_reason=?,updated_at=now() WHERE id=?",
         state,
@@ -394,10 +422,12 @@ public class AdminService {
     if (!state.equals("CLEAR"))
       db.update(
           "UPDATE account_tokens SET used_at=now() WHERE inquiry_id=? AND used_at IS NULL", id);
+    requireCurrentAdmin(admin, r);
     audit(admin, "INQUIRY", id, action, reason);
     mail.notify(
         (UUID) rows.get(0).get("developer_user_id"),
         "An inquiry moderation decision is available: " + state + ". " + reason);
+    requireCurrentAdmin(admin, r);
     return Map.of("ok", true);
   }
 

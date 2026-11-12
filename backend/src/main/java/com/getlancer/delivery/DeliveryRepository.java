@@ -40,8 +40,17 @@ public class DeliveryRepository {
     return (UUID) p.get("id");
   }
 
+  public void requireCurrent(UUID actor, HttpServletRequest request) {
+    if (!actor.equals(verified(request)))
+      throw new ApiError(403, "FORBIDDEN", "Delivery account access changed.");
+  }
+
   UUID admin(HttpServletRequest request) {
     return security.admin(request);
+  }
+
+  UUID adminMutation(HttpServletRequest request) {
+    return security.adminMutation(request);
   }
 
   private Map<String, Object> one(String sql, Object... args) {
@@ -87,13 +96,21 @@ public class DeliveryRepository {
     return buyer ? "BUYER" : seller ? "SELLER" : null;
   }
 
-  public Map<String, Object> lockEngagement(UUID engagement, HttpServletRequest request, String requiredSide) {
-    UUID actor = verified(request);
-    var row = one(ENGAGEMENT + "WHERE e.id=? FOR UPDATE", engagement);
-    String actual = side(row, actor, true);
+  public String requireCurrentParty(Map<String, Object> parties, UUID actor, HttpServletRequest request, String requiredSide) {
+    requireCurrent(actor, request);
+    // All target locks are already held. Recompute role and membership authority without changing lock order.
+    String actual = side(parties, actor, false);
     if (actual == null) throw new ApiError(404, "NOT_FOUND", "Engagement not found.");
     if (!"ANY".equals(requiredSide) && !requiredSide.equals(actual))
       throw new ApiError(403, "FORBIDDEN", "This action belongs to the other agreement party.");
+    return actual;
+  }
+
+  public Map<String, Object> lockEngagement(UUID engagement, HttpServletRequest request, String requiredSide) {
+    UUID actor = verified(request);
+    var row = one(ENGAGEMENT + "WHERE e.id=? FOR UPDATE", engagement);
+    side(row, actor, true);
+    String actual = requireCurrentParty(row, actor, request, requiredSide);
     row.put("side", actual);
     return row;
   }
@@ -104,7 +121,11 @@ public class DeliveryRepository {
 
   public Map<String, Object> lockMilestone(UUID milestone, HttpServletRequest request, String side) {
     UUID engagement = (UUID) one("SELECT engagement_id FROM delivery_milestones WHERE id=?", milestone).get("engagement_id");
-    return milestoneWithParties(milestone, lockEngagement(engagement, request, side));
+    UUID actor = verified(request);
+    var row = milestoneWithParties(milestone, lockEngagement(engagement, request, side));
+    // The milestone lock follows the engagement/party checks and can introduce another wait.
+    requireCurrentParty(row, actor, request, side);
+    return row;
   }
 
   public Map<String, Object> lockMilestoneSystem(UUID milestone) {

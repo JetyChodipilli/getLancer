@@ -51,6 +51,16 @@ public class TrustService {
     this.clock = clock;
   }
 
+  private void requireCurrentDeveloper(UUID actor, HttpServletRequest request) {
+    if (!actor.equals(security.developer(request, true)))
+      throw new ApiError(403, "FORBIDDEN", "Builder account access changed.");
+  }
+
+  private void requireCurrentAdmin(UUID actor, HttpServletRequest request) {
+    if (!actor.equals(security.adminMutation(request)))
+      throw new ApiError(403, "FORBIDDEN", "Administrator account access changed.");
+  }
+
   static boolean githubRepository(String raw) {
     try {
       var u = URI.create(raw);
@@ -131,6 +141,7 @@ public class TrustService {
               "SELECT time_zone FROM developer_profiles WHERE user_id=? FOR UPDATE", String.class, u);
     }
     java.sql.Date until = AvailabilityDates.bookedUntil(b, status, timeZone, clock);
+    requireCurrentDeveloper(u, r);
     db.update(
         "UPDATE developer_profiles SET"
             + " availability_status=?,booked_until=?,availability_confirmed_at=now(),updated_at=now()"
@@ -138,6 +149,7 @@ public class TrustService {
         status,
         until,
         u);
+    requireCurrentDeveloper(u, r);
     return Map.of("ok", true);
   }
 
@@ -145,6 +157,7 @@ public class TrustService {
   public Map<String, Object> request(UUID id, HttpServletRequest r) {
     UUID u = security.developer(r, true);
     var p = products.owned(id, u);
+    requireCurrentDeveloper(u, r);
     String repository = Objects.toString(p.get("repository_url"), "");
     if (!githubRepository(repository))
       throw new ApiError(
@@ -166,6 +179,7 @@ public class TrustService {
         id,
         repository,
         challenge);
+    requireCurrentDeveloper(u, r);
     return Map.of("challenge", challenge, "status", "PENDING");
   }
 
@@ -213,6 +227,7 @@ public class TrustService {
             id);
     if (rows.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Verification not found.");
     var v = rows.get(0);
+    requireCurrentAdmin(admin, r);
     if (admin.equals(v.get("owner_user_id")))
       throw new ApiError(403, "FORBIDDEN", "Self verification is not allowed.");
     if (!action.equals("revoke")
@@ -233,6 +248,7 @@ public class TrustService {
         admin,
         id);
     audit(admin, "PRODUCT", id, "REPOSITORY_" + action.toUpperCase(Locale.ROOT), reason);
+    requireCurrentAdmin(admin, r);
     return Map.of("ok", true);
   }
 
@@ -254,6 +270,7 @@ public class TrustService {
     if (admin.equals(owner)) throw new ApiError(403, "FORBIDDEN", "Self awards are not allowed.");
     publishing.lock(owner);
     db.queryForMap("SELECT user_id,active_slot_limit,source FROM showcase_entitlements WHERE user_id=? FOR UPDATE", owner);
+    requireCurrentAdmin(admin, r);
     int added =
         db.update(
             "INSERT INTO earned_capacity_awards(inquiry_id,user_id,admin_id,reason) VALUES(?,?,?,?)"
@@ -269,6 +286,7 @@ public class TrustService {
           owner);
       audit(admin, "INQUIRY", id, "EARNED_CAPACITY", reason);
     }
+    requireCurrentAdmin(admin, r);
     return Map.of("awarded", added > 0);
   }
 
