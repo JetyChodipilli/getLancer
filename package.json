@@ -54,7 +54,7 @@
     "react": "19.2.9",
     "react-dom": "19.2.9",
     "recharts": "^3.8.0",
-    "tailwind-merge": "3.6.0"
+    "tailwind-merge": "3.7.0"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.67.0",
