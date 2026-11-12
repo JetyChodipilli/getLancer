@@ -7,7 +7,8 @@ import { availabilityLabel } from '@/lib/catalog';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import BuilderEvent from '@/app/components/builder-event';
-import PublicReviews from '@/app/components/public-reviews';
+import PublicReviews,{type PublicReview} from '@/app/components/public-reviews';
+import {recordPage,type RecordPage} from '@/lib/record-page';
 import Preview from '@/app/components/preview';
 
 export async function generateMetadata({params}:{params:Promise<{slug:string}>}){const {slug}=await params;const origin=await backendOrigin();let title='Builder profile',description='Discover demonstrated software work and meet its builder.';if(origin){const res=await fetch(origin+'/api/v1/builders/'+encodeURIComponent(slug),{cache:'no-store',signal:AbortSignal.timeout(15000)});if(res.ok){const p=await res.json();title=p.displayName+' — Builder';description=p.headline||p.bio?.slice(0,160)||description;}}return {title,description,alternates:{canonical:'/builders/'+slug},openGraph:{title,description,type:'profile'},twitter:{card:'summary',title,description}};}
@@ -17,15 +18,19 @@ export default async function Builder({params}: {params: Promise<{slug: string}>
   const origin = await backendOrigin();
   const catalog = await getCatalog(undefined, slug);
   let profile: {id?:string;displayName: string; headline: string; bio: string; availabilityStatus: string; bookedUntil?: string; githubUrl?: string; linkedinUrl?: string; websiteUrl?:string; country?:string; timeZone?:string; languages?:string;availabilityConfirmedAt?:string;responseSample?:number;responseRate?:number;medianResponseHours?:number} | undefined;
-  let reviews: {rating: number; reviewText: string; createdAt: string}[] = [];
+  let reviews:RecordPage<PublicReview>|null={items:[],page:0,size:50,hasMore:false};
+  let reviewError='';
   if (origin) {
     const [response, feedback] = await Promise.all([
       fetch(origin + '/api/v1/builders/' + encodeURIComponent(slug), {cache: 'no-store', signal: AbortSignal.timeout(15000)}),
-      fetch(origin + '/api/v1/builders/' + encodeURIComponent(slug) + '/reviews', {cache: 'no-store', signal: AbortSignal.timeout(15000)})
+      fetch(origin + '/api/v1/builders/' + encodeURIComponent(slug) + '/reviews?page=0', {cache: 'no-store', signal: AbortSignal.timeout(15000)})
+        .then(async result=>{if(!result.ok)throw Error('Client reviews are temporarily unavailable.');return recordPage<PublicReview>(await result.json());})
+        .catch(()=>null)
     ]);
     if (response.ok) profile = await response.json();
     else if(response.status !== 404) throw Error('Builder profile is temporarily unavailable.');
-    if (feedback.ok) reviews = (await feedback.json()).items;
+    reviews=feedback;
+    if(!feedback)reviewError='Client reviews are temporarily unavailable. Retry loading them.';
   } else {
     const p = catalog.items[0];
     if (p) profile = {displayName: p.builder, headline: 'Independent software builder', bio: 'Builds thoughtful software for everyday business problems.', availabilityStatus: p.availability};
@@ -42,6 +47,6 @@ export default async function Builder({params}: {params: Promise<{slug: string}>
     {!catalog.items.length && <p>No active public showcases at the moment.</p>}
     {!!componentProof?.data.items.length&&<section className="kit-related"><h2>Component contributions</h2><div className="kit-grid related">{componentProof.data.items.map(c=><ComponentCard key={c.slug} item={c}/>)}</div><Link href={"/components?builder="+encodeURIComponent(slug)} className="button">All component contributions ↗</Link></section>}
     {!!collegeProof?.data.items.length&&<section className="kit-info-panel"><h2>College project contributions</h2>{collegeProof.data.items.map(p=><p key={p.id}><Link className="link" href={"/college-projects/"+p.slug}>{p.title} · {p.education.language} ↗</Link></p>)}</section>}
-    <PublicReviews slug={slug} initial={reviews}/>
+    <PublicReviews slug={slug} initialPage={reviews} initialError={reviewError}/>
   </main>;
 }

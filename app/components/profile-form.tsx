@@ -4,6 +4,7 @@ import {api, ApiError} from '@/lib/api';
 import FormErrors from './form-errors';
 import {Picker} from './ui';
 
+function uncertain(problem:unknown){return !(problem instanceof ApiError)||problem.status===0||problem.status>=500;}
 const fields = [
   ['displayName','display_name','Display name',2,100],
   ['headline','headline','Professional headline',5,160],
@@ -22,11 +23,11 @@ const fieldGroups = [
   {heading: 'On the web', description: 'Optional links that show more of what you do.', fields: fields.slice(5, 8)},
   {heading: 'Location & communication', description: 'Help clients plan a conversation with you.', fields: fields.slice(8)},
 ];
-type ProfileFormProps={me:{id:string;profile:Record<string,string|null|undefined>};reload:()=>Promise<boolean>;setError:(message:string)=>void};
+type ProfileFormProps={me:{id:string;profile:Record<string,string|null|undefined>};reload:()=>Promise<boolean>;setError:(message:string)=>void;request?:typeof api};
 export default function ProfileForm(props:ProfileFormProps) {
   return <ProfileForIdentity key={props.me.id} {...props}/>;
 }
-function ProfileForIdentity({me,reload,setError}:ProfileFormProps) {
+function ProfileForIdentity({me,reload,setError,request=api}:ProfileFormProps) {
   const p=me.profile;
   const [availability,setAvailability]=useState(p.availability_status||'AVAILABLE_NOW');
   const [busy,setBusy]=useState(false);
@@ -46,10 +47,10 @@ function ProfileForIdentity({me,reload,setError}:ProfileFormProps) {
     inFlight.current=true;
     setBusy(true);setFailure(null);setError('');setMessage('');
     try {
-      await api('/developer/profile',{method:'PUT',body:JSON.stringify({...Object.fromEntries(new FormData(e.currentTarget)),availabilityStatus:availability})});
+      await request('/developer/profile',{method:'PUT',body:JSON.stringify({...Object.fromEntries(new FormData(e.currentTarget)),availabilityStatus:availability})});
       if(!active.current)return;
       setDirty(false);await refresh('Profile saved.');
-    }catch(e){if(active.current){setError((e as Error).message);if(e instanceof ApiError)setFailure(e)}}finally{inFlight.current=false;if(active.current)setBusy(false)}
+    }catch(e){if(active.current){setError((e as Error).message);if(e instanceof ApiError)setFailure(e);if(uncertain(e)){setRefreshFailed(true);setMessage('This profile change could not be confirmed. Refresh current profile details before another profile action.');}}}finally{inFlight.current=false;if(active.current)setBusy(false)}
   }
   return <div className="panel form profile-editor"><h2>Your builder profile</h2>
     <form className="form" onSubmit={save} onChange={()=>{setDirty(true);setMessage('')}} aria-busy={busy}>
@@ -74,7 +75,7 @@ function ProfileForIdentity({me,reload,setError}:ProfileFormProps) {
     {refreshFailed&&<button className="button" disabled={busy} onClick={async()=>{if(inFlight.current)return;inFlight.current=true;setBusy(true);setError('');try{await refresh('Profile details refreshed.')}finally{inFlight.current=false;if(active.current)setBusy(false)}}}>Retry profile refresh</button>}
     {['DRAFT','CHANGES_REQUESTED'].includes(p.approval_status||'')&&<><button className="button" disabled={busy||refreshFailed||dirty} style={{marginTop:15}} onClick={async()=>{
       if(inFlight.current||refreshFailed||dirty)return;inFlight.current=true;setBusy(true);setError('');setFailure(null);setMessage('');
-      try{await api('/developer/profile/submit',{method:'POST'});if(active.current)await refresh('Profile sent for approval.')}catch(e){if(active.current){setError((e as Error).message);if(e instanceof ApiError)setFailure(e)}}finally{inFlight.current=false;if(active.current)setBusy(false)}
+      try{await request('/developer/profile/submit',{method:'POST'});if(active.current)await refresh('Profile sent for approval.')}catch(e){if(active.current){setError((e as Error).message);if(e instanceof ApiError)setFailure(e);if(uncertain(e)){setRefreshFailed(true);setMessage('This profile change could not be confirmed. Refresh current profile details before another profile action.');}}}finally{inFlight.current=false;if(active.current)setBusy(false)}
     }}>Submit profile for approval</button>{dirty&&<p className="muted">Save your changes before submitting the profile for approval.</p>}</>}
   </div>;
 }

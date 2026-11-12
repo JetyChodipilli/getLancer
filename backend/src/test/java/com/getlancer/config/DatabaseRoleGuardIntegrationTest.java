@@ -1,6 +1,7 @@
 package com.getlancer.config;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -140,12 +141,89 @@ class DatabaseRoleGuardIntegrationTest {
     } finally {adminSql("DROP SCHEMA IF EXISTS "+upgradeSchema+" CASCADE");}
   }
 
+  @Test void financialInboxUpgradePreservesKnownHistoryWithoutInventingLegacyReferences() throws Exception {
+    String upgradeSchema="getlancer_financial_upgrade_test";
+    adminSql("DROP SCHEMA IF EXISTS "+upgradeSchema+" CASCADE");
+    try {
+      Flyway.configure().dataSource(url,admin,adminPassword).schemas(upgradeSchema).defaultSchema(upgradeSchema).target("52").load().migrate();
+      DriverManagerDataSource source=new DriverManagerDataSource(url,admin,adminPassword);
+      java.util.Properties properties=new java.util.Properties();properties.setProperty("currentSchema",upgradeSchema);source.setConnectionProperties(properties);
+      JdbcTemplate upgrade=new JdbcTemplate(source);UUID owner=UUID.randomUUID(),purchase=UUID.randomUUID();
+      upgrade.update("INSERT INTO users(id,email,password_hash,email_verified_at) VALUES(?,?,'synthetic-hash',now())",owner,owner+"@example.test");
+      upgrade.update("INSERT INTO component_slot_purchases(id,owner_id,idempotency_key,amount_minor,mode,status,order_id,payment_id,pool) VALUES(?,?,?,10000,'live','CAPTURED','order_legacyfixture123','pay_legacyfixture123','PROJECT')",purchase,owner,UUID.randomUUID());
+      upgrade.update("INSERT INTO component_slot_events(event_id,payload_hash,received_at) VALUES('legacy-slot',?,'2026-11-01T00:00:00Z')","a".repeat(64));
+      UUID legacyDisputed=UUID.randomUUID();
+      upgrade.update("INSERT INTO component_slot_purchases(id,owner_id,idempotency_key,amount_minor,mode,status,order_id,payment_id,pool,dispute_id,dispute_status) VALUES(?,?,?,10000,'live','CAPTURED','order_legacydispute123','pay_legacydispute123','PROJECT','disp_legacydispute123','won')",legacyDisputed,owner,UUID.randomUUID());
+      UUID buyer=UUID.randomUUID(),unaffectedBuyer=UUID.randomUUID(),product=UUID.randomUUID(),template=UUID.randomUUID(),version=UUID.randomUUID(),sourcePurchase=UUID.randomUUID(),unaffectedPurchase=UUID.randomUUID();
+      for(UUID id:List.of(buyer,unaffectedBuyer))upgrade.update("INSERT INTO users(id,email,password_hash) VALUES(?,?,'synthetic-hash')",id,id+"@example.test");
+      upgrade.update("INSERT INTO user_roles(user_id,role) VALUES(?,'DEVELOPER')",owner);
+      upgrade.update("INSERT INTO developer_profiles(user_id,slug,display_name,approval_status) VALUES(?,?,?,'APPROVED')",owner,owner.toString(),"Legacy seller");
+      upgrade.update("INSERT INTO products(id,owner_user_id,slug,title,summary,description,project_type,category,technology,contribution_text,approval_status,lifecycle_status,visibility,repository_url) VALUES(?,?,?,'Legacy source','Legacy source summary','Retained commercial source','SAAS','CRM','Java','Built source','APPROVED','ACTIVE','PUBLIC','https://github.com/example/legacy')",product,owner,product.toString());
+      upgrade.update("INSERT INTO repository_verifications(product_id,repository_url,challenge,status) VALUES(?,'https://github.com/example/legacy','legacy-private-challenge','VERIFIED')",product);
+      var commerce=new CommerceRepository(upgrade);
+      commerce.create(template,owner,product,template.toString(),"Legacy source","Legacy source summary","Retained commercial source",10000,"One commercial end product.");
+      commerce.addVersion(version,template,"1.0.0","Retained immutable source","commerce/legacy.zip",new com.getlancer.commerce.SourceArchive.Inspection("a".repeat(64),22,2,List.of("package.json")),"One commercial end product.");
+      upgrade.update("UPDATE source_templates SET status='ACTIVE' WHERE id=?",template);upgrade.update("UPDATE source_versions SET status='APPROVED' WHERE id=?",version);
+      commerce.reserve(sourcePurchase,buyer,UUID.randomUUID(),commerce.template(template,false),commerce.version(template,version,false),"acc_legacyfixture123","live");commerce.bind(sourcePurchase,"order_legacysource123","PROCESSED");commerce.capture(sourcePurchase,"pay_legacysource123",0,"PROCESSED");
+      commerce.reserve(unaffectedPurchase,unaffectedBuyer,UUID.randomUUID(),commerce.template(template,false),commerce.version(template,version,false),"acc_legacyfixture123","live");commerce.bind(unaffectedPurchase,"order_unaffected123","PROCESSED");commerce.capture(unaffectedPurchase,"pay_unaffected123",0,"PROCESSED");
+      // These exact authenticated payload hashes represent what the V52 handler
+      // accepted: only the recognized, associated refund has a recovery route.
+      String known="{\"event\":\"refund.created\",\"payload\":{\"refund\":{\"entity\":{\"id\":\"rfnd_legacyfixture123\",\"payment_id\":\"pay_legacysource123\"}}}}";
+      String unknown=known.replace("refund.created","refund.unrecognized"),unassociable="{\"event\":\"refund.failed\",\"payload\":{\"refund\":{\"entity\":{}}}}";
+      upgrade.update("INSERT INTO commerce_webhook_events(event_id,payload_hash,event_kind,payment_id,processed_at) VALUES('legacy-commerce-refund',?,'refund.created','pay_legacysource123',clock_timestamp())",com.getlancer.shared.Support.hash(known));
+      upgrade.update("INSERT INTO commerce_webhook_events(event_id,payload_hash,event_kind,processed_at) VALUES('legacy-unknown-refund',?,'refund.unrecognized',clock_timestamp()),('legacy-unassociable-refund',?,'refund.failed',clock_timestamp())",com.getlancer.shared.Support.hash(unknown),com.getlancer.shared.Support.hash(unassociable));
+      var ignoredCompletions=upgrade.queryForList("SELECT event_id,processed_at FROM commerce_webhook_events WHERE event_id IN ('legacy-unknown-refund','legacy-unassociable-refund') ORDER BY event_id");
+      Flyway.configure().dataSource(url,admin,adminPassword).schemas(upgradeSchema).defaultSchema(upgradeSchema).load().migrate();
+      assertTrue(upgrade.queryForObject("SELECT processed_at=received_at FROM component_slot_events WHERE event_id='legacy-slot'",Boolean.class));
+      assertNull(upgrade.queryForObject("SELECT event_kind FROM component_slot_events WHERE event_id='legacy-slot'",String.class));
+      assertNull(upgrade.queryForObject("SELECT payment_id FROM component_slot_events WHERE event_id='legacy-slot'",String.class));
+      assertEquals("CAPTURED",upgrade.queryForObject("SELECT status FROM component_slot_purchases WHERE id=?",String.class,purchase));
+      assertNull(upgrade.queryForObject("SELECT deducted_minor FROM component_slot_disputes WHERE id='disp_legacydispute123'",Long.class));
+      var slotCapacity=new com.getlancer.publishing.PublishingCapacity(upgrade);
+      assertTrue(slotCapacity.grantsSlot(purchase));assertFalse(slotCapacity.grantsSlot(legacyDisputed));
+      assertNull(upgrade.queryForObject("SELECT processed_at FROM commerce_webhook_events WHERE event_id='legacy-commerce-refund'",java.sql.Timestamp.class));
+      assertNull(upgrade.queryForObject("SELECT refund_id FROM commerce_webhook_events WHERE event_id='legacy-commerce-refund'",String.class));
+      assertEquals(ignoredCompletions,upgrade.queryForList("SELECT event_id,processed_at FROM commerce_webhook_events WHERE event_id IN ('legacy-unknown-refund','legacy-unassociable-refund') ORDER BY event_id"));
+      assertEquals(2,upgrade.queryForObject("SELECT count(*) FROM commerce_webhook_events WHERE event_id IN ('legacy-unknown-refund','legacy-unassociable-refund') AND order_id IS NULL AND payment_id IS NULL",Integer.class));
+      assertFalse(commerce.entitled(sourcePurchase,buyer));assertTrue(commerce.entitled(unaffectedPurchase,unaffectedBuyer));
+      var json=new ObjectMapper();var provider=mock(com.getlancer.payments.RazorpayClient.class);when(provider.mode()).thenReturn("live");
+      var transfer=java.util.Map.of("recipient","acc_legacyfixture123","amount",10000,"currency","INR","source","order_legacysource123","status","processed");
+      when(provider.payment("pay_legacysource123")).thenReturn(json.valueToTree(java.util.Map.of("id","pay_legacysource123","order_id","order_legacysource123","amount",10000,"currency","INR","captured",true,"status","captured","amount_refunded",0)));
+      when(provider.order("order_legacysource123")).thenReturn(json.valueToTree(java.util.Map.of("id","order_legacysource123","receipt",sourcePurchase.toString(),"amount",10000,"currency","INR","partial_payment",false,"transfers",List.of(transfer))));
+      when(provider.transfers("pay_legacysource123")).thenReturn(json.valueToTree(java.util.Map.of("items",List.of(transfer))));
+      when(provider.refund("rfnd_legacyfixture123")).thenReturn(json.valueToTree(java.util.Map.of("entity","refund","id","rfnd_legacyfixture123","payment_id","pay_legacysource123","amount",2500,"currency","INR","status","failed")));
+      String secret="legacy-commerce-webhook-fixture-only";
+      String adminToken="legacy-upgrade-administrator";
+      upgrade.update("INSERT INTO user_roles(user_id,role) VALUES(?,'ADMIN')",owner);
+      upgrade.update("INSERT INTO sessions(token_hash,user_id,mfa_verified,expires_at) VALUES(?,?,true,clock_timestamp()+interval '1 hour')",com.getlancer.shared.Support.hash(adminToken),owner);
+      var administrator=new org.springframework.mock.web.MockHttpServletRequest();administrator.setCookies(new jakarta.servlet.http.Cookie("gl_session",adminToken));
+      var payments=new com.getlancer.commerce.CommercePaymentService(commerce,new com.getlancer.security.Security(upgrade,"http://localhost:3000",30),provider,mock(com.getlancer.commerce.CommerceService.class),json,new DataSourceTransactionManager(source),mock(com.getlancer.commerce.CommerceEducationBinding.class),secret);
+      assertEquals(Boolean.TRUE,payments.webhook(signedCommerceReceipt("legacy-unknown-refund",unknown,secret)).get("duplicate"));
+      assertEquals(Boolean.TRUE,payments.webhook(signedCommerceReceipt("legacy-unassociable-refund",unassociable,secret)).get("duplicate"));
+      var held=assertThrows(com.getlancer.shared.ApiError.class,()->payments.adminReconcile(sourcePurchase,administrator));assertEquals("REFUND_RECONCILIATION_REQUIRED",held.code);
+      var conflict=assertThrows(com.getlancer.shared.ApiError.class,()->payments.webhook(signedCommerceReceipt("legacy-commerce-refund",known+" ",secret)));assertEquals(409,conflict.status);
+      assertFalse(commerce.entitled(sourcePurchase,buyer));assertNull(upgrade.queryForObject("SELECT refund_id FROM commerce_webhook_events WHERE event_id='legacy-commerce-refund'",String.class));
+      assertEquals(Boolean.TRUE,payments.webhook(signedCommerceReceipt("legacy-commerce-refund",known,secret)).get("duplicate"));
+      assertEquals("rfnd_legacyfixture123",upgrade.queryForObject("SELECT refund_id FROM commerce_webhook_events WHERE event_id='legacy-commerce-refund'",String.class));
+      assertNotNull(upgrade.queryForObject("SELECT processed_at FROM commerce_webhook_events WHERE event_id='legacy-commerce-refund'",java.sql.Timestamp.class));assertTrue(commerce.entitled(sourcePurchase,buyer));
+      assertEquals(ignoredCompletions,upgrade.queryForList("SELECT event_id,processed_at FROM commerce_webhook_events WHERE event_id IN ('legacy-unknown-refund','legacy-unassociable-refund') ORDER BY event_id"));
+      assertEquals(1,upgrade.update("UPDATE component_slot_events SET event_kind='refund.created',payment_id='pay_legacyfixture123',refund_id='rfnd_legacyfixture123',processed_at=NULL WHERE event_id='legacy-slot'"));
+      assertThrows(org.springframework.dao.DataAccessException.class,()->upgrade.update("UPDATE component_slot_events SET payload_hash=? WHERE event_id='legacy-slot'","c".repeat(64)));
+    } finally {adminSql("DROP SCHEMA IF EXISTS "+upgradeSchema+" CASCADE");}
+  }
+
+  private org.springframework.mock.web.MockHttpServletRequest signedCommerceReceipt(String event,String payload,String secret)throws Exception{
+    byte[] bytes=payload.getBytes(java.nio.charset.StandardCharsets.UTF_8);var mac=javax.crypto.Mac.getInstance("HmacSHA256");mac.init(new javax.crypto.spec.SecretKeySpec(secret.getBytes(java.nio.charset.StandardCharsets.UTF_8),"HmacSHA256"));
+    var request=new org.springframework.mock.web.MockHttpServletRequest();request.setContent(bytes);request.addHeader("x-razorpay-event-id",event);request.addHeader("X-Razorpay-Signature",java.util.HexFormat.of().formatHex(mac.doFinal(bytes)));return request;
+  }
+
   @Test void webhookReceiptIdentityStaysImmutableWhileReconciliationMetadataCanAdvance() throws Exception {
-    for(String table:List.of("payment_webhook_events","commerce_webhook_events")) {
+    for(String table:List.of("payment_webhook_events","commerce_webhook_events","component_slot_events")) {
       String event="runtime-receipt-"+UUID.randomUUID();
       runtime.update("INSERT INTO "+table+"(event_id,payload_hash,event_kind,payment_id,dispute_id) VALUES(?,?,'payment.dispute.created','pay_rolefixture123','disp_rolefixture123')",event,"a".repeat(64));
       assertEquals(1,runtime.update("UPDATE "+table+" SET order_id='order_rolefixture123',processed_at=clock_timestamp() WHERE event_id=?",event));
-      if(table.equals("payment_webhook_events"))assertEquals(1,runtime.update("UPDATE payment_webhook_events SET refund_id='rfnd_rolefixture123' WHERE event_id=?",event));
+      assertEquals(1,runtime.update("UPDATE "+table+" SET refund_id='rfnd_rolefixture123' WHERE event_id=?",event));
+      if(table.equals("component_slot_events"))assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE component_slot_events SET event_kind='refund.created' WHERE event_id=?",event));
       assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE "+table+" SET payload_hash=? WHERE event_id=?","b".repeat(64),event));
       assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE "+table+" SET event_id='changed' WHERE event_id=?",event));
       assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("DELETE FROM "+table+" WHERE event_id=?",event));
@@ -154,12 +232,20 @@ class DatabaseRoleGuardIntegrationTest {
     }
   }
   @Test void providerRefundEvidenceAllowsStatusProgressWithoutIdentityOrAmountMutation() throws Exception {
-    assertEquals(0,runtime.update("UPDATE payment_provider_refunds SET status='processed',updated_at=clock_timestamp() WHERE false"));
-    for(String column:List.of("id","attempt_id","amount_minor"))
-      assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE payment_provider_refunds SET "+column+"="+column+" WHERE false"));
-    assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("DELETE FROM payment_provider_refunds WHERE false"));
+    for(String table:List.of("payment_provider_refunds","commerce_provider_refunds","component_slot_refunds","component_slot_disputes")){
+      assertEquals(0,runtime.update("UPDATE "+table+" SET status=status,updated_at=clock_timestamp() WHERE false"));
+      if(table.equals("component_slot_disputes"))assertEquals(0,runtime.update("UPDATE component_slot_disputes SET deducted_minor=deducted_minor WHERE false"));
+      String ownerColumn=table.equals("payment_provider_refunds")?"attempt_id":"purchase_id";
+      for(String column:List.of("id",ownerColumn))assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE "+table+" SET "+column+"="+column+" WHERE false"));
+      if(!table.equals("component_slot_disputes"))assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("UPDATE "+table+" SET amount_minor=amount_minor WHERE false"));
+      assertThrows(org.springframework.dao.DataAccessException.class,()->runtime.update("DELETE FROM "+table+" WHERE false"));
+      try {
+        adminSql("GRANT UPDATE ("+ownerColumn+") ON "+SCHEMA+"."+table+" TO getlancer_runtime");
+        assertRejected(runtime,"refund_evidence_permissions");
+      } finally {provision("10_permissions.sql");}
+    }
     try {
-      adminSql("GRANT UPDATE (amount_minor) ON "+SCHEMA+".payment_provider_refunds TO getlancer_runtime");
+      adminSql("REVOKE UPDATE (deducted_minor) ON "+SCHEMA+".component_slot_disputes FROM getlancer_runtime");
       assertRejected(runtime,"refund_evidence_permissions");
     } finally {provision("10_permissions.sql");}
     assertDoesNotThrow(()->guard(runtime));

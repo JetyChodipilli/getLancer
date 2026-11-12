@@ -214,6 +214,70 @@ class MaintenanceIntegrationTest {
   UUID offer=accepted();start(offer);fixture.paid=true;fixture.hideRefundList=true;fixture.blockNextPaymentGet.set(true);var pool=Executors.newSingleThreadExecutor();try{var refresh=pool.submit(()->mvc.perform(body(post(base(offer)+"/billing/refresh"),"care-buyer",Map.of())).andReturn().getResponse().getStatus());assertTrue(fixture.paymentGetEntered.await(3,TimeUnit.SECONDS));refundEvent("care-refund-during-read");fixture.paymentGetRelease.countDown();assertEquals(200,refresh.get(8,TimeUnit.SECONDS));assertEquals(0,fixture.transfers.get());assertEquals("NOT_CREATED",db.queryForObject("SELECT transfer_state FROM maintenance_periods",String.class));assertNull(db.queryForObject("SELECT processed_at FROM maintenance_webhook_events",java.sql.Timestamp.class));assertNull(db.queryForObject("SELECT reconciled_at FROM maintenance_subscriptions",java.sql.Timestamp.class));assertFalse(ok(as(get(base(offer)),"care-buyer")).path("entitlement").path("available").asBoolean());fixture.refundStatus="failed";ok(body(post(base(offer)+"/billing/refresh"),"care-buyer",Map.of()));assertEquals(1,fixture.transfers.get());assertNotNull(db.queryForObject("SELECT processed_at FROM maintenance_webhook_events",java.sql.Timestamp.class));assertTrue(ok(as(get(base(offer)),"care-buyer")).path("entitlement").path("available").asBoolean());}finally{fixture.paymentGetRelease.countDown();pool.shutdownNow();}
  }
 
+ void revokeAfterMaintenanceLockWait(String lockSql,UUID lockId,MockHttpServletRequestBuilder call,Runnable revoke,int expectedStatus)throws Exception{
+  var pool=Executors.newSingleThreadExecutor();
+  try(var holder=db.getDataSource().getConnection()){
+   holder.setAutoCommit(false);int holderPid;
+   try(var statement=holder.createStatement();var result=statement.executeQuery("SELECT pg_backend_pid()")){assertTrue(result.next());holderPid=result.getInt(1);}
+   try(var statement=holder.prepareStatement(lockSql)){statement.setObject(1,lockId);try(var result=statement.executeQuery()){assertTrue(result.next(),"The maintenance target row must exist before the request starts");}}
+   var pending=pool.submit(()->mvc.perform(call).andReturn().getResponse().getStatus());
+   long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(5);boolean waiting=false;
+   while(System.nanoTime()<deadline&&!pending.isDone()){
+    if(db.queryForObject("SELECT count(*) FROM pg_stat_activity WHERE ? = ANY(pg_blocking_pids(pid))",Integer.class,holderPid)>0){waiting=true;break;}
+    Thread.sleep(5);
+   }
+   assertTrue(waiting,"The maintenance request must reach an actual PostgreSQL target-row lock wait");
+   revoke.run();holder.commit();assertEquals(expectedStatus,pending.get(10,TimeUnit.SECONDS).intValue());
+  }finally{pool.shutdownNow();assertTrue(pool.awaitTermination(5,TimeUnit.SECONDS));}
+ }
+
+ @Test void operatorHoldRejectsSessionRevokedDuringDatabaseWait()throws Exception{
+  UUID offer=accepted();start(offer);UUID id=db.queryForObject("SELECT id FROM maintenance_subscriptions",UUID.class);
+  int audits=db.queryForObject("SELECT count(*) FROM maintenance_audit",Integer.class);
+  revokeAfterMaintenanceLockWait("SELECT id FROM delivery_engagements WHERE id=? FOR UPDATE",engagement,
+   body(post(operator(id,"hold")),"care-admin",Map.of("reason","Operator session must remain current after the engagement lock wait.")),
+   ()->db.update("DELETE FROM sessions WHERE token_hash=?",Support.hash("care-admin")),401);
+  assertFalse(db.queryForObject("SELECT local_hold FROM maintenance_subscriptions WHERE id=?",Boolean.class,id));
+  assertEquals(audits,db.queryForObject("SELECT count(*) FROM maintenance_audit",Integer.class).intValue());
+  assertEquals("CONFIRMED",db.queryForObject("SELECT subscription_state FROM maintenance_subscriptions WHERE id=?",String.class,id));assertEquals(1,fixture.subscriptions.get());
+ }
+
+ @Test void operatorReleaseHoldRejectsAdminRoleRevokedDuringDatabaseWait()throws Exception{
+  UUID offer=accepted();start(offer);UUID id=db.queryForObject("SELECT id FROM maintenance_subscriptions",UUID.class);db.update("UPDATE maintenance_subscriptions SET local_hold=true WHERE id=?",id);
+  int audits=db.queryForObject("SELECT count(*) FROM maintenance_audit",Integer.class);
+  revokeAfterMaintenanceLockWait("SELECT id FROM delivery_engagements WHERE id=? FOR UPDATE",engagement,
+   body(post(operator(id,"release-hold")),"care-admin",Map.of("reason","Operator role must remain current after the engagement lock wait.")),
+   ()->db.update("DELETE FROM user_roles WHERE user_id=? AND role='ADMIN'",admin),403);
+  assertTrue(db.queryForObject("SELECT local_hold FROM maintenance_subscriptions WHERE id=?",Boolean.class,id));
+  assertEquals(audits,db.queryForObject("SELECT count(*) FROM maintenance_audit",Integer.class).intValue());
+  assertEquals("CONFIRMED",db.queryForObject("SELECT subscription_state FROM maintenance_subscriptions WHERE id=?",String.class,id));assertEquals(1,fixture.subscriptions.get());assertEquals(0,fixture.transfers.get());
+ }
+
+ void operatorResumeRejectsRevocationDuringPartyLockWait(boolean revokeRole)throws Exception{
+  UUID id=boundPlanWithoutSubscription();int audits=db.queryForObject("SELECT count(*) FROM maintenance_audit",Integer.class);
+  // Initial operator access only locks the engagement and subscription; this party lock waits inside the reservation transaction.
+  revokeAfterMaintenanceLockWait("SELECT id FROM users WHERE id=? FOR UPDATE",seller,
+   body(post(operator(id,"resume-subscription")),"care-admin",Map.of("reason","Operator authority must survive every current-party and payee lock before reservation.")),
+   ()->{if(revokeRole)db.update("DELETE FROM user_roles WHERE user_id=? AND role='ADMIN'",admin);else db.update("DELETE FROM sessions WHERE token_hash=?",Support.hash("care-admin"));},revokeRole?403:401);
+  assertEquals("NOT_CREATED",db.queryForObject("SELECT subscription_state FROM maintenance_subscriptions WHERE id=?",String.class,id));
+  assertNull(db.queryForObject("SELECT provider_subscription_id FROM maintenance_subscriptions WHERE id=?",String.class,id));
+  assertEquals(audits,db.queryForObject("SELECT count(*) FROM maintenance_audit",Integer.class).intValue());
+  assertEquals(0,db.queryForObject("SELECT count(*) FROM maintenance_audit WHERE kind='OPERATOR_RESUME_SUBSCRIPTION'",Integer.class).intValue());assertEquals(0,fixture.subscriptions.get());assertFalse(fixture.committedSubscription);
+ }
+
+ @Test void operatorResumeRejectsSessionRevokedDuringPartyLockWait()throws Exception{operatorResumeRejectsRevocationDuringPartyLockWait(false);}
+ @Test void operatorResumeRejectsAdminRoleRevokedDuringPartyLockWait()throws Exception{operatorResumeRejectsRevocationDuringPartyLockWait(true);}
+
+ @Test void operatorCancelRejectsSessionRevokedDuringDatabaseWaitWithoutIntent()throws Exception{
+  UUID offer=accepted();start(offer);UUID id=db.queryForObject("SELECT id FROM maintenance_subscriptions",UUID.class);
+  int audits=db.queryForObject("SELECT count(*) FROM maintenance_audit",Integer.class);
+  revokeAfterMaintenanceLockWait("SELECT id FROM delivery_engagements WHERE id=? FOR UPDATE",engagement,
+   body(post(operator(id,"cancel")),"care-admin",Map.of("reason","Revoked operator cannot initiate future-billing cancellation after a database wait.")),
+   ()->db.update("DELETE FROM sessions WHERE token_hash=?",Support.hash("care-admin")),401);
+  assertFalse(db.queryForObject("SELECT cancel_requested FROM maintenance_subscriptions WHERE id=?",Boolean.class,id));assertNull(db.queryForObject("SELECT cancel_state FROM maintenance_subscriptions WHERE id=?",String.class,id));
+  assertEquals(audits,db.queryForObject("SELECT count(*) FROM maintenance_audit",Integer.class).intValue());assertEquals(0,fixture.cancels.get());
+ }
+
  @Test void operatorCanResumeOnlyProvenUnattemptedSubscriptionAndOnlyOnce()throws Exception{
   UUID id=boundPlanWithoutSubscription();var b=Map.of("reason","Eligibility restored and provider plan facts verified.");mvc.perform(body(post(operator(id,"resume-subscription")),"care-buyer",b)).andExpect(status().isForbidden());db.update("UPDATE sessions SET mfa_verified=false WHERE user_id=?",admin);mvc.perform(body(post(operator(id,"resume-subscription")),"care-admin",b)).andExpect(status().isForbidden());db.update("UPDATE sessions SET mfa_verified=true WHERE user_id=?",admin);ok(body(post(operator(id,"resume-subscription")),"care-admin",b));assertTrue(fixture.committedSubscription);assertEquals(1,fixture.plans.get());assertEquals(1,fixture.subscriptions.get());mvc.perform(body(post(operator(id,"resume-subscription")),"care-admin",b)).andExpect(status().isConflict());assertEquals(1,fixture.subscriptions.get());
  }

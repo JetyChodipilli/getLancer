@@ -78,6 +78,12 @@ public class Security {
     if (rows.isEmpty()) return null;
     var row = rows.get(0);
     UUID id = (UUID) row.get("id");
+    // A browser may assert which actor authorized its retained private state.
+    // This is only a fail-closed comparison with the real session identity; it
+    // cannot choose a user or add authority. Treat a mismatch as unauthenticated
+    // before any controller, role lookup or domain mutation can run.
+    String expected = request.getHeader("X-GetLancer-Account");
+    if (expected != null && !id.toString().equals(expected)) return null;
     Object verified = row.get("email_verified_at");
     Instant verifiedAt = verified instanceof java.sql.Timestamp timestamp ? timestamp.toInstant()
         : verified instanceof java.time.OffsetDateTime offset ? offset.toInstant() : (Instant) verified;
@@ -128,6 +134,16 @@ public class Security {
     if (!role(user, "ADMIN") || !Boolean.TRUE.equals(principal.get("mfa_verified")))
       throw new ApiError(403, "FORBIDDEN", "Administrator authentication is required.");
     return user;
+  }
+
+  /** Revalidate privileged writes after waits using the current database clock. */
+  public UUID adminMutation(HttpServletRequest request) {
+    var current = loadPrincipal(request);
+    if (current == null)
+      throw new ApiError(401, "UNAUTHENTICATED", "Please log in to continue.");
+    if (!current.roles().contains("ADMIN") || !current.recentMfa())
+      throw new ApiError(403, "FORBIDDEN", "Recent administrator authentication is required.");
+    return current.userId();
   }
 
   public UUID developer(HttpServletRequest request, boolean approved) {

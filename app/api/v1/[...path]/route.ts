@@ -29,7 +29,7 @@ async function proxy(req: Request, {params}: {params: Promise<{path: string[]}>}
   try{const {env}=await import('cloudflare:workers');proxySecret=(env as {BACKEND_PROXY_SECRET?:string}).BACKEND_PROXY_SECRET||proxySecret}catch{}
   const clientIp=req.headers.get('cf-connecting-ip');
   if(proxySecret){headers.set('X-GetLancer-Proxy',proxySecret);headers.set('X-GetLancer-Request-ID',requestId);if(clientIp&&/^[0-9a-fA-F:.]{3,45}$/.test(clientIp))headers.set('X-GetLancer-Client-IP',clientIp)}
-  for (const key of ['cookie', 'idempotency-key']) { const value = req.headers.get(key); if (value) headers.set(key, value); }
+  for (const key of ['cookie', 'idempotency-key', 'x-getlancer-account']) { const value = req.headers.get(key); if (value || (key === 'x-getlancer-account' && value !== null)) headers.set(key, value); }
   if (req.method === 'GET' && path.length === 3 && path[0] === 'lab-runs' && path[2] === 'events') {
     const cursor = req.headers.get('last-event-id');
     if (cursor && !/^[0-9]{1,18}$/.test(cursor)) return Response.json({error:{code:'VALIDATION_ERROR',message:'Invalid event cursor.'}}, {status:400});

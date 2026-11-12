@@ -55,3 +55,12 @@ test('API responses preserve request identity, authority errors and confirmed ou
   });
  });
 });
+
+test('account-bound requests preserve request options and cannot run without a loaded actor',async t=>{
+ const original=globalThis.fetch;t.after(()=>{globalThis.fetch=original;});
+ const {accountApi}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+ let requests=0;
+ globalThis.fetch=async(_url,init)=>{requests++;assert.equal(init.headers.get('X-GetLancer-Account'),'00000000-0000-4000-8000-000000000001');assert.equal(init.headers.get('Idempotency-Key'),'stable');assert.equal(init.method,'POST');return Response.json({ok:true});};
+ await assert.rejects(accountApi(null,'/me/private'),problem=>problem instanceof ApiError&&problem.status===401);assert.equal(requests,0);
+ assert.deepEqual(await accountApi('00000000-0000-4000-8000-000000000001','/me/private',{method:'POST',headers:[['Idempotency-Key','stable'],['X-GetLancer-Account','untrusted-override']],body:'{}'}),{ok:true});assert.equal(requests,1);
+});

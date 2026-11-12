@@ -48,6 +48,8 @@ public class PrivateProjectService {
             product,
             user)
         .isEmpty()) throw new ApiError(404, "NOT_FOUND", "Private project not found.");
+    // Do not use authority checked before a potentially blocking product lock.
+    if (!user.equals(security.developer(r, true))) throw new ApiError(403, "FORBIDDEN", "Builder access changed.");
   }
 
   @Transactional

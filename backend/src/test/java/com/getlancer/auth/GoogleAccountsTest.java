@@ -24,7 +24,35 @@ class GoogleAccountsTest {
         Instant.now(),
         Instant.now().plusSeconds(300),
         Map.of("alg", "RS256"),
-        Map.of("sub", "subject-123", "email", email, "email_verified", true));
+        Map.of("sub", "subject-123", "email", email, "email_verified", true,
+            "hd", email.substring(email.lastIndexOf('@') + 1)));
+  }
+
+  Jwt externalMailboxToken() {
+    return new Jwt(
+        "fixture", Instant.now(), Instant.now().plusSeconds(300), Map.of("alg", "RS256"),
+        Map.of("sub", "subject-123", "email", "member@example.com", "email_verified", true));
+  }
+
+  @Test
+  void nonAuthoritativeGoogleMailboxCannotCreateOrReusePermanentIdentity() {
+    for (String intent : List.of("signup", "login")) {
+      assertEquals(
+          "email_password_required",
+          assertThrows(ApiError.class, () -> accounts.resolve(externalMailboxToken(), intent)).code);
+    }
+    // Reject before consulting any legacy mapping, whether its account is still
+    // unverified or has since been verified/recovered by the current mailbox owner.
+    verifyNoInteractions(db, security, accounts.mail);
+  }
+
+  @Test
+  void authoritativeWorkspaceIdentityStillResolvesItsActiveLinkedAccount() {
+    UUID id = UUID.randomUUID();
+    when(db.queryForList(startsWith("SELECT u.id,u.email,u.account_status FROM users"), eq("subject-123")))
+        .thenReturn(List.of(Map.of("id", id, "email", "member@example.com", "account_status", "ACTIVE")));
+    assertEquals(id, accounts.resolve(token("member@example.com"), "login"));
+    verify(db, never()).update(anyString(), any(Object[].class));
   }
 
   @Test

@@ -11,6 +11,9 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.LockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,6 +56,45 @@ class TeamBusinessAuditRegressionTest {
   MockHttpServletRequestBuilder json(MockHttpServletRequestBuilder request, String actor, String body) {
     return request.cookie(new Cookie("gl_session", actor)).header("Origin", "http://localhost:3000")
         .header("X-Requested-With", "getlancer").contentType("application/json").content(body);
+  }
+
+  void revokeAfterLockWait(String lockSql, List<UUID> keys, MockHttpServletRequestBuilder call,
+      Runnable revoke, int expectedStatus) throws Exception {
+    var executor = Executors.newSingleThreadExecutor();
+    try (var holder = db.getDataSource().getConnection()) {
+      holder.setAutoCommit(false);
+      int holderPid;
+      try (var statement = holder.createStatement();
+          var result = statement.executeQuery("SELECT pg_backend_pid()")) {
+        assertTrue(result.next());
+        holderPid = result.getInt(1);
+      }
+      try (var statement = holder.prepareStatement(lockSql)) {
+        for (int i = 0; i < keys.size(); i++) statement.setObject(i + 1, keys.get(i));
+        try (var result = statement.executeQuery()) {
+          assertTrue(result.next(), "The target row must exist before the request starts");
+        }
+      }
+      var pending = executor.submit(() -> mvc.perform(call).andReturn().getResponse().getStatus());
+      long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+      boolean waiting = false;
+      while (System.nanoTime() < deadline && !pending.isDone()) {
+        if (db.queryForObject(
+                "SELECT count(*) FROM pg_stat_activity WHERE ? = ANY(pg_blocking_pids(pid))",
+                Integer.class, holderPid) > 0) {
+          waiting = true;
+          break;
+        }
+        LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(5));
+      }
+      assertTrue(waiting, "The request must reach an actual PostgreSQL target-row lock wait");
+      revoke.run();
+      holder.commit();
+      assertEquals(expectedStatus, pending.get(10, TimeUnit.SECONDS).intValue());
+    } finally {
+      executor.shutdownNow();
+      assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
+    }
   }
 
   @BeforeEach
@@ -146,5 +188,79 @@ class TeamBusinessAuditRegressionTest {
           .andExpect(status().isNotFound());
     }
     assertEquals(1, db.queryForObject("SELECT count(*) FROM talent_lists WHERE business_id=?", Integer.class, business));
+  }
+
+  @Test
+  void businessEditRejectsASessionRevokedWhileWaitingForTheWorkspaceLock() throws Exception {
+    revokeAfterLockWait("SELECT id FROM businesses WHERE id=? FOR UPDATE", List.of(business),
+        json(put("/api/v1/businesses/" + business), "owner",
+            "{\"name\":\"Changed business\",\"summary\":\"Changed customer software hiring\"}"),
+        () -> db.update("DELETE FROM sessions WHERE user_id=?", owner), 401);
+    assertEquals("Audit business", db.queryForObject("SELECT name FROM businesses WHERE id=?", String.class, business));
+    assertEquals(0, db.queryForObject("SELECT count(*) FROM business_activity WHERE business_id=?", Integer.class, business));
+  }
+
+  @Test
+  void nestedBusinessMutationRejectsASessionRevokedDuringTheSharedAccessLock() throws Exception {
+    revokeAfterLockWait("SELECT id FROM businesses WHERE id=? FOR UPDATE", List.of(business),
+        json(post("/api/v1/businesses/" + business + "/talent-lists"), "manager",
+            "{\"name\":\"Must not be created\"}"),
+        () -> db.update("DELETE FROM sessions WHERE user_id=?", manager), 401);
+    assertEquals(1, db.queryForObject("SELECT count(*) FROM talent_lists WHERE business_id=?", Integer.class, business));
+    assertEquals(0, db.queryForObject("SELECT count(*) FROM business_activity WHERE business_id=?", Integer.class, business));
+  }
+
+  @Test
+  void teamEditRejectsASessionRevokedWhileWaitingForTheTeamLock() throws Exception {
+    revokeAfterLockWait("SELECT id FROM teams WHERE id=? FOR UPDATE", List.of(team),
+        json(put("/api/v1/teams/" + team), "owner",
+            "{\"name\":\"Changed studio\",\"summary\":\"Changed customer software studio\",\"availability\":\"AVAILABLE_NOW\",\"projectRange\":\"10k\"}"),
+        () -> db.update("DELETE FROM sessions WHERE user_id=?", owner), 401);
+    assertEquals("Audit studio", db.queryForObject("SELECT name FROM teams WHERE id=?", String.class, team));
+    assertEquals(0, db.queryForObject("SELECT count(*) FROM team_activity WHERE team_id=?", Integer.class, team));
+  }
+
+  @Test
+  void privateTeamReadRejectsASessionRevokedDuringTheMembershipLock() throws Exception {
+    revokeAfterLockWait("SELECT user_id FROM team_members WHERE team_id=? AND user_id=? FOR UPDATE",
+        List.of(team, manager),
+        get("/api/v1/teams/" + team + "/workspace?collection=leads").cookie(new Cookie("gl_session", "manager")),
+        () -> db.update("DELETE FROM sessions WHERE user_id=?", manager), 401);
+  }
+
+  @Test
+  void moderationRejectsAnAdminRoleRevokedWhileWaitingForTheTeamLock() throws Exception {
+    db.update("INSERT INTO user_roles(user_id,role) VALUES(?,'ADMIN')", owner);
+    db.update("UPDATE sessions SET mfa_verified=true WHERE user_id=?", owner);
+    revokeAfterLockWait("SELECT id FROM teams WHERE id=? FOR UPDATE", List.of(team),
+        json(post("/api/v1/admin/teams/" + team + "/moderate"), "owner",
+            "{\"status\":\"SUSPENDED\",\"reason\":\"Revoked operator must not suspend this team\"}"),
+        () -> db.update("DELETE FROM user_roles WHERE user_id=? AND role='ADMIN'", owner), 403);
+    assertEquals("ACTIVE", db.queryForObject("SELECT status FROM teams WHERE id=?", String.class, team));
+    assertEquals(0, db.queryForObject("SELECT count(*) FROM team_activity WHERE team_id=?", Integer.class, team));
+    assertEquals(0, db.queryForObject("SELECT count(*) FROM moderation_actions WHERE target_type='TEAM' AND target_id=?", Integer.class, team));
+  }
+
+  @Test
+  void teamInvitationResponseRechecksSessionAfterItsFinalLockWait() throws Exception {
+    UUID invitation = UUID.randomUUID();
+    db.update("INSERT INTO team_invitations(id,team_id,user_id,role,membership_type) VALUES(?,?,?,'MEMBER','PERMANENT')",
+        invitation, team, outsider);
+    revokeAfterLockWait("SELECT id FROM team_invitations WHERE id=? FOR UPDATE", List.of(invitation),
+        json(post("/api/v1/team-invitations/" + invitation + "/respond"), "outsider", "{\"action\":\"ACCEPT\"}"),
+        () -> db.update("DELETE FROM sessions WHERE user_id=?", outsider), 401);
+    assertEquals("PENDING", db.queryForObject("SELECT status FROM team_invitations WHERE id=?", String.class, invitation));
+    assertEquals(0, db.queryForObject("SELECT count(*) FROM team_members WHERE team_id=? AND user_id=?", Integer.class, team, outsider));
+  }
+
+  @Test
+  void businessInvitationResponseRechecksSessionAfterItsFinalLockWait() throws Exception {
+    UUID invitation = UUID.randomUUID();
+    db.update("INSERT INTO business_invitations(id,business_id,user_id) VALUES(?,?,?)", invitation, business, outsider);
+    revokeAfterLockWait("SELECT id FROM business_invitations WHERE id=? FOR UPDATE", List.of(invitation),
+        json(post("/api/v1/business-invitations/" + invitation + "/respond"), "outsider", "{\"action\":\"ACCEPT\"}"),
+        () -> db.update("DELETE FROM sessions WHERE user_id=?", outsider), 401);
+    assertEquals("PENDING", db.queryForObject("SELECT status FROM business_invitations WHERE id=?", String.class, invitation));
+    assertEquals(0, db.queryForObject("SELECT count(*) FROM business_members WHERE business_id=? AND user_id=?", Integer.class, business, outsider));
   }
 }

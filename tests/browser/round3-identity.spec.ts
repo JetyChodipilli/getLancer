@@ -97,21 +97,27 @@ async function mountAccount(page:Page){
  return{held,requests};
 }
 async function deny(held:Held[],path:string,status:number){await expect.poll(()=>held.some(item=>item.path===path)).toBe(true);const pending=held.splice(held.findIndex(item=>item.path===path),1)[0];await pending.route.fulfill({status,json:{error:{message:'Account session expired.',code:'UNAUTHENTICATED'}}});}
+async function expectAccountAuthorityDenied(page:Page){
+ await expect(page.getByRole('heading',{name:'Make your best work visible.',exact:true})).toBeVisible();await expect(page.getByRole('alert')).toHaveText('Account session expired.');await expect(page.getByRole('link',{name:'Log in',exact:true}).last()).toBeVisible();
+ await expect(page.locator('.account-settings')).toHaveCount(0);await expect(page.locator('.account-notifications')).toHaveCount(0);await expect(page.locator('.account-notification')).toHaveCount(0);await expect(page.getByRole('button',{name:'Load more notifications',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Retry notifications',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Download my account data',exact:true})).toHaveCount(0);
+}
 
-for(const status of [401,403])test(`notification write denial (${status}) clears private rows, cancels earlier export publication and recovers by reading`,async({page})=>{
+for(const status of [401,403])test(`notification write denial (${status}) clears private rows, cancels earlier export publication and recovers through a fresh workspace read`,async({page})=>{
  const {held,requests}=await mountAccount(page),downloads:string[]=[];page.on('download',download=>downloads.push(download.suggestedFilename()));
  await page.getByRole('button',{name:'Download my account data',exact:true}).click();await expect.poll(()=>held.some(item=>item.path==='/me/export')).toBe(true);
  await page.getByRole('button',{name:'Mark read',exact:true}).click();await deny(held,'/notifications/'+first+'/read',status);
- const panel=page.locator('.account-notifications');await expect(panel.getByRole('alert')).toHaveText('Account session expired.');await expect(page.locator('.account-notification')).toHaveCount(0);await expect(page.getByRole('button',{name:'Load more notifications',exact:true})).toHaveCount(0);
- const pending=held.splice(held.findIndex(item=>item.path==='/me/export'),1)[0];await pending.route.fulfill({json:{account:{id:builder,email:'builder@example.test'}}});await settle(page);expect(downloads).toEqual([]);await expect(page.getByText('Your account export is ready.',{exact:true})).toHaveCount(0);
- await page.getByRole('button',{name:'Retry notifications',exact:true}).click();await expect(page.getByText('Recovered account notification',{exact:true})).toBeVisible();await expect(panel.getByRole('alert')).toHaveCount(0);expect(requests.filter(path=>path==='/notifications').length).toBe(2);expect(requests.filter(path=>path==='/notifications/'+first+'/read').length).toBe(1);
+ const panel=page.locator('.account-notifications');await expectAccountAuthorityDenied(page);
+ const pending=held.splice(held.findIndex(item=>item.path==='/me/export'),1)[0];await pending.route.fulfill({json:{account:{id:builder,email:'builder@example.test'}}});await (await pending.route.request().response())?.finished();await settle(page);expect(downloads).toEqual([]);await expect(page.getByText('Your account export is ready.',{exact:true})).toHaveCount(0);expect(requests.filter(path=>path==='/me').length).toBe(1);expect(requests.filter(path=>path==='/notifications').length).toBe(1);
+ // A full reload verifies /me before a new account panel can read private rows.
+ await page.reload();await expect(page.getByRole('heading',{name:'Welcome, Current builder.',exact:true})).toBeVisible();await expect(page.getByText('Recovered account notification',{exact:true})).toBeVisible();await expect(panel.getByRole('alert')).toHaveCount(0);expect(requests.filter(path=>path==='/me').length).toBe(2);expect(requests.filter(path=>path==='/notifications').length).toBe(2);expect(requests.filter(path=>path==='/notifications/'+first+'/read').length).toBe(1);
 });
 
 for(const status of [401,403])test(`notification continuation denial (${status}) clears previously visible private rows`,async({page})=>{
- const {held}=await mountAccount(page);await page.getByRole('button',{name:'Load more notifications',exact:true}).click();await deny(held,'/notifications?page=1&size=1',status);await expect(page.locator('.account-notifications').getByRole('alert')).toHaveText('Account session expired.');await expect(page.locator('.account-notification')).toHaveCount(0);await expect(page.getByRole('button',{name:'Retry notifications',exact:true})).toBeEnabled();
+ const {held}=await mountAccount(page);await page.getByRole('button',{name:'Load more notifications',exact:true}).click();await deny(held,'/notifications?page=1&size=1',status);await expectAccountAuthorityDenied(page);
 });
 
 test('account closure acknowledgement cannot republish after a newer notification authority denial',async({page})=>{
  const {held}=await mountAccount(page);await page.getByText('Close my account',{exact:true}).click();await page.getByLabel('Type your email to request a confirmation link',{exact:true}).fill('builder@example.test');await page.getByRole('button',{name:'Email me a closure confirmation',exact:true}).click();await expect.poll(()=>held.some(item=>item.path==='/me:DELETE')).toBe(true);
- await page.getByRole('button',{name:'Mark read',exact:true}).click();await deny(held,'/notifications/'+first+'/read',401);const pending=held.splice(held.findIndex(item=>item.path==='/me:DELETE'),1)[0];await pending.route.fulfill({status:202,json:{status:'EMAIL_CONFIRMATION_REQUIRED'}});await (await pending.route.request().response())?.finished();await settle(page);await expect(page.getByText(/Check your email to confirm account closure/)).toHaveCount(0);await expect(page.locator('.account-notification')).toHaveCount(0);
+ // A continuation read can discover revocation while the closure's write is pending.
+ await page.getByRole('button',{name:'Load more notifications',exact:true}).click();await deny(held,'/notifications?page=1&size=1',401);await expectAccountAuthorityDenied(page);const pending=held.splice(held.findIndex(item=>item.path==='/me:DELETE'),1)[0];await pending.route.fulfill({status:202,json:{status:'EMAIL_CONFIRMATION_REQUIRED'}});await (await pending.route.request().response())?.finished();await settle(page);await expect(page.getByText(/Check your email to confirm account closure/)).toHaveCount(0);await expect(page.locator('.account-notification')).toHaveCount(0);await expectAccountAuthorityDenied(page);
 });

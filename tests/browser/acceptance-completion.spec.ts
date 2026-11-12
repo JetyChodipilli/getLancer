@@ -47,6 +47,7 @@ test('initial lab availability errors preserve keyboard focus and explicit retri
  let announceRequest!:()=>void;const initialRequest=new Promise<void>(resolve=>{announceRequest=resolve;});let catalogueCalls=0;
  await page.route('**/api/v1/lab-manifests',async route=>{catalogueCalls++;if(catalogueCalls===1){announceRequest();await initialGate;}await route.fulfill({status:503,json:{error:{code:'LAB_UNAVAILABLE',message:'Current catalogue is unavailable.'}}});});
  await page.route('**/api/v1/lab-quota',route=>route.fulfill({status:401,json:{error:{code:'UNAUTHORIZED',message:'Sign in to check allowance.'}}}));
+ await page.route('**/api/v1/me',route=>route.fulfill({status:401,json:{error:{code:'UNAUTHORIZED',message:'Sign in to check allowance.'}}}));
  await page.goto('/labs');await initialRequest;
  const explorer=page.getByRole('link',{name:'Explore data & AI',exact:true}),next=page.getByRole('link',{name:'Explore backend scenarios',exact:true});
  await explorer.focus();await page.keyboard.press('Tab');await expect(next).toBeFocused();releaseInitial();
@@ -97,7 +98,7 @@ for(const width of widths)test('draft server-error and selected controls keep si
  // Controlled API errors prove frontend recovery; connected CI owns stack authorization.
  await page.route('**/api/v1/**',route=>{
   const path=new URL(route.request().url()).pathname;
-  if(path==='/api/v1/me')return route.fulfill({json:{roles:['DEVELOPER'],emailVerified:true,profile:{approval_status:'APPROVED'}}});
+  if(path==='/api/v1/me')return route.fulfill({json:{id:'00000000-0000-4000-8000-000000000001',roles:['DEVELOPER'],emailVerified:true,profile:{approval_status:'APPROVED'}}});
   if(path==='/api/v1/me/components'&&route.request().method()==='GET')return route.fulfill({json:{items:[],capacity:{free:3,purchased:0,used:0,limit:3},pricing}});
   if(path==='/api/v1/me/component-slot-purchases')return route.fulfill({json:{items:[],hasMore:false}});
   if(path==='/api/v1/me/components'&&route.request().method()==='POST')return route.fulfill({status:422,json:{error:{code:'VALIDATION_ERROR',message:'Correct the source details.',fieldErrors:{title:'Use the reviewed title.',file:'Choose the reviewed ZIP.'}}}});

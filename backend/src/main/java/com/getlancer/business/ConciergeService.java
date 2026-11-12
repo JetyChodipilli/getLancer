@@ -55,15 +55,18 @@ public class ConciergeService {
 
   @Transactional
   public Map<String, Object> matches(UUID id, HttpServletRequest r) {
-    repo.admin(r);
-    return matching.matches(brief(record(id)));
+    UUID u = repo.admin(r);
+    var request = brief(record(id));
+    repo.requireCurrentAdminRead(u, r);
+    return matching.matches(request);
   }
 
   @Transactional
   public Map<String, Object> status(UUID id, Map<String, Object> b, HttpServletRequest r) {
-    UUID u = repo.admin(r);
+    UUID u = repo.adminMutation(r);
     var c = record(id);
     brief(c);
+    repo.requireCurrentAdmin(u, r);
     String next = BusinessRepository.choice(b, "status", Set.of("IN_PROGRESS", "FULFILLED"));
     boolean valid =
         c.get("status").equals("REQUESTED") && next.equals("IN_PROGRESS")
@@ -80,24 +83,28 @@ public class ConciergeService {
         u,
         "CONCIERGE_" + next,
         "Manual sourcing " + next.toLowerCase().replace('_', ' '));
+    repo.requireCurrentAdmin(u, r);
     return Map.of("ok", true);
   }
 
   @Transactional
   public Map<String, Object> save(UUID id, Map<String, Object> b, HttpServletRequest r) {
-    UUID u = repo.admin(r);
+    UUID u = repo.adminMutation(r);
     var c = record(id);
     brief(c);
+    repo.requireCurrentAdmin(u, r);
     if (!c.get("status").equals("IN_PROGRESS"))
       throw new ApiError(
           409, "INVALID_STATE_TRANSITION", "Start sourcing before recommending candidates.");
     matching.insert(
         "request_shortlist", "request_id", (UUID) c.get("requestId"), b, u, "CONCIERGE");
+    repo.requireCurrentAdmin(u, r);
     repo.audit(
         (UUID) c.get("businessId"),
         u,
         "CONCIERGE_RECOMMENDATION",
         "Manual recommendation added with a client-visible reason");
+    repo.requireCurrentAdmin(u, r);
     return Map.of("ok", true);
   }
 }

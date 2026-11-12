@@ -49,9 +49,12 @@ export async function createPlannerServer(dataFile) {
     if (request.method === 'GET' && path === '/api/tasks') return send(200, { tasks, remainingMinutes: tasks.filter(task => !task.done).reduce((sum, task) => sum + task.minutes, 0) });
     if (!['POST', 'PATCH'].includes(request.method) || (path !== '/api/tasks' && !/^\/api\/tasks\/\d+$/.test(path))) return send(404, { error: 'Route not found' });
     if (request.headers['content-type'] !== 'application/json') return send(415, { error: 'JSON required' });
-    let bytes = 0, body = '';
+    const chunks = []; let bytes = 0;
     try {
-      for await (const chunk of request) { bytes += chunk.length; if (bytes > 4096) return send(413, { error: 'Body too large' }); body += chunk; }
+      for await (const chunk of request) { bytes += chunk.length; if (bytes > 4096) return send(413, { error: 'Body too large' }); chunks.push(chunk); }
+      let body;
+      try { body = new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks, bytes)); }
+      catch { return send(400, { error: 'Invalid UTF-8' }); }
       const input = JSON.parse(body);
       if (!input || Array.isArray(input) || typeof input !== 'object') return send(400, { error: 'Invalid input' });
       const mutate = async () => {
@@ -59,7 +62,9 @@ export async function createPlannerServer(dataFile) {
         if (request.method === 'POST' && path === '/api/tasks') {
           if (Object.keys(input).some(key => !['title', 'minutes'].includes(key)) || typeof input.title !== 'string' || !input.title.trim() || input.title.length > 100 || !Number.isInteger(input.minutes) || input.minutes < 1 || input.minutes > 600) return send(400, { error: 'Title and minutes from 1 to 600 are required' });
           if (next.length >= 100) return send(409, { error: 'The 100-task exercise limit was reached' });
-          result = { id: Math.max(0, ...next.map(task => task.id)) + 1, title: input.title.trim(), minutes: input.minutes, done: false }; next.push(result);
+          const usedIds = new Set(next.map(task => task.id)); let id = 1;
+          while (usedIds.has(id)) id++;
+          result = { id, title: input.title.trim(), minutes: input.minutes, done: false }; next.push(result);
         } else if (request.method === 'PATCH' && /^\/api\/tasks\/\d+$/.test(path)) {
           if (Object.keys(input).length !== 1 || typeof input.done !== 'boolean') return send(400, { error: 'A boolean done field is required' });
           result = next.find(task => task.id === Number(path.split('/').at(-1)));

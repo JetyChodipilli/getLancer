@@ -4,9 +4,8 @@ import static com.getlancer.shared.Support.text;
 
 import com.getlancer.shared.ApiError;
 import com.getlancer.shared.Rules;
-import java.time.LocalDate;
+import java.time.Clock;
 import java.time.ZoneId;
-import java.util.Date;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -42,15 +41,11 @@ public record ProfileDetails(String websiteUrl, String country, String timeZone,
   }
 
   public java.sql.Date bookedUntil(Map<String, Object> body, String availability) {
-    if (!availability.equals("BOOKED_UNTIL")) return null;
-    try {
-      LocalDate date = LocalDate.parse(text(body, "bookedUntil", 10, 10));
-      if (date.isBefore(LocalDate.now(timeZone.isBlank() ? ZoneId.of("UTC") : ZoneId.of(timeZone))))
-        throw invalid("bookedUntil", "Choose today or a future date in your time zone.");
-      return java.sql.Date.valueOf(date);
-    } catch (java.time.format.DateTimeParseException e) {
-      throw invalid("bookedUntil", "Choose a valid booked-until date.");
-    }
+    return bookedUntil(body, availability, Clock.systemUTC());
+  }
+
+  public java.sql.Date bookedUntil(Map<String, Object> body, String availability, Clock clock) {
+    return AvailabilityDates.bookedUntil(body, availability, timeZone, clock);
   }
 
   public boolean changed(Map<String, Object> previous) {

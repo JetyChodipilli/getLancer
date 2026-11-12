@@ -9,6 +9,7 @@ import {spawnSync} from 'node:child_process';
 // This is a decision regression; real transactions, ordering and grants run in CI.
 const moderation=readFileSync(new URL('../backend/src/main/java/com/getlancer/moderation/ModerationService.java',import.meta.url),'utf8');
 const admin=readFileSync(new URL('../backend/src/main/java/com/getlancer/admin/AdminService.java',import.meta.url),'utf8');
+const security=readFileSync(new URL('../backend/src/main/java/com/getlancer/security/Security.java',import.meta.url),'utf8');
 function method(source,signature,optional=false){
  const start=source.indexOf(signature);if(start<0){assert.ok(optional,'Missing '+signature);return '';}
  const begin=source.indexOf('{',start);let depth=1,cursor=begin+1;
@@ -22,8 +23,13 @@ before(()=>{
 import java.util.*;
 class OperationsAppealHarness {
  static class ApiError extends RuntimeException {final int status;final String code;ApiError(int s,String c,String m){super(m);status=s;code=c;}}
- static class HttpServletRequest {boolean admin=true;final UUID actor=UUID.randomUUID();}
- static class Security {UUID admin(HttpServletRequest r){if(!r.admin)throw new ApiError(403,"FORBIDDEN","Administrator required");return r.actor;}}
+ record CurrentPrincipal(UUID userId,Set<String> roles,boolean recentMfa){}
+ static class HttpServletRequest {boolean admin=true;final UUID actor=UUID.randomUUID();CurrentPrincipal current=new CurrentPrincipal(actor,Set.of("ADMIN"),true);}
+ static class Security {
+ UUID admin(HttpServletRequest r){if(!r.admin||r.current==null||!r.current.roles().contains("ADMIN")||!r.current.recentMfa())throw new ApiError(403,"FORBIDDEN","Administrator required");return r.current.userId();}
+ CurrentPrincipal loadPrincipal(HttpServletRequest r){return r.current;}
+ ${method(security,'public UUID adminMutation(')}
+ }
  static class Mail {int notifications;void notify(UUID u,String text){notifications++;}}
  static class Products {void lockOwner(UUID owner){}}
  static class Components {void restoreReported(UUID id,String reason,HttpServletRequest r){throw new AssertionError("Component restoration has its own exact-revision guard");}}
@@ -31,9 +37,9 @@ class OperationsAppealHarness {
  static Map<String,Object> decision(String type,String action,Long order){var row=new HashMap<String,Object>();row.put("id",selected);row.put("target_type",type);row.put("target_id",target);row.put("action",action);row.put("decision_order",order);return row;}
  static class Db {
   Map<String,Object> original,resource=new HashMap<>(),appeal=new HashMap<>(Map.of("decision_id",selected,"appellant_id",owner,"status","OPEN"));
-  List<Map<String,Object>> history=new ArrayList<>();int mutations,restorations;boolean missing;Runnable lock=()->{};
+  List<Map<String,Object>> history=new ArrayList<>();int mutations,restorations;boolean missing;Runnable lock=()->{},appealLock=()->{};
   List<Map<String,Object>> queryForList(String sql,Object...args){
-   if(sql.contains("FROM moderation_appeals"))return List.of(appeal);
+   if(sql.contains("FROM moderation_appeals")){appealLock.run();return List.of(appeal);}
    if(sql.contains("FROM products")&&sql.startsWith("SELECT owner_user_id"))return missing?List.of():List.of(Map.of("owner_user_id",owner));
    if(sql.contains("FOR UPDATE")){lock.run();return missing?List.of():List.of(resource);}
    throw new AssertionError("Unexpected JDBC list: "+sql);
@@ -52,8 +58,9 @@ class OperationsAppealHarness {
  }
  static String text(Map<String,Object> body,String key,int min,int max){return body.get(key).toString();}
  static class Admin {
-  final Db db;final Products products=new Products();Admin(Db db){this.db=db;}
-  ${method(admin,'public void requireCurrentAppealDecision(',true)}
+  final Db db;final Security security;final Products products=new Products();Admin(Db db,Security security){this.db=db;this.security=security;}
+  ${method(admin,'public void requireCurrentAdmin(')}
+  ${method(admin,'public void requireCurrentAppealDecision(')}
   void restore(){db.restorations++;}
   void accountAction(UUID id,String action,Map<String,Object> body,HttpServletRequest r){restore();}
   void profileAction(UUID id,String action,Map<String,Object> body,HttpServletRequest r){restore();}
@@ -64,7 +71,7 @@ class OperationsAppealHarness {
  }
  static class Moderation {
   final Db db;final Admin admin;final Security security=new Security();final Mail mail=new Mail();final Components components=new Components();
-  Moderation(Db db){this.db=db;admin=new Admin(db);}
+  Moderation(Db db){this.db=db;admin=new Admin(db,security);}
   ${method(moderation,'public Map<String, Object> appealDecision(')}
  }
  static Db setup(String type,Long order){
@@ -78,6 +85,14 @@ class OperationsAppealHarness {
   check(db.restorations==(allowed&&state.equals("OVERTURNED")?1:0),"Only the exact current overturned decision may restore");
   check(db.appeal.get("status").equals(allowed?state:"OPEN"),"Rejected appeal stays open for safe review");
   check(service.mail.notifications==(allowed?1:0),"Rejected appeal sends no success notification");
+ }
+ static void decideAuthorityDenied(Db db,String scenario){
+  var service=new Moderation(db);var request=new HttpServletRequest();
+  if(scenario.equals("authority-role"))db.appealLock=()->request.current=new CurrentPrincipal(request.actor,Set.of(),true);
+  else if(scenario.equals("authority-mfa"))db.appealLock=()->request.current=new CurrentPrincipal(request.actor,Set.of("ADMIN"),false);
+  else db.lock=()->request.current=new CurrentPrincipal(UUID.randomUUID(),Set.of("ADMIN"),true);
+  boolean rejected=false;try{service.appealDecision(appealId,Map.of("status","OVERTURNED","reason","Review after current operator authority changes"),request);}catch(ApiError e){check(e.status==403&&e.code.equals("FORBIDDEN"),"Named current-operator denial: "+e.code);rejected=true;}
+  check(rejected,"Revoked or replaced operator must not decide an appeal after lock waits");check(db.restorations==0&&db.mutations==0,"Operator denial precedes restoration and appeal updates");check(db.appeal.get("status").equals("OPEN"),"Denied appeal stays open");check(service.mail.notifications==0,"Operator denial sends no success notification");
  }
  public static void main(String[] args){
   String scenario=args[0];for(String type:List.of("ACCOUNT","USER","PRODUCT","INQUIRY","REVIEW")){
@@ -94,6 +109,7 @@ class OperationsAppealHarness {
     case "nonrestrictive" -> {db.original.put("action",type.equals("INQUIRY")?"restore":type.equals("ACCOUNT")?"restore":type.equals("REVIEW")?"publish":"approve");decide(db,false,"OVERTURNED");}
     case "review" -> {db.history.add(decision(type,db.original.get("action").toString(),2L));decide(db,true,"UNDER_REVIEW");}
     case "upheld" -> {db.history.add(decision(type,db.original.get("action").toString(),2L));decide(db,true,"UPHELD");}
+    case "authority-role", "authority-mfa", "authority-actor" -> decideAuthorityDenied(db,scenario);
     default -> throw new AssertionError(scenario);
    }
   }System.out.println("OPERATIONS_APPEAL_OK "+scenario+" targets=5");
@@ -105,7 +121,7 @@ class OperationsAppealHarness {
  assert.equal(compiled.status,0,String(compiled.error??'')+compiled.stdout+compiled.stderr);
 });
 after(()=>{if(directory)rmSync(directory,{recursive:true,force:true});});
-for(const scenario of ['current','later','wait','unrelated','legacy','legacy-ambiguous','legacy-superseded','changed','nonrestrictive','review','upheld']){
+for(const scenario of ['current','later','wait','unrelated','legacy','legacy-ambiguous','legacy-superseded','changed','nonrestrictive','review','upheld','authority-role','authority-mfa','authority-actor']){
  test('actual moderation appeal decision: '+scenario,()=>{
   const result=spawnSync('java',['-cp',directory,'OperationsAppealHarness',scenario],{encoding:'utf8',timeout:30000});
   assert.equal(result.status,0,String(result.error??'')+result.stdout+result.stderr);assert.match(result.stdout,/OPERATIONS_APPEAL_OK/);

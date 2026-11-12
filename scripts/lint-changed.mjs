@@ -16,6 +16,16 @@ const sha = (value, name) => {
   if (!/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i.test(value)) throw new Error(`${name} must be a full Git commit SHA.`);
   return value;
 };
+const commitExists = (value, name) => {
+  const result = spawnSync('git', ['cat-file', '--batch-check=%(objecttype)'], {cwd: root, encoding: 'utf8', input: `${value}\n`});
+  if (result.error || result.status !== 0 || result.stderr.trim()) {
+    throw new Error(`Changed-file lint could not inspect Git: ${result.error?.message || result.stderr.trim() || 'commit inspection failed'}`);
+  }
+  const type = result.stdout.trim();
+  if (type === `${value} missing`) return false;
+  if (type !== 'commit') throw new Error(`${name} must identify a Git commit.`);
+  return true;
+};
 
 try {
   const committed = process.env.CI === 'true' || Boolean(process.env.LINT_HEAD_SHA || process.env.LINT_BASE_SHA);
@@ -23,16 +33,19 @@ try {
   if (committed) {
     const head = sha(process.env.LINT_HEAD_SHA || git('rev-parse', 'HEAD').trim(), 'LINT_HEAD_SHA');
     const base = process.env.LINT_BASE_SHA ? sha(process.env.LINT_BASE_SHA, 'LINT_BASE_SHA') : undefined;
-    if (base && !/^0+$/.test(base)) {
+    if (!commitExists(head, 'LINT_HEAD_SHA')) throw new Error('LINT_HEAD_SHA must identify an available Git commit.');
+    if (base && !/^0+$/.test(base) && commitExists(base, 'LINT_BASE_SHA')) {
       changed = paths(git('diff', '--name-only', '--diff-filter=ACMR', '-z', base, head, '--'));
     } else {
-      // A first push to a new branch has an all-zero before SHA. Compare the
-      // complete branch against the default branch, not merely its last commit.
+      // First pushes and amended/force-pushed siblings may have no available
+      // before commit. Cover the complete branch against the default branch.
       const originMain = spawnSync('git', ['merge-base', 'origin/main', head], {cwd: root, encoding: 'utf8'});
-      if (originMain.status === 0 && originMain.stdout.trim() !== head) {
+      if (originMain.status === 0 && originMain.stdout.trim().toLowerCase() !== head.toLowerCase()) {
         changed = paths(git('diff', '--name-only', '--diff-filter=ACMR', '-z', originMain.stdout.trim(), head, '--'));
       } else {
-        changed = paths(git('diff-tree', '--root', '--no-commit-id', '--name-only', '--diff-filter=ACMR', '-r', '-z', head));
+        // A missing or HEAD-equal anchor cannot bound branch changes. Lint every
+        // tracked HEAD source rather than silently checking only its last commit.
+        changed = paths(git('ls-tree', '-r', '--name-only', '-z', head, '--'));
       }
     }
   } else {

@@ -1,6 +1,6 @@
 # Laptop testing without a cloud provider
 
-Use Docker Desktop with the WSL 2 backend on Windows, or Docker Desktop on macOS / Docker Engine with Compose v2 on Linux. Docker is the local execution environment; no Fly.io, AWS, Supabase or hosted sandbox account is needed. Install stable Node 22.23.4+ in Node 22, or 24.22.1+ in Node 24, for the frontend. CI and Node Docker images use Node 22.23.4. Docker Desktop installation: https://docs.docker.com/desktop/setup/install/windows-install/; WSL 2 setup: https://docs.docker.com/desktop/features/wsl/.
+Use Docker Desktop with the WSL 2 backend on Windows, or Docker Desktop on macOS / Docker Engine with Compose v2 on Linux. Docker is the local execution environment; no Fly.io, AWS, Supabase or hosted sandbox account is needed. Install stable Node 24.22.2+ in Node 24 for the frontend. CI and Node Docker images use Node 24.22.2. Docker Desktop installation: https://docs.docker.com/desktop/setup/install/windows-install/; WSL 2 setup: https://docs.docker.com/desktop/features/wsl/.
 
 ## Run the application
 
@@ -23,7 +23,7 @@ Run this separate command from the repository root:
 npm run labs:docker
 ```
 
-It builds a local image containing JDK 17, Node 22, Python 3.12, Go 1.24, .NET 8, PHP 8.3 and actual Redis 7.2.16 from the pinned reviewed source commit. Java, TypeScript, Python, Go, C#/.NET and PHP each test Redis caching, synthetic authorization and the payment emulator. Successful core execution prints six `SCENARIO_MATRIX_OK` lines followed by `CORE_LAB_MATRIX_OK languages=6 labs=18`; the container then checks data/AI and MQTT scenarios. A failure returns a nonzero exit code. A fresh run gets new UUIDs and disposable Redis state. No merchant or account credentials are used and no payments occur.
+It builds a local image containing JDK 17, Node 24, Python 3.12, Go 1.24, .NET 8, PHP 8.3 and actual Redis 7.2.16 from the pinned reviewed source commit. Java, TypeScript, Python, Go, C#/.NET and PHP each test Redis caching, synthetic authorization and the payment emulator. Successful core execution prints six `SCENARIO_MATRIX_OK` lines followed by `CORE_LAB_MATRIX_OK languages=6 labs=18`; the container then checks data/AI and MQTT scenarios. A failure returns a nonzero exit code. A fresh run gets new UUIDs and disposable Redis state. No merchant or account credentials are used and no payments occur.
 
 The test container has no external network, published ports, host directory mounts or Docker socket. It runs as an unprivileged user with a read-only filesystem, bounded temporary storage and resource limits, and is removed when the command finishes. It neither connects to nor resets the application's database. Initial image construction needs internet access; subsequent cached runs need no cloud connection. To inspect or modify individual examples, follow [the native lab setup](../labs/README.md).
 

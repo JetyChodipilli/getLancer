@@ -75,6 +75,10 @@ public class EducationService {
     if(operator&&!security.loadPrincipal(request).recentMfa())throw new ApiError(403,"FORBIDDEN","Recent administrator MFA is required for source inspection.");
     return actor;
   }
+  private void requireOwner(UUID owner,HttpServletRequest request,boolean approved){
+    // Authority row locks prevent revocation, but cannot stop a session expiring during a later wait.
+    if(!owner.equals(security.developer(request,approved)))throw new ApiError(401,"UNAUTHENTICATED","Please sign in again.");
+  }
   private Map<String,Object> ownerProduct(UUID product,UUID owner){var rows=db.queryForList(ProductRepository.SELECT+" WHERE p.id=? AND p.owner_user_id=? FOR UPDATE OF p",product,owner);if(rows.isEmpty())throw missing();return rows.get(0);}
   private Map<String,Object> eligible(UUID product,UUID owner,boolean metadata){
     db.queryForList("SELECT id FROM products WHERE id=? FOR SHARE",product);db.queryForList("SELECT id FROM users WHERE id=? FOR SHARE",owner);
@@ -119,16 +123,16 @@ public class EducationService {
   private UUID version(Map<String,Object> body,String mode,UUID product,UUID owner){if(!"PAID".equals(mode)){if(body.get("versionId")!=null)throw EducationSnapshot.invalid("Only paid access binds a paid source version.");return null;}if(body.get("versionId")==null)return null;UUID version=Support.uuid(body.get("versionId"));if(db.queryForList("SELECT v.id FROM source_versions v JOIN source_templates t ON t.id=v.template_id WHERE v.id=? AND t.product_id=? AND t.seller_id=?",version,product,owner).isEmpty())throw missing();return version;}
   @Transactional
   public Map<String,Object> create(UUID product,Map<String,Object> body,HttpServletRequest request){
-    commerce.lockProduct(product);UUID owner=actor(request,false,true);capacity.lock(owner);ownerProduct(product,owner);
+    commerce.lockProduct(product);UUID owner=actor(request,false,true);capacity.lock(owner);ownerProduct(product,owner);requireOwner(owner,request,true);
     if(db.queryForObject("SELECT count(*) FROM education_releases WHERE product_id=?",Integer.class,product)>=100)throw new ApiError(409,"EDUCATION_RELEASE_LIMIT","At most one hundred release identities are retained per project.");
     var draft=schema.draft(body);UUID version=version(body,draft.get("mode").toString(),product,owner),id=UUID.randomUUID();
     db.update("INSERT INTO education_releases(id,product_id,owner_id,draft,source_version_id) VALUES(?,?,?,?::jsonb,?)",id,product,owner,schema.encode(draft),version);
-    db.update("INSERT INTO education_private_details(release_id) VALUES(?)",id);audit(id,owner,"CREATED","Unfinished draft created; no source rights granted to buyers.",null);return dto(row(id,false),true);
+    db.update("INSERT INTO education_private_details(release_id) VALUES(?)",id);audit(id,owner,"CREATED","Unfinished draft created; no source rights granted to buyers.",null);var response=dto(row(id,false),true);requireOwner(owner,request,true);return response;
   }
   @Transactional
   public Map<String,Object> save(UUID id,Map<String,Object> body,HttpServletRequest request){
-    UUID owner=actor(request,false,true);var row=owned(id,owner);editable(row);revision(body,row);UUID product=(UUID)row.get("product_id");var draft=schema.draft(body);UUID version=version(body,draft.get("mode").toString(),product,owner);
-    db.update("UPDATE education_releases SET draft=?::jsonb,source_version_id=?,free_package_id=CASE WHEN ?='FREE' THEN free_package_id ELSE NULL END,revision=revision+1,updated_at=now() WHERE id=?",schema.encode(draft),version,draft.get("mode"),id);return dto(row(id,false),true);
+    UUID owner=actor(request,false,true);var row=owned(id,owner);requireOwner(owner,request,true);editable(row);revision(body,row);UUID product=(UUID)row.get("product_id");var draft=schema.draft(body);UUID version=version(body,draft.get("mode").toString(),product,owner);
+    db.update("UPDATE education_releases SET draft=?::jsonb,source_version_id=?,free_package_id=CASE WHEN ?='FREE' THEN free_package_id ELSE NULL END,revision=revision+1,updated_at=now() WHERE id=?",schema.encode(draft),version,draft.get("mode"),id);var response=dto(row(id,false),true);requireOwner(owner,request,true);return response;
   }
   /** Called with the publishing owner lock; count superseded and detached packages too. */
   private void freeCapacity(UUID owner){
@@ -138,12 +142,13 @@ public class EducationService {
   public Map<String,Object> upload(UUID id,MultipartFile file,long revision,boolean rights,HttpServletRequest request)throws IOException{
     if(!rights)throw new ApiError(400,"RIGHTS_CONSENT_REQUIRED","Confirm your permission to distribute this exact source.");
     if(file.getSize()>SourceArchive.MAX_COMPRESSED)throw new ApiError(413,"PAYLOAD_TOO_LARGE","Free source archives are limited to five MiB.");
-    byte[] bytes=file.getBytes();var inspection=SourceArchive.inspect(bytes);UUID owner=tx.execute(status->{UUID actor=actor(request,false,true);var row=owned(id,actor);editable(row);revision(Map.of("revision",revision),row);if(!"FREE".equals(schema.read(row.get("draft")).get("mode")))throw EducationSnapshot.invalid("Only free drafts accept a free source upload.");freeCapacity(actor);return actor;});
+    UUID owner=tx.execute(status->{UUID actor=actor(request,false,true);var row=owned(id,actor);requireOwner(actor,request,true);editable(row);revision(Map.of("revision",revision),row);if(!"FREE".equals(schema.read(row.get("draft")).get("mode")))throw EducationSnapshot.invalid("Only free drafts accept a free source upload.");freeCapacity(actor);return actor;});
+    byte[] bytes;try(var input=file.getInputStream()){bytes=input.readNBytes(SourceArchive.MAX_COMPRESSED+1);}var inspection=SourceArchive.inspect(bytes);
     UUID pack=UUID.randomUUID();String key=storage.put(pack,bytes,inspection.sha256());var entered=new AtomicBoolean();var rolledBack=new AtomicBoolean();
     try{return tx.execute(status->{entered.set(true);TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization(){@Override public void afterCompletion(int completion){if(completion==STATUS_ROLLED_BACK)rolledBack.set(true);}});
-      UUID actor=actor(request,false,true);if(!owner.equals(actor))throw missing();var row=owned(id,owner);editable(row);revision(Map.of("revision",revision),row);if(!"FREE".equals(schema.read(row.get("draft")).get("mode")))throw EducationSnapshot.invalid("Only free drafts accept source uploads.");freeCapacity(owner);
+      UUID actor=actor(request,false,true);if(!owner.equals(actor))throw missing();var row=owned(id,owner);requireOwner(owner,request,true);editable(row);revision(Map.of("revision",revision),row);if(!"FREE".equals(schema.read(row.get("draft")).get("mode")))throw EducationSnapshot.invalid("Only free drafts accept source uploads.");freeCapacity(owner);
       db.update("INSERT INTO education_free_packages(id,owner_id,storage_key,sha256,size_bytes,entry_count,files) VALUES(?,?,?,?,?,?,?::jsonb)",pack,owner,key,inspection.sha256(),inspection.sizeBytes(),inspection.entryCount(),schema.encode(inspection.files()));
-      db.update("UPDATE education_releases SET free_package_id=?,revision=revision+1,updated_at=now() WHERE id=?",pack,id);audit(id,owner,"SOURCE_UPLOADED","Statically inspected source; uploaded code was never executed.",inspection.sha256());return dto(row(id,false),true);});
+      db.update("UPDATE education_releases SET free_package_id=?,revision=revision+1,updated_at=now() WHERE id=?",pack,id);audit(id,owner,"SOURCE_UPLOADED","Statically inspected source; uploaded code was never executed.",inspection.sha256());var response=dto(row(id,false),true);requireOwner(owner,request,true);return response;});
     }catch(RuntimeException error){if(!entered.get()||rolledBack.get())storage.discardUnlinked(key);throw error;}
   }
   private Map<String,Object> freeBinding(Map<String,Object> row,Map<String,Object> snapshot){if(row.get("free_package_id")==null)throw new ApiError(400,"EDUCATION_SOURCE_REQUIRED","Upload the exact free package before submission.");var rows=db.queryForList("SELECT "+PACKAGE_COLUMNS+" FROM education_free_packages WHERE id=? AND owner_id=?",row.get("free_package_id"),row.get("owner_id"));if(rows.isEmpty())throw missing();var pack=rows.get(0);var out=new LinkedHashMap<String,Object>();out.put("packageId",pack.get("id").toString());out.put("sha256",pack.get("sha256"));out.put("sizeBytes",pack.get("size_bytes"));out.put("entryCount",pack.get("entry_count"));out.put("files",schema.list(pack.get("files")));out.put("licenseTerms",EducationSnapshot.object(snapshot.get("package")).get("licenseTerms"));return out;}
@@ -157,23 +162,23 @@ public class EducationService {
   }
   @Transactional
   public Map<String,Object> submit(UUID id,Map<String,Object> body,HttpServletRequest request){
-    UUID owner=actor(request,false,true);var row=owned(id,owner);editable(row);revision(body,row);if(!Boolean.TRUE.equals(body.get("rightsConsent")))throw new ApiError(400,"RIGHTS_CONSENT_REQUIRED","Confirm current contribution and distribution rights.");
+    UUID owner=actor(request,false,true);var row=owned(id,owner);requireOwner(owner,request,true);editable(row);revision(body,row);if(!Boolean.TRUE.equals(body.get("rightsConsent")))throw new ApiError(400,"RIGHTS_CONSENT_REQUIRED","Confirm current contribution and distribution rights.");
     UUID product=(UUID)row.get("product_id");var snapshot=core(schema.read(row.get("draft")),eligible(product,owner,false));schema.complete(snapshot);
     if(Objects.toString(snapshot.get("contribution"),"").length()<20)throw EducationSnapshot.invalid("Complete the existing approved product contribution before publishing.");
     capacity.requireCollegeMove(owner,product);snapshot.put("componentLinks",components(snapshot,true));var demo=demo(snapshot,product,true);if("HOSTED".equals(snapshot.get("demoMode"))){snapshot.put("demoUrl",demo.get("demoUrl"));snapshot.put("hostedDemoId",demo.get("hostedDemoId"));}
     String mode=snapshot.get("mode").toString();if(mode.equals("FREE"))snapshot.put("sourceBinding",freeBinding(row,snapshot));else if(mode.equals("PAID"))snapshot.put("sourceBinding",paidBinding(row,snapshot));
-    metadata(product,snapshot,false);String hash=schema.hash(snapshot);db.update("UPDATE education_releases SET snapshot=?::jsonb,source_hash=?,submitted_at=now(),status='PENDING',revision=revision+1,updated_at=now() WHERE id=?",schema.encode(snapshot),hash,id);audit(id,owner,"SUBMITTED","Exact source and package license snapshot frozen for independent review.",hash);return dto(row(id,false),true);
+    metadata(product,snapshot,false);String hash=schema.hash(snapshot);db.update("UPDATE education_releases SET snapshot=?::jsonb,source_hash=?,submitted_at=now(),status='PENDING',revision=revision+1,updated_at=now() WHERE id=?",schema.encode(snapshot),hash,id);audit(id,owner,"SUBMITTED","Exact source and package license snapshot frozen for independent review.",hash);var response=dto(row(id,false),true);requireOwner(owner,request,true);return response;
   }
   @Transactional
   public Map<String,Object> academic(UUID id,Map<String,Object> body,HttpServletRequest request){
-    UUID owner=actor(request,false,false);owned(id,owner);var rows=db.queryForList("SELECT revision,institution,academic_year,branch,share_academic_details FROM education_private_details WHERE release_id=? FOR UPDATE",id);
+    UUID owner=actor(request,false,false);owned(id,owner);var rows=db.queryForList("SELECT revision,institution,academic_year,branch,share_academic_details FROM education_private_details WHERE release_id=? FOR UPDATE",id);requireOwner(owner,request,false);
     if(rows.isEmpty())throw missing();var previous=rows.get(0);revision(body,previous);
     db.update("UPDATE education_private_details SET institution=?,academic_year=?,branch=?,share_academic_details=?,revision=revision+1 WHERE release_id=?",
         body.containsKey("institution")?Support.text(body,"institution",0,160):previous.get("institution"),
         body.containsKey("academicYear")?Support.text(body,"academicYear",0,40):previous.get("academic_year"),
         body.containsKey("branch")?Support.text(body,"branch",0,100):previous.get("branch"),
         body.containsKey("shareAcademicDetails")?Boolean.TRUE.equals(body.get("shareAcademicDetails")):previous.get("share_academic_details"),id);
-    return dto(row(id,false),true);
+    var response=dto(row(id,false),true);requireOwner(owner,request,false);return response;
   }
   @Transactional
   public Map<String,Object> queue(HttpServletRequest request){actor(request,true,false);var page=Pages.query(db,request,"SELECT "+COLUMNS+" FROM education_releases WHERE submitted_at IS NOT NULL ORDER BY CASE WHEN status='PENDING' THEN 0 ELSE 1 END,submitted_at,id");page.put("items",Pages.items(page).stream().map(row->dto(row,true)).toList());return page;}

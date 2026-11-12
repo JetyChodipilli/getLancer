@@ -11,6 +11,7 @@ import com.getlancer.shared.Rules;
 import com.getlancer.shared.Support;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -40,14 +41,23 @@ public class ClientInquiryService {
     return user;
   }
 
-  Map<String, Object> owned(UUID id, Map<String, Object> client, boolean lock) {
+  Map<String, Object> owned(
+      UUID id, Map<String, Object> client, boolean lock, HttpServletRequest request) {
     var rows =
         db.queryForList(
             "SELECT id,reference_product_id,developer_user_id,client_email,client_name,company_name,request_type,description,budget_band,timeline_band,current_status,email_confirmed_at,idempotency_key,request_hash,created_at,updated_at,moderation_status,moderation_reason,reported_value,reported_currency,acquisition_source FROM inquiries WHERE id=? AND client_email=?" + (lock ? " FOR UPDATE" : ""),
             id,
             client.get("email"));
     if (rows.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Request not found.");
+    if (lock) requireCurrentClient(client, request);
     return rows.get(0);
+  }
+
+  void requireCurrentClient(Map<String, Object> expected, HttpServletRequest request) {
+    var current = client(request);
+    if (!Objects.equals(expected.get("id"), current.get("id"))
+        || !Objects.equals(expected.get("email"), current.get("email")))
+      throw new ApiError(403, "FORBIDDEN", "Your request access changed. Reload your account.");
   }
 
   boolean requestedBy(UUID id, Map<String, Object> user) {
@@ -76,7 +86,7 @@ public class ClientInquiryService {
   }
 
   public Map<String, Object> detail(UUID id, HttpServletRequest request) {
-    var inquiry = owned(id, client(request), false);
+    var inquiry = owned(id, client(request), false, request);
     return Map.of(
         "description",
         inquiry.get("description"),
@@ -95,7 +105,7 @@ public class ClientInquiryService {
   public Map<String, Object> decision(
       UUID id, Map<String, Object> body, HttpServletRequest request) {
     var user = client(request);
-    var inquiry = owned(id, user, true);
+    var inquiry = owned(id, user, true, request);
     InquiryPolicy.requireClear(inquiry);
     String kind = text(body, "kind", 1, 40), decision = text(body, "decision", 1, 10);
     if (!Set.of("HIRE_CONFIRMATION", "COMPLETION_CONFIRMATION").contains(kind)
@@ -109,20 +119,24 @@ public class ClientInquiryService {
                     .contains(state))
             || (kind.equals("COMPLETION_CONFIRMATION") && state.equals("COMPLETED"))))
       return Map.of("status", state);
-    return Map.of(
-        "status",
-        confirmations.applyDecision(inquiry, kind, decision, "CLIENT", (UUID) user.get("id")));
+    String next =
+        confirmations.applyDecision(inquiry, kind, decision, "CLIENT", (UUID) user.get("id"));
+    requireCurrentClient(user, request);
+    return Map.of("status", next);
   }
 
   @Transactional
   public Map<String, Object> review(UUID id, Map<String, Object> body, HttpServletRequest request) {
-    confirmations.submitReview(owned(id, client(request), true), body);
+    var user = client(request);
+    confirmations.submitReview(owned(id, user, true, request), body);
+    requireCurrentClient(user, request);
     return Map.of("ok", true, "status", "HELD_FOR_REVIEW");
   }
 
   @Transactional
   public Map<String, Object> resend(UUID id, HttpServletRequest request) {
-    var inquiry = owned(id, client(request), true);
+    var user = client(request);
+    var inquiry = owned(id, user, true, request);
     InquiryPolicy.requireClear(inquiry);
     InquiryPolicy.requireSender(db, (String) inquiry.get("client_email"));
     String kind =
@@ -142,13 +156,14 @@ public class ClientInquiryService {
               throw new ApiError(409, "INVALID_STATE_TRANSITION", "No confirmation is waiting.");
         };
     mail.token(kind, null, id, (String) inquiry.get("client_email"));
+    requireCurrentClient(user, request);
     return Map.of("ok", true);
   }
 
   @Transactional
   public Map<String, Object> close(UUID id, HttpServletRequest request) {
     var user = client(request);
-    var inquiry = owned(id, user, true);
+    var inquiry = owned(id, user, true, request);
     if (inquiry.get("current_status").equals("NOT_HIRED")) return Map.of("ok", true);
     InquiryPolicy.requireClear(inquiry);
     String next = Rules.transition((String) inquiry.get("current_status"), "not-hired");
@@ -161,6 +176,7 @@ public class ClientInquiryService {
         user.get("id"));
     mail.notify(
         (UUID) inquiry.get("developer_user_id"), "Your client closed an inquiry as not hired.");
+    requireCurrentClient(user, request);
     return Map.of("ok", true);
   }
 }

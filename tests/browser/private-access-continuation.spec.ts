@@ -53,9 +53,11 @@ test('lost authority on a later page clears grants and the share link',async({pa
  await expect(page.getByRole('alert')).toHaveText('Private project not found.');await expect(page.getByRole('button',{name:/^Revoke access for /})).toHaveCount(0);await expect(page.getByRole('link')).toHaveCount(0);await expect(page.getByRole('button',{name:'Retry loading access',exact:true})).toBeVisible();
 });
 
-test('initial grant form survives an outstanding list request and ignores that stale result',async({page})=>{
- await mount(page);await page.getByLabel('Client email',{exact:true}).fill('new-client@example.test');await page.getByRole('button',{name:'Grant access for seven days',exact:true}).click();
- await respond(page,base,first());await expect(page.getByRole('button',{name:/^Revoke access for /})).toHaveCount(0);
+test('initial grant form waits for verified current access before accepting a write',async({page})=>{
+ await mount(page);const email=page.getByLabel('Client email',{exact:true}),grant=page.getByRole('button',{name:'Grant access for seven days',exact:true});await expect(email).toBeDisabled();await expect(grant).toBeDisabled();
+ expect(await page.evaluate(()=>(window as unknown as HarnessWindow).calls.filter(call=>call.method==='POST'))).toEqual([]);
+ await respond(page,base,first());await expect(email).toBeEnabled();await expect(grant).toBeEnabled();await expect(page.getByRole('button',{name:/^Revoke access for /})).toHaveCount(50);
+ await email.fill('new-client@example.test');await grant.click();
  await respond(page,base,{path:'/private/projects/first',expiresInDays:7},200,'POST');await respond(page,base,{items:[{client_email:'new-client@example.test',expires_at:'2030-01-07T12:00:00Z'}],page:0,size:50,hasMore:false});
  await expect(page.getByRole('button',{name:'Revoke access for new-client@example.test',exact:true})).toBeVisible();await expect(page.getByRole('link',{name:/\/private\/projects\/first/})).toBeVisible();
  expect(await page.evaluate(()=>(window as unknown as HarnessWindow).calls.find(call=>call.method==='POST')?.body)).toEqual({email:'new-client@example.test'});

@@ -55,6 +55,114 @@ class CommerceIntegrationTest {
   MockHttpServletRequestBuilder webhook(String event,String payload) throws Exception {return post("/api/v1/commerce/razorpay/webhook").contentType("application/json").content(payload).header("x-razorpay-event-id",event).header("X-Razorpay-Signature",sign(CommerceProviderIntegrationTest.WEBHOOK,payload.getBytes(StandardCharsets.UTF_8)));}
   String disputeEvent() {return "{\"event\":\"payment.dispute.created\",\"payload\":{\"dispute\":{\"entity\":{\"id\":\"disp_sourcefixture123\",\"payment_id\":\""+provider.paymentId()+"\"}}}}";}
   boolean noProviderHold() {return !repo.providerHeld(purchase());}
+  String refundEvent(String id) {return "{\"event\":\"refund.created\",\"payload\":{\"refund\":{\"entity\":{\"id\":\""+id+"\",\"payment_id\":\""+provider.paymentId()+"\"}}}}";}
+  void capturedPurchase() throws Exception {
+    mvc.perform(order("buyer",key)).andExpect(status().isOk());provider.captured=true;
+    mvc.perform(body(post("/api/v1/template-purchases/"+purchase()+"/verify"),"buyer",callback())).andExpect(status().isOk());
+  }
+  void revokeAfterPurchaseLockWait(UUID id,MockHttpServletRequestBuilder call,Runnable revoke,int expectedStatus) throws Exception {
+    var executor=Executors.newSingleThreadExecutor();
+    try(var holder=db.getDataSource().getConnection()) {
+      holder.setAutoCommit(false);int holderPid;
+      try(var statement=holder.createStatement();var result=statement.executeQuery("SELECT pg_backend_pid()")) {assertTrue(result.next());holderPid=result.getInt(1);}
+      try(var statement=holder.prepareStatement("SELECT id FROM template_purchases WHERE id=? FOR UPDATE")) {
+        statement.setObject(1,id);try(var result=statement.executeQuery()) {assertTrue(result.next());}
+      }
+      var pending=executor.submit(()->mvc.perform(call).andReturn().getResponse().getStatus());
+      long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(5);boolean waiting=false;
+      while(System.nanoTime()<deadline&&!pending.isDone()) {
+        if(db.queryForObject("SELECT count(*) FROM pg_stat_activity WHERE ? = ANY(pg_blocking_pids(pid))",Integer.class,holderPid)>0) {waiting=true;break;}
+        Thread.sleep(5);
+      }
+      assertTrue(waiting,"The source purchase request must reach an actual PostgreSQL lock wait");
+      revoke.run();holder.commit();assertEquals(expectedStatus,pending.get(10,TimeUnit.SECONDS).intValue());
+    } finally {executor.shutdownNow();assertTrue(executor.awaitTermination(5,TimeUnit.SECONDS));}
+  }
+  @Test void buyerDisputeRejectsSessionRevokedDuringPurchaseLockWait() throws Exception {
+    capturedPurchase();UUID id=purchase();int audits=db.queryForObject("SELECT count(*) FROM commerce_audit",Integer.class);
+    revokeAfterPurchaseLockWait(id,body(post("/api/v1/template-purchases/"+id+"/disputes"),"buyer","{\"reason\":\"The session was revoked while this source purchase waited for its lock.\"}"),
+      ()->db.update("DELETE FROM sessions WHERE token_hash=?",Support.hash("buyer")),401);
+    assertEquals(0,db.queryForObject("SELECT count(*) FROM commerce_disputes WHERE purchase_id=?",Integer.class,id));
+    assertEquals("CAPTURED",db.queryForObject("SELECT status FROM template_purchases WHERE id=?",String.class,id));
+    assertEquals(audits,db.queryForObject("SELECT count(*) FROM commerce_audit",Integer.class).intValue());
+  }
+  @Test void operatorResolutionRejectsAdminRoleRevokedDuringPurchaseLockWait() throws Exception {
+    capturedPurchase();UUID id=purchase();
+    mvc.perform(body(post("/api/v1/template-purchases/"+id+"/disputes"),"buyer","{\"reason\":\"Request a licensed source review before any operator resolution.\"}")).andExpect(status().isOk());
+    int audits=db.queryForObject("SELECT count(*) FROM commerce_audit",Integer.class);
+    revokeAfterPurchaseLockWait(id,body(post("/api/v1/admin/template-purchases/"+id+"/resolve"),"admin","{\"resolution\":\"REVOKE\",\"reason\":\"A revoked administrator must not revoke this buyer entitlement.\"}"),
+      ()->db.update("DELETE FROM user_roles WHERE user_id=? AND role='ADMIN'",admin),403);
+    assertEquals("OPEN",db.queryForObject("SELECT status FROM commerce_disputes WHERE purchase_id=?",String.class,id));
+    assertFalse(db.queryForObject("SELECT entitlement_revoked FROM template_purchases WHERE id=?",Boolean.class,id));
+    assertEquals(audits,db.queryForObject("SELECT count(*) FROM commerce_audit",Integer.class).intValue());
+  }
+  @Test void refundInboxSurvivesFirstProviderFailureAndAnAggregateCannotReleaseItsHold() throws Exception {
+    capturedPurchase();String payload=refundEvent("rfnd_sourcepending123");provider.failPayment=true;
+    mvc.perform(webhook("source_refund_outage",payload)).andExpect(status().isBadGateway());
+    assertFalse(noProviderHold());assertEquals("rfnd_sourcepending123",db.queryForObject("SELECT refund_id FROM commerce_webhook_events WHERE event_id='source_refund_outage'",String.class));
+    provider.failPayment=false;provider.refundStatus="pending";
+    mvc.perform(body(post("/api/v1/template-purchases/"+purchase()+"/reconcile"),"buyer","{}")).andExpect(status().isOk());
+    assertFalse(noProviderHold());assertEquals(0L,db.queryForObject("SELECT refunded_minor FROM template_purchases",Long.class));
+    mvc.perform(body(post("/api/v1/admin/template-purchases/"+purchase()+"/resolve"),"admin","{\"resolution\":\"RESUME\",\"reason\":\"Pending provider refund evidence cannot be locally cleared.\"}")).andExpect(status().isConflict());
+    mvc.perform(webhook("source_refund_outage",payload+" ")).andExpect(status().isConflict());
+    provider.refundStatus="failed";
+    mvc.perform(webhook("source_refund_outage",payload)).andExpect(status().isOk()).andExpect(jsonPath("$.duplicate").value(true));
+    assertTrue(noProviderHold());assertNotNull(db.queryForObject("SELECT processed_at FROM commerce_webhook_events WHERE event_id='source_refund_outage'",java.sql.Timestamp.class));
+    assertEquals("failed",db.queryForObject("SELECT status FROM commerce_provider_refunds",String.class));
+  }
+  @Test void exactProcessedRefundOverridesAStaleZeroPaymentAggregate() throws Exception {
+    capturedPurchase();provider.refundStatus="processed";provider.refundAmount=2500;provider.refunded=0;
+    mvc.perform(webhook("source_exact_refund",refundEvent("rfnd_sourceprocessed123"))).andExpect(status().isOk());
+    assertEquals(2500L,db.queryForObject("SELECT refunded_minor FROM template_purchases",Long.class));
+    assertEquals("PARTIALLY_REFUNDED",db.queryForObject("SELECT status FROM template_purchases",String.class));
+    assertEquals(2500L,db.queryForObject("SELECT sum(amount_minor) FROM commerce_ledger WHERE kind='REFUND'",Long.class));
+    provider.refundStatus="failed";
+    mvc.perform(body(post("/api/v1/template-purchases/"+purchase()+"/reconcile"),"buyer","{}")).andExpect(status().isOk());
+    assertEquals(2500L,db.queryForObject("SELECT refunded_minor FROM template_purchases",Long.class));
+    mvc.perform(body(post("/api/v1/admin/template-purchases/"+purchase()+"/resolve"),"admin","{\"resolution\":\"RESUME\",\"reason\":\"Confirmed refunded source cannot regain entitlement.\"}")).andExpect(status().isConflict());
+  }
+  @Test void wrongRefundMembershipOrIdentityCannotResolveAuthenticatedEvidence() throws Exception {
+    capturedPurchase();provider.refundStatus="failed";String payload=refundEvent("rfnd_sourcewrong123");provider.wrongRefundPayment=true;
+    mvc.perform(webhook("source_wrong_refund",payload)).andExpect(status().isConflict());assertFalse(noProviderHold());
+    provider.wrongRefundPayment=false;provider.wrongRefundId=true;
+    mvc.perform(webhook("source_wrong_refund",payload)).andExpect(status().isConflict());assertFalse(noProviderHold());
+    provider.wrongRefundId=false;
+    mvc.perform(webhook("source_wrong_refund",payload)).andExpect(status().isOk());assertTrue(noProviderHold());
+  }
+  @Test void historicalRefundWithoutAReferenceRequiresMatchingSignedRecovery() throws Exception {
+    capturedPurchase();String payload=refundEvent("rfnd_sourcelegacy123");
+    db.update("INSERT INTO commerce_webhook_events(event_id,payload_hash,event_kind,order_id,payment_id) VALUES('source_legacy_refund',?,'refund.created',?,?)",Support.hash(payload),provider.orderId(),provider.paymentId());
+    assertFalse(noProviderHold());
+    mvc.perform(body(post("/api/v1/template-purchases/"+purchase()+"/reconcile"),"buyer","{}")).andExpect(status().isConflict());
+    assertNull(db.queryForObject("SELECT refund_id FROM commerce_webhook_events WHERE event_id='source_legacy_refund'",String.class));
+    provider.refundStatus="failed";
+    mvc.perform(webhook("source_legacy_refund",payload)).andExpect(status().isOk()).andExpect(jsonPath("$.duplicate").value(true));assertTrue(noProviderHold());
+  }
+  @Test void liveSourceDownloadRejectsKnownAndUnmappedPendingRefunds() throws Exception {
+    UUID id=UUID.randomUUID();repo.reserve(id,buyer,UUID.randomUUID(),repo.template(template,false),repo.version(template,version,false),CommerceProviderIntegrationTest.ACCOUNT,"live");
+    repo.bind(id,"order_refundlive123","CREATED");repo.capture(id,"pay_refundlive123",0,"PROCESSED");assertTrue(repo.entitled(id,buyer));
+    db.update("INSERT INTO commerce_webhook_events(event_id,payload_hash,event_kind,payment_id,refund_id) VALUES('source_live_refund',?,'refund.created','pay_refundlive123','rfnd_livefixture123')",Support.hash("synthetic refund"));
+    assertFalse(repo.entitled(id,buyer));mvc.perform(as(get("/api/v1/template-purchases/"+id+"/download"),"buyer")).andExpect(status().isForbidden());
+    db.update("UPDATE commerce_webhook_events SET processed_at=clock_timestamp() WHERE event_id='source_live_refund'");assertTrue(repo.entitled(id,buyer));
+    db.update("INSERT INTO commerce_webhook_events(event_id,payload_hash,event_kind) VALUES('source_unmapped_refund',?,'refund.created')",Support.hash("synthetic legacy refund"));
+    assertFalse(repo.entitled(id,buyer));
+  }
+  @Test void staleRefundResponseCannotOverwriteANewerTerminalObservationOrClearLaterReceipt() throws Exception {
+    capturedPurchase();String payload=refundEvent("rfnd_sourcescheduled123");provider.blockRefund=true;
+    var workers=Executors.newSingleThreadExecutor();
+    var pending=workers.submit(()->mvc.perform(webhook("source_scheduled_refund",payload)).andReturn().getResponse().getStatus());
+    try {
+      assertTrue(provider.refundEntered.await(2,TimeUnit.SECONDS));
+      var transaction=new org.springframework.transaction.support.TransactionTemplate(new org.springframework.jdbc.datasource.DataSourceTransactionManager(db.getDataSource()));
+      transaction.execute(status->{db.execute("SET LOCAL lock_timeout='300ms'");db.queryForObject("SELECT id FROM template_purchases WHERE id=? FOR UPDATE",UUID.class,purchase());return null;});
+      provider.blockRefund=false;provider.refundStatus="failed";
+      mvc.perform(body(post("/api/v1/template-purchases/"+purchase()+"/reconcile"),"buyer","{}")).andExpect(status().isOk());
+      db.update("INSERT INTO commerce_webhook_events(event_id,payload_hash,event_kind,payment_id,refund_id) VALUES('source_later_refund',?,'refund.created',?,'rfnd_sourcescheduled123')",Support.hash("later signed fixture"),provider.paymentId());
+      provider.releaseRefund.countDown();assertEquals(200,pending.get(5,TimeUnit.SECONDS));
+      assertEquals("failed",db.queryForObject("SELECT status FROM commerce_provider_refunds",String.class));
+      assertNull(db.queryForObject("SELECT processed_at FROM commerce_webhook_events WHERE event_id='source_later_refund'",java.sql.Timestamp.class));assertFalse(noProviderHold());
+    } finally {provider.releaseRefund.countDown();workers.shutdownNow();}
+  }
   @Test void earlyDisputeSurvivesUncertainBindingAndDeniesSource() throws Exception {
     provider.uncertain=true;mvc.perform(order("buyer",key)).andExpect(status().isBadGateway());provider.captured=true;
     mvc.perform(webhook("early_source_dispute",disputeEvent())).andExpect(status().isOk());
@@ -77,6 +185,43 @@ class CommerceIntegrationTest {
       transaction.execute(status->{db.execute("SET LOCAL lock_timeout='300ms'");db.queryForObject("SELECT id FROM template_purchases WHERE id=? FOR UPDATE",UUID.class,purchase());return null;});assertFalse(noProviderHold());
     } finally {provider.releaseDispute.countDown();future.get(5,TimeUnit.SECONDS);executor.shutdownNow();}
   }
+  String storedSourceDispute(int n,String state) {
+    String id="disp_sourcebatch"+String.format(Locale.ROOT,"%02d",n);
+    db.update("INSERT INTO commerce_provider_disputes(id,purchase_id,status,deducted_minor,updated_at) VALUES(?,?,?,0,'2000-01-01T00:00:00Z')",id,purchase(),state);return id;
+  }
+  void reconcileSource() throws Exception {mvc.perform(body(post("/api/v1/template-purchases/"+purchase()+"/reconcile"),"buyer","{}")).andExpect(status().isOk());}
+  @Test void wonHistoryCannotStarveLaterStoredDisputesOrEraseAnIndependentHold() throws Exception {
+    capturedPurchase();for(int n=0;n<8;n++)storedSourceDispute(n,"won");
+    String ninth=storedSourceDispute(8,"open"),tenth=storedSourceDispute(9,"lost");provider.disputeStatus="won";provider.disputeStatuses.put(tenth,"lost");
+    assertFalse(noProviderHold());reconcileSource();
+    assertEquals(8,provider.disputeReads.size());assertEquals(List.of(ninth,tenth),provider.disputeReads.subList(0,2));
+    assertEquals("won",db.queryForObject("SELECT status FROM commerce_provider_disputes WHERE id=?",String.class,ninth));assertFalse(noProviderHold());
+    provider.disputeStatuses.put(tenth,"won");provider.disputeReads.clear();reconcileSource();
+    assertEquals(8,provider.disputeReads.size());assertTrue(provider.disputeReads.contains(tenth));assertTrue(noProviderHold());
+  }
+  @Test void unchangedHeldObservationsRotateSoANinthDisputeEventuallyRecovers() throws Exception {
+    capturedPurchase();var ids=new ArrayList<String>();for(int n=0;n<9;n++)ids.add(storedSourceDispute(n,"open"));
+    provider.disputeStatuses.put(ids.get(8),"won");reconcileSource();
+    assertEquals(ids.subList(0,8),provider.disputeReads);assertFalse(noProviderHold());
+    assertTrue(db.queryForObject("SELECT updated_at>'2000-01-01T00:00:00Z'::timestamptz FROM commerce_provider_disputes WHERE id=?",Boolean.class,ids.get(0)));
+    provider.disputeReads.clear();reconcileSource();
+    assertEquals(8,provider.disputeReads.size());assertEquals(ids.get(8),provider.disputeReads.get(0));
+    assertEquals("won",db.queryForObject("SELECT status FROM commerce_provider_disputes WHERE id=?",String.class,ids.get(8)));assertFalse(noProviderHold());
+    provider.disputeStatus="won";provider.disputeReads.clear();reconcileSource();assertEquals(8,provider.disputeReads.size());assertTrue(noProviderHold());
+  }
+  @Test void unrelatedBoundedDisputeObservationsCannotResolveAFreshPendingReceipt() throws Exception {
+    capturedPurchase();for(int n=0;n<8;n++)storedSourceDispute(n,"won");provider.disputeStatus="won";provider.blockDispute=true;
+    var executor=Executors.newSingleThreadExecutor();var pending=executor.submit(()->{reconcileSource();return null;});
+    try {
+      assertTrue(provider.disputeEntered.await(2,TimeUnit.SECONDS));
+      db.update("INSERT INTO commerce_webhook_events(event_id,payload_hash,event_kind,payment_id,dispute_id) VALUES('source_fresh_batch',?,'payment.dispute.created',?,'disp_sourcebatch99')",Support.hash("fresh authenticated receipt fixture"),provider.paymentId());
+      provider.blockDispute=false;provider.releaseDispute.countDown();pending.get(5,TimeUnit.SECONDS);
+      assertEquals(8,provider.disputeReads.size());assertFalse(provider.disputeReads.contains("disp_sourcebatch99"));assertFalse(noProviderHold());
+      assertNull(db.queryForObject("SELECT processed_at FROM commerce_webhook_events WHERE event_id='source_fresh_batch'",java.sql.Timestamp.class));
+      provider.disputeReads.clear();reconcileSource();assertEquals(8,provider.disputeReads.size());assertEquals("disp_sourcebatch99",provider.disputeReads.get(0));
+      assertNotNull(db.queryForObject("SELECT processed_at FROM commerce_webhook_events WHERE event_id='source_fresh_batch'",java.sql.Timestamp.class));assertTrue(noProviderHold());
+    } finally {provider.releaseDispute.countDown();executor.shutdownNow();}
+  }
   @Test void realLiveEntitlementRejectsPendingAndUnmappedHistoricalDisputes() throws Exception {
     UUID id=UUID.randomUUID();repo.reserve(id,buyer,UUID.randomUUID(),repo.template(template,false),repo.version(template,version,false),CommerceProviderIntegrationTest.ACCOUNT,"live");
     repo.bind(id,"order_pendingfixture123","CREATED");repo.capture(id,"pay_pendingfixture123",0,"PROCESSED");assertTrue(repo.entitled(id,buyer));
@@ -98,6 +243,61 @@ class CommerceIntegrationTest {
     db.update("INSERT INTO commerce_webhook_events(event_id,payload_hash,event_kind) VALUES('old_source_dispute',?,'payment.dispute.created')",Support.hash(disputeEvent()));assertFalse(noProviderHold());
     mvc.perform(webhook("old_source_dispute",disputeEvent()+" ")).andExpect(status().isConflict());assertFalse(noProviderHold());
     mvc.perform(webhook("old_source_dispute",disputeEvent())).andExpect(status().isOk()).andExpect(jsonPath("$.duplicate").value(true));assertTrue(noProviderHold());
+  }
+  /** Synthetic retained immutable rows cover every listing/release state, without stored objects. */
+  List<UUID> retainedSourceVersions(int total) {
+    var listings=new ArrayList<UUID>();
+    for(String state:List.of("DRAFT","DRAFT","ARCHIVED","SUSPENDED")) {
+      UUID listing=UUID.randomUUID();
+      repo.create(listing,seller,product,"retained-"+listing,"Retained source","A retained immutable source listing.","Historical source snapshots remain pinned to their original licenses.",10000,"One commercial end product; retain third-party notices.");
+      db.update("UPDATE source_templates SET status=? WHERE id=?",state,listing);listings.add(listing);
+    }
+    var states=List.of("DRAFT","PENDING","CHANGES_REQUESTED","APPROVED","REJECTED","SUSPENDED");
+    for(int n=0;n<total-1;n++) {
+      UUID id=UUID.randomUUID(),listing=listings.get(n%listings.size());
+      repo.addVersion(id,listing,"historic-"+n,"Historical immutable source release notes.","commerce/"+id+"/"+UUID.randomUUID()+".zip",new SourceArchive.Inspection("a".repeat(64),22,2,List.of("package.json")),"One commercial end product; retain third-party notices.");
+      db.update("UPDATE source_versions SET status=? WHERE id=?",states.get(n%states.size()),id);
+    }
+    return listings;
+  }
+  MockHttpServletRequestBuilder retainedUpload(UUID listing,String release) {
+    return multipart("/api/v1/me/templates/"+listing+"/versions")
+        .file(new MockMultipartFile("file","source.zip","application/zip",zip))
+        .param("version",release).param("releaseNotes","A complete immutable release with redistribution notices.").param("rightsConsent","true")
+        .header("Origin","http://localhost:3000").header("X-Requested-With","getlancer").cookie(new Cookie("gl_session","seller"));
+  }
+  @Test void concurrentUploadsAcrossDraftListingsCommitOnlyOneRetainedSourceSlot() throws Exception {
+    var listings=retainedSourceVersions(99);clearInvocations(storage);
+    var objects=new ConcurrentHashMap<String,byte[]>();var uploaded=new CountDownLatch(2);
+    when(storage.put(any(UUID.class),any(byte[].class),anyString())).thenAnswer(call->{
+      String object="commerce/"+call.getArgument(0)+"/"+UUID.randomUUID()+".zip";
+      objects.put(object,((byte[])call.getArgument(1)).clone());uploaded.countDown();
+      assertTrue(uploaded.await(10,TimeUnit.SECONDS),"Storage I/O must occur after releasing the owner admission lock.");
+      return object;
+    });
+    doAnswer(call->{objects.remove(call.getArgument(0));return null;}).when(storage).discardUnlinked(anyString());
+    var pool=Executors.newFixedThreadPool(2);
+    try {
+      var one=pool.submit(()->mvc.perform(retainedUpload(listings.get(0),"race-one")).andReturn().getResponse());
+      var two=pool.submit(()->mvc.perform(retainedUpload(listings.get(1),"race-two")).andReturn().getResponse());
+      var responses=List.of(one.get(20,TimeUnit.SECONDS),two.get(20,TimeUnit.SECONDS));
+      assertEquals(List.of(201,409),responses.stream().map(response->response.getStatus()).sorted().toList());
+      var denied=responses.stream().filter(response->response.getStatus()==409).findFirst().orElseThrow();
+      assertEquals("SOURCE_RETENTION_LIMIT",json.readTree(denied.getContentAsString()).path("error").path("code").asText());
+      assertEquals(100,db.queryForObject("SELECT count(*) FROM source_versions v JOIN source_templates t ON t.id=v.template_id WHERE t.seller_id=?",Integer.class,seller));
+      assertEquals(1,objects.size());verify(storage,times(2)).put(any(UUID.class),any(byte[].class),anyString());verify(storage).discardUnlinked(anyString());
+    } finally {pool.shutdownNow();assertTrue(pool.awaitTermination(15,TimeUnit.SECONDS));}
+  }
+  @Test void historicalOverLimitSourceRemainsReadableAndLicensedWhileNewUploadsAreDenied() throws Exception {
+    var listings=retainedSourceVersions(105);clearInvocations(storage);
+    mvc.perform(retainedUpload(listings.get(0),"over-budget")).andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("SOURCE_RETENTION_LIMIT"));
+    verify(storage,never()).put(any(UUID.class),any(byte[].class),anyString());
+    assertEquals(100,repo.retainedVersions(seller,100),"The admission count itself is capped.");
+    assertFalse(repo.ownerDetail(template,seller).isEmpty());
+    UUID purchase=UUID.randomUUID();repo.reserve(purchase,buyer,UUID.randomUUID(),repo.template(template,false),repo.version(template,version,false),CommerceProviderIntegrationTest.ACCOUNT,"live");
+    repo.bind(purchase,"order_retainedfixture123","CREATED");repo.capture(purchase,"pay_retainedfixture123",0,"PROCESSED");assertTrue(repo.entitled(purchase,buyer));
+    assertArrayEquals(zip,mvc.perform(as(get("/api/v1/template-purchases/"+purchase+"/download"),"buyer")).andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray());
+    assertEquals(105,db.queryForObject("SELECT count(*) FROM source_versions v JOIN source_templates t ON t.id=v.template_id WHERE t.seller_id=?",Integer.class,seller));
   }
   @BeforeEach void prepare() throws Exception {
     provider.reset();reset(storage);db.execute("TRUNCATE users CASCADE");db.execute("TRUNCATE rate_buckets");db.execute("TRUNCATE commerce_webhook_events");

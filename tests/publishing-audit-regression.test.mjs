@@ -13,17 +13,22 @@ const {api,ApiError}=await import('data:text/javascript;base64,'+Buffer.from(api
 function routine(source,name,context){
  const tree=ts.createSourceFile('publishing-fixture.tsx',source,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX),matches=[];
  function visit(node){
-  if(ts.isFunctionDeclaration(node)&&node.name?.text===name)matches.push(node);
+  if(ts.isFunctionDeclaration(node)&&node.name?.text===name)matches.push(node.getText(tree).replace(/^export\s+/,''));
+  if(ts.isVariableDeclaration(node)&&ts.isIdentifier(node.name)&&node.name.text===name&&node.initializer){
+   const value=ts.isCallExpression(node.initializer)&&node.initializer.expression.getText(tree)==='useCallback'?node.initializer.arguments[0]:node.initializer;
+   if(value&&(ts.isArrowFunction(value)||ts.isFunctionExpression(value)))matches.push('const '+name+'='+value.getText(tree)+';');
+  }
   ts.forEachChild(node,visit);
  }
  visit(tree);
  assert.equal(matches.length,1,'Exactly one actual '+name+' declaration must exist');
- const text=matches[0].getText(tree).replace(/^export\s+/,'');
- const js=stripTypeScriptTypes(text,{mode:'transform'});
+ const js=stripTypeScriptTypes(matches[0],{mode:'transform'});
+ if(context.api&&!context.request)context.request=(...args)=>context.api(...args);
+ if(context.api&&!context.accountApi)context.accountApi=(_actor,...args)=>context.api(...args);
  return Function(...Object.keys(context),js+';return '+name+';')(...Object.values(context));
 }
 function deferred(){let resolve;const promise=new Promise(done=>{resolve=done;});return{promise,resolve};}
-function stateContext(source,extra={}){const values={},context={ApiError,...(source===workspace?{historyGeneration:{current:0}}:{}),...extra};for(const name of source.match(/\bset[A-Z]\w*/g)||[])context[name]=value=>{values[name]=typeof value==='function'?value(values[name]||0):value;};if(source===workspace)context.closeHistory=routine(workspace,'closeHistory',context);return{values,context};}
+function stateContext(source,extra={}){const values={},context={ApiError,needsReload:false,...(source===workspace?{historyGeneration:{current:0},mounted:{current:true},authority:{current:{actor:extra.currentUser?.current?.id||null,epoch:0,fenced:false}},mutation:{current:null},writeGeneration:{current:0},pendingWrites:{current:new Set()}}:{}),...extra};for(const name of source.match(/\bset[A-Z]\w*/g)||[])context[name]=value=>{values[name]=typeof value==='function'?value(values[name]||0):value;};if(source===workspace)context.closeHistory=routine(workspace,'closeHistory',context);if(source.includes('function uncertain('))context.uncertain=routine(source,'uncertain',{ApiError});return{values,context};}
 
 test('showcase refresh preserves the authenticated editor on a transient read failure',async()=>{
  const original={id:'builder',roles:['DEVELOPER']};let cleared=0;

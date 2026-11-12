@@ -21,7 +21,7 @@ The dashboard adapts the pinned ShadcnStore dashboard grid/header from commit `6
 
 ## Laptop testing
 
-[Laptop setup](../../ops/LAPTOP_TESTING.md) uses the existing Docker application services, without a cloud account. `npm run labs:docker` adds a separate disposable container with the actual native verifier, JDK 17, Node 22, Python 3.12 and pinned Redis 7.2.16. Its runtime has no external network or host mounts. It runs the real scenarios in the terminal; it does not implement the browser's hosted provider gateway. First construction requires internet access. `APP_LABS_ENABLED=false` remains the local default.
+[Laptop setup](../../ops/LAPTOP_TESTING.md) uses the existing Docker application services, without a cloud account. `npm run labs:docker` adds a separate disposable container with the actual native verifier, JDK 17, Node 24, Python 3.12 and pinned Redis 7.2.16. Its runtime has no external network or host mounts. It runs the real scenarios in the terminal; it does not implement the browser's hosted provider gateway. First construction requires internet access. `APP_LABS_ENABLED=false` remains the local default.
 
 ## Verified outcomes
 

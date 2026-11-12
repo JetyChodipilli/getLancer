@@ -13,6 +13,7 @@ import com.getlancer.shared.ApiError;
 import com.getlancer.shared.Pages;
 import com.getlancer.shared.Rules;
 import com.getlancer.shared.Support;
+import com.getlancer.trust.DemoHealth;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -60,6 +61,16 @@ public class ProductService {
     this.reliabilityMinimum = reliabilityMinimum;
   }
 
+  private void requireCurrentDeveloper(UUID actor, HttpServletRequest request) {
+    if (!actor.equals(security.developer(request, true)))
+      throw new ApiError(403, "FORBIDDEN", "Builder account access changed.");
+  }
+
+  private void requireCurrentUser(UUID actor, HttpServletRequest request) {
+    if (!actor.equals(security.user(request)))
+      throw new ApiError(403, "FORBIDDEN", "Account access changed.");
+  }
+
   public Map<String, Object> dto(Map<String, Object> p) {
     return dto(p, repository.media(p.get("id")));
   }
@@ -88,11 +99,7 @@ public class ProductService {
             "availability",
             "visibility")) x.put(k, p.get(k));
     x.put("bookedUntil", p.get("booked_until"));
-    x.put(
-        "demoHealth",
-        Objects.equals(p.get("live_url"), p.get("demo_checked_url"))
-            ? Objects.toString(p.get("demo_health"), "UNKNOWN")
-            : "UNKNOWN");
+    x.put("demoHealth", DemoHealth.current(p, (String) p.get("live_url"), null));
     x.put("demoCheckedAt", p.get("demo_checked_at"));
     String[] old = {
       "builder_slug",
@@ -359,6 +366,7 @@ public class ProductService {
         "",
         "");
     save(p, b, u);
+    requireCurrentDeveloper(u, r);
     return Map.of("id", p);
   }
 
@@ -367,7 +375,10 @@ public class ProductService {
     UUID u = security.developer(r, true);
     publishing.lock(u);
     owned(id, u);
+    requireCurrentDeveloper(u, r);
     save(id, b, u);
+    // A later taxonomy or repository-proof write can also have waited on a database lock.
+    requireCurrentDeveloper(u, r);
     return Map.of("ok", true);
   }
 
@@ -464,6 +475,7 @@ public class ProductService {
     publishing.lock(u);
     db.queryForMap("SELECT user_id,active_slot_limit,source FROM showcase_entitlements WHERE user_id=? FOR UPDATE", u);
     var p = owned(id, u);
+    requireCurrentDeveloper(u, r);
     switch (action) {
       case "submit" -> {
         if (!Set.of("DRAFT", "CHANGES_REQUESTED").contains(p.get("approval_status")))
@@ -501,6 +513,7 @@ public class ProductService {
       case "activate" -> activate(id, u, true);
       default -> throw new ApiError(404, "NOT_FOUND", "Action not found.");
     }
+    requireCurrentDeveloper(u, r);
     return Map.of("ok", true);
   }
 
@@ -552,18 +565,21 @@ public class ProductService {
           "INSERT INTO analytics_events(id,event_name,entity_id) VALUES(?,'product_saved',?)",
           Support.id(),
           id);
+    requireCurrentUser(u, r);
     return Map.of("ok", true);
   }
 
   @Transactional
   public Map<String, Object> unsave(UUID id, HttpServletRequest r) {
+    UUID u = security.user(r);
     if (db.update(
-            "DELETE FROM saved_products WHERE user_id=? AND product_id=?", security.user(r), id)
+            "DELETE FROM saved_products WHERE user_id=? AND product_id=?", u, id)
         > 0)
       db.update(
           "INSERT INTO analytics_events(id,event_name,entity_id) VALUES(?,'product_unsaved',?)",
           Support.id(),
           id);
+    requireCurrentUser(u, r);
     return Map.of("ok", true);
   }
 

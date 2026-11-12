@@ -8,6 +8,7 @@ import test from 'node:test';
 // Source-launch the actual order routine with deterministic in-process boundaries.
 // Real JDBC locking, HTTP DTOs and provider receipts are exercised separately in CI.
 const source=readFileSync(new URL('../backend/src/main/java/com/getlancer/payments/PaymentService.java',import.meta.url),'utf8');
+const deliverySource=readFileSync(new URL('../backend/src/main/java/com/getlancer/delivery/DeliveryRepository.java',import.meta.url),'utf8');
 function method(signature,optional=false,content=source){
  const start=content.indexOf(signature);if(start<0){assert.ok(optional,`Missing actual method ${signature}`);return '';}
  let cursor=content.indexOf('{',start)+1,depth=1;
@@ -18,39 +19,52 @@ const harness=`
 import java.util.*;import java.util.function.Supplier;
 class FinanceOrderHarness {
  static class ApiError extends RuntimeException {final int status;final String code;ApiError(int s,String c,String m){super(m);status=s;code=c;}}
- static class HttpServletRequest {final UUID user=UUID.randomUUID(),key=UUID.randomUUID();String getHeader(String name){return key.toString();}}
+ static class HttpServletRequest {final UUID user=UUID.randomUUID(),key=UUID.randomUUID();UUID currentUser=user;boolean active=true,emailVerified=true;String getHeader(String name){return key.toString();}}
  static UUID uuid(String value){return UUID.fromString(value);}static long number(Map<String,Object> row,String key){return ((Number)row.get(key)).longValue();}
  static class PaymentResponses {record Checkout(Map<String,Object> value){}}
  static class OrderNode {Text path(String name){return new Text();}}
  static class Text {String asText(){return "order_fixture123456";}}
  static class RazorpayClient {String mode="test";int creates;Runnable io=()->{};void requireCollection(){}OrderNode createOrder(UUID id,long amount,String account){creates++;io.run();return new OrderNode();}static class ProviderFailure extends RuntimeException{boolean rejected;}}
- static class Security {UUID user(HttpServletRequest r){return r.user;}}
+ static class Security {
+ final Set<UUID> clients=new HashSet<>();
+ Map<String,Object> principal(HttpServletRequest r){if(!r.active)throw new ApiError(401,"UNAUTHENTICATED","Current session required");var result=new HashMap<String,Object>();result.put("id",r.currentUser);if(r.emailVerified)result.put("email_verified_at",true);return result;}
+ UUID user(HttpServletRequest r){return (UUID)principal(r).get("id");}boolean role(UUID actor,String role){return role.equals("CLIENT")&&clients.contains(actor);}
+ }
+ static class DeliveryDb {
+ List<Map<String,Object>> queryForList(String sql,Object...args){throw new AssertionError("Unexpected delivery membership query: "+sql);}
+ Integer queryForObject(String sql,Class<Integer> type,Object...args){throw new AssertionError("Unexpected delivery eligibility query: "+sql);}
+ }
  static class DeliveryRepository {
+ final Security security;final DeliveryDb db=new DeliveryDb();DeliveryRepository(Security security){this.security=security;}
  final UUID milestone=UUID.randomUUID(),engagement=UUID.randomUUID();final Map<String,Object> row=new HashMap<>();
- DeliveryRepository(){row.putAll(Map.of("id",milestone,"engagementId",engagement,"amountMinor",10000L,"currency","INR","status","ACCEPTED","engagementStatus","ACTIVE"));}
- Map<String,Object> lockMilestone(UUID id,HttpServletRequest r,String side){return new HashMap<>(row);}void event(UUID id,UUID actor,String kind,String detail){}
+ {row.putAll(Map.of("id",milestone,"engagementId",engagement,"amountMinor",10000L,"currency","INR","status","ACCEPTED","engagementStatus","ACTIVE"));}
+ Map<String,Object> lockMilestone(UUID id,HttpServletRequest r,String side){row.putIfAbsent("buyerUserId",r.user);var current=new HashMap<>(row);requireCurrentParty(current,verified(r),r,side);return current;}void event(UUID id,UUID actor,String kind,String detail){}
+ ${['public UUID verified(', 'public void requireCurrent(', 'private Map<String, Object> one(', 'private boolean approvedBuilder(', 'private boolean businessBuyer(', 'private boolean teamSeller(', 'String side(', 'public String requireCurrentParty('].map(signature=>method(signature,false,deliverySource)).join('\n')}
  }
  static class PaymentRepository {
- Map<String,Object> row;boolean eligible=true;String account="acc_original123456";final DeliveryRepository delivery;
+ Map<String,Object> row;boolean eligible=true;String account="acc_original123456";final DeliveryRepository delivery;Runnable payeeWait=()->{};
  PaymentRepository(DeliveryRepository d){delivery=d;}void advisoryLock(String key){}
  Map<String,Object> byKey(UUID payer,UUID key){return row==null?null:new HashMap<>(row);}Map<String,Object> active(UUID milestone){return row==null?null:new HashMap<>(row);}
- String payee(Map<String,Object> m,String mode){if(!eligible)throw new ApiError(409,"PAYEE_UNAVAILABLE","Seller is no longer eligible");return account;}
+ String payee(Map<String,Object> m,String mode){if(!eligible)throw new ApiError(409,"PAYEE_UNAVAILABLE","Seller is no longer eligible");payeeWait.run();return account;}
  void reserve(UUID id,UUID milestone,UUID payer,UUID key,long amount,String account,String mode){row=new HashMap<>(Map.of("id",id,"milestone_id",milestone,"amount_minor",amount,"account_id",account,"mode",mode,"status","CREATING"));}
  Map<String,Object> attempt(UUID id,boolean lock){return new HashMap<>(row);}void bind(UUID id,String order,String transfer,String settlement){row.put("order_id",order);row.put("status","ORDER_CREATED");}void creationFailed(UUID id,boolean rejected){row.put("status",rejected?"REJECTED":"UNKNOWN");}
  }
  static class Service {
- final DeliveryRepository delivery=new DeliveryRepository();final PaymentRepository repo=new PaymentRepository(delivery);final Security security=new Security();final RazorpayClient provider=new RazorpayClient();
+ final Security security=new Security();final DeliveryRepository delivery=new DeliveryRepository(security);final PaymentRepository repo=new PaymentRepository(delivery);final RazorpayClient provider=new RazorpayClient();
  <T>T tx(Supplier<T> work){return work.get();}void mode(Map<String,Object> row){}PaymentResponses.Checkout checkout(Map<String,Object> row){return new PaymentResponses.Checkout(row);}
  Map<String,Object> accessible(UUID id,HttpServletRequest request,String side){delivery.lockMilestone(delivery.milestone,request,side);return repo.attempt(id,true);}Map<String,Object> system(UUID id){return repo.attempt(id,true);}
  record TransferState(String status,String settlement){}TransferState validateOrder(Map<String,Object> row,OrderNode order){return new TransferState("CREATED","UNKNOWN");}
  ${method('public PaymentResponses.Checkout order(')}
- ${method('private PaymentResponses.Checkout availableCheckout(',true)}
+ ${method('private PaymentResponses.Checkout availableCheckout(')}
  }
  static void check(boolean value,String message){if(!value)throw new AssertionError(message);}
- static void denied(Service s,HttpServletRequest r,String code){try{s.order(s.delivery.milestone,r);throw new AssertionError("Checkout was exposed after seller authority changed");}catch(ApiError e){check(e.code.equals(code),"Expected "+code+" but got "+e.code);}}
+ static void denied(Service s,HttpServletRequest r,String code){try{s.order(s.delivery.milestone,r);throw new AssertionError("Checkout was exposed after authority changed");}catch(ApiError e){check(e.code.equals(code),"Expected "+code+" but got "+e.code);}}
  public static void main(String[] args){
- var s=new Service();var r=new HttpServletRequest();String scenario=args[0];
+ var s=new Service();var r=new HttpServletRequest();s.security.clients.add(r.user);String scenario=args[0];
  if(scenario.equals("current")){check(s.order(s.delivery.milestone,r).value().get("status").equals("ORDER_CREATED"),"Current seller can create checkout");s.order(s.delivery.milestone,r);check(s.provider.creates==1,"Current seller can reuse the original order without a second create");}
+ else if(scenario.startsWith("reserve-")){if(scenario.equals("reserve-role-revoked"))s.repo.payeeWait=()->s.security.clients.remove(r.user);else s.repo.payeeWait=()->r.currentUser=UUID.randomUUID();denied(s,r,scenario.equals("reserve-role-revoked")?"NOT_FOUND":"FORBIDDEN");check(s.repo.row==null,"Revoked payer must not reserve a payment");check(s.provider.creates==0,"Revoked payer must not reach the provider");}
+ else if(scenario.equals("create-payer-revoked")){s.provider.io=()->s.security.clients.remove(r.user);denied(s,r,"NOT_FOUND");check(s.provider.creates==1,"Exactly one provider create");check(s.repo.row.get("order_id")!=null&&s.repo.row.get("status").equals("ORDER_CREATED"),"Provider binding survives final payer denial");check(s.repo.row.get("account_id").equals("acc_original123456"),"Frozen recipient remains unchanged");}
+ else if(scenario.equals("reuse-payer-revoked")){s.order(s.delivery.milestone,r);s.repo.payeeWait=()->s.security.clients.remove(r.user);denied(s,r,"NOT_FOUND");check(s.provider.creates==1,"Payer revocation during checkout payee validation must not recreate the order");check(s.repo.row.get("status").equals("ORDER_CREATED"),"The original provider order remains bound");check(s.repo.row.get("account_id").equals("acc_original123456"),"Frozen recipient remains unchanged");}
  else if(scenario.startsWith("reuse-")){s.order(s.delivery.milestone,r);if(scenario.equals("reuse-suspended")){s.repo.eligible=false;denied(s,r,"PAYEE_UNAVAILABLE");}else{s.repo.account="acc_replacement123456";denied(s,r,"PAYEE_CHANGED");}check(s.provider.creates==1,"Reuse denial must retain the original provider order");check(s.repo.row.get("account_id").equals("acc_original123456"),"Frozen recipient remains unchanged");}
  else{if(scenario.equals("create-suspended"))s.provider.io=()->s.repo.eligible=false;else s.provider.io=()->s.repo.account="acc_replacement123456";denied(s,r,scenario.equals("create-suspended")?"PAYEE_UNAVAILABLE":"PAYEE_CHANGED");check(s.provider.creates==1,"Exactly one provider create");check(s.repo.row.get("order_id")!=null&&s.repo.row.get("status").equals("ORDER_CREATED"),"Provider order binding survives final authority denial");check(s.repo.row.get("account_id").equals("acc_original123456"),"Frozen recipient remains unchanged");}
  System.out.println("FINANCE_ORDER_OK "+scenario);
@@ -58,7 +72,7 @@ class FinanceOrderHarness {
 }
 `;
 
-for(const scenario of ['current','reuse-suspended','reuse-remapped','create-suspended','create-remapped'])test('actual payment order '+scenario,()=>{
+for(const scenario of ['current','reuse-suspended','reuse-remapped','create-suspended','create-remapped','reserve-role-revoked','reserve-actor-changed','create-payer-revoked','reuse-payer-revoked'])test('actual payment order '+scenario,()=>{
  const directory=mkdtempSync(join(tmpdir(),'round3-finance-'));
  try{
   writeFileSync(join(directory,'FinanceOrderHarness.java'),harness);

@@ -55,6 +55,20 @@ public class BusinessRepository {
     return security.admin(r);
   }
 
+  UUID adminMutation(HttpServletRequest r) {
+    return security.adminMutation(r);
+  }
+
+  void requireCurrentAdmin(UUID actor, HttpServletRequest request) {
+    if (!actor.equals(adminMutation(request)))
+      throw new ApiError(403, "FORBIDDEN", "Administrator access changed.");
+  }
+
+  void requireCurrentAdminRead(UUID actor, HttpServletRequest request) {
+    if (!actor.equals(admin(request)))
+      throw new ApiError(403, "FORBIDDEN", "Administrator access changed.");
+  }
+
   Map<String, Object> one(String sql, Object... args) {
     var rows = db.queryForList(sql, args);
     if (rows.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Business record not found.");
@@ -69,8 +83,14 @@ public class BusinessRepository {
     return (UUID) p.get("id");
   }
 
-  String access(UUID business, UUID user, boolean owner) {
+  void requireCurrent(UUID user, HttpServletRequest request) {
+    if (!user.equals(verified(request)))
+      throw new ApiError(403, "FORBIDDEN", "Business account access changed.");
+  }
+
+  String access(UUID business, UUID user, boolean owner, HttpServletRequest request) {
     one("SELECT id FROM businesses WHERE id=? FOR UPDATE", business);
+    requireCurrent(user, request);
     var rows = db.queryForList("SELECT m.role" + MEMBER + "AND m.user_id=?", business, user);
     if (rows.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Business workspace not found.");
     String role = (String) rows.get(0).get("role");

@@ -4,7 +4,7 @@ Loopback web UI and JSON API store synthetic ballots with retry identity and thr
 
 ## Reproduce from a clean extraction
 
-Use Node.js 22 or newer with no third-party installation. In this package directory:
+Use stable Node.js 24.22.2 or later 24.x with no third-party installation. In this package directory:
 
 ```sh
 node test.mjs

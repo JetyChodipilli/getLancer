@@ -71,6 +71,75 @@ class PaymentIntegrationTest {
     mvc.perform(json(post("/api/v1/admin/payments/accounts"),"admin","{\"builderUserId\":\""+seller+"\",\"accountId\":\""+RazorpayFixture.ACCOUNT+"\",\"activationConfirmed\":true}" )).andExpect(status().isOk());
   }
 
+  void waitForPaymentBlocker(int holderPid,Future<?> pending)throws Exception {
+    long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(5);boolean waiting=false;
+    while(System.nanoTime()<deadline&&!pending.isDone()) {
+      if(db.queryForObject("SELECT count(*) FROM pg_stat_activity WHERE ? = ANY(pg_blocking_pids(pid))",Integer.class,holderPid)>0){waiting=true;break;}
+      Thread.sleep(5);
+    }
+    assertTrue(waiting,"The payment request must reach an actual PostgreSQL target-row lock wait");
+  }
+  org.springframework.mock.web.MockHttpServletResponse revokeAfterPaymentWait(String lockSql,UUID lockId,MockHttpServletRequestBuilder request,Runnable revoke,int expectedStatus)throws Exception {
+    var pool=Executors.newSingleThreadExecutor();
+    try(var holder=db.getDataSource().getConnection()) {
+      holder.setAutoCommit(false);int holderPid;
+      try(var statement=holder.createStatement();var result=statement.executeQuery("SELECT pg_backend_pid()")){assertTrue(result.next());holderPid=result.getInt(1);}
+      try(var statement=holder.prepareStatement(lockSql)){statement.setObject(1,lockId);try(var result=statement.executeQuery()){assertTrue(result.next());}}
+      var pending=pool.submit(()->mvc.perform(request).andReturn().getResponse());
+      waitForPaymentBlocker(holderPid,pending);revoke.run();holder.commit();
+      var response=pending.get(10,TimeUnit.SECONDS);assertEquals(expectedStatus,response.getStatus());return response;
+    } finally {pool.shutdownNow();assertTrue(pool.awaitTermination(5,TimeUnit.SECONDS));}
+  }
+  @Test void orderRejectsSessionRevokedDuringPayeeLockWaitWithoutReservation()throws Exception {
+    revokeAfterPaymentWait("SELECT id FROM users WHERE id=? FOR UPDATE",seller,create("buyer",key),
+        ()->db.update("DELETE FROM sessions WHERE token_hash=?",Support.hash("buyer")),401);
+    assertEquals(0,db.queryForObject("SELECT count(*) FROM payment_attempts",Integer.class));
+    assertEquals(0,db.queryForObject("SELECT count(*) FROM delivery_activity WHERE kind='PAYMENT_RESERVED'",Integer.class));
+    assertEquals(0,fixture.creates.get());
+  }
+  @Test void orderRejectsClientRoleRevokedDuringPayeeLockWaitWithValidSession()throws Exception {
+    var response=revokeAfterPaymentWait("SELECT id FROM users WHERE id=? FOR UPDATE",seller,create("buyer",key),
+        ()->db.update("DELETE FROM user_roles WHERE user_id=? AND role='CLIENT'",buyer),404);
+    assertEquals(1,db.queryForObject("SELECT count(*) FROM sessions WHERE user_id=? AND expires_at>clock_timestamp()",Integer.class,buyer));
+    assertEquals(0,db.queryForObject("SELECT count(*) FROM payment_attempts",Integer.class));
+    assertEquals(0,db.queryForObject("SELECT count(*) FROM delivery_activity WHERE kind='PAYMENT_RESERVED'",Integer.class));
+    assertEquals(0,db.queryForObject("SELECT count(*) FROM payment_ledger",Integer.class));
+    assertEquals(0,fixture.creates.get());
+    assertFalse(response.getContentAsString().contains("\"orderId\""));
+    assertFalse(response.getContentAsString().contains("\"amountMinor\""));
+    assertFalse(response.getContentAsString().contains("\"keyId\""));
+  }
+  @Test void accountMappingRejectsAdminRoleRevokedDuringMappingLockWait()throws Exception {
+    int audits=db.queryForObject("SELECT count(*) FROM payment_account_audit",Integer.class);
+    UUID verifiedBy=db.queryForObject("SELECT verified_by FROM payment_accounts WHERE builder_user_id=?",UUID.class,seller);
+    String body="{\"builderUserId\":\""+seller+"\",\"accountId\":\"acc_replacement123456\",\"activationConfirmed\":true}";
+    revokeAfterPaymentWait("SELECT id FROM payment_accounts WHERE builder_user_id=? FOR UPDATE",seller,
+        json(post("/api/v1/admin/payments/accounts"),"admin",body),
+        ()->db.update("DELETE FROM user_roles WHERE user_id=? AND role='ADMIN'",admin),403);
+    assertEquals(RazorpayFixture.ACCOUNT,db.queryForObject("SELECT account_id FROM payment_accounts WHERE builder_user_id=?",String.class,seller));
+    assertEquals(verifiedBy,db.queryForObject("SELECT verified_by FROM payment_accounts WHERE builder_user_id=?",UUID.class,seller));
+    assertEquals(audits,db.queryForObject("SELECT count(*) FROM payment_account_audit",Integer.class).intValue());
+  }
+  @Test void bindRejectsAdminRoleRevokedDuringFinalDatabaseWaitAfterProviderRead()throws Exception {
+    fixture.uncertain=true;mvc.perform(create("buyer",key)).andExpect(status().isBadGateway());UUID id=attempt();
+    fixture.blockNextOrderGet=true;var pool=Executors.newSingleThreadExecutor();
+    try(var holder=db.getDataSource().getConnection()) {
+      var pending=pool.submit(()->mvc.perform(json(post("/api/v1/admin/payments/"+id+"/bind-order"),"admin","{\"orderId\":\""+fixture.orderId()+"\"}")).andReturn().getResponse().getStatus());
+      assertTrue(fixture.orderGetEntered.await(3,TimeUnit.SECONDS),"Provider verification must follow the initial authorized snapshot");
+      // Acquiring this lock while the GET is paused also proves provider I/O has no engagement transaction open.
+      holder.setAutoCommit(false);int holderPid;
+      try(var statement=holder.createStatement();var result=statement.executeQuery("SELECT pg_backend_pid()")){assertTrue(result.next());holderPid=result.getInt(1);}
+      try(var statement=holder.prepareStatement("SELECT id FROM delivery_engagements WHERE id=? FOR UPDATE")){statement.setObject(1,engagement);try(var result=statement.executeQuery()){assertTrue(result.next());}}
+      fixture.releaseOrderGet.countDown();waitForPaymentBlocker(holderPid,pending);
+      db.update("DELETE FROM user_roles WHERE user_id=? AND role='ADMIN'",admin);holder.commit();
+      assertEquals(403,pending.get(10,TimeUnit.SECONDS).intValue());
+      assertNull(db.queryForObject("SELECT order_id FROM payment_attempts WHERE id=?",String.class,id));assertEquals("UNKNOWN",state());
+      assertNull(db.queryForObject("SELECT payment_id FROM payment_attempts WHERE id=?",String.class,id));
+      assertEquals(0,db.queryForObject("SELECT count(*) FROM delivery_activity WHERE kind='PAYMENT_ORDER_BOUND'",Integer.class));
+      assertEquals(0,db.queryForObject("SELECT count(*) FROM payment_ledger",Integer.class));assertEquals(1,fixture.creates.get());
+    } finally {fixture.releaseOrderGet.countDown();pool.shutdownNow();assertTrue(pool.awaitTermination(5,TimeUnit.SECONDS));}
+  }
+
   @Test void frozenAmountPartyAccessAndRepeatRequestNeverDuplicateOrder() throws Exception {
     mvc.perform(create("seller",key)).andExpect(status().isForbidden());mvc.perform(create("outsider",key)).andExpect(status().isNotFound());
     mvc.perform(json(post("/api/v1/milestones/"+milestone+"/payment-order"),"buyer","{}")).andExpect(status().isBadRequest());
@@ -214,6 +283,51 @@ class PaymentIntegrationTest {
     db.update("INSERT INTO payment_webhook_events(event_id,payload_hash,event_kind) VALUES('legacy_dispute',?,'payment.dispute.created')",Support.hash("legacy synthetic event"));
     assertFalse(liveCompletionEligible());
     db.update("UPDATE payment_webhook_events SET processed_at=clock_timestamp() WHERE event_id='legacy_dispute'");assertTrue(liveCompletionEligible());
+  }
+  void overlappingDisputeObservation(boolean laterReceipt) throws Exception {
+    mvc.perform(create("buyer",key)).andExpect(status().isOk());fixture.captured=true;fixture.nextDisputeSnapshot="open";
+    var executor=Executors.newSingleThreadExecutor();
+    var older=executor.submit(()->mvc.perform(webhook("older_observation",disputeEvent())).andExpect(status().isOk()));
+    try {
+      assertTrue(fixture.disputeEntered.await(5,TimeUnit.SECONDS));
+      fixture.disputeStatus="won";
+      mvc.perform(json(post("/api/v1/admin/payments/"+attempt()+"/reconcile"),"admin","{}")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("CAPTURED"));
+      assertTrue(liveCompletionEligible());
+      if(laterReceipt)db.update("INSERT INTO payment_webhook_events(event_id,payload_hash,event_kind,order_id,payment_id,dispute_id) VALUES('after_newer_observation',?,'payment.dispute.created',?,?,'disp_fixture123456')",Support.hash("later synthetic receipt"),fixture.orderId(),fixture.paymentId());
+    } finally {fixture.releaseDispute.countDown();try{older.get(5,TimeUnit.SECONDS);}finally{executor.shutdownNow();}}
+    assertEquals("won",db.queryForObject("SELECT status FROM payment_provider_disputes WHERE id='disp_fixture123456'",String.class));
+    assertEquals("CAPTURED",state());
+    assertEquals(1,db.queryForObject("SELECT count(*) FROM payment_ledger WHERE kind='CAPTURE'",Integer.class));
+    assertTrue(db.queryForObject("SELECT processed_at IS NOT NULL FROM payment_webhook_events WHERE event_id='older_observation'",Boolean.class));
+    if(laterReceipt){
+      assertTrue(db.queryForObject("SELECT processed_at IS NULL FROM payment_webhook_events WHERE event_id='after_newer_observation'",Boolean.class));
+      assertFalse(liveCompletionEligible());
+      mvc.perform(json(post("/api/v1/payments/"+attempt()+"/reconcile"),"buyer","{}")).andExpect(status().isOk());
+    }
+    assertTrue(liveCompletionEligible());
+  }
+  @Test void olderOpenDisputeObservationCannotOverwriteNewerVerifiedWin() throws Exception {
+    overlappingDisputeObservation(false);
+  }
+  @Test void staleDisputeObservationLeavesLaterReceiptPending() throws Exception {
+    overlappingDisputeObservation(true);
+  }
+  @Test void olderOrderDiscoveryCannotRestartGenerationAndConsumeNewerReceipt() throws Exception {
+    mvc.perform(create("buyer",key)).andExpect(status().isOk());fixture.captured=true;fixture.blockNextOrderPayments=true;
+    var executor=Executors.newSingleThreadExecutor();
+    var older=executor.submit(()->mvc.perform(json(post("/api/v1/payments/"+attempt()+"/reconcile"),"buyer","{}")).andExpect(status().isOk()));
+    try {
+      assertTrue(fixture.orderPaymentsEntered.await(5,TimeUnit.SECONDS));
+      fixture.disputeStatus="won";
+      mvc.perform(webhook("newer_observation",disputeEvent())).andExpect(status().isOk());
+      assertTrue(liveCompletionEligible());
+      db.update("INSERT INTO payment_webhook_events(event_id,payload_hash,event_kind,order_id,payment_id,dispute_id) VALUES('after_order_discovery',?,'payment.dispute.created',?,?,'disp_fixture123456')",Support.hash("later order receipt"),fixture.orderId(),fixture.paymentId());
+    } finally {fixture.releaseOrderPayments.countDown();try{older.get(5,TimeUnit.SECONDS);}finally{executor.shutdownNow();}}
+    assertEquals("CAPTURED",state());
+    assertTrue(db.queryForObject("SELECT processed_at IS NULL FROM payment_webhook_events WHERE event_id='after_order_discovery'",Boolean.class));
+    assertFalse(liveCompletionEligible());
+    mvc.perform(json(post("/api/v1/admin/payments/"+attempt()+"/reconcile"),"admin","{}")).andExpect(status().isOk());
+    assertTrue(liveCompletionEligible());
   }
   @Test void firstProviderFailurePersistsHoldAndSignedReplayRecoversLegacyReceipt() throws Exception {
     mvc.perform(create("buyer",key)).andExpect(status().isOk());fixture.captured=true;

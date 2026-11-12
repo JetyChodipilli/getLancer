@@ -24,6 +24,11 @@ public final class RazorpayFixture implements AutoCloseable {
   public volatile boolean blockDispute, failDispute, failPayment;
   public volatile CountDownLatch disputeEntered=new CountDownLatch(1), releaseDispute=new CountDownLatch(1);
   public volatile String disputeStatus="open";
+  public volatile String nextDisputeSnapshot;
+  public volatile boolean blockNextOrderGet;
+  public volatile CountDownLatch orderGetEntered=new CountDownLatch(1),releaseOrderGet=new CountDownLatch(1);
+  public volatile boolean blockNextOrderPayments;
+  public volatile CountDownLatch orderPaymentsEntered=new CountDownLatch(1),releaseOrderPayments=new CountDownLatch(1);
   public volatile CountDownLatch createEntered=new CountDownLatch(1), releaseCreate=new CountDownLatch(1);
   public volatile JsonNode lastBody;
   final Map<String,ObjectNode> orders=new ConcurrentHashMap<>();
@@ -32,7 +37,7 @@ public final class RazorpayFixture implements AutoCloseable {
     this.db=db; this.json=json; server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);
     executor=Executors.newCachedThreadPool();server.setExecutor(executor);server.createContext("/",this::handle);server.start();
   }
-  public void reset() { creates.set(0);blockDispute=false;failDispute=false;failPayment=false;disputeEntered=new CountDownLatch(1);releaseDispute=new CountDownLatch(1);uncertain=false;wrongAmount=false;wrongPayee=false;captured=false;reservationCommitted=false;blocked=false;refunded=0;disputeStatus="open";orders.clear();lastBody=null;createEntered=new CountDownLatch(1);releaseCreate=new CountDownLatch(1); }
+  public void reset() { creates.set(0);blockDispute=false;failDispute=false;failPayment=false;disputeEntered=new CountDownLatch(1);releaseDispute=new CountDownLatch(1);nextDisputeSnapshot=null;blockNextOrderGet=false;orderGetEntered=new CountDownLatch(1);releaseOrderGet=new CountDownLatch(1);blockNextOrderPayments=false;orderPaymentsEntered=new CountDownLatch(1);releaseOrderPayments=new CountDownLatch(1);uncertain=false;wrongAmount=false;wrongPayee=false;captured=false;reservationCommitted=false;blocked=false;refunded=0;disputeStatus="open";orders.clear();lastBody=null;createEntered=new CountDownLatch(1);releaseCreate=new CountDownLatch(1); }
   public URI origin() { return URI.create("http://127.0.0.1:"+server.getAddress().getPort()); }
   public String orderId() { return orders.keySet().iterator().next(); }
   public String paymentId() { return "pay_fixture"+orderId().substring(6); }
@@ -57,12 +62,41 @@ public final class RazorpayFixture implements AutoCloseable {
       if (uncertain) response(exchange,503,Map.of("error","uncertain fixture response"));else response(exchange,200,order);return;
     }
     if (path.startsWith("/v2/accounts/")) {response(exchange,200,Map.of("id",path.substring("/v2/accounts/".length()),"type","route","status","created"));return;}
-    if (path.startsWith("/v1/disputes/")) {disputeEntered.countDown();if(blockDispute)try{releaseDispute.await(2,TimeUnit.SECONDS);}catch(InterruptedException ex){Thread.currentThread().interrupt();}if(failDispute){response(exchange,503,Map.of("error","fixture dispute unavailable"));return;}response(exchange,200,Map.of("id",path.substring("/v1/disputes/".length()),"payment_id",paymentId(),"amount",10000,"currency","INR","amount_deducted",disputeStatus.equals("lost")?10000:0,"status",disputeStatus));return;}
+    if (path.startsWith("/v1/disputes/")) {
+      String snapshot;
+      synchronized(this){snapshot=nextDisputeSnapshot;nextDisputeSnapshot=null;}
+      disputeEntered.countDown();
+      if(snapshot!=null)try{
+        if(!releaseDispute.await(5,TimeUnit.SECONDS)){response(exchange,503,Map.of("error","fixture dispute release timed out"));return;}
+      }catch(InterruptedException ex){Thread.currentThread().interrupt();response(exchange,503,Map.of("error","fixture dispute interrupted"));return;}
+      else if(blockDispute)try{releaseDispute.await(2,TimeUnit.SECONDS);}catch(InterruptedException ex){Thread.currentThread().interrupt();}
+      if(failDispute){response(exchange,503,Map.of("error","fixture dispute unavailable"));return;}
+      String state=snapshot==null?disputeStatus:snapshot;
+      response(exchange,200,Map.of("id",path.substring("/v1/disputes/".length()),"payment_id",paymentId(),"amount",10000,"currency","INR","amount_deducted",state.equals("lost")?10000:0,"status",state));return;
+    }
     if (path.startsWith("/v1/orders/")) {
       String[] parts=path.split("/");String order=parts[3];ObjectNode node=orders.get(order);
       if (node==null) {response(exchange,404,Map.of("error","not found"));return;}
-      if (parts.length>4 && parts[4].equals("payments")) {response(exchange,200,Map.of("items",captured?List.of(payment("pay_fixture"+order.substring(6))):List.of()));return;}
-      var copy=node.deepCopy();copy.set("transfers",json.createArrayNode().add(transfer(order)));response(exchange,200,copy);return;
+      if (parts.length>4 && parts[4].equals("payments")) {
+        var snapshot=Map.of("items",captured?List.of(payment("pay_fixture"+order.substring(6))):List.of());
+        boolean freeze;
+        synchronized(this){freeze=blockNextOrderPayments;blockNextOrderPayments=false;}
+        if(freeze){
+          orderPaymentsEntered.countDown();
+          try{if(!releaseOrderPayments.await(5,TimeUnit.SECONDS)){response(exchange,503,Map.of("error","fixture order payments release timed out"));return;}}
+          catch(InterruptedException ex){Thread.currentThread().interrupt();response(exchange,503,Map.of("error","fixture order payments interrupted"));return;}
+        }
+        response(exchange,200,snapshot);return;
+      }
+      var copy=node.deepCopy();copy.set("transfers",json.createArrayNode().add(transfer(order)));
+      boolean freeze;
+      synchronized(this){freeze=blockNextOrderGet;blockNextOrderGet=false;}
+      if(freeze){
+        orderGetEntered.countDown();
+        try{if(!releaseOrderGet.await(5,TimeUnit.SECONDS)){response(exchange,503,Map.of("error","fixture order release timed out"));return;}}
+        catch(InterruptedException ex){Thread.currentThread().interrupt();response(exchange,503,Map.of("error","fixture order interrupted"));return;}
+      }
+      response(exchange,200,copy);return;
     }
     if (path.startsWith("/v1/payments/")) {if(failPayment){response(exchange,503,Map.of("error","payment fixture unavailable"));return;}
       String[] parts=path.split("/");String id=parts[3];
@@ -71,11 +105,11 @@ public final class RazorpayFixture implements AutoCloseable {
     }
     response(exchange,404,Map.of("error","unsupported test path"));
   }
-  public void close() {releaseDispute.countDown();releaseCreate.countDown();server.stop(0);executor.shutdownNow();}
+  public void close() {releaseOrderGet.countDown();releaseDispute.countDown();releaseOrderPayments.countDown();releaseCreate.countDown();server.stop(0);executor.shutdownNow();}
 
   @TestConfiguration
   public static class Configuration {
     @Bean(destroyMethod="close") RazorpayFixture razorpayFixture(JdbcTemplate db,ObjectMapper json) throws IOException {return new RazorpayFixture(db,json);}
-    @Bean @Primary RazorpayClient fixtureProvider(RazorpayFixture fixture,ObjectMapper json) {return new RazorpayClient(json,true,KEY,SECRET,WEBHOOK,"test",true,true,fixture.origin(),Duration.ofSeconds(3));}
+    @Bean @Primary RazorpayClient fixtureProvider(RazorpayFixture fixture,ObjectMapper json) {return new RazorpayClient(json,true,KEY,SECRET,WEBHOOK,"test",true,true,fixture.origin(),Duration.ofSeconds(8));}
   }
 }

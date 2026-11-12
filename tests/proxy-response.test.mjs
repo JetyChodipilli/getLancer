@@ -26,3 +26,23 @@ test('catalogue proxy preserves server timing while retaining its response heade
  assert.equal(response.headers.has('access-control-allow-origin'),false);
  assert.deepEqual(await response.json(),{items:[],totalItems:10000});
 });
+
+test('proxy forwards the expected-account assertion without forwarding arbitrary client authority headers',async t=>{
+ const original=globalThis.fetch;t.after(()=>{globalThis.fetch=original;});
+ globalThis.fetch=async(_url,init)=>{assert.equal(init.headers.get('X-GetLancer-Account'),'00000000-0000-4000-8000-000000000001');assert.equal(init.headers.get('Cookie'),'gl_session=dummy');assert.equal(init.headers.has('X-User-ID'),false);assert.equal(init.headers.has('Authorization'),false);return Response.json({items:[]});};
+ const response=await GET(new Request('https://app.test/api/v1/me/saved-products',{headers:{Cookie:'gl_session=dummy','X-GetLancer-Account':'00000000-0000-4000-8000-000000000001','X-User-ID':'forged','Authorization':'forged'}}),{params:Promise.resolve({path:['me','saved-products']})});
+ assert.equal(response.status,200);
+});
+
+test('proxy preserves a present empty account assertion for backend rejection',async t=>{
+ const original=globalThis.fetch;t.after(()=>{globalThis.fetch=original;});
+ globalThis.fetch=async(_url,init)=>{
+  assert.equal(init.headers.has('X-GetLancer-Account'),true);
+  assert.equal(init.headers.get('X-GetLancer-Account'),'');
+  return Response.json({error:{code:'UNAUTHENTICATED',message:'Account assertion rejected.'}},{status:401});
+ };
+ for(const value of ['', '   ']){
+  const response=await GET(new Request('https://app.test/api/v1/me/saved-products',{headers:{Cookie:'gl_session=dummy','X-GetLancer-Account':value}}),{params:Promise.resolve({path:['me','saved-products']})});
+  assert.equal(response.status,401);
+ }
+});

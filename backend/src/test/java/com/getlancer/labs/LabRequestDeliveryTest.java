@@ -39,6 +39,8 @@ import java.util.function.Function;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -202,6 +204,22 @@ class LabRequestDeliveryTest {
     assertEquals(command,request("confirmed-failure-retry").commandId());assertEquals(true,store.requests.get(command).get("confirmed_failure"));
   }
 
+  @ParameterizedTest @CsvSource({"false,false","false,true","true,false"})
+  void failedProviderWithoutHealthyIsolationClosesRoutingAndRetainsReservation(boolean healthy,boolean isolated){
+    delivery=command->result(command,"FAILED",healthy,isolated);
+    assertEquals("LAB_ISOLATION_LOST",assertThrows(ApiError.class,()->request("provider-closed-run")).code);
+    UUID command=store.onlyCommand();assertEquals("CANCELLING",store.run.get("status"));assertEquals(2L,store.run.get("lease_generation"));
+    assertEquals(1,store.stops,"Provider loss must commit a STOP intent before returning");
+    assertNull(store.run.get("cleanup_confirmed_at"),"Capacity remains reserved until provider-confirmed cleanup");
+    assertEquals(64,store.run.get("memory_mib"));assertNull(store.requests.get(command).get("response"));assertEquals(false,store.requests.get(command).get("confirmed_failure"));
+    var run=labs.detail(store.id,browser);assertEquals("CANCELLING",run.status());assertFalse(run.verified());
+    assertEquals("LAB_NOT_RUNNING",assertThrows(ApiError.class,()->request("provider-closed-run")).code);
+    assertEquals("LAB_NOT_RUNNING",assertThrows(ApiError.class,()->request("new-after-provider-loss")).code);
+    assertEquals(1,sent.size(),"A closed run must not deliver a retry or another operation");
+    assertEquals(1,store.requests.size());assertEquals(0,store.completed);assertNull(store.run.get("request_delivery_command"));
+    assertNull(store.run.get("cleanup_confirmed_at"));assertEquals(1,store.stops);
+  }
+
   private LabResponses.RequestResult request(String key){return labs.request(store.id,input("Hello"),key,browser);}
   private static void await(CountDownLatch latch){try{assertTrue(latch.await(5,TimeUnit.SECONDS));}catch(InterruptedException interrupted){Thread.currentThread().interrupt();throw new AssertionError(interrupted);}}
   private static String sign(java.security.PrivateKey key,String payload)throws Exception{var signature=Signature.getInstance("Ed25519");signature.initSign(key);signature.update(payload.getBytes(java.nio.charset.StandardCharsets.UTF_8));return Base64.getEncoder().encodeToString(signature.sign());}
@@ -212,7 +230,8 @@ class LabRequestDeliveryTest {
     @Override public void onComplete(){completed.complete(bytes.toByteArray());}
   });return completed.join();}
   private LabRequests.Request input(String message){return new LabRequests.Request("echo",LabRequests.Inputs.from(Map.of("message",message)));}
-  private LabProviderClient.Result result(LabProviderClient.Command command,String state){return new LabProviderClient.Result(command.runId(),command.leaseGeneration(),command.operatorEpoch(),command.commandId(),command.manifestSha256(),command.imageDigest(),command.expiresAt(),state,true,true,true,"Bounded synthetic result","Synthetic unit result");}
+  private LabProviderClient.Result result(LabProviderClient.Command command,String state){return result(command,state,true,true);}
+  private LabProviderClient.Result result(LabProviderClient.Command command,String state,boolean healthy,boolean isolated){return new LabProviderClient.Result(command.runId(),command.leaseGeneration(),command.operatorEpoch(),command.commandId(),command.manifestSha256(),command.imageDigest(),command.expiresAt(),state,healthy,isolated,true,"Bounded synthetic result","Synthetic unit result");}
   private LabManifest manifest(){return new LabManifest("unit-protocol",store.component,1,"a".repeat(64),"sha256:"+"b".repeat(64),"c".repeat(64),"d".repeat(64),"c".repeat(64),"getlancer-lab-v1","Unit protocol","Synthetic unit scenario without remote execution.","Protocol","Fixture","Unit state transitions only; no real provider evidence.",64,1000,Instant.now().plusSeconds(3500),"e".repeat(64),List.of(new LabManifest.Scenario("request","Unit scenario","Bounded synthetic scenario operation.",List.of(new LabManifest.Input("message","Message","TEXT",true,120,0,0,List.of())),List.of(new LabManifest.Operation("echo","Echo unit input")))));}
 
   /** Serializes fake transactions, with rollback snapshots; it models lock ownership, not PostgreSQL. */
@@ -235,6 +254,7 @@ class LabRequestDeliveryTest {
     Map<String,Object> settings(){return new HashMap<>(Map.of("id",1,"paused",false,"pause_reason","","observed_epoch",epoch,"updated_at",Timestamp.from(now)));}
     Object[] parameters(Object[] arguments,int start){if(arguments.length==start+1&&arguments[start] instanceof Object[] nested)return nested;return java.util.Arrays.copyOfRange(arguments,start,arguments.length);}
     Object list(String sql,Object[] arguments){Object[] values=parameters(arguments,arguments.length>1&&arguments[1] instanceof Class<?>?2:1);
+      if(sql.equals("SELECT id FROM lab_runtime_settings WHERE id=1 FOR UPDATE"))return List.of(Map.of("id",1));
       if(sql.startsWith("SELECT owner_id FROM lab_runs"))return List.of(owner);
       if(sql.startsWith("SELECT id,owner_id,")){afterRunLock.run();afterRunLock=()->{};return List.of(new HashMap<>(run));}
       if(sql.contains(" FROM lab_requests WHERE run_id=?"))return requests.values().stream().filter(row->row.get("idempotency_key").equals(values[1])).map(HashMap::new).toList();

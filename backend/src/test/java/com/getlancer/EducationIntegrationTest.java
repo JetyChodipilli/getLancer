@@ -26,8 +26,15 @@ import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.LockSupport;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +43,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -89,6 +98,92 @@ class EducationIntegrationTest {
     String encoded=json.writeValueAsString(snapshot),hash=Support.hash(json.copy().enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS).writeValueAsString(snapshot));
     // Disposable immutable historical fixture; no public API bypasses new submission checks.
     db.update("UPDATE education_releases SET snapshot=?::jsonb,source_hash=?,status='PENDING',submitted_at=now(),revision=revision+1 WHERE id=?",encoded,hash,UUID.fromString(draft.path("id").asText()));return ok(as(get("/api/v1/me/education-releases/"+draft.path("id").asText()),"owner"));
+  }
+
+  Map<String,List<Map<String,Object>>> educationState(){
+    return Map.of(
+        "draftsAndBindings",db.queryForList("SELECT to_jsonb(r)::text AS row FROM education_releases r ORDER BY id"),
+        "sourcePackages",db.queryForList("SELECT to_jsonb(p)::text AS row FROM education_free_packages p ORDER BY id"),
+        "academics",db.queryForList("SELECT to_jsonb(a)::text AS row FROM education_private_details a ORDER BY release_id"),
+        "metadata",db.queryForList("SELECT to_jsonb(m)::text AS row FROM college_project_metadata m ORDER BY product_id"),
+        "audit",db.queryForList("SELECT to_jsonb(a)::text AS row FROM education_audit a ORDER BY id"),
+        "outbox",db.queryForList("SELECT to_jsonb(e)::text AS row FROM email_outbox e ORDER BY id"));
+  }
+  int lockProduct(Connection holder)throws Exception{
+    holder.setAutoCommit(false);
+    try(var lock=holder.prepareStatement("SELECT id FROM products WHERE id=? FOR UPDATE")){
+      lock.setObject(1,product);try(var rows=lock.executeQuery()){assertTrue(rows.next());}
+    }
+    try(var query=holder.createStatement();var rows=query.executeQuery("SELECT pg_backend_pid()")){
+      assertTrue(rows.next());return rows.getInt(1);
+    }
+  }
+  Timestamp expireOwnerSoon(){
+    return db.queryForObject("UPDATE sessions SET expires_at=clock_timestamp()+interval '3 seconds' WHERE user_id=? RETURNING expires_at",Timestamp.class,owner);
+  }
+  void observeWaitThenExpiry(int blocker,Timestamp expiry){
+    long stop=System.nanoTime()+TimeUnit.SECONDS.toNanos(5);boolean blocked=false;
+    while(System.nanoTime()<stop){
+      blocked=db.queryForObject("SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND ?=ANY(pg_blocking_pids(pid)) AND xact_start<? AND query LIKE 'SELECT p.id,p.owner_user_id,%'",Integer.class,blocker,expiry)>0;
+      if(blocked)break;
+      LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(20));
+    }
+    assertTrue(blocked,"Observe the education request's actual product-row lock wait before expiry.");
+    assertTrue(db.queryForObject("SELECT clock_timestamp()<?",Boolean.class,expiry),"The session must still be alive when its product wait is observed.");
+    // The request holds session FOR SHARE; let its existing deadline pass without writing authority rows.
+    while(System.nanoTime()<stop&&Boolean.TRUE.equals(db.queryForObject("SELECT clock_timestamp()<?",Boolean.class,expiry)))
+      LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(20));
+    assertTrue(db.queryForObject("SELECT clock_timestamp()>=?",Boolean.class,expiry),"The database clock must cross the session deadline within five seconds.");
+  }
+
+  @ParameterizedTest(name="{0} rejects a session expiring during its product-row wait")
+  @ValueSource(strings={"create","save","submit","academic","upload"})
+  void ownerMutationRechecksNaturalSessionExpiryAfterProductWait(String action)throws Exception{
+    var release=ok(upload(create("FREE",0),archive(0),true));String path="/api/v1/me/education-releases/"+release.path("id").asText();
+    var request=switch(action){
+      case "create"->body(post("/api/v1/me/college-projects/"+product+"/releases"),"owner",draftBody("SHOWCASE",0));
+      case "save"->body(patch(path),"owner",Map.of("revision",release.path("revision").asLong(),"mode","SHOWCASE"));
+      case "submit"->body(post(path+"/submit"),"owner",Map.of("revision",release.path("revision").asLong(),"rightsConsent",true));
+      case "academic"->body(patch(path+"/academic"),"owner",Map.of("revision",1,"institution","Expired academic mutation","shareAcademicDetails",true));
+      case "upload"->upload(release,archive(0),true);
+      default->throw new IllegalArgumentException(action);
+    };
+    var before=educationState();var originalObjects=Set.copyOf(objects.keySet());var worker=Executors.newSingleThreadExecutor();
+    try(var holder=db.getDataSource().getConnection()){
+      int blocker=lockProduct(holder);
+      try{
+        Timestamp expiry=expireOwnerSoon();var pending=worker.submit(()->mvc.perform(request));
+        observeWaitThenExpiry(blocker,expiry);holder.commit();
+        pending.get(10,TimeUnit.SECONDS).andExpect(status().isUnauthorized()).andExpect(jsonPath("$.error.code").value("UNAUTHENTICATED"));
+        assertEquals(before,educationState(),"Expired requests must preserve drafts, source bindings, academics, audit and outbox.");
+        if(action.equals("create"))assertEquals(1,db.queryForObject("SELECT count(*) FROM education_releases WHERE product_id=?",Integer.class,product),"The expired create request must not retain a new release identity.");
+        assertEquals(originalObjects,Set.copyOf(objects.keySet()));
+      }finally{holder.rollback();}
+    }finally{worker.shutdownNow();assertTrue(worker.awaitTermination(15,TimeUnit.SECONDS));}
+  }
+  @Test void finalSourceAttachmentRejectsSessionExpiryDuringProductWait()throws Exception{
+    var release=ok(upload(create("FREE",0),archive(0),true));byte[] bytes=archive(0);
+    var before=educationState();var originalObjects=Set.copyOf(objects.keySet());
+    var stored=new CountDownLatch(1);var resume=new CountDownLatch(1);var stagedKey=new AtomicReference<String>();
+    when(storage.put(any(UUID.class),any(byte[].class),anyString())).thenAnswer(invocation->{
+      String key="commerce/"+invocation.getArgument(0)+"/"+UUID.randomUUID()+".zip";
+      objects.put(key,((byte[])invocation.getArgument(1)).clone());stagedKey.set(key);stored.countDown();
+      assertTrue(resume.await(5,TimeUnit.SECONDS));return key;
+    });
+    var worker=Executors.newSingleThreadExecutor();
+    try{
+      var pending=worker.submit(()->mvc.perform(upload(release,bytes,true)));
+      assertTrue(stored.await(5,TimeUnit.SECONDS),"The initial owner transaction must finish before storage staging.");
+      try(var holder=db.getDataSource().getConnection()){
+        int blocker=lockProduct(holder);
+        try{
+          Timestamp expiry=expireOwnerSoon();resume.countDown();observeWaitThenExpiry(blocker,expiry);holder.commit();
+          pending.get(10,TimeUnit.SECONDS).andExpect(status().isUnauthorized()).andExpect(jsonPath("$.error.code").value("UNAUTHENTICATED"));
+          assertEquals(before,educationState(),"A final attachment denied after expiry must leave all durable education state unchanged.");
+          assertEquals(originalObjects,Set.copyOf(objects.keySet()));verify(storage).discardUnlinked(stagedKey.get());
+        }finally{holder.rollback();}
+      }
+    }finally{resume.countDown();worker.shutdownNow();assertTrue(worker.awaitTermination(15,TimeUnit.SECONDS));}
   }
 
   @Test void unfinishedDraftSavesAndOwnershipStaleRevisionAndConcreteInputAreEnforced()throws Exception{
@@ -146,6 +241,22 @@ class EducationIntegrationTest {
   @Test void privateNetworkCredentialsAndFakeHostedClaimsAreRejected()throws Exception{
     for(String url:List.of("https://127.0.0.1/demo","http://localhost/demo","https://user:password@example.com/demo")){var command=draftBody("SHOWCASE",0);command.put("demoMode","EXTERNAL");command.put("demoUrl",url);var release=ok(body(post("/api/v1/me/college-projects/"+product+"/releases"),"owner",command));mvc.perform(body(post("/api/v1/me/education-releases/"+release.path("id").asText()+"/submit"),"owner",Map.of("revision",1,"rightsConsent",true))).andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("UNSAFE_EXTERNAL_URL"));}
     var command=draftBody("SHOWCASE",0);command.put("demoMode","HOSTED");var release=ok(body(post("/api/v1/me/college-projects/"+product+"/releases"),"owner",command));mvc.perform(body(post("/api/v1/me/education-releases/"+release.path("id").asText()+"/submit"),"owner",Map.of("revision",1,"rightsConsent",true))).andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("EDUCATION_DEMO_UNAVAILABLE"));
+  }
+  @Test void sourceUploadChecksCurrentOwnerApprovalAndRevisionBeforeArchiveInspection()throws Exception{
+    var draft=create("FREE",0);String id=draft.path("id").asText();byte[] malformed={1,2,3};
+    mvc.perform(as(multipart("/api/v1/me/education-releases/"+id+"/source")
+        .file(new MockMultipartFile("file","malformed.zip","application/zip",malformed)).param("revision","1").param("rightsConsent","true"),"other")
+        .header("Origin","http://localhost:3000").header("X-Requested-With","getlancer"))
+        .andExpect(status().isNotFound()).andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
+    db.update("UPDATE developer_profiles SET approval_status='DRAFT' WHERE user_id=?",owner);
+    mvc.perform(upload(draft,malformed,true)).andExpect(status().isForbidden());
+    db.update("UPDATE developer_profiles SET approval_status='APPROVED' WHERE user_id=?",owner);
+    mvc.perform(as(multipart("/api/v1/me/education-releases/"+id+"/source")
+        .file(new MockMultipartFile("file","malformed.zip","application/zip",malformed)).param("revision","0").param("rightsConsent","true"),"owner")
+        .header("Origin","http://localhost:3000").header("X-Requested-With","getlancer"))
+        .andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("EDUCATION_REVISION_CONFLICT"));
+    verify(storage,never()).put(any(UUID.class),any(byte[].class),anyString());
+    assertEquals(0,db.queryForObject("SELECT count(*) FROM education_free_packages",Integer.class));
   }
   @Test void privateFreeUploadHasExactFilesAndNeverCreatesPurchaseAccounting()throws Exception{
     var draft=create("FREE",0);mvc.perform(upload(draft,archive(0),false)).andExpect(status().isBadRequest());mvc.perform(upload(draft,new byte[32],true)).andExpect(status().isBadRequest());var uploaded=ok(upload(draft,archive(0),true));assertEquals(2,uploaded.path("revision").asInt());assertEquals(SourceArchive.inspect(archive(0)).sha256(),uploaded.path("sourceBinding").path("sha256").asText());assertEquals(SourceArchive.inspect(archive(0)).files().size(),ok(as(get("/api/v1/me/education-releases/"+uploaded.path("id").asText()),"owner")).path("sourceBinding").path("files").size());mvc.perform(upload(draft,archive(0),true)).andExpect(status().isConflict());assertEquals(0,db.queryForObject("SELECT count(*) FROM template_purchases",Integer.class));assertEquals(SourceArchive.inspect(archive(0)).files(),json.readValue(db.queryForObject("SELECT files::text FROM education_free_packages",String.class),List.class));assertFalse(uploaded.toString().contains("storage_key"));assertFalse(uploaded.toString().contains("commerce/"));

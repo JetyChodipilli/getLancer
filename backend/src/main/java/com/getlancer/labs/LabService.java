@@ -65,12 +65,26 @@ public class LabService {
   }
   private LabConfiguration.Runtime runtime(){var available=config.projection();if(!available.enabled())return available;UUID observed=db.queryForObject("SELECT observed_epoch FROM lab_runtime_settings WHERE id=1",UUID.class);if(!Objects.equals(config.epoch,observed))return new LabConfiguration.Runtime(false,"The operator epoch changed; admission and old routes are closed pending quarantine.");Boolean paused=db.queryForObject("SELECT paused FROM lab_runtime_settings WHERE id=1",Boolean.class);return Boolean.TRUE.equals(paused)?new LabConfiguration.Runtime(false,"Lab admissions are paused. Reviewed source and setup remain free."):available;}
   public LabConfiguration.Runtime runtimeAvailability(){return runtime();}
-  public LabResponses.Catalogue catalogue(){var items=new java.util.ArrayList<LabResponses.Manifest>();
-    for(String id:db.queryForList("SELECT id FROM lab_manifests WHERE revoked_at IS NULL ORDER BY id LIMIT 100",String.class))try{
-      var manifest=manifest(id,false);if(!dataAi.visible(manifest))continue;String sourceUrl=source(manifest,false);var available=availability(manifest);
-      items.add(new LabResponses.Manifest(manifest.id(),manifest.title(),manifest.summary(),manifest.language(),manifest.framework(),sourceUrl,manifest.setup(),available.enabled()?"Isolated provider":"Source only",manifest.scenarios(),manifest.adapter(),available,manifest.sourceSha256()));
-    }catch(ApiError unavailable){/* Unsigned/revoked manifests or currently ineligible sources are not public. */}
-    return new LabResponses.Catalogue(List.copyOf(items),runtime());
+  private static final int CATALOGUE_LIMIT=100,CATALOGUE_SCAN_LIMIT=1000;
+  /** At most 100 visible entries after reviewing 1,000 identities; budget exhaustion fails explicitly.
+   * An inventory ending at the review cap may still return a smaller, valid snapshot. */
+  public LabResponses.Catalogue catalogue(){var items=new java.util.ArrayList<LabResponses.Manifest>();String after="";int scanned=0;
+    while(scanned<CATALOGUE_SCAN_LIMIT){
+      int size=Math.min(CATALOGUE_LIMIT,CATALOGUE_SCAN_LIMIT-scanned);
+      // The extra identity distinguishes an exhausted review budget from the end of the inventory.
+      var ids=db.queryForList("SELECT id FROM lab_manifests WHERE revoked_at IS NULL AND id>? ORDER BY id LIMIT ?",String.class,after,size+1);
+      for(int i=0;i<Math.min(size,ids.size());i++){
+        String id=ids.get(i);after=id;scanned++;
+        try{
+          var manifest=manifest(id,false);if(!dataAi.visible(manifest))continue;String sourceUrl=source(manifest,false);var available=availability(manifest);
+          items.add(new LabResponses.Manifest(manifest.id(),manifest.title(),manifest.summary(),manifest.language(),manifest.framework(),sourceUrl,manifest.setup(),available.enabled()?"Isolated provider":"Source only",manifest.scenarios(),manifest.adapter(),available,manifest.sourceSha256()));
+        }catch(ApiError unavailable){/* Unsigned/revoked manifests or currently ineligible sources are not public. */}
+        if(items.size()==CATALOGUE_LIMIT)break;
+      }
+      if(items.size()==CATALOGUE_LIMIT||ids.size()<=size)return new LabResponses.Catalogue(List.copyOf(items),runtime());
+    }
+    // Never report a partial/empty inventory as complete after inspecting 1,000 identities.
+    throw new ApiError(503,"LAB_CATALOGUE_SCAN_LIMIT","The lab catalogue is temporarily unavailable. Please try again later.");
   }
   private LabConfiguration.Runtime availability(LabManifest manifest){
     try{manifest(manifest.id());for(var scenario:manifest.scenarios())requirePolicies(manifest,scenario.id(),true);return runtime();}
@@ -144,7 +158,10 @@ public class LabService {
     });
     if(intent.cached()!=null)return intent.cached();
     // The committed claim bounds retries without holding admission, account or source locks across provider I/O.
-    try{var result=provider.send(intent.delivery());if(result.state().equals("FAILED"))throw new ApiError(502,"LAB_SCENARIO_FAILED","The isolated provider confirmed failure of this scenario operation.");if(!result.state().equals("RESULT"))throw new ApiError(502,"LAB_REQUEST_UNCONFIRMED","The isolated provider has not confirmed this request.");
+    try{var result=provider.send(intent.delivery());if(result.state().equals("FAILED")){
+      if(!result.healthy()||!result.isolated())throw new ApiError(502,"LAB_ISOLATION_LOST","The provider no longer confirms healthy isolated execution. Routing is closed pending cleanup.");
+      throw new ApiError(502,"LAB_SCENARIO_FAILED","The isolated provider confirmed failure of this scenario operation.");
+    }if(!result.state().equals("RESULT"))throw new ApiError(502,"LAB_REQUEST_UNCONFIRMED","The isolated provider has not confirmed this request.");
       return tx(()->{settings();UUID owner=actor(request,false);var run=owned(id,owner,false);current(run);actor(request,false);
       if(!run.get("status").equals("RUNNING")||number(run,"lease_generation")!=intent.delivery().leaseGeneration())throw new ApiError(403,"LAB_LEASE_STALE","This request belongs to an earlier closed lease.");
       if(!requestClaim(run,intent))throw new ApiError(409,"LAB_REQUEST_SUPERSEDED","A newer delivery attempt owns this request. Retry with the same request identity.");

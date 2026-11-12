@@ -2,14 +2,22 @@
 import {useEffect,useRef,useState} from 'react';
 import {api,ApiError} from '@/lib/api';
 import EducationPackage from './education-package';
-export default function ReportTriage(){
- const [filter,setFilter]=useState('?status=OPEN'),[items,setItems]=useState<any[]>([]),[error,setError]=useState(''),[busy,setBusy]=useState(false),[page,setPage]=useState(0),[hasMore,setHasMore]=useState(false);
- const generation=useRef(0),summary=useRef<HTMLParagraphElement>(null);
+import type {EducationBinding,EducationPackage as EducationPackageData} from '@/lib/education';
+type FrozenEducation={package?:EducationPackageData;sourceBinding?:EducationBinding;mode?:string};
+type ReportRecord={id:string;severity:string;reason:string;detail:string;status:string;target_type:string;education_snapshot?:FrozenEducation&{snapshot?:FrozenEducation};education_release_id?:string;source_hash?:string;component_version?:string;component_revision?:number;component_source_hash?:string;component_snapshot?:unknown};
+export default function ReportTriage({request=api,reload}:{request?:typeof api;reload?:()=>Promise<boolean>}){
+ const [filter,setFilter]=useState('?status=OPEN'),[items,setItems]=useState<ReportRecord[]>([]),[error,setError]=useState(''),[busy,setBusy]=useState(false),[page,setPage]=useState(0),[hasMore,setHasMore]=useState(false);
+ const generation=useRef(0),pending=useRef(false),summary=useRef<HTMLParagraphElement>(null);
  useEffect(()=>{if(error)summary.current?.focus();},[error]);
  function failed(problem:unknown){setError((problem as Error).message);if(problem instanceof ApiError&&[401,403].includes(problem.status)){setItems([]);setHasMore(false);}}
- async function load(next=0){const current=++generation.current;setBusy(true);setError('');try{const data=await api('/admin/reports'+filter+'&page='+next);if(current!==generation.current)return;setItems(old=>Array.from(new Map([...(next?old:[]),...data.items].map(item=>[item.id,item])).values()));setPage(next);setHasMore(data.hasMore===true);}catch(problem){if(current===generation.current){if(!next){setItems([]);setHasMore(false);}failed(problem);}}finally{if(current===generation.current)setBusy(false);}}
- async function update(id:string,action:string,form:HTMLFormElement){const current=generation.current;if(busy)return;setBusy(true);setError('');try{await api('/admin/reports/'+id+'/'+action,{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(form)))});if(current===generation.current)await load();}catch(problem){if(current===generation.current)failed(problem);}finally{if(current===generation.current)setBusy(false);}}
- useEffect(()=>{setItems([]);void load();return()=>{generation.current++;};},[filter]);
+ async function load(next=0,failureContext=''){const current=++generation.current;setBusy(true);setError('');if(!next){setItems([]);setHasMore(false);}try{const data:{items:ReportRecord[];hasMore:boolean}=await request('/admin/reports'+filter+'&page='+next);if(current!==generation.current)return false;setItems(old=>Array.from(new Map([...(next?old:[]),...data.items].map(item=>[item.id,item])).values()));setPage(next);setHasMore(data.hasMore===true);return true;}catch(problem){if(current===generation.current){if(!next){setItems([]);setHasMore(false);}failed(problem);if(failureContext)setError(failureContext+(problem as Error).message);}return false;}finally{if(current===generation.current)setBusy(false);}}
+ async function update(id:string,action:string,form:HTMLFormElement){
+  if(pending.current||busy||!items.some(item=>item.id===id))return;pending.current=true;let current=++generation.current;setBusy(true);setError('');
+  try{await request('/admin/reports/'+id+'/'+action,{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(form)))});if(current!==generation.current)return;const refreshing=load(0,'The report decision was recorded, but its refreshed status is unavailable. Refresh report triage to verify it. ');current=generation.current;const refreshed=await refreshing;if(current!==generation.current||!refreshed)return;setBusy(true);if(reload&&!await reload().catch(()=>false)){if(current===generation.current){setItems([]);setHasMore(false);setError('The report decision was recorded, but your workspace could not be verified. Refresh your workspace before another decision.')}return;}}
+  catch(problem){if(current===generation.current){if(!(problem instanceof ApiError)||problem.status===0||problem.status>=500){setItems([]);setHasMore(false);setError('The report decision could not be confirmed. Refresh report triage before repeating it. '+(problem as Error).message)}else failed(problem);}}
+  finally{pending.current=false;if(current===generation.current)setBusy(false);}
+ }
+ useEffect(()=>{let active=true;queueMicrotask(()=>{if(active)void load()});return()=>{active=false;generation.current++;};},[filter]);
  return <details className="panel"><summary style={{minHeight:44}}>Report priority and triage</summary>
   <form className="form" onSubmit={event=>{event.preventDefault();const query=new URLSearchParams();new FormData(event.currentTarget).forEach((value,key)=>{if(value)query.set(key,String(value));});setFilter('?'+query)}}>
    <label htmlFor="triage-filter-state">Stage</label><select id="triage-filter-state" name="status" defaultValue="OPEN"><option value="">All stages</option>{['OPEN','TRIAGED','UNDER_REVIEW','RESOLVED'].map(value=><option key={value}>{value}</option>)}</select>

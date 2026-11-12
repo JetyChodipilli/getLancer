@@ -34,10 +34,13 @@ export function loadTemplateCheckout():Promise<CheckoutConstructor>{
 }
 
 /** ZIP attachments are requested only after an explicit owner, operator or entitled-buyer action. */
-export async function downloadTemplateSource(path:string,filename='getlancer-source.zip',method:'GET'|'POST'='GET'){
- const response=await fetch('/api/v1'+path,{method,credentials:'same-origin',headers:{'X-Requested-With':'getlancer'}});
+export async function downloadTemplateSource(path:string,filename='getlancer-source.zip',method:'GET'|'POST'='GET',options:{accountId?:string;isCurrent?:()=>boolean}={}){
+ const current=options.isCurrent||(()=>true);if(!current())return;
+ const headers=new Headers({'X-Requested-With':'getlancer'});if(options.accountId)headers.set('X-GetLancer-Account',options.accountId);
+ const response=await fetch('/api/v1'+path,{method,credentials:'same-origin',headers});
  if(!response.ok){const body=await response.json().catch(()=>({}));throw Object.assign(Error(body.error?.message||'Source access is unavailable. Refresh your account and purchase status.'),{status:response.status,code:body.error?.code||'SOURCE_UNAVAILABLE'});}
  if(!response.headers.get('Content-Type')?.includes('application/zip'))throw Error('The source response could not be verified. No file was saved.');
  const blob=await response.blob();if(blob.size>5*1024*1024)throw Error('The source exceeds the approved package limit. No file was saved.');
+ if(!current())return;
  const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=filename;document.body.append(link);link.click();link.remove();window.setTimeout(()=>URL.revokeObjectURL(url),30000);
 }

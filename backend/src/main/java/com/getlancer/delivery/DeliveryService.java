@@ -80,11 +80,16 @@ public class DeliveryService {
       if (kind.equals("BUILDER")) builder = candidate; else team = candidate;
       title = (String) source.get("title");
     }
+    var parties = new HashMap<String, Object>();
+    parties.put("buyerUserId", buyer); parties.put("businessId", business);
+    parties.put("builderUserId", builder); parties.put("teamId", team);
+    repo.requireCurrentParty(parties, actor, request, "ANY");
     UUID existing = repo.existing(inquiry, brief, builder, team);
     if (existing != null) return Map.of("id", existing);
     UUID engagement = id();
     repo.create(engagement, inquiry, brief, buyer, business, builder, team, title, actor);
     repo.event(engagement, actor, "ENGAGEMENT_CREATED", "Qualified source linked to its agreement parties");
+    repo.requireCurrentParty(parties, actor, request, "ANY");
     return Map.of("id", engagement);
   }
 
@@ -96,6 +101,7 @@ public class DeliveryService {
   @Transactional
   public Map<String, Object> draft(UUID engagement, Map<String, Object> body, HttpServletRequest request) {
     var e = repo.lockEngagement(engagement, request, "SELLER");
+    UUID actor = repo.verified(request);
     requireState(e, "OPEN");
     String latest = repo.latestProposalStatus(engagement);
     if ("SENT".equals(latest) || "ACCEPTED".equals(latest))
@@ -111,7 +117,8 @@ public class DeliveryService {
     UUID proposal = id();
     int revision = repo.nextRevision(engagement);
     repo.draft(engagement, proposal, revision, scope, terms, amount, repo.json(milestones));
-    repo.event(engagement, repo.verified(request), "PROPOSAL_DRAFTED", "Proposal revision " + revision + " drafted");
+    repo.event(engagement, actor, "PROPOSAL_DRAFTED", "Proposal revision " + revision + " drafted");
+    repo.requireCurrentParty(e, actor, request, "SELLER");
     return Map.of("id", proposal, "revision", revision, "status", "DRAFT");
   }
 
@@ -124,8 +131,9 @@ public class DeliveryService {
     };
     var e = repo.lockEngagement(engagement, request, side);
     requireState(e, "OPEN");
-    var p = repo.proposal(engagement, proposal);
     UUID actor = repo.verified(request);
+    var p = repo.proposal(engagement, proposal);
+    repo.requireCurrentParty(e, actor, request, side);
     switch (action) {
       case "send" -> {
         requireState(p, "DRAFT");
@@ -154,6 +162,7 @@ public class DeliveryService {
       }
     }
     repo.event(engagement, actor, "PROPOSAL_" + action.toUpperCase(Locale.ROOT), "Proposal revision " + p.get("revision") + " " + action + " recorded");
+    repo.requireCurrentParty(e, actor, request, side);
     return Map.of("ok", true);
   }
 
@@ -189,19 +198,22 @@ public class DeliveryService {
     }
     repo.milestoneState(milestone, next, note, url, actor);
     repo.event(engagement, actor, "MILESTONE_" + next, detail);
+    repo.requireCurrentParty(m, actor, request, side);
     return Map.of("status", next);
   }
 
   @Transactional
   public Map<String, Object> completion(UUID engagement, HttpServletRequest request) {
     var e = repo.lockEngagement(engagement, request, "ANY");
+    UUID actor = repo.verified(request);
     boolean seller = "SELLER".equals(e.get("side"));
     requireState(e, seller ? "ACTIVE" : "COMPLETION_PENDING");
     if (!repo.allPaid(engagement))
       throw new ApiError(409, "UNPAID_MILESTONES", "Every milestone must be accepted and provider-confirmed paid without refunds before completion.");
     String next = seller ? "COMPLETION_PENDING" : "COMPLETED";
     repo.state(engagement, next);
-    repo.event(engagement, repo.verified(request), next, seller ? "Seller requested final completion acknowledgement" : "Buyer confirmed final completion");
+    repo.event(engagement, actor, next, seller ? "Seller requested final completion acknowledgement" : "Buyer confirmed final completion");
+    repo.requireCurrentParty(e, actor, request, seller ? "SELLER" : "BUYER");
     return Map.of("status", next);
   }
 
@@ -212,6 +224,7 @@ public class DeliveryService {
     UUID actor = repo.verified(request);
     UUID dispute = repo.dispute(engagement, actor, text(body, "reason", 10, 3000), (String) e.get("status"));
     repo.event(engagement, actor, "DISPUTE_OPENED", "Dispute opened; checkout and completion paused. No refund was issued.");
+    repo.requireCurrentParty(e, actor, request, "ANY");
     return Map.of("id", dispute, "status", "OPEN");
   }
 
@@ -228,6 +241,8 @@ public class DeliveryService {
       throw new ApiError(400, "VALIDATION_ERROR", "Choose RESUME or CANCEL.");
     String reason = text(body, "reason", 10, 3000);
     var d = repo.lockDispute(dispute);
+    if (!actor.equals(repo.adminMutation(request)))
+      throw new ApiError(403, "FORBIDDEN", "Administrator access changed.");
     requireState(d, "OPEN");
     UUID engagement = (UUID) d.get("engagement_id");
     String previous = (String) d.get("previous_status");
@@ -237,6 +252,8 @@ public class DeliveryService {
     String next = resolution.equals("CANCEL") ? "CANCELLED" : previous;
     repo.state(engagement, next);
     repo.event(engagement, actor, "DISPUTE_" + resolution, reason);
+    if (!actor.equals(repo.adminMutation(request)))
+      throw new ApiError(403, "FORBIDDEN", "Administrator access changed.");
     return Map.of("status", next);
   }
 

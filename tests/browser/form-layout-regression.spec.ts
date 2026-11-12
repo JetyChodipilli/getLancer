@@ -18,7 +18,7 @@ test('component wizard spaces fieldsets and keeps wrapping consent beside its ch
   await page.emulateMedia({reducedMotion: 'reduce'});
   await page.route('**/api/v1/**', route => {
     const path = new URL(route.request().url()).pathname;
-    if (path === '/api/v1/me') return route.fulfill({json: {roles: ['DEVELOPER'], emailVerified: true, profile: {approval_status: 'APPROVED'}}});
+    if (path === '/api/v1/me') return route.fulfill({json: {id:'00000000-0000-4000-8000-000000000001',roles: ['DEVELOPER'], emailVerified: true, profile: {approval_status: 'APPROVED'}}});
     if (path === '/api/v1/me/components') return route.fulfill({json: {
       items: [], capacity: {free: 3, purchased: 0, used: 0, limit: 3},
       pricing: {amountMinor: null, enabled: false, salesEnabled: false, configured: false, currency: 'INR', mode: 'disabled'},
