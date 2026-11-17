@@ -60,6 +60,9 @@ const worker = {
       '/preview/workspace':'/workspace', '/preview/trust':'/workspace/trust',
       '/preview/teams':'/workspace/teams', '/preview/business':'/workspace/business',
       '/preview/delivery':'/workspace/delivery',
+      '/preview/templates':'/workspace/templates', '/preview/maintenance':'/workspace/maintenance',
+      '/preview/hosting':'/workspace/hosting', '/preview/components':'/workspace/components',
+      '/preview/college-projects':'/workspace/college-projects', '/preview/operations':'/workspace/operations',
     };
     if (connected && ['GET','HEAD'].includes(request.method) && Object.hasOwn(workspaces,url.pathname)) {
       return secureFrontendResponse(Response.redirect(new URL(workspaces[url.pathname],url.origin),307),request.url,connected,nonce,publisher,upload);
