@@ -3,7 +3,7 @@
 User-approved direction: P4 Paper & Pixel, 28 October 2026. The public homepage is a digital exhibition of working software. Dark projects lead into light components, college work and learning. Product screens retain quiet task-focused structure.
 
 ## Identity and references
-Framer supplies the dark exhibition hierarchy; Wired supplies editorial light chapters. These are compositional references only. Use original getLancer marks, product copy and assets. Deliberate deviations: no neon, gradients, glass, floating blobs or proprietary typography. The approved template wins over any random style draw.
+Framer supplies the dark exhibition hierarchy; Wired supplies editorial light chapters. These are compositional references only. Use original getLancer marks, product copy and assets. Deliberate deviations: no neon, gradients, floating blobs or proprietary typography; glass is reserved for the selected account menu A below. The approved template wins over any random style draw.
 
 ## Semantic tokens
 Selected B / Joinery supplies the identity and graphite palette. Canvas #ffffff; surface #ffffff; raised #edf2f5; ink/dark #233746; muted #536572; decorative line #d3dce2; control boundary #7d8b94. Dark raised #304959; inverse ink #ffffff; dark muted #c1d0da; decorative dark line #5a6e7b. Focus #2d5d85 on light and #bad8f1 on dark. Success #166b45 / #edf8f0; warning #805710 / #fff8e8; danger #a52b34 / #fff1f2. Disabled controls remain legible; no opacity reduction on readable status text. Exact asset rules/evidence: [Joinery](docs/brand/JOINERY.md).
@@ -12,7 +12,7 @@ Selected B / Joinery supplies the identity and graphite palette. Canvas #ffffff;
 Self-hosted getLancer Sans (renamed IBM Plex Sans Latin, normal variable 100-700, width 100) for UI and hero; getLancer Serif (renamed IBM Plex Serif Latin, real 400) for editorial display. Original OFL copyright/licenses bundled. Two families maximum; no synthetic serif bold. Body 16px/1.55. Metadata 13-14px/1.5; labels 14px/600. Headline clamp(2.5rem,5vw,4.75rem), 500, line 1.05, tracking -.04em. Editorial chapter 36-48px serif/400. Product headings 28-40px. No uppercased paragraphs. Joinery outlined horizontal logo: header 168px, minimum 132px; symbol minimum 24px with tested favicon exception at 16px.
 
 ## Geometry
-4px spacing scale: 4/8/12/16/24/32/48/64/96. Public max width 1440px with 24–48px gutters. Tasks max width 1320px. Form line length 480–640px. 6px radius for controls, 10px previews, 999px primary CTA only. Border and surface hierarchy, no decorative shadows; dialogs may have modest functional elevation.
+4px spacing scale: 4/8/12/16/24/32/48/64/96. Public max width 1440px with 24–48px gutters. Tasks max width 1320px. Form line length 480–640px. 6px radius for controls, 10px previews, 999px for the primary CTA and the selected account menu's trigger and Edit profile action. Border and surface hierarchy; dialogs and the selected account dropdown may have modest functional elevation.
 
 ## Components and states
 Header is solid, compact, keyboard reachable; logged-out primary links Projects, Components, College projects, Learning. Overflow retains every existing destination. Search is labelled, submit-driven, URL-synchronised, clearable; filters maintain backend semantics and browser history. Project cards show actual preview, title, builder, stack and accessible save state. Featured projects have uneven editorial scale; normal results are a readable grid without layout thrashing.
