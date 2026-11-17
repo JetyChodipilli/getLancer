@@ -288,7 +288,8 @@ test('provider startup rejects an untrusted redirect and stays recoverable', asy
 test('failed sign-out retains the account and provides a recoverable response',async({page})=>{
  const {build}=await import('esbuild');
  const {readFileSync}=await import('node:fs');
- const bundle=await build({stdin:{contents:`import React from 'react';import{createRoot}from'react-dom/client';import Header from './app/components/header';createRoot(document.getElementById('root')).render(<Header preview={false}/>);`,loader:'tsx',resolveDir:process.cwd()},bundle:true,write:false,platform:'browser',format:'iife',jsx:'automatic',define:{'process.env.NODE_ENV':'"test"'},plugins:[{name:'header-router-fixture',setup(plugin){
+ // Emit imported component CSS in memory, just as the application bundler does.
+ const bundle=await build({stdin:{contents:`import React from 'react';import{createRoot}from'react-dom/client';import Header from './app/components/header';createRoot(document.getElementById('root')).render(<Header preview={false}/>);`,loader:'tsx',resolveDir:process.cwd()},bundle:true,write:false,outdir:'paper-header-fixture',platform:'browser',format:'iife',jsx:'automatic',define:{'process.env.NODE_ENV':'"test"'},plugins:[{name:'header-router-fixture',setup(plugin){
   plugin.onResolve({filter:/^next\/(link|navigation)$/},args=>({path:args.path,namespace:'header-fixture'}));
   plugin.onLoad({filter:/.*/,namespace:'header-fixture'},args=>({contents:args.path==='next/link'?'import React from "react";export default function Link({href,children,...props}){return <a href={href} {...props}>{children}</a>}':'export const usePathname=()=>"/";',loader:'jsx',resolveDir:process.cwd()}));
  }}]});
@@ -298,9 +299,17 @@ test('failed sign-out retains the account and provides a recoverable response',a
  await page.route('**/api/v1/auth/logout',route=>{writes++;expect(route.request().method()).toBe('POST');expect(route.request().headers()['x-requested-with']).toBe('getlancer');return route.fulfill({status:503,json:{error:{code:'SERVICE_UNAVAILABLE',message:'Sign-out could not be confirmed. Try again.'}}});});
  await page.goto('/paper-header-fixture');
  await page.addStyleTag({content:readFileSync('app/paper.css','utf8')});
- await page.addScriptTag({content:bundle.outputFiles[0].text});
+ const css=bundle.outputFiles.find(file=>file.path.endsWith('.css'));
+ const script=bundle.outputFiles.find(file=>file.path.endsWith('.js'));
+ expect(css?.text).toContain('.account-menu-centered');
+ expect(script).toBeDefined();
+ await page.addStyleTag({content:css!.text});
+ await page.addScriptTag({content:script!.text});
  const account=page.getByRole('button',{name:'Account menu for Fixture Builder',exact:true});
- await account.click();await page.getByRole('menuitem',{name:'Log out',exact:true}).click();
+ await account.click();
+ await expect(page.getByRole('menuitem',{name:'Edit profile',exact:true})).toBeVisible();
+ await expect(page.locator('.account-popover')).toHaveCSS('width','280px');
+ await page.getByRole('menuitem',{name:'Log out',exact:true}).click();
  await expect(page.getByRole('alert')).toContainText('Sign-out could not be confirmed.');
  await expect(account).toBeVisible();expect(writes).toBe(1);
  await page.getByRole('button',{name:'Dismiss sign-out message',exact:true}).click();
