@@ -1,6 +1,7 @@
 import {expect,test,type Page} from '@playwright/test';
 import {build} from 'esbuild';
 
+const actor='20000000-0000-4000-8000-000000000001';
 const alpha='10000000-0000-4000-8000-000000000001',beta='10000000-0000-4000-8000-000000000002';
 
 async function renderExplore(page:Page,initiallySaved=false){
@@ -21,6 +22,8 @@ async function renderExplore(page:Page,initiallySaved=false){
   await page.route('**/__round3/ui',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1">'+styles+'</head><body><div id="round3-ui-root"></div></body></html>'}));
   await page.route('**/api/v1/categories',route=>route.fulfill({json:{items:[{name:'Inventory'},{name:'Booking'}]}}));
   await page.route('**/api/v1/technologies',route=>route.fulfill({json:{items:[{name:'React'}]}}));
+  await page.route('**/api/v1/me',route=>route.fulfill({json:{id:actor,roles:['CLIENT']}}));
+  await page.route(url=>url.pathname==='/api/v1/me/saved-products'||/^\/api\/v1\/products\/[^/]+\/save$/.test(url.pathname),route=>{expect(route.request().headers()['x-getlancer-account']).toBe(actor);return route.fallback();});
   await page.goto('/__round3/ui');await page.addScriptTag({content:fixture.outputFiles[0].text});
   await expect(page.getByRole('button',{name:(initiallySaved?'Unsave ':'Save ')+'Stockroom',exact:true})).toBeEnabled();
   await page.evaluate(()=>document.fonts.ready);
@@ -94,4 +97,19 @@ test('a rejected catalogue save retains its state and permits a corrected retry'
   await save.click();await expect.poll(()=>writes).toBe(2);
   await expect(page.getByRole('button',{name:'Unsave Stockroom',exact:true})).toHaveAttribute('aria-pressed','true');await expect(page.getByRole('alert')).toHaveCount(0);
   expect(errors).toEqual([]);
+});
+
+// Missing assertions remain compatible; only a mismatched supplied actor is denied.
+test('retained catalogue save cannot act for a replacement account',async({page})=>{
+ let current=actor,mutations=0,denials=0;
+ await page.route('**/api/v1/me/saved-products?**',route=>route.fulfill({json:{items:[]}}));
+ await page.route('**/api/v1/products/*/save',route=>{
+  const bound=route.request().headers()['x-getlancer-account'];
+  if(bound!==undefined&&bound!==current){denials++;return route.fulfill({status:401,json:{error:{code:'UNAUTHENTICATED',message:'The account that loaded this collection is no longer current.'}}});}
+  mutations++;return route.fulfill({json:{ok:true}});
+ });
+ const errors=await renderExplore(page);current='20000000-0000-4000-8000-000000000002';
+ await page.getByRole('button',{name:'Save Stockroom',exact:true}).click();
+ await expect(page.getByRole('alert')).toContainText('no longer current');expect(denials).toBe(1);expect(mutations).toBe(0);
+ await expect(page.getByRole('button',{name:'Save Stockroom',exact:true})).toHaveAttribute('aria-pressed','false');expect(errors).toEqual([]);
 });
