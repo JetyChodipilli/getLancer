@@ -17,6 +17,8 @@ const server=createServer((req,res)=>{
   res.setHeader('Content-Type','application/json');
   if(failure){res.writeHead(503);res.end(JSON.stringify({error:{code:'SERVICE_UNAVAILABLE',message:'Unavailable'}}));return;}
   if(req.url.startsWith('/api/v1/products?'))res.end(JSON.stringify({items,totalItems:items.length,totalPages:items.length?1:0}));
+  else if(req.url==='/api/v1/college-projects/bookmark-project')res.end(JSON.stringify({id:'actual-project',education:{}}));
+  else if(req.url==='/api/v1/education-releases/10000000-0000-4000-8000-000000000001/source-offer')res.end(JSON.stringify({release:{productId:'a-different-project'}}));
   else if(req.url==='/api/v1/auth/providers')res.end(JSON.stringify({google:false,github:false}));
   else {res.writeHead(req.url==='/api/v1/me'?401:404);res.end(JSON.stringify({error:{code:'NOT_FOUND',message:'Not found'}}));}
 });
@@ -68,4 +70,11 @@ test('all V1 through V3 sample routes redirect to real workspaces when connected
 test('real login and team pages do not offer a sample-mode escape on API errors',async()=>{
   for(const path of ['/login','/signup','/teams','/workspace/teams','/workspace/business','/workspace/delivery']){const {r,html}=await page(path);assert.equal(r.status,200,path);noDemo(html);assert.doesNotMatch(html,/Try the sample workspace|Try the interactive team preview|Interactive business preview|Meridian Labs|Inventory approval delivery|Sample delivery/);}
   const auth=await page('/api/v1/auth/providers');assert.equal(auth.r.status,200);assert.deepEqual(JSON.parse(auth.html),{google:false,github:false});
+});
+
+test('connected historical binding rejects another real project and never falls back on API failure',async()=>{
+ const path='/college-projects/bookmark-project?release=10000000-0000-4000-8000-000000000001';
+ const denied=await page(path);assert.equal(denied.r.status,404);assert.doesNotMatch(denied.html,/Exactly what you receive/);
+ failure=true;
+ try{const unavailable=await page(path);assert.equal(unavailable.r.status,503);noDemo(unavailable.html);}finally{failure=false;}
 });

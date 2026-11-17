@@ -40,3 +40,17 @@ export async function collegeCatalog(params: URLSearchParams) {
 export async function collegeDetail(slug: string) { const connected = !!(await backendOrigin()); return { item: connected ? await read<CollegeProject>('/college-projects/' + encodeURIComponent(slug)) : sampleCollegeProjects.find(p => p.slug === slug), preview: !connected }; }
 
 export async function collegeReleaseOffer(id:string):Promise<EducationOffer|undefined>{if(await backendOrigin())return read<EducationOffer>('/education-releases/'+encodeURIComponent(id)+'/source-offer');const project=sampleCollegeProjects.find(p=>p.education.release?.id===id),release=project?.education.release;if(!release)return undefined;return {release,package:release.snapshot.sourceBinding,available:release.snapshot.mode==='FREE',checkoutAvailable:false,paidEnabled:false,reason:release.snapshot.mode==='PAID'?'Illustrative paid source. Merchant activation and checkout are unavailable.':release.snapshot.mode==='SHOWCASE'?'Showcase only; no source package is offered.':undefined};}
+
+/** Resolve an immutable public bookmark before rendering any project/source content. */
+export async function collegeBookmark(slug:string,releaseId?:string|string[]){
+ if(Array.isArray(releaseId))return undefined;
+ if(releaseId!==undefined&&!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(releaseId))return undefined;
+ const {item,preview}=await collegeDetail(slug);if(!item)return undefined;
+ let release=item.education.release;
+ if(releaseId!==undefined){
+  const offer=await collegeReleaseOffer(releaseId);
+  if(!offer||offer.release.productId!==item.id)return undefined;
+  release=offer.release;
+ }
+ return {item,preview,release};
+}
