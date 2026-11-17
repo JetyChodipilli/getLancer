@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test, {before, after} from 'node:test';
 import {createServer} from 'node:http';
 import {once} from 'node:events';
+import {existsSync,readFileSync,readdirSync} from 'node:fs';
 import worker from './helpers/built-worker.mjs';
 
 // An HTTP fixture for the frontend contract only. Java/PostgreSQL and SMTP/S3
@@ -17,6 +18,8 @@ const server=createServer((req,res)=>{
   res.setHeader('Content-Type','application/json');
   if(failure){res.writeHead(503);res.end(JSON.stringify({error:{code:'SERVICE_UNAVAILABLE',message:'Unavailable'}}));return;}
   if(req.url.startsWith('/api/v1/products?'))res.end(JSON.stringify({items,totalItems:items.length,totalPages:items.length?1:0}));
+  else if(req.url==='/api/v1/college-projects/bookmark-project')res.end(JSON.stringify({id:'actual-project',education:{}}));
+  else if(req.url==='/api/v1/education-releases/10000000-0000-4000-8000-000000000001/source-offer')res.end(JSON.stringify({release:{productId:'a-different-project'}}));
   else if(req.url==='/api/v1/auth/providers')res.end(JSON.stringify({google:false,github:false}));
   else {res.writeHead(req.url==='/api/v1/me'?401:404);res.end(JSON.stringify({error:{code:'NOT_FOUND',message:'Not found'}}));}
 });
@@ -30,7 +33,7 @@ after(async()=>{
   for(const [key,value] of Object.entries(previous)){if(value===undefined)delete process.env[key];else process.env[key]=value;}
   server.closeAllConnections();await new Promise(resolve=>server.close(resolve));
 });
-async function page(path){const r=await worker.fetch(new Request('https://app.example.test'+path,{headers:{accept:'text/html'}}),env,ctx);return {r,html:await r.text()};}
+async function page(path,method='GET'){const r=await worker.fetch(new Request('https://app.example.test'+path,{method,headers:{accept:'text/html'}}),env,ctx);return {r,html:await r.text()};}
 const noDemo=html=>assert.doesNotMatch(html,/Stockroom|Booklane|Leah Morgan|Northstar Studio|Demo workspace|Interactive team preview|Trust &amp; availability preview|href="\/preview\//);
 function renderedError({r,html}){
   // A streamed response can commit HTTP 200 before RSC reports its error.
@@ -59,13 +62,29 @@ test('configured backend failures produce errors, never demo listings or fake ac
   }finally{failure=false;}
 });
 
-test('all V1 through V3 sample routes redirect to real workspaces when connected',async()=>{
-  for(const [path,target] of [['/preview/workspace','/workspace'],['/preview/trust','/workspace/trust'],['/preview/teams','/workspace/teams'],['/preview/business','/workspace/business'],['/preview/delivery','/workspace/delivery']]){
-    const {r,html}=await page(path);assert.equal(r.status,307,path);assert.equal(new URL(r.headers.get('location'),'https://app.example.test').pathname,target);noDemo(html);
+test('every declared connected preview redirect preserves its HTTP contract for GET and HEAD',async()=>{
+  const routes=[];
+  for(const entry of readdirSync('app/preview',{withFileTypes:true})){
+    const file='app/preview/'+entry.name+'/page.tsx';if(!entry.isDirectory()||!existsSync(file))continue;
+    const source=readFileSync(file,'utf8');if(!/\bredirect\s*\(/.test(source))continue;
+    const targets=[...source.matchAll(/\bredirect\(\s*['"]([^'"]+)['"]\s*\)/g)];
+    assert.equal(targets.length,1,file+' must declare one fixed connected destination');
+    routes.push(['/preview/'+entry.name,targets[0][1]]);
+  }
+  assert.ok(routes.length>0,'The page inventory must not silently lose every redirect');
+  for(const [path,target] of routes)for(const method of ['GET','HEAD']){
+    const {r,html}=await page(path,method);assert.equal(r.status,307,method+' '+path);assert.equal(new URL(r.headers.get('location'),'https://app.example.test').pathname,target);noDemo(html);assert.equal(html,'');
   }
 });
 
 test('real login and team pages do not offer a sample-mode escape on API errors',async()=>{
   for(const path of ['/login','/signup','/teams','/workspace/teams','/workspace/business','/workspace/delivery']){const {r,html}=await page(path);assert.equal(r.status,200,path);noDemo(html);assert.doesNotMatch(html,/Try the sample workspace|Try the interactive team preview|Interactive business preview|Meridian Labs|Inventory approval delivery|Sample delivery/);}
   const auth=await page('/api/v1/auth/providers');assert.equal(auth.r.status,200);assert.deepEqual(JSON.parse(auth.html),{google:false,github:false});
+});
+
+test('connected historical binding rejects another real project and never falls back on API failure',async()=>{
+ const path='/college-projects/bookmark-project?release=10000000-0000-4000-8000-000000000001';
+ const denied=await page(path);assert.equal(denied.r.status,404);assert.doesNotMatch(denied.html,/Exactly what you receive/);
+ failure=true;
+ try{const unavailable=await page(path);assert.equal(unavailable.r.status,503);noDemo(unavailable.html);}finally{failure=false;}
 });

@@ -203,10 +203,11 @@ class TypedRequestsIntegrationTest {
 
     // The retained URL must satisfy the same public-DNS checks as a newly supplied profile URL.
     db.update("UPDATE developer_profiles SET website_url='https://example.com',country='IN',time_zone='Asia/Kolkata',languages='English' WHERE user_id=?", builder);
-    // Fix only this DNS response; the real URL parser/address policy and profile service still run.
+    // Control the resolver on the request thread; InetAddress runs on another worker.
+    // The real URL parser, public-address policy and profile service still run.
     var publicAddress = InetAddress.getByAddress(new byte[] {8, 8, 8, 8});
-    try (MockedStatic<InetAddress> dns = mockStatic(InetAddress.class, withSettings().mockMaker(MockMakers.INLINE))) {
-      dns.when(() -> InetAddress.getAllByName("example.com")).thenReturn(new InetAddress[] {publicAddress});
+    try (MockedStatic<com.getlancer.shared.BoundedDns> dns = mockStatic(com.getlancer.shared.BoundedDns.class, withSettings().mockMaker(MockMakers.INLINE))) {
+      dns.when(() -> com.getlancer.shared.BoundedDns.resolve("example.com")).thenReturn(new InetAddress[] {publicAddress});
       ok(body(put("/api/v1/developer/profile"), "typed-builder", Map.of(
           "displayName", "Typed builder", "headline", "Customer software builder", "bio", "Builds complete customer software workflows",
           "technology", "React", "category", "CRM", "availabilityStatus", "AVAILABLE_NOW")));

@@ -108,7 +108,16 @@ class ProductProfileTrustAuthorityIntegrationTest {
           assertTrue(result.next(), "The row held by the test must already exist");
         }
       }
-      var pending = executor.submit(() -> mvc.perform(call).andReturn().getResponse().getStatus());
+      var pending = executor.submit(() -> {
+        // Keep the authority/SQL regression independent of public DNS.
+        var address=java.net.InetAddress.getByAddress(new byte[]{8,8,8,8});
+        try(var dns=org.mockito.Mockito.mockStatic(com.getlancer.shared.BoundedDns.class,
+            org.mockito.Mockito.withSettings().mockMaker(org.mockito.MockMakers.INLINE))){
+          dns.when(()->com.getlancer.shared.BoundedDns.resolve("github.com"))
+              .thenReturn(new java.net.InetAddress[]{address});
+          return mvc.perform(call).andReturn().getResponse().getStatus();
+        }
+      });
       long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
       boolean waiting = false;
       while (System.nanoTime() < deadline && !pending.isDone()) {

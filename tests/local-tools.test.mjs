@@ -63,10 +63,10 @@ test('local setup rejects a stale or unsupported runtime before creating configu
   for(const file of ['setup-local.mjs','local-config.mjs','node-version.mjs'])copyFileSync(new URL('../scripts/'+file,import.meta.url),join(dir,'scripts',file));
   writeFileSync(join(dir,'.env.example'),'APP_ENV=local\n');
   const hook=join(dir,'runtime-version.mjs');
-  for(const version of ['v22.23.4','v24.22.0','v24.22.1','v25.0.0','v26.13.0']){
+  for(const version of ['v22.23.4','v24.22.0','v24.22.1','v24.22.2','v25.0.0','v26.13.0']){
     writeFileSync(hook,'Object.defineProperty(process,"version",{value:'+JSON.stringify(version)+'});\n');
     const result=spawnSync(process.execPath,['--import',hook,join(dir,'scripts/setup-local.mjs')],{encoding:'utf8'});
-    assert.equal(result.status,1,result.stderr);assert.match(result.stderr,/Use stable Node 24\.22\.2/);
+    assert.equal(result.status,1,result.stderr);assert.match(result.stderr,/Use stable Node 24\.22\.3/);
     assert.throws(()=>statSync(join(dir,'.env')),{code:'ENOENT'});
   }
 });

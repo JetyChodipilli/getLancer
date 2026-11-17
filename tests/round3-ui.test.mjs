@@ -4,6 +4,7 @@ import {stripTypeScriptTypes} from 'node:module';
 import test from 'node:test';
 import ts from 'typescript';
 
+const {ApiError}=await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(readFileSync(new URL('../lib/api.ts',import.meta.url),'utf8'),{mode:'transform'})).toString('base64'));
 const source=readFileSync(new URL('../app/components/explore.tsx',import.meta.url),'utf8');
 const tree=ts.createSourceFile('explore.tsx',source,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
 const explore=tree.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='Explore');
@@ -24,15 +25,17 @@ const compiled=stripTypeScriptTypes(save.getText(tree),{mode:'transform'});
 const compiledRead=stripTypeScriptTypes(savedRead[0].getText(tree),{mode:'transform'});
 
 function fixture(initial=[]){
-  const state={saved:[...initial],saving:[],error:'',notice:''},savingRef={current:new Set()},savedRevision={current:0},savedChanges={current:new Map()},requests=[];
+  const state={saved:[...initial],saving:[],error:'',notice:''},savingRef={current:new Set()},savedRevision={current:0},savedChanges={current:new Map()},account={current:"fixture-actor"},accessEpoch={current:0},requests=[];
   const setSaved=value=>{state.saved=typeof value==='function'?value(state.saved):value;};
   function render(){
-    const context={preview:false,saved:state.saved,savingRef,savedRevision,savedChanges,setSaved,setSaving:value=>{state.saving=Array.isArray(value)?value:value?[value]:[];},setError:value=>{state.error=value;},setSaveNotice:value=>{state.notice=value;},api:(path,options)=>{const response=Promise.withResolvers();requests.push({path,method:options.method,...response});return response.promise;}};
+    const context={account,accessEpoch,ApiError,preview:false,saved:state.saved,savingRef,savedRevision,savedChanges,setSaved,setSaving:value=>{state.saving=Array.isArray(value)?value:value?[value]:[];},setError:value=>{state.error=value;},setSaveNotice:value=>{state.notice=value;},api:(path,options)=>{const response=Promise.withResolvers();requests.push({path,method:options.method,...response});return response.promise;}};
+    context.accountApi=(actor,...args)=>{assert.equal(actor,account.current);return context.api(...args);};
     return Function(...Object.keys(context),compiled+';return save;')(...Object.values(context));
   }
   function load(){
     const response=Promise.withResolvers();
-    const context={preview:false,visibleIds:'alpha,beta',savedRevision,savedChanges,setSaved,setLoadedSavedIds:()=>{},setError:value=>{state.error=value;},api:()=>response.promise,useEffect:effect=>effect()};
+    const context={account,accessEpoch,ApiError,preview:false,visibleIds:'alpha,beta',savedRevision,savedChanges,setSaved,setLoadedSavedIds:()=>{},setError:value=>{state.error=value;},api:()=>response.promise,useEffect:effect=>effect()};
+    context.accountApi=(actor,...args)=>{assert.equal(actor,account.current);return context.api(...args);};context.setSaveNotice=value=>{state.notice=value;};
     Function(...Object.keys(context),compiledRead)(...Object.values(context));
     return response;
   }

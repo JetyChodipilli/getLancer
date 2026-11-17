@@ -10,8 +10,8 @@
       "primaryFile": "src/App.vue",
       "compiler": "@vue/compiler-sfc 3.5.43",
       "previewSha256": "5619abbb4e786d99c4c4a1f303219a9c1b5157353abc15f4970744eace8045ef",
-      "sourceSha256": "d0859f2735391cc3f550715389287480ae3ced0fe21df30a604aa71990232398",
-      "archiveSha256": "845fb1699ec1e03a3c32b66d49597309862408d0b9f3b674c5c7119c13cc767a",
+      "sourceSha256": "f97e1a4d8e4b51b8f61ba515185ac67b8f66902205ab7347f779bb4c8ed95428",
+      "archiveSha256": "af8c1396cd9998a895a766e372b1aa476d2817fc819d3739c79bc5862542e5ba",
       "sourceUrl": "/components/frameworks/source/vue",
       "previewUrl": "/components/frameworks/preview/vue",
       "files": [
@@ -32,17 +32,17 @@
         },
         {
           "name": "package-lock.json",
-          "sha256": "2d4b0d8cd0a23b13675c04ad201c0d57c09de59294f066e08430b8544a375990",
+          "sha256": "fe814f0297438918f065a34a1b7cd829a33605117f067610a03b458f08765c65",
           "bytes": 24930
         },
         {
           "name": "package.json",
-          "sha256": "7ef25c27e1291a67bc81b32706fe526f871e1382eb1cd467d20b757864003da4",
+          "sha256": "d004aff4d7fe82f440bf86612dfa2451f043248cc66e92e5f16b4d27a704edda",
           "bytes": 361
         },
         {
           "name": "README.md",
-          "sha256": "be0beadf70478e891a4a79d72233e37cb75571ebee5b67537fdd66b5704aec3a",
+          "sha256": "d0c57a6080d5ed4a15edaec610e1025cac8b159e21eed01e95b44769b042c76a",
           "bytes": 1842
         },
         {
@@ -81,8 +81,8 @@
       "primaryFile": "src/App.svelte",
       "compiler": "svelte/compiler 5.57.2",
       "previewSha256": "58417a7e33dc6f7825d8a924ac224700b090d60184af95696638bd62f739c8b3",
-      "sourceSha256": "ef307de80d8e7d05daf85facdb15fb76ca47a1c072327ddc8434d65dbfc19ee4",
-      "archiveSha256": "fa087f8c8ab972237983fa973e1be5774eaf1315d37f3c9af919f352c7383a11",
+      "sourceSha256": "650925daad2c173df399a698e518311cc4f5e51fd67063b3cda18c9455decc0a",
+      "archiveSha256": "3a43d9e4b91a1f6f3def87d5c6768d4c65fa6b0309d3c4026f630e634cb10197",
       "sourceUrl": "/components/frameworks/source/svelte",
       "previewUrl": "/components/frameworks/preview/svelte",
       "files": [
@@ -103,17 +103,17 @@
         },
         {
           "name": "package-lock.json",
-          "sha256": "5daaa46524b8a44c8f9350bd2f176e98328f7fb26b04ed5be683d1a85631c1c0",
+          "sha256": "78bc0c642c985a1dfa3b4394c661685d6b26ee2922ae271fd293a01d87529734",
           "bytes": 22208
         },
         {
           "name": "package.json",
-          "sha256": "bfcd500a2d99676ec2fb0f449f049e773e0ddc539c385f98c4517dede845a34a",
+          "sha256": "e2d34ed09fd2d6afc946acb1e1d327258d87630674d501397a1272528b297bf4",
           "bytes": 332
         },
         {
           "name": "README.md",
-          "sha256": "56877036e5f199167e1fd5f9a57a9283bfd684cf748651bc3960638b6af2fd46",
+          "sha256": "f6592281b2621b0ede1e8f0ca99d13f80ca2f61a60ffc7cd9562132096554423",
           "bytes": 1845
         },
         {
@@ -152,8 +152,8 @@
       "primaryFile": "src/app.ts",
       "compiler": "@angular/compiler-cli 20.3.34 · AOT",
       "previewSha256": "2af4d61f847bd52b14fa158f32db575f5c89d2b4f3696ad847db5e26fcb92bcd",
-      "sourceSha256": "9fbc2f65e3c0c1800eb0007b73b56ffe61622e675aab0dea097d01c042d21ec2",
-      "archiveSha256": "84ff3e0add529b8bd1b002d6f92eb0bd71eaf3e3cbe32e3b6dcafbb8dbded5e3",
+      "sourceSha256": "c3341dd6074629141ea61066c7126d880dd1e7109ea5154699f1e55d332f0fd0",
+      "archiveSha256": "c6cadd518890211a34c4bc3fe0f101296e4e002d2d6aaaa6eb767b5f8122c786",
       "sourceUrl": "/components/frameworks/source/angular",
       "previewUrl": "/components/frameworks/preview/angular",
       "files": [
@@ -174,17 +174,17 @@
         },
         {
           "name": "package-lock.json",
-          "sha256": "11bbfd5f564f5ff692a6effd894f929d4e4b17cecd8f16cb2d22ece21c58905e",
+          "sha256": "927d916922c64ae624066e0ab122af78b4bfbaa1c295cf8625c88536696c2f3b",
           "bytes": 47905
         },
         {
           "name": "package.json",
-          "sha256": "0e13254ce8aceb77725c2165e6c4b2d37fb542444cf69ee533258ff89b53a8cc",
+          "sha256": "c3510dab0baa304a1d222ecc468f4b94d33f6e020dc5a5a4890bc572b40b5aec",
           "bytes": 594
         },
         {
           "name": "README.md",
-          "sha256": "fbd1897bcd2465398fb7390de44b8ba42e4bd8ca0be02088c5908f9a41e927f0",
+          "sha256": "20721ab2672d7ba8b2a2c149eb33e98ff0f4f78ec346c61eb7b9c51dc411af26",
           "bytes": 2194
         },
         {

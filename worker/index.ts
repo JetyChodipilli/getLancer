@@ -3,6 +3,7 @@ import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } fr
 import handler from "vinext/server/app-router-entry";
 import { createFrontendNonce, frontendCsp, publisherFrameSource, secureFrontendResponse, uploadConnectSource } from '../lib/security-headers';
 import { resolveBackendOrigin } from '../lib/deployment-mode';
+import { collegeBookmark } from '../lib/component-server';
 import { frameworkPreviewPolicy } from '../app/components/frameworks/security';
 
 interface Env {
@@ -52,6 +53,34 @@ const worker = {
       upload = connected ? uploadConnectSource(env.OBJECT_STORAGE_UPLOAD_ENDPOINT, request.url) : undefined;
     } catch {
       return secureFrontendResponse(Response.json({ error: { code: 'SERVICE_UNAVAILABLE', message: 'The marketplace is temporarily unavailable.' } }, { status: 503, headers: { 'Cache-Control': 'no-store' } }), request.url, false, nonce);
+    }
+
+    // Redirect before the framework starts streaming an HTTP 200 shell.
+    const workspaces: Record<string,string> = {
+      '/preview/workspace':'/workspace', '/preview/trust':'/workspace/trust',
+      '/preview/teams':'/workspace/teams', '/preview/business':'/workspace/business',
+      '/preview/delivery':'/workspace/delivery',
+      '/preview/templates':'/workspace/templates', '/preview/maintenance':'/workspace/maintenance',
+      '/preview/hosting':'/workspace/hosting', '/preview/components':'/workspace/components',
+      '/preview/college-projects':'/workspace/college-projects', '/preview/operations':'/workspace/operations',
+    };
+    if (connected && ['GET','HEAD'].includes(request.method) && Object.hasOwn(workspaces,url.pathname)) {
+      return secureFrontendResponse(Response.redirect(new URL(workspaces[url.pathname],url.origin),307),request.url,connected,nonce,publisher,upload);
+    }
+
+    // Historical source bookmarks require an HTTP-level rejection before a
+    // streaming framework response can commit 200. Reuse the page's resolver.
+    const collegeRoute=/^\/college-projects\/([^/]+)$/.exec(url.pathname);
+    if(collegeRoute && url.searchParams.has('release') && ['GET','HEAD'].includes(request.method)){
+      try{
+        const releases=url.searchParams.getAll('release');let slug='';
+        try{slug=decodeURIComponent(collegeRoute[1]);}catch{/* A malformed path is not a catalogue outage. */}
+        if(releases.length!==1 || !slug || !await collegeBookmark(slug,releases[0])){
+          return secureFrontendResponse(new Response(request.method==='HEAD'?null:'This reviewed project version could not be found.',{status:404,headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'}}),request.url,connected,nonce,publisher,upload);
+        }
+      }catch{
+        return secureFrontendResponse(new Response(request.method==='HEAD'?null:'This project catalogue is temporarily unavailable.',{status:503,headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'}}),request.url,connected,nonce,publisher,upload);
+      }
     }
 
     if (url.pathname === "/_vinext/image") {

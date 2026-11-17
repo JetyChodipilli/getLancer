@@ -27,7 +27,7 @@ No new application dependency, migration, billing flow, GPU service, training pi
 
 ## Local reproduction
 
-Python 3.12+ and Node 24.22.2 or later 24.x are required. The curated runtime requires no pip installation or account. Use:
+Python 3.12+ and Node 24.22.3 or later 24.x are required. The curated runtime requires no pip installation or account. Use:
 
 ```sh
 npm run data-ai:verify

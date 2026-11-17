@@ -22,6 +22,11 @@ function script(kind:Kind){
  scripts.set(kind,pending);return pending;
 }
 async function render(page:Page,kind:Kind){
+ if(kind==='save'||kind==='saved'){
+  const actor='20000000-0000-4000-8000-000000000001';
+  await page.route('**/api/v1/me',route=>route.fulfill({json:{id:actor,roles:['CLIENT']}}));
+  await page.route(url=>url.pathname==='/api/v1/me/saved-components'||/^\/api\/v1\/components\/[^/]+\/save$/.test(url.pathname),route=>{expect(route.request().headers()['x-getlancer-account']).toBe(actor);return route.fallback();});
+ }
  // Use the real emitted stylesheet, including Tailwind dialog positioning and overlays.
  await page.goto('/templates');const styles=await page.locator('link[rel="stylesheet"],style').evaluateAll(nodes=>nodes.map(node=>node.outerHTML).join(''));
  expect(styles.length).toBeGreaterThan(0);

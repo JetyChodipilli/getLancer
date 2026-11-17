@@ -98,3 +98,35 @@ test('administrator sets independent prices and category switching retains other
   await page.getByLabel('Slot category', { exact: true }).selectOption('PROJECT'); await expect(page.getByLabel('Price per project slot (INR)', { exact: true })).toHaveValue('149');
   expect(f.data.prices.COMPONENT.amountMinor).toBe(30000); await noOverflow(page);
 });
+
+test('cookie handoff after a successful preflight cannot create an order for the replacement account',async({page})=>{
+ const f=await fixture(page);await page.goto('/workspace/slots');
+ await page.getByRole('button',{name:'Review price & buy one slot',exact:true}).click();
+ const dialog=page.getByRole('dialog');await dialog.getByRole('checkbox').check();let denials=0;
+ await page.route('**/api/v1/me',async route=>{f.state.actor='replacement-account';await route.fulfill({json:{id:'builder-fixture',roles:['DEVELOPER']}});});
+ await page.route('**/api/v1/me/publishing-slot-purchases',route=>{
+  expect(f.state.actor).toBe('replacement-account');
+  if(route.request().headers()['x-getlancer-account']==='builder-fixture'){denials++;return route.fulfill({status:401,json:{error:{code:'UNAUTHENTICATED',message:'Your account changed. Reload before continuing.'}}});}
+  return route.fallback();
+ });
+ await dialog.getByRole('button',{name:'Continue to secure checkout',exact:true}).click();
+ await expect(dialog).not.toBeVisible();await expect(page.getByRole('alert')).toContainText('Your account changed');
+ expect(denials).toBe(1);expect(f.orders).toHaveLength(0);expect(await page.evaluate(()=>(window as unknown as TestWindow).checkoutOpens)).toBe(0);
+});
+
+test('operator recovery evidence remains bound to the admin who loaded the receipt',async({page})=>{
+ const f=await fixture(page,true);let bindings=0,denials=0;
+ await page.route('**/api/v1/admin/publishing-slot-purchases**',route=>{
+  const request=route.request(),path=new URL(request.url()).pathname;
+  if(request.method()==='GET')return route.fulfill({json:{items:[{id:'recovery-receipt',pool:'PROJECT',amountMinor:10000,mode:'live',status:'UNKNOWN',refundedMinor:0,grantsSlot:false,orderId:null}],page:0,hasMore:false}});
+  if(path.endsWith('/bind-order')){
+   const bound=request.headers()['x-getlancer-account'];
+   if(bound!==undefined&&bound!==f.state.actor){denials++;return route.fulfill({status:401,json:{error:{code:'UNAUTHENTICATED',message:'The account that reviewed this receipt is no longer current.'}}});}
+   bindings++;return route.fulfill({json:{status:'ORDER_CREATED'}});
+  }
+  return route.fallback();
+ });
+ await page.goto('/workspace/slots');await page.getByLabel('Recovered provider order',{exact:true}).fill('order_recovered123');await page.getByLabel('Recovery evidence',{exact:true}).fill('Reviewed original receipt and verified provider evidence.');
+ f.state.actor='replacement-admin';await page.getByRole('button',{name:'Bind verified order',exact:true}).click();
+ await expect(page.getByRole('alert')).toContainText('no longer current');expect(denials).toBe(1);expect(bindings).toBe(0);await expect(page.getByLabel('Recovered provider order',{exact:true})).toHaveCount(0);
+});

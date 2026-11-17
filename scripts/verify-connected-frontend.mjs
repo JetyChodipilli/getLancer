@@ -25,7 +25,7 @@ assert.equal((html.match(/<article[^>]*class="paper-project"/g)||[]).length,cata
 assert.equal((await page('/api/v1/me')).status,401,'No fabricated authenticated account.');
 const providers=await page('/api/v1/auth/providers');assert.equal(providers.status,200);
 assert.deepEqual(await providers.json(),await fetch(process.env.BACKEND_URL+'/api/v1/auth/providers').then(r=>r.json()));
-for(const [path,target] of [['/preview/workspace','/workspace'],['/preview/trust','/workspace/trust'],['/preview/teams','/workspace/teams'],['/preview/business','/workspace/business'],['/preview/delivery','/workspace/delivery'],['/preview/templates','/workspace/templates'],['/preview/maintenance','/workspace/maintenance'],['/preview/hosting','/workspace/hosting']]){
+for(const [path,target] of [['/preview/workspace','/workspace'],['/preview/trust','/workspace/trust'],['/preview/teams','/workspace/teams'],['/preview/business','/workspace/business'],['/preview/delivery','/workspace/delivery'],['/preview/templates','/workspace/templates'],['/preview/maintenance','/workspace/maintenance'],['/preview/hosting','/workspace/hosting'],['/preview/components','/workspace/components'],['/preview/college-projects','/workspace/college-projects'],['/preview/operations','/workspace/operations']]){
   const response=await page(path);assert.equal(response.status,307,path);
   assert.equal(new URL(response.headers.get('location'),origin).pathname,target);
 }
