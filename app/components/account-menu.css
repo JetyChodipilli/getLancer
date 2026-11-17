@@ -1,0 +1,32 @@
+/* Selected option A: compact white account hub, with an editor link. */
+html:root { --paper-canvas: #fff; }
+body .site-header .account-trigger.account-trigger-centered {
+  min-width: 0; max-width: 180px; min-height: 44px; gap: 8px;
+  padding: 5px 10px 5px 6px; border: 1px solid transparent;
+  border-radius: 999px; background: transparent; box-shadow: none;
+}
+body .site-header .account-trigger.account-trigger-centered:is(:hover,[data-state=open]) { background: #f4f4f5; border-color: transparent; }
+body .site-header .account-trigger-centered .account-avatar { flex-shrink: 0; width: 32px; height: 32px; background: #f1f1f3; color: #27292d; }
+body .account-trigger-centered .account-identity { min-width: 0; }
+body .account-trigger-centered .account-identity strong { color: inherit; font-size: 13px; max-width: 112px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body .account-popover.account-menu-centered[data-slot=dropdown-menu-content] {
+  width: 280px; min-width: 0; max-width: calc(100vw - 24px); padding: 8px;
+  border: 1px solid rgba(39,41,45,.13); border-radius: 20px;
+  color: #27292d; background: rgba(255,255,255,.94);
+  box-shadow: 0 12px 32px rgba(24,24,27,.1), inset 0 1px 0 #fff;
+  -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+}
+body .account-menu-centered .account-menu-heading { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 10px; text-align: center; }
+body .account-menu-centered .account-menu-heading .account-avatar-profile { flex-shrink: 0; width: 40px; height: 40px; display: grid; place-items: center; border: 1px solid #e3e3e6; border-radius: 50%; background: #f1f1f3; font-size: 15px; color: #27292d; font-weight: 600; }
+body .account-menu-centered .account-menu-person { min-width: 0; width: 100%; display: grid; justify-items: center; gap: 2px; }
+body .account-menu-centered .account-menu-person strong { font-size: 14px; line-height: 20px; overflow-wrap: anywhere; }
+body .account-menu-centered .account-menu-person>span { color: #60646b; font-size: 12px; line-height: 18px; font-weight: 400; overflow-wrap: anywhere; }
+body .account-menu-centered .account-role { margin: 0; padding: 0; border: 0; font-size: 12px; line-height: 18px; font-weight: 400; color: #60646b; background: transparent; }
+body .account-menu-centered [role=menuitem] { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 10px 12px; border-radius: 9px; font-size: 14px; }
+body .account-menu-centered .account-profile-action[role=menuitem] { width: fit-content; max-width: 100%; margin: 4px auto 8px; padding: 8px 16px; border: 1px solid #b9bbc0; border-radius: 999px; justify-content: center; }
+body .account-menu-centered [role=menuitem][data-highlighted] { background: #f1f1f3; color: #27292d; }
+body .account-menu-centered [role=menuitem]>svg { width: 18px; height: 18px; flex-shrink: 0; }
+body .site-header.paper-header-dark .account-trigger.account-trigger-centered:is(:hover,[data-state=open]) { background: var(--paper-dark-surface); color: var(--paper-on-dark); }
+@supports not (backdrop-filter: blur(1px)) { body .account-popover.account-menu-centered[data-slot=dropdown-menu-content] { background: #fff; } }
+@media(prefers-reduced-transparency:reduce) { body .account-popover.account-menu-centered[data-slot=dropdown-menu-content] { background: #fff; -webkit-backdrop-filter: none; backdrop-filter: none; } }
+@media(max-width:640px) { body .site-header .account-trigger.account-trigger-centered { min-width: 44px; width: 44px; min-height: 44px; padding: 3px; } }
