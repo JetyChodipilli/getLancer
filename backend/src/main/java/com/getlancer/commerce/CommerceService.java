@@ -66,10 +66,28 @@ public class CommerceService {
     publishing.requireTemplate((UUID)t.get("seller_id"),template);repo.templateStatus(template,"ACTIVE");
     repo.audit(template,null,(UUID)t.get("seller_id"),"TEMPLATE_ACTIVATED","Seller reactivated an approved listing using available template capacity.");return repo.ownerDetail(template,(UUID)t.get("seller_id"));
   });}
-  public Map<String,Object> review(UUID template,UUID version,Map<String,Object> b,HttpServletRequest r) {return tx(()->{UUID actor=security.admin(r);publishing.lock((UUID)repo.template(template,false).get("seller_id"));var t=repo.template(template,true);var v=repo.version(template,version,true);String action=text(b,"action",6,20),reason=text(b,"reason",10,2000);if(!Boolean.TRUE.equals(b.get("rightsReviewed")) || !Boolean.TRUE.equals(b.get("packageReviewed"))) throw new ApiError(400,"REVIEW_CONFIRMATION_REQUIRED","Review the actual source package, README/build manifest, license and third-party redistribution rights first.");String next=switch(action) {case "APPROVE"->"APPROVED";case "CHANGES_REQUESTED"->"CHANGES_REQUESTED";case "REJECT"->"REJECTED";case "SUSPEND"->"SUSPENDED";default->throw new ApiError(400,"VALIDATION_ERROR","Choose a valid review action.");};
-    if(action.equals("SUSPEND")) {if(!Set.of("PENDING","APPROVED","SUSPENDED").contains(v.get("status"))) throw new ApiError(409,"INVALID_TRANSITION","Only a pending or approved release can be suspended.");repo.templateStatus(template,"SUSPENDED");}
-    else {if(!Set.of("PENDING","SUSPENDED").contains(v.get("status"))) throw new ApiError(409,"INVALID_TRANSITION","Only a submitted or suspended release can be reviewed.");if(action.equals("APPROVE")) {repo.sellerEligible((UUID)t.get("seller_id"),(UUID)t.get("product_id"),true);if(!"ARCHIVED".equals(t.get("status"))) {publishing.requireTemplate((UUID)t.get("seller_id"),template);repo.templateStatus(template,"ACTIVE");}}}
-    repo.review(version,next,reason,actor);repo.audit(template,null,actor,"SOURCE_"+action,"Release "+v.get("version")+": "+reason);return repo.detail(template);});}
+  public Map<String,Object> review(UUID template,UUID version,Map<String,Object> b,HttpServletRequest r) {return tx(()->{
+    UUID actor=security.adminMutation(r);
+    publishing.lock((UUID)repo.template(template,false).get("seller_id"));
+    var t=repo.template(template,true);var v=repo.version(template,version,true);
+    String action=text(b,"action",6,20),reason=text(b,"reason",10,2000);
+    if(!Boolean.TRUE.equals(b.get("rightsReviewed")) || !Boolean.TRUE.equals(b.get("packageReviewed"))) throw new ApiError(400,"REVIEW_CONFIRMATION_REQUIRED","Review the actual source package, README/build manifest, license and third-party redistribution rights first.");
+    String next=switch(action) {case "APPROVE"->"APPROVED";case "CHANGES_REQUESTED"->"CHANGES_REQUESTED";case "REJECT"->"REJECTED";case "SUSPEND"->"SUSPENDED";default->throw new ApiError(400,"VALIDATION_ERROR","Choose a valid review action.");};
+    if(action.equals("SUSPEND")) {
+      if(!Set.of("PENDING","APPROVED","SUSPENDED").contains(v.get("status"))) throw new ApiError(409,"INVALID_TRANSITION","Only a pending or approved release can be suspended.");
+    } else {
+      if(!Set.of("PENDING","SUSPENDED").contains(v.get("status"))) throw new ApiError(409,"INVALID_TRANSITION","Only a submitted or suspended release can be reviewed.");
+      if(action.equals("APPROVE")) {
+        repo.sellerEligible((UUID)t.get("seller_id"),(UUID)t.get("product_id"),true);
+        if(!"ARCHIVED".equals(t.get("status"))) publishing.requireTemplate((UUID)t.get("seller_id"),template);
+      }
+    }
+    security.adminMutation(r);
+    if(action.equals("SUSPEND")) repo.templateStatus(template,"SUSPENDED");
+    else if(action.equals("APPROVE")&&!"ARCHIVED".equals(t.get("status"))) repo.templateStatus(template,"ACTIVE");
+    repo.review(version,next,reason,actor);repo.audit(template,null,actor,"SOURCE_"+action,"Release "+v.get("version")+": "+reason);
+    var result=repo.detail(template);security.adminMutation(r);return result;
+  });}
   public ResponseEntity<byte[]> packageDownload(UUID template,UUID version,HttpServletRequest r,boolean admin) {
     var v=tx(()->readablePackage(template,version,r,admin));
     var response=archiveResponse(v); // Keep database locks outside private storage I/O.

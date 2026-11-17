@@ -102,14 +102,24 @@ class ComponentReportingIntegrationTest {
   UUID id=report(component);db.update("UPDATE component_entries SET revision=revision+1,published_context=jsonb_build_object('title','A newly reviewed claim') WHERE id=?",component);
   mvc.perform(body(post("/api/v1/admin/reports/"+id+"/resolve"),"report-admin",Map.of("targetAction","SUSPEND","reason","A report enforcement decision."))).andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("REPORTED_COMPONENT_CHANGED"));assertEquals("ACTIVE",db.queryForObject("SELECT status FROM component_entries WHERE id=?",String.class,component));assertEquals("OPEN",db.queryForObject("SELECT status FROM reports WHERE id=?",String.class,id));
  }
- @Test void privateDraftCannotEvadeReportAndAppealRestoresOnlyFrozenPublishedArtifact()throws Exception{
+ @org.junit.jupiter.params.ParameterizedTest
+ @org.junit.jupiter.params.provider.ValueSource(booleans={false,true})
+ void privateReplacementCannotEvadeReportAndAppealRestoresOnlyFrozenPublishedArtifact(boolean submitted)throws Exception{
   UUID report=report(component);db.update("UPDATE component_entries SET recipe_slug='studio-navigation' WHERE id=?",component);
   mvc.perform(body(post("/api/v1/me/components/"+component+"/new-version"),"report-builder",Map.of())).andExpect(status().isOk());
   mvc.perform(body(patch("/api/v1/me/components/"+component),"report-builder",Map.of("recipeSlug","studio-navigation","title","Private replacement title","summary","A private draft that has never been approved.","contribution","An unreviewed private context edit for the next version.","rightsConsent",true))).andExpect(status().isOk());
   var privateSource=new LinkedHashMap<>(source);privateSource.put("version","2.0.0");privateSource.put("sha256","f".repeat(64));db.update("UPDATE component_entries SET draft_source=?::jsonb WHERE id=?",json.writeValueAsString(privateSource),component);
+  if(submitted){
+   mvc.perform(body(post("/api/v1/me/components/"+component+"/submit"),"report-builder",Map.of())).andExpect(status().isOk());
+   assertEquals("PENDING",db.queryForObject("SELECT status FROM component_entries WHERE id=?",String.class,component));
+   assertThrows(org.springframework.dao.DataAccessException.class,()->db.update("UPDATE component_entries SET submitted_context='{}'::jsonb WHERE id=?",component));
+   mvc.perform(get("/api/v1/components/report-reported")).andExpect(status().isOk()).andExpect(jsonPath("$.title").value("Reported protocol component"));
+  }
   long draftRevision=db.queryForObject("SELECT revision FROM component_entries WHERE id=?",Long.class,component);assertTrue(draftRevision>1);
   suspend(report);assertEquals("SUSPENDED",db.queryForObject("SELECT status FROM component_entries WHERE id=?",String.class,component));assertEquals(1L,db.queryForObject("SELECT component_revision FROM reports WHERE id=?",Long.class,report));assertEquals(draftRevision+1,db.queryForObject("SELECT component_enforcement_revision FROM moderation_actions WHERE component_report_id=?",Long.class,report));
   assertThrows(org.springframework.dao.DataAccessException.class,()->db.update("UPDATE moderation_actions SET component_enforcement_revision=component_enforcement_revision+1 WHERE component_report_id=?",report));
+  mvc.perform(get("/api/v1/components/report-reported")).andExpect(status().isNotFound());
+  assertEquals("RESOLVED",db.queryForObject("SELECT status FROM reports WHERE id=?",String.class,report));
   UUID appeal=appeal(report);mvc.perform(overturn(appeal)).andExpect(status().isOk());assertEquals("OVERTURNED",db.queryForObject("SELECT status FROM moderation_appeals WHERE id=?",String.class,appeal));assertEquals("ACTIVE",db.queryForObject("SELECT status FROM component_entries WHERE id=?",String.class,component));
   var restoration=db.queryForMap("SELECT decision,assessments,restored_decision_id,source_hash,admin_id FROM component_review_assessments WHERE component_id=? AND decision='APPEAL_RESTORE'",component);assertNull(restoration.get("assessments"));assertEquals(admin,restoration.get("admin_id"));assertEquals(db.queryForObject("SELECT id FROM moderation_actions WHERE component_report_id=?",UUID.class,report),restoration.get("restored_decision_id"));assertEquals(64,restoration.get("source_hash").toString().length());
   mvc.perform(get("/api/v1/components/report-reported")).andExpect(status().isOk()).andExpect(jsonPath("$.title").value("Reported protocol component")).andExpect(jsonPath("$.sha256").value("a".repeat(64))).andExpect(jsonPath("$.version").value("1.0.0"));

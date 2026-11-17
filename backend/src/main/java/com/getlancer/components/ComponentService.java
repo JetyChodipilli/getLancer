@@ -328,7 +328,10 @@ public class ComponentService {
       requireReportedArtifact(id,expectedRevision,expectedSourceHash,expectedVersion,frozenSnapshot,source,snapshot(row.get("published_context")));
       // Private drafts cannot invalidate public evidence; each distinct suspension supersedes earlier appeals.
       enforcementRevision=((Number)row.get("revision")).longValue()+1;
-      db.update("UPDATE component_entries SET status='SUSPENDED',revision=revision+1,submitted_source=?::jsonb,submitted_context=?::jsonb,review_reason=?,updated_at=now() WHERE id=?",encode(source),Objects.toString(row.get("published_context")),reason,id);
+      // Leave the frozen pending submission unchanged while ending its review.
+      // The transaction and row lock make the enforcement snapshot change atomic.
+      db.update("UPDATE component_entries SET status='SUSPENDED',revision=revision+1,review_reason=?,updated_at=now() WHERE id=?",reason,id);
+      db.update("UPDATE component_entries SET submitted_source=?::jsonb,submitted_context=?::jsonb WHERE id=?",encode(source),Objects.toString(row.get("published_context")),id);
     }
     slots.audit(admin,id,"REPORT_SUSPEND",reason);
     db.update("INSERT INTO moderation_actions(id,admin_id,target_type,target_id,action,reason,component_report_id,component_enforcement_revision) VALUES(?,?,'COMPONENT',?,'suspend',?,?,?)",id(),admin,id,reason,reportId,enforcementRevision);
@@ -450,20 +453,20 @@ public class ComponentService {
   }
   /** An appeal reinstates an already released exact artifact; it never invents fresh assessment results. */
   private Object review(UUID id,Map<String,Object> b,HttpServletRequest r,UUID restoredDecision) {
-    UUID admin=security.admin(r);slots.lockAuthority(admin);security.admin(r);
+    UUID admin=security.adminMutation(r);slots.lockAuthority(admin);security.adminMutation(r);
     var rows=db.queryForList("SELECT owner_id FROM component_entries WHERE id=?",id);
     if(rows.isEmpty())throw new ApiError(404,"NOT_FOUND","Component not found.");
     UUID owner=(UUID)rows.get(0).get("owner_id");
     slots.lock(owner);
     var c=db.queryForMap("SELECT id,owner_id,recipe_slug,slug,title,summary,contribution,revision,status,review_reason,published_at,published_source,published_context,draft_source,submitted_source,submitted_context,withdrawn_at,created_at,updated_at FROM component_entries WHERE id=? FOR UPDATE",id);
-    security.admin(r);
+    security.adminMutation(r);
     checkRevision(b,c);
     var submitted=reviewSource(c);var context=reviewContext(c);
     if(!reviewHash(c,submitted).equals(b.get("sourceHash")))throw new ApiError(409,"REVIEW_SOURCE_CHANGED","The reviewed source hash does not match this submission.");
     String decision=text(b,"decision",3,30),reason=text(b,"reason",20,2000),next;
     Map<String,Object> assessments=restoredDecision==null?reviewAssessments(b,decision,submitted):null;
     if(decision.equals("APPROVE")&&Set.of("PENDING","SUSPENDED").contains(c.get("status"))){
-      requireAvailableRecipeSource(id,c.get("recipe_slug").toString(),submitted);security.admin(r);
+      requireAvailableRecipeSource(id,c.get("recipe_slug").toString(),submitted);security.adminMutation(r);
       if(db.queryForObject("SELECT count(*) FROM users u JOIN developer_profiles d ON d.user_id=u.id WHERE u.id=? AND "+ELIGIBLE,Integer.class,owner)==0)throw new ApiError(409,"BUILDER_NOT_ELIGIBLE","The builder must have an active account and approved profile.");
       var capacity=slots.capacity(owner);
       if(((Number)capacity.get("used")).intValue()>=((Number)capacity.get("limit")).intValue())throw new ApiError(409,"COMPONENT_CAPACITY_REACHED","Archive a component or purchase another publishing slot before approval.");
@@ -483,6 +486,7 @@ public class ComponentService {
     if(next.equals("ACTIVE")&&newRelease)db.update("INSERT INTO component_releases(component_id,revision,source,context,source_sha256) VALUES(?,?,?::jsonb,?::jsonb,?)",id,((Number)c.get("revision")).longValue(),encode(submitted),encode(context),submitted.get("sha256"));
     db.update("INSERT INTO component_review_assessments(id,component_id,revision,source_hash,admin_id,decision,reason,assessments,restored_decision_id) VALUES(?,?,?,?,?,?,?,?::jsonb,?)",id(),id,c.get("revision"),b.get("sourceHash"),admin,restoredDecision==null?decision:"APPEAL_RESTORE",reason,assessments==null?null:encode(assessments),restoredDecision);
     slots.audit(admin,id,"REVIEW_"+decision,reason);
+    security.adminMutation(r);
     return Map.of("status",next);
   }
   static Map<String,Object> reviewAssessments(Map<String,Object> body,String decision,Map<String,Object> source) {
@@ -508,7 +512,7 @@ public class ComponentService {
     if(component.get("id")==null)return Map.of("items",List.of(Map.of("version",component.get("version"),"sha256",component.get("sha256"))));
     return Map.of("items",db.queryForList("SELECT revision,source->>'version' AS version,source_sha256 AS sha256,source->>'archiveSha256' AS archive_sha256,source->>'manifestSha256' AS manifest_sha256,published_at FROM component_releases WHERE component_id=? ORDER BY revision DESC LIMIT 100",component.get("id")));
   }
-  @Transactional public Object adminDetail(UUID id,HttpServletRequest r){UUID admin=security.admin(r);slots.lockAuthority(admin);security.admin(r);var rows=db.queryForList("SELECT c.id,c.recipe_slug,c.slug,c.title,c.summary,c.contribution,c.revision,c.status,c.review_reason,c.published_at,c.published_source,c.published_context,c.draft_source,c.submitted_source,c.submitted_context,c.withdrawn_at,d.display_name AS creator,d.slug AS builder_slug"+JOIN+" WHERE c.id=?",id);if(rows.isEmpty())throw new ApiError(404,"NOT_FOUND","Component not found.");var out=entry(rows.get(0));out.put("reviewHistory",db.queryForList("SELECT id,revision,source_hash,admin_id,decision,reason,assessments,restored_decision_id,created_at FROM component_review_assessments WHERE component_id=? ORDER BY created_at DESC,id LIMIT 20",id).stream().map(row->{var item=new LinkedHashMap<String,Object>(row);if(row.get("assessments")!=null)item.put("assessments",snapshot(row.get("assessments")));return item;}).toList());return out;}
+  @Transactional public Object adminDetail(UUID id,HttpServletRequest r){UUID admin=security.adminMutation(r);slots.lockAuthority(admin);security.adminMutation(r);var rows=db.queryForList("SELECT c.id,c.recipe_slug,c.slug,c.title,c.summary,c.contribution,c.revision,c.status,c.review_reason,c.published_at,c.published_source,c.published_context,c.draft_source,c.submitted_source,c.submitted_context,c.withdrawn_at,d.display_name AS creator,d.slug AS builder_slug"+JOIN+" WHERE c.id=?",id);if(rows.isEmpty())throw new ApiError(404,"NOT_FOUND","Component not found.");var out=entry(rows.get(0));out.put("reviewHistory",db.queryForList("SELECT id,revision,source_hash,admin_id,decision,reason,assessments,restored_decision_id,created_at FROM component_review_assessments WHERE component_id=? ORDER BY created_at DESC,id LIMIT 20",id).stream().map(row->{var item=new LinkedHashMap<String,Object>(row);if(row.get("assessments")!=null)item.put("assessments",snapshot(row.get("assessments")));return item;}).toList());security.adminMutation(r);return out;}
   public Object queue(HttpServletRequest r) {
     security.admin(r);
     int cp=com.getlancer.shared.Pages.number(r,"componentPage",0,100000),ep=com.getlancer.shared.Pages.number(r,"collegePage",0,100000);
@@ -575,15 +579,16 @@ public class ComponentService {
     return Map.of("status","PENDING");
   }
   @Transactional public Object reviewCollege(UUID product,Map<String,Object> b,HttpServletRequest r) {
-    UUID admin=security.admin(r);slots.lockAuthority(admin);security.admin(r);
+    UUID admin=security.adminMutation(r);slots.lockAuthority(admin);security.adminMutation(r);
     var rows=db.queryForList("SELECT product_id,category,language,problem,outcome,prerequisites,contribution,institution,academic_year,branch,share_academic_details,revision,status,review_reason,updated_at FROM college_project_metadata WHERE product_id=? FOR UPDATE",product);
     if(rows.isEmpty())throw new ApiError(404,"NOT_FOUND","College metadata not found.");
-    security.admin(r);
+    security.adminMutation(r);
     checkRevision(b,rows.get(0));
     String decision=text(b,"decision",3,30),reason=text(b,"reason",20,2000);
     if(!Set.of("APPROVED","CHANGES_REQUESTED","SUSPENDED").contains(decision))throw new ApiError(400,"VALIDATION_ERROR","Choose a college review decision.");
     if(db.update("UPDATE college_project_metadata SET status=?,revision=revision+1,review_reason=?,updated_at=now() WHERE product_id=?",decision,reason,product)!=1)throw new ApiError(404,"NOT_FOUND","College metadata not found.");
     slots.audit(admin,product,"COLLEGE_"+decision,reason);
+    security.adminMutation(r);
     return Map.of("status",decision);
   }
 }

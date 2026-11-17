@@ -9,26 +9,26 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const read = path => readFileSync(join(root, path), 'utf8');
 
 test('local Node guard accepts the supported stable Node 24 patch floor', () => {
-  for (const version of ['24.22.2', 'v24.22.2', '24.22.3', '24.23.0']) {
+  for (const version of ['24.22.3', 'v24.22.3', '24.22.4', '24.23.0']) {
     assert.equal(supportedNodeVersion(version), true, version);
     assert.doesNotThrow(() => requireSupportedNodeVersion(version), version);
   }
 });
 
 test('local Node guard rejects stale patches, other majors and prereleases', () => {
-  for (const version of ['20.20.0', '22.13.0', '22.18.0', '22.23.3', '22.23.4', '22.24.0', '23.0.0', '24.0.0', '24.21.99', '24.22.0', '24.22.1', 'v24.22.1', '25.0.0', '26.13.0', '24.22.2-rc.1', '24.22.2-nightly', '24.22.2+custom', '024.22.2', '24.22', '24.22.2.1', '24.22.2\n', '', null, 24]) {
+  for (const version of ['20.20.0', '22.13.0', '22.18.0', '22.23.3', '22.23.4', '22.24.0', '23.0.0', '24.0.0', '24.21.99', '24.22.0', '24.22.1', 'v24.22.1', '24.22.2', 'v24.22.2', '25.0.0', '26.13.0', '24.22.3-rc.1', '24.22.3-nightly', '24.22.3+custom', '024.22.3', '24.22', '24.22.3.1', '24.22.3\n', '', null, 24]) {
     assert.equal(supportedNodeVersion(version), false, String(version));
-    assert.throws(() => requireSupportedNodeVersion(version), /Use stable Node 24\.22\.2/, String(version));
+    assert.throws(() => requireSupportedNodeVersion(version), /Use stable Node 24\.22\.3/, String(version));
   }
 });
 
 test('developer defaults, package engines, every CI Node action and Docker stage agree on patched Node', () => {
   const selected = read('.nvmrc').trim();
-  assert.equal(selected, '24.22.2');
+  assert.equal(selected, '24.22.3');
   assert.equal(read('.node-version').trim(), selected);
   assert.equal(supportedNodeVersion(selected), true);
   const pkg = JSON.parse(read('package.json')), lock = JSON.parse(read('package-lock.json'));
-  assert.equal(pkg.engines.node, '>=24.22.2 <25');
+  assert.equal(pkg.engines.node, '>=24.22.3 <25');
   assert.deepEqual(lock.packages[''].engines, pkg.engines);
   for (const framework of ['vue', 'svelte', 'angular']) {
     const example = JSON.parse(read(`examples/frameworks/${framework}/package.json`));

@@ -88,10 +88,10 @@ public class ComponentSlotService {
   public Object setPrice(String requested,Map<String,Object>b,HttpServletRequest r){
     String pool=PublishingCapacity.pool(requested);
     return tx(()->{
-      UUID admin=security.admin(r);long value=amount(b.get("amountMinor"));boolean enabled=Boolean.TRUE.equals(b.get("enabled"));
+      UUID admin=security.adminMutation(r);long value=amount(b.get("amountMinor"));boolean enabled=Boolean.TRUE.equals(b.get("enabled"));
       db.queryForMap("SELECT id,amount_minor,enabled,updated_at,pool FROM component_slot_pricing WHERE pool=? FOR UPDATE",pool);
-      security.admin(r);db.update("UPDATE component_slot_pricing SET amount_minor=?,enabled=?,updated_at=now() WHERE pool=?",value,enabled,pool);
-      audit(admin,null,"SLOT_PRICE_CHANGED",pool+" INR minor units: "+value+"; new orders enabled: "+enabled+". Existing reservations unchanged.");return pricing(pool);
+      security.adminMutation(r);db.update("UPDATE component_slot_pricing SET amount_minor=?,enabled=?,updated_at=now() WHERE pool=?",value,enabled,pool);
+      audit(admin,null,"SLOT_PRICE_CHANGED",pool+" INR minor units: "+value+"; new orders enabled: "+enabled+". Existing reservations unchanged.");security.adminMutation(r);return pricing(pool);
     });
   }
   Map<String,Object> purchase(UUID id){
@@ -317,10 +317,12 @@ public class ComponentSlotService {
       if(!orderId.equals(order.path("id").asText()))throw mismatch();
       validateOrder(p,order);
       tx(()->{
-        lock((UUID)p.get("owner_id"));UUID admin=security.admin(r);var row=purchase(id);if(row.get("order_id")!=null&&!orderId.equals(row.get("order_id")))throw mismatch();db.update("UPDATE component_slot_purchases SET order_id=?,status=CASE WHEN order_id IS NULL THEN 'ORDER_CREATED' ELSE status END,updated_at=now() WHERE id=?",orderId,id);audit(admin,id,"SLOT_ORDER_BOUND","Verified provider order, frozen receipt and amount recovered.");return null;
+        lock((UUID)p.get("owner_id"));UUID admin=security.adminMutation(r);var row=purchase(id);if(row.get("order_id")!=null&&!orderId.equals(row.get("order_id")))throw mismatch();db.update("UPDATE component_slot_purchases SET order_id=?,status=CASE WHEN order_id IS NULL THEN 'ORDER_CREATED' ELSE status END,updated_at=now() WHERE id=?",orderId,id);audit(admin,id,"SLOT_ORDER_BOUND","Verified provider order, frozen receipt and amount recovered.");security.adminMutation(r);return null;
       }
       );
-      return reconcileOrder(purchase(id),r,true);
+      var result=reconcileOrder(purchase(id),r,true);
+      security.adminMutation(r);
+      return result;
     }
     catch(RazorpayClient.ProviderFailure ex){
       throw unavailable();

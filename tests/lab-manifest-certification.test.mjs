@@ -33,8 +33,8 @@ test('raw pins verify the same captured bytes including harmless serialization c
 });
 
 test('signed Node fixture must meet the Node 24 patch floor and retain exact certification',t=>{
- const f=fixture(t);f.manifest.language='TypeScript';f.manifest.adapter={runtime:'node',version:'24.22.2',state:'ACTIVE'};
- for(const version of ['24.22.2','24.22.3','24.23.0']){
+ const f=fixture(t);f.manifest.language='TypeScript';f.manifest.adapter={runtime:'node',version:'24.22.3',state:'ACTIVE'};
+ for(const version of ['24.22.3','24.22.3','24.23.0']){
   f.manifest.adapter.version=version;f.manifest.certification.frameworkVersion=version;f.save();
   assert.equal(verifyManifestBundle(f.args).runtimeVersion,version);
  }
@@ -42,9 +42,9 @@ test('signed Node fixture must meet the Node 24 patch floor and retain exact cer
   f.manifest.adapter.version=version;f.manifest.certification.frameworkVersion=version;f.save();
   assert.throws(()=>verifyManifestBundle(f.args),/Framework and runtime combination is not reviewed/,version);
  }
- f.manifest.adapter.version='24.22.2';f.manifest.certification.frameworkVersion='24.22.1';f.save();
+ f.manifest.adapter.version='24.22.3';f.manifest.certification.frameworkVersion='24.22.1';f.save();
  assert.throws(()=>verifyManifestBundle(f.args),/Exact maintainer and reproduction certification/);
- f.manifest.certification.frameworkVersion='24.22.2';f.manifest.certification.reproductionVerified=false;f.save();
+ f.manifest.certification.frameworkVersion='24.22.3';f.manifest.certification.reproductionVerified=false;f.save();
  assert.throws(()=>verifyManifestBundle(f.args),/Every certification attestation/);
 });
 

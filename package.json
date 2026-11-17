@@ -3,13 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=24.22.2 <25"
+    "node": ">=24.22.3 <25"
   },
   "scripts": {
     "check:node": "node scripts/node-version.mjs",
     "install:ci": "bash scripts/install-ci.sh",
     "predev": "node scripts/node-version.mjs",
-    "dev": "vite",
+    "dev": "node scripts/node-version.mjs && vite",
     "build": "bash scripts/build-verified.sh",
     "start": "node scripts/start-worker.mjs",
     "test": "npm run build && node --test tests/*.test.mjs",
@@ -23,7 +23,7 @@
     "doctor:local": "node scripts/doctor-local.mjs",
     "services:local": "docker compose -f compose.local-services.yaml up -d",
     "predev:local": "node --experimental-strip-types scripts/build-lab-material.mjs && node scripts/build-data-ai-material.mjs && node scripts/build-iot-material.mjs && node scripts/build-framework-material.mjs --verify",
-    "dev:local": "node scripts/dev-local.mjs",
+    "dev:local": "npm run predev:local && node scripts/dev-local.mjs",
     "backend:local": "node scripts/dev-local.mjs backend",
     "test:local-tools": "node --test tests/local-tools.test.mjs",
     "education:build": "python3 scripts/build-education-material.py",
@@ -39,8 +39,7 @@
     "v52:evidence": "node scripts/v52-evidence.mjs",
     "v52:monitor": "node scripts/v52-monitor.mjs",
     "v52:load": "node scripts/v52-load.mjs",
-    "v52:traceability": "node scripts/v52-release-contract.mjs",
-    "postinstall": "node scripts/patch-lint-globs.mjs"
+    "v52:traceability": "node scripts/v52-release-contract.mjs"
   },
   "dependencies": {
     "class-variance-authority": "0.7.1",
@@ -49,7 +48,7 @@
     "input-otp": "^1.4.2",
     "lucide-react": "^1.31.0",
     "motion": "13.1.1",
-    "next": "16.4.2",
+    "next": "16.4.6",
     "radix-ui": "^1.6.7",
     "react": "19.2.9",
     "react-dom": "19.2.9",
@@ -64,7 +63,7 @@
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.2",
-    "@vitejs/plugin-rsc": "0.5.35",
+    "@vitejs/plugin-rsc": "0.5.37",
     "drizzle-kit": "0.31.10",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.6",
@@ -73,7 +72,7 @@
     "tailwindcss": "4.2.1",
     "tw-animate-css": "^1.4.0",
     "typescript": "5.9.3",
-    "vinext": "1.0.0",
+    "vinext": "1.2.0",
     "vite": "8.3.5",
     "wrangler": "4.156.1"
   },
@@ -84,9 +83,10 @@
       "esbuild": "0.25.12"
     },
     "sharp": "0.35.5",
-    "undici": "7.30.1",
+    "undici": "7.30.2",
     "fast-uri": "3.1.9",
     "zod": "4.6.7",
     "minimatch": "11.0.4"
-  }
+  },
+  "packageManager": "npm@11.19.1"
 }

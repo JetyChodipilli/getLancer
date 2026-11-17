@@ -7,6 +7,8 @@ const source=name=>readFileSync(new URL('../app/components/'+name+'.tsx',import.
 const apiSource=stripTypeScriptTypes(readFileSync(new URL('../lib/api.ts',import.meta.url),'utf8'),{mode:'transform'});
 const {ApiError}=await import('data:text/javascript;base64,'+Buffer.from(apiSource).toString('base64'));
 function routine(text,start,end,context){
+ context.account??={current:"fixture-actor"};
+ context.accountApi??=(actor,...args)=>{assert.equal(actor,"fixture-actor");return context.api(...args);};
  const first=text.indexOf(start),last=text.indexOf(end,first);assert.ok(first>=0&&last>first,'Actual production routine boundaries exist');
  return Function(...Object.keys(context),stripTypeScriptTypes(text.slice(first,last),{mode:'transform'})+';return '+start.match(/function (\w+)/)[1]+';')(...Object.values(context));
 }

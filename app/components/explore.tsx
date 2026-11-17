@@ -8,7 +8,7 @@ import BrowseToolbar from './browse-toolbar';
 import Preview from './preview';
 import ProjectStack from './project-stack';
 import {useTaxonomy} from '@/lib/use-taxonomy';
-import {api} from '@/lib/api';
+import {api,accountApi,ApiError} from '@/lib/api';
 import {track} from '@/lib/analytics';
 import {emptyFilters, filterParams, type Filters} from '@/lib/discovery';
 import type {Catalog} from '@/lib/server';
@@ -44,7 +44,7 @@ export default function Explore({items, preview, totalItems, totalPages, filters
  const [saved,setSaved]=useState<string[]>([]);
  const [saving,setSaving]=useState<string[]>([]);
  const savingRef=useRef(new Set<string>());
- const savedRevision=useRef(0);
+ const savedRevision=useRef(0),account=useRef<string|null>(null),accessEpoch=useRef(0);
  const savedChanges=useRef(new Map<string,{revision:number;saved:boolean}>());
  const visibleIds=items.map(product=>product.id).join(',');
  const [loadedSavedIds,setLoadedSavedIds]=useState('');
@@ -54,12 +54,16 @@ export default function Explore({items, preview, totalItems, totalPages, filters
  useEffect(()=>{
   if(preview||!visibleIds)return;
   const controller=new AbortController(),revision=savedRevision.current;
-  api('/me/saved-products?ids='+encodeURIComponent(visibleIds),{signal:controller.signal}).then(result=>{
+  const epoch=accessEpoch.current;
+  async function loadSaved(){
+   if(!account.current){const user=await api('/me',{signal:controller.signal});if(controller.signal.aborted||epoch!==accessEpoch.current)return;account.current=user.id;}
+   const result=await accountApi(account.current,'/me/saved-products?ids='+encodeURIComponent(visibleIds),{signal:controller.signal});
+   if(controller.signal.aborted||epoch!==accessEpoch.current)return;
    const next=new Set<string>(result.items.map((product:{id:string})=>product.id));
-   // A save acknowledged after the read began wins over this potentially older list.
    for(const [id,change] of savedChanges.current)if(change.revision>revision){if(change.saved)next.add(id);else next.delete(id);}
    setSaved([...next]);setLoadedSavedIds(visibleIds);
-  }).catch(problem=>{if(controller.signal.aborted)return;if(problem.status===401){setSaved([]);setLoadedSavedIds(visibleIds);}else setError('Saved projects could not be loaded. Refresh the page to try again.');});
+  }
+  void loadSaved().catch(problem=>{if(controller.signal.aborted||epoch!==accessEpoch.current)return;if(problem instanceof ApiError&&[401,403].includes(problem.status)){accessEpoch.current++;savedChanges.current.clear();setSaveNotice('');setSaved([]);setLoadedSavedIds(visibleIds);}else setError('Saved projects could not be loaded. Refresh the page to try again.');});
   return()=>controller.abort();
  },[preview,visibleIds]);
  useEffect(()=>{
@@ -78,14 +82,15 @@ export default function Explore({items, preview, totalItems, totalPages, filters
  async function save(id:string,title:string) {
   if(preview){setError('Sign in to save projects to your collection. These projects are illustrative.');return;}
   if(savingRef.current.has(id))return;
-  const wasSaved=saved.includes(id);
+  const wasSaved=saved.includes(id),epoch=accessEpoch.current;
   savingRef.current.add(id);setSaving([...savingRef.current]);setError('');setSaveNotice((wasSaved?'Removing ':'Saving ')+title+'…');
   try{
-   await api('/products/'+encodeURIComponent(id)+'/save',{method:wasSaved?'DELETE':'POST'});
+   await accountApi(account.current,'/products/'+encodeURIComponent(id)+'/save',{method:wasSaved?'DELETE':'POST'});
+   if(epoch!==accessEpoch.current)return;
    savedChanges.current.set(id,{revision:++savedRevision.current,saved:!wasSaved});
    setSaved(current=>wasSaved?current.filter(value=>value!==id):current.includes(id)?current:[...current,id]);
    setSaveNotice(wasSaved?title+' removed from saved projects.':title+' saved to your collection.');
-  }catch(problem){setSaveNotice('');setError((problem as Error).message);}
+  }catch(problem){if(epoch!==accessEpoch.current)return;if(problem instanceof ApiError&&[401,403].includes(problem.status)){accessEpoch.current++;savedChanges.current.clear();setSaved([]);}setSaveNotice('');setError((problem as Error).message);}
   finally{savingRef.current.delete(id);setSaving([...savingRef.current]);}
  }
 

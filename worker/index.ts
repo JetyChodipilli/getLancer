@@ -54,6 +54,16 @@ const worker = {
       return secureFrontendResponse(Response.json({ error: { code: 'SERVICE_UNAVAILABLE', message: 'The marketplace is temporarily unavailable.' } }, { status: 503, headers: { 'Cache-Control': 'no-store' } }), request.url, false, nonce);
     }
 
+    // Redirect before the framework starts streaming an HTTP 200 shell.
+    const workspaces: Record<string,string> = {
+      '/preview/workspace':'/workspace', '/preview/trust':'/workspace/trust',
+      '/preview/teams':'/workspace/teams', '/preview/business':'/workspace/business',
+      '/preview/delivery':'/workspace/delivery',
+    };
+    if (connected && ['GET','HEAD'].includes(request.method) && Object.hasOwn(workspaces,url.pathname)) {
+      return secureFrontendResponse(Response.redirect(new URL(workspaces[url.pathname],url.origin),307),request.url,connected,nonce,publisher,upload);
+    }
+
     if (url.pathname === "/_vinext/image") {
       const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
       const imageResponse=await handleImageOptimization(request, {
