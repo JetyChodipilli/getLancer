@@ -1,7 +1,7 @@
 {
   "schema": 2,
-  "reviewedAt": "2026-11-17",
-  "expiresAt": "2026-11-18T00:00:00Z",
+  "reviewedAt": "2026-11-18",
+  "expiresAt": "2026-11-25T00:00:00Z",
   "findings": [
     {
       "path": "backend/src/main/java/com/getlancer/admin/AdminController.java",
@@ -1463,7 +1463,7 @@
   "buildInputs": [
     {
       "path": ".github/workflows/ci.yml",
-      "sha256": "a45dc7b27c28cd566505b3498d835d2ac305c6ce1cc399e8debbf3d7e09bfaa7"
+      "sha256": "5529f7bda2bb292fc4d8ea06d5e23d26099205245874e0efdb88d31c65b53639"
     },
     {
       "path": "backend/pom.xml",
