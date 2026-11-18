@@ -15,9 +15,9 @@ async function noInfiniteMotion(surface:Locator){
  expect(await surface.evaluate(node=>node.getAnimations({subtree:true}).some(animation=>animation.playState==='running'&&animation.effect?.getTiming().iterations===Infinity))).toBe(false);
 }
 
-test('Paper & Pixel discovery keeps genuine project navigation, search and legible solid chrome',async({page},info)=>{
+test('Search First discovery keeps genuine project navigation, search and legible chrome',async({page},info)=>{
  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
- await page.goto('/');await expect(page.getByRole('heading',{name:'The craft behind the code.',exact:true})).toBeVisible();
+ await page.goto('/');await expect(page.getByRole('heading',{name:'Find software worth trying.',exact:true})).toBeVisible();
  const exhibition=page.getByRole('region',{name:'Featured project demos',exact:true});
  await expect(exhibition.locator('.paper-feature')).toHaveCount(3);
  await expect(page.locator('.site-header').getByRole('img',{name:'getLancer',exact:true})).toBeVisible();

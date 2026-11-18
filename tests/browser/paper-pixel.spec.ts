@@ -26,7 +26,7 @@ async function accountServices(page: Page, google = false, github = false) {
 
 test('@cross-browser public exhibition exposes real projects and all four discovery paths', async ({page}, info) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', {level: 1, name: 'The craft behind the code.'})).toBeVisible();
+  await expect(page.getByRole('heading', {level: 1, name: 'Find software worth trying.'})).toBeVisible();
   const paths = page.getByRole('navigation', {name: 'Explore getLancer', exact: true});
   for (const [name, href] of [['Projects', '#project-collection'], ['Components', '/components'], ['College projects', '/college-projects'], ['Learning', '/labs']]) {
     await expect(paths.getByRole('link', {name, exact: true})).toHaveAttribute('href', href);
@@ -67,7 +67,7 @@ test('@cross-browser discovery waits for navigation intent before requesting ano
     if (url.searchParams.has('_rsc')) routeRequests.push(url.pathname);
   });
   await page.goto('/');
-  await expect(page.getByRole('heading', {level: 1, name: 'The craft behind the code.'})).toBeVisible();
+  await expect(page.getByRole('heading', {level: 1, name: 'Find software worth trying.'})).toBeVisible();
   // A quiet network window lets viewport/idle prefetch work run if it is enabled.
   await page.waitForLoadState('networkidle');
   expect(routeRequests, 'Discovery must not start speculative route requests before a navigation choice').toEqual([]);
@@ -171,14 +171,56 @@ test('@cross-browser narrow navigation is keyboard recoverable and pages fit at 
 });
 
 test('@cross-browser reduced motion keeps discovery and auth content visible without infinite motion', async ({page}) => {
+  const taxonomyRequests: string[] = [];
+  page.on('request', request => {
+    const path = new URL(request.url()).pathname;
+    if (/^\/api\/v1\/(categories|technologies)$/.test(path)) taxonomyRequests.push(path);
+  });
   await page.emulateMedia({reducedMotion: 'reduce'});
   for (const route of ['/', '/login', '/preview/workspace']) {
     await page.goto(route);
     await expect(page.locator('main h1')).toBeVisible();
+    if (route === '/login') {
+      await expect(page.locator('.auth-connection')).toContainText('Sign-in is unavailable in this preview.');
+    }
     expect(await page.locator('main').evaluate(node => node.getAnimations({subtree: true})
       .some(animation => animation.playState === 'running' && animation.effect?.getTiming().iterations === Infinity))).toBe(false);
     await fits(page);
   }
+  expect(taxonomyRequests).toEqual([]);
+});
+
+test('@cross-browser scrolling docks the search without losing the query or navigation', async ({page}) => {
+  await page.goto('/');
+  const hero = page.getByRole('textbox', {name: 'Search projects', exact: true});
+  const dock = page.getByRole('textbox', {name: 'Search projects while browsing', exact: true});
+  await expect(page.locator('.scroll-discovery')).toHaveAttribute('data-visible', 'false');
+  await expect(dock).toHaveCount(0);
+  await hero.fill('Stockroom');
+  await hero.blur();
+  await page.evaluate(() => window.scrollTo(0, document.querySelector('#project-collection')!.getBoundingClientRect().top + window.scrollY));
+  await expect(dock).toBeInViewport();
+  await expect(dock).toHaveValue('Stockroom');
+  await expect(dock).toBeVisible();
+  const menu = page.getByRole('button', {name: 'Open navigation menu'});
+  await menu.click();
+  await expect(page.getByRole('menuitem', {name: 'Components', exact: true})).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.emulateMedia({reducedMotion: 'reduce'});
+  await expect(page.locator('.scroll-discovery')).toHaveCSS('transition-duration', '0s');
+  await page.getByRole('button', {name: 'Back to top', exact: true}).click();
+  await expect(hero).toBeInViewport();
+  await expect(hero).toBeFocused();
+  await expect(hero).toHaveValue('Stockroom');
+  await expect(dock).toHaveCount(0);
+  await hero.blur();
+  await page.evaluate(() => window.scrollTo(0, document.querySelector('#project-collection')!.getBoundingClientRect().top + window.scrollY));
+  await expect(dock).toBeVisible();
+  await dock.fill('Fieldnote');
+  await dock.press('Enter');
+  await expect(page).toHaveURL(/q=Fieldnote/);
+  await expect(page.locator('.paper-project-grid .paper-project')).toHaveCount(1);
+  await fits(page);
 });
 
 test('preview workspaces retain truthful sample controls and responsive dialogs', async ({page}, info) => {

@@ -1,8 +1,10 @@
 /* Labels and hit targets stay still; local library variants animate SVG parts. */
 /* The stable bar ID also outranks merged legacy :is() breakpoint selectors. */
-body .site-header.paper-icon-header #site-navigation-bar>.topnav{display:flex;gap:22px}
+body .site-header.paper-icon-header #site-navigation-bar>.topnav{display:flex;gap:3px;padding:3px;border:1px solid #fff;border-radius:999px}
 body .site-header.paper-icon-header:has(.scroll-discovery[data-visible=true]) #site-navigation-bar>.topnav{display:none}
-body .site-header.paper-icon-header .topnav .paper-icon-action{gap:7px}
+body .site-header.paper-icon-header .topnav .paper-icon-action{gap:6px;padding:0 13px;border-radius:999px;font-weight:550}
+body .site-header.paper-icon-header .topnav .paper-icon-action:is(:hover,.current){background:#dce3f5}
+body:has(.scroll-discovery[data-visible=true]) .paper-navigation-menu .mobile-only-link{display:flex}
 .paper-nav-icon{display:block;flex:none;overflow:visible}
 .paper-nav-icon[data-nav-icon=menu]{width:22px;height:22px}
 .paper-header-search .paper-nav-icon{width:20px;height:20px}
@@ -18,4 +20,112 @@ body .site-header.paper-icon-header .topnav .paper-icon-action{gap:7px}
 /* JS also stops active Motion controls when this preference changes. */
 @media(prefers-reduced-motion:reduce){
  .paper-nav-icon,.paper-nav-icon [data-animated-part]{transition:none!important;animation:none!important;transform:none!important;opacity:1!important;stroke-dasharray:none!important;stroke-dashoffset:0!important}
+}
+
+/* Material is concentrated on navigation, important controls and public demos. */
+body .site-header.paper-icon-header {
+  --nav-fill: #f5f7ff;
+  background: var(--nav-fill);
+  border-color: #dce2f0;
+  box-shadow: 0 5px 18px -16px #17213d90;
+}
+body .site-header.paper-icon-header #site-navigation-bar { max-width: 1320px }
+body .site-header.paper-icon-header #site-navigation-bar > .topnav,
+body .site-header.paper-icon-header #site-navigation-bar .iconbutton,
+body .site-header.paper-icon-header .account-trigger,
+body :is(.paper-home-search,.paper-feature,.paper-project-grid .paper-project,.paper-open-project,.paper-back-top.iconbutton),
+body .site-header.paper-icon-header :is(.dock-search,.dock-filter.button) {
+  background: var(--paper-surface);
+  border: 1px solid var(--paper-line);
+  box-shadow: inset 0 1px 0 #fff, 0 8px 24px -17px #27376a70;
+}
+body .site-header.paper-icon-header #site-navigation-bar .iconbutton,
+body .site-header.paper-icon-header :is(.account-trigger,.dock-search,.dock-filter.button),
+body .button.primary, body .paper-auth .auth-submit {
+  border-radius: 999px;
+}
+body :is(.paper-search-submit,.dock-submit,.button.primary),
+body .paper-auth .auth-submit,
+body .site-header.paper-icon-header .account .button.primary {
+  color: #fff;
+  border-color: var(--paper-action);
+  background: var(--paper-action) radial-gradient(ellipse at 32% 0%,var(--paper-action-light),transparent 70%)
+    center top / 115% 150% no-repeat;
+  box-shadow: inset 0 1px 0 #ffffff68, 0 4px 9px -5px #263ca3aa;
+  transition: background-position var(--paper-motion-standard) var(--app-motion-ease), box-shadow var(--paper-motion-standard);
+}
+body :is(.paper-search-submit,.dock-submit,.button.primary):hover:enabled,
+body a.button.primary:hover,
+body .paper-auth .auth-submit:hover:enabled,
+body .site-header.paper-icon-header .account .button.primary:hover {
+  color: #fff;
+  background-position: center bottom;
+  box-shadow: inset 0 1px 0 #ffffff70, 0 5px 12px -5px #263ca3aa;
+}
+body :is(.paper-back-top,.paper-open-project) { border-radius: 50%; padding: 0 }
+body .paper-back-top {
+  position: fixed;
+  z-index: 25;
+  inset: auto max(18px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) auto;
+  display: grid;
+  place-items: center;
+}
+body .site-header .discovery-nav-slot[data-visible=true] { margin-inline: auto; max-width: 570px }
+body .site-header .scroll-discovery[data-visible=false] { transform: translateY(9px) scale(.98) }
+body .site-header .dock-search input { font-size: 16px; color: var(--paper-ink); padding: 0 }
+body .site-header .dock-search input::placeholder { color: var(--paper-muted); opacity: 1 }
+body .site-header .dock-filter b { background: var(--paper-action) }
+body .site-header .scroll-discovery .dock-filter { border-radius: 999px }
+body .paper-feature, body .paper-project-grid .paper-project { transition: border-color 180ms, box-shadow 200ms }
+@media(hover:hover) and (pointer:fine) {
+  body :is(.paper-feature,.paper-project-grid .paper-project):hover { border-color: #a9b6dd; box-shadow: inset 0 1px 0 #fff, 0 12px 25px -16px #28366590 }
+  body :is(.paper-open-project,.paper-back-top):hover { background: var(--paper-soft) }
+}
+@media(max-width:960px) {
+  body .site-header.paper-icon-header .discovery-nav-slot:not(:empty) {
+    position: absolute;
+    display: block;
+    inset: 100% 12px auto;
+    width: calc(100% - 24px);
+    max-width: none;
+    padding: 6px;
+    border: 1px solid var(--paper-line);
+    border-radius: 18px;
+    background: var(--nav-fill);
+    box-shadow: 0 12px 22px -13px #17213d60;
+  }
+  body .site-header.paper-icon-header .discovery-nav-slot[data-visible=false] { visibility: hidden }
+  body .site-header.paper-icon-header .discovery-nav-slot[data-visible=false] .scroll-discovery { position: relative; width: 100% }
+  body:has(.scroll-discovery[data-visible=true]) :is(#main a,#main button,#main input,#main textarea,#main select,#main [id]) {
+    scroll-margin-top: calc(var(--nav-height) + 74px);
+  }
+  body .site-header.paper-icon-header #site-navigation-bar .paper-more-nav { gap: 4px }
+}
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  body .site-header.paper-icon-header {
+    background: #f5f7ffeb;
+    -webkit-backdrop-filter: blur(14px) saturate(120%);
+    backdrop-filter: blur(14px) saturate(120%);
+  }
+  body .site-header.paper-icon-header #site-navigation-bar > .topnav,
+  body .site-header.paper-icon-header .discovery-nav-slot[data-visible=true],
+  body :is(.paper-home-search,.paper-feature,.paper-open-project,.paper-back-top.iconbutton,.paper-project-grid .paper-project) {
+    background: #ffffffc4;
+    -webkit-backdrop-filter: blur(10px) saturate(115%);
+    backdrop-filter: blur(10px) saturate(115%);
+  }
+}
+@media(prefers-reduced-transparency:reduce) {
+  body .site-header.paper-icon-header,
+  body .site-header.paper-icon-header #site-navigation-bar > .topnav,
+  body .site-header.paper-icon-header .discovery-nav-slot[data-visible=true],
+  body :is(.paper-home-search,.paper-feature,.paper-open-project,.paper-back-top.iconbutton,.paper-project-grid .paper-project) {
+    background: var(--paper-surface);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+@media(forced-colors:active) {
+  body :is(.paper-feature,.paper-home-search,.paper-back-top,.paper-open-project,.paper-search-submit),
+  body .site-header.paper-icon-header { border: 1px solid ButtonText; backdrop-filter: none; box-shadow: none }
 }

@@ -1,21 +1,21 @@
-# getLancer — Paper & Pixel / Joinery
+# getLancer Search First
 
-User-approved direction: P4 Paper & Pixel, 28 October 2026. The public homepage is a digital exhibition of working software. Dark projects lead into light components, college work and learning. Product screens retain quiet task-focused structure.
+Search First is the approved public direction. The landing page opens with a centered project search, then three project previews from the current catalog. Components, college projects and learning follow below.
 
 ## Identity and references
-Framer supplies the dark exhibition hierarchy; Wired supplies editorial light chapters. These are compositional references only. Use original getLancer marks, product copy and assets. Deliberate deviations: no neon, gradients, floating blobs or proprietary typography; glass is reserved for the selected account menu A below. The approved template wins over any random style draw.
+Google’s search emphasis and Microsoft’s product previews informed the composition. Use the getLancer marks and catalog previews. Frosted surfaces belong on public demo cards and navigation. Small rounded rims and a directional highlight carry the treatment into primary actions, including form buttons.
 
 ## Semantic tokens
-Selected B / Joinery supplies the identity and graphite palette. Canvas #ffffff; surface #ffffff; raised #edf2f5; ink/dark #233746; muted #536572; decorative line #d3dce2; control boundary #7d8b94. Dark raised #304959; inverse ink #ffffff; dark muted #c1d0da; decorative dark line #5a6e7b. Focus #2d5d85 on light and #bad8f1 on dark. Success #166b45 / #edf8f0; warning #805710 / #fff8e8; danger #a52b34 / #fff1f2. Disabled controls remain legible; no opacity reduction on readable status text. Exact asset rules/evidence: [Joinery](docs/brand/JOINERY.md).
+Canvas #f3f5ff, surface #ffffff, ink #17213d, muted ink #464f6d, and action #263ca3. The action highlight is #435cde, with visible focus at #354bc7. Keep established success, warning and danger colors. Use the existing [Joinery marks](docs/brand/JOINERY.md).
 
 ## Typography
-Self-hosted getLancer Sans (renamed IBM Plex Sans Latin, normal variable 100-700, width 100) for UI and hero; getLancer Serif (renamed IBM Plex Serif Latin, real 400) for editorial display. Original OFL copyright/licenses bundled. Two families maximum; no synthetic serif bold. Body 16px/1.55. Metadata 13-14px/1.5; labels 14px/600. Headline clamp(2.5rem,5vw,4.75rem), 500, line 1.05, tracking -.04em. Editorial chapter 36-48px serif/400. Product headings 28-40px. No uppercased paragraphs. Joinery outlined horizontal logo: header 168px, minimum 132px; symbol minimum 24px with tested favicon exception at 16px.
+Use the bundled Geist for the interface and hero, and getLancer Serif for editorial display. Original OFL licenses are bundled. Set body text at 16px with 1.55 line height and metadata at 13–14px. Keep the centered hero heading at 650 weight and scale it with the viewport. Use the existing Joinery mark and wordmark.
 
 ## Geometry
 4px spacing scale: 4/8/12/16/24/32/48/64/96. Public max width 1440px with 24–48px gutters. Tasks max width 1320px. Form line length 480–640px. 6px radius for controls, 10px previews, 999px for the primary CTA and the selected account menu's trigger and Edit profile action. Border and surface hierarchy; dialogs and the selected account dropdown may have modest functional elevation.
 
 ## Components and states
-Header is solid, compact, keyboard reachable; logged-out primary links Projects, Components, College projects, Learning. Overflow retains every existing destination. Search is labelled, submit-driven, URL-synchronised, clearable; filters maintain backend semantics and browser history. Project cards show actual preview, title, builder, stack and accessible save state. Featured projects have uneven editorial scale; normal results are a readable grid without layout thrashing.
+The header stays keyboard reachable. Primary links remain available in the overflow while the search is docked. Search keeps the same query in the hero and dock. Submitting synchronises the query with the URL and browser history. On a narrow phone the dock sits immediately below the main nav row. Project cards show the preview, title, builder, and stack. Use an opaque surface when the browser lacks backdrop blur or the visitor requests reduced transparency.
 Forms always show labels and help, field-specific errors and focusable summary, password affordances, retained input after failure. Mutations expose pending/disabled/success/failure states; show success only after server acknowledgement. Never auto-retry writes. Error messages explain next action and preserve support reference IDs. Toast/status cannot be color-only. Dialogs retain Radix focus management. Tables have a responsive scroll wrapper and visible heading.
 Workspaces: white canvas, charcoal navigation, useful compact headings, distinct toolbar, readable panels, no glass or nested decorative cards. Preserve all tabs, operations, authorization checks and preview labels.
 
