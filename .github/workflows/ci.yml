@@ -212,6 +212,11 @@ jobs:
         with: {node-version: '24.22.3', cache: npm}
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with: {python-version: '3.12'}
+      - name: Verify Python with the isolated guest environment
+        run: |
+          printf '%s\n' "$pythonLocation/lib" > /etc/ld.so.conf.d/actions-python.conf
+          ldconfig
+          env -i PATH=/usr/bin:/bin LANG=C.UTF-8 "$(command -v python3)" -I -c 'import json, socket'
       - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with: {distribution: temurin, java-version: '17'}
       - run: npm ci
