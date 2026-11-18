@@ -208,6 +208,30 @@ body .studio-shell.paper-studio pre { max-width: 100%; overflow: auto; }
 :is(.workspace-dialog, .demo-dialog, .business-dialog, .delivery-dialog, .care-dialog, .hosting-dialog, .commerce-dialog) :is(input, select, textarea) { border-radius: 6px; font-family: inherit; }
 :is(.workspace-dialog, .demo-dialog, .business-dialog, .delivery-dialog, .care-dialog, .hosting-dialog, .commerce-dialog) :is(.panel, fieldset, .delivery-milestone-editor, .care-review) { border-radius: 6px; box-shadow: none; }
 
+.component-editor-dialog,.template-create-dialog{display:flex;flex-direction:column;overflow:hidden!important}
+.component-editor-dialog .form,.template-create-dialog .team-form,.template-create-dialog .team-form fieldset{
+  display:flex;flex-direction:column;min-height:0;margin:0;
+}
+.template-create-dialog .team-form>.form-error-summary{max-height:25dvh;overflow:auto}
+.draft-dialog-fields,.template-create-fields{
+  display:grid;gap:12px;min-height:0;overflow:auto;padding:5px;
+  overscroll-behavior:contain;scroll-padding-block:8px;
+}
+.component-editor-dialog .draft-actions,.template-create-dialog .team-form fieldset>.team-form-actions{
+  flex:none;justify-content:space-between;gap:8px;
+  margin-top:0;padding:12px 5px 4px;border-top:1px solid var(--paper-line);
+}
+.component-editor-dialog .draft-actions>.primary{margin-inline-start:auto}
+.component-editor-dialog .draft-source-fields{display:grid;gap:8px;margin-block:6px 12px}
+.component-editor-dialog .draft-source-picker{padding:12px;border:1px dashed var(--paper-control-border);border-radius:8px;background:var(--paper-soft)}
+.component-editor-dialog .draft-source-picker p{margin:4px 0 8px}
+.component-editor-dialog .draft-zip-requirements summary{min-height:44px;padding-block:11px;cursor:pointer;font-weight:600}
+.component-editor-dialog .draft-zip-requirements p{margin:0 0 8px;color:var(--paper-muted)}
+body .studio-shell.paper-studio .college-context-editing{grid-template-columns:minmax(0,760px)}
+@media(min-width:1101px){
+  body .studio-shell.paper-studio .component-workspace-records{grid-template-columns:minmax(0,2fr) minmax(0,1fr)}
+}
+
 @media (max-width: 1279px) {
   body .studio-shell.paper-studio { grid-template-columns: 216px minmax(0, 1fr); gap: 24px; }
   body .studio-shell.paper-studio :is(.workspace-overview, .studio-metrics) { grid-template-columns: repeat(2, minmax(0, 1fr)); }

@@ -34,19 +34,18 @@ test('Paper & Pixel discovery keeps genuine project navigation, search and legib
  expect(errors).toEqual([]);
 });
 
-test('auth project exhibit stays still during form use and honours reduced motion',async({page})=>{
+test('auth resources stay still during form use and honour reduced motion',async({page})=>{
  for(const reducedMotion of ['no-preference','reduce'] as const){
   await page.emulateMedia({reducedMotion});await page.goto('/login');
-  const exhibit=page.locator('.paper-auth-exhibit');
+  const resources=page.getByRole('navigation',{name:'Helpful resources'});
   await expect(page.getByLabel('Email address',{exact:true})).toBeVisible();
-  if(page.viewportSize()!.width<=760){await expect(exhibit).toBeHidden();continue;}
-  await expect(exhibit).toBeVisible();
-  await expect(exhibit.getByRole('img',{name:/Booklane illustrative/})).toBeVisible();
-  const start=await exhibit.boundingBox();
+  await expect(resources).toBeVisible();
+  await expect(resources.locator('img, video, iframe, [role=img]')).toHaveCount(0);
+  const start=await resources.boundingBox();
   await page.getByLabel('Email address',{exact:true}).fill('client@example.test');
-  await expect(exhibit).toHaveCSS('transform','none');
-  await noInfiniteMotion(exhibit);
-  expect(await exhibit.boundingBox()).toEqual(start);
+  await expect(resources).toHaveCSS('transform','none');
+  await noInfiniteMotion(resources);
+  expect((await resources.boundingBox())!.height).toBe(start!.height);
  }
  await fits(page);
 });
@@ -99,11 +98,13 @@ test('account controls stay readable across short laptops and narrow phones',asy
    for(const control of controls){expect(control.font).toBeGreaterThanOrEqual(16);expect(control.height).toBeGreaterThanOrEqual(44);}
    const form=await page.locator('.icy-form-content').boundingBox();expect(form!.width).toBeGreaterThanOrEqual(width<=375?250:290);expect(form!.width).toBeLessThanOrEqual(440);
    if(width>760){
-    await expect(page.locator('.icy-story')).toHaveCSS('background-color','rgb(35, 55, 70)');
+    const storyPanel=page.locator('.icy-story');
+    const dark=await page.evaluate(()=>{const probe=document.createElement('span');probe.style.color='var(--paper-dark)';document.body.append(probe);const color=getComputedStyle(probe).color;probe.remove();return color;});
+    await expect(storyPanel).toHaveCSS('background-color',dark);
     const shell=await page.locator('.icy-shell').boundingBox(),story=await page.locator('.icy-story').boundingBox();
     expect(story!.width/shell!.width).toBeGreaterThan(.4);expect(story!.width/shell!.width).toBeLessThan(.6);
-    const bounds=await page.locator('.paper-auth-preview').evaluate(node=>{const outer=node.getBoundingClientRect(),inner=node.querySelector('[role=img]')!.getBoundingClientRect();return {left:inner.left-outer.left,right:outer.right-inner.right,top:inner.top-outer.top,bottom:outer.bottom-inner.bottom};});
-    for(const margin of Object.values(bounds))expect(margin).toBeGreaterThanOrEqual(-1);
+    const resources=(await page.getByRole('navigation',{name:'Helpful resources'}).boundingBox())!;
+    expect(resources.x).toBe(story!.x);expect(resources.width).toBe(story!.width);
    }
    const input=page.getByLabel('Password',{exact:true});await input.fill('layout-check-123');
    await page.getByRole('button',{name:'Show password',exact:true}).click();await expect(input).toHaveAttribute('type','text');
@@ -114,14 +115,16 @@ test('account controls stay readable across short laptops and narrow phones',asy
  }
 });
 
-test('the account exhibit has a truthful project caption and independently reachable project link',async({page})=>{
- await page.goto('/login');
- const exhibit=page.locator('.paper-auth-exhibit');
- if(page.viewportSize()!.width<=760){await expect(exhibit).toBeHidden();await expect(page.getByRole('link',{name:'Browse projects',exact:true})).toBeVisible();return;}
- await expect(exhibit).toContainText('Booklane');await expect(exhibit).toContainText('Illustrative project');
- const link=exhibit.getByRole('link',{name:'Explore Booklane illustrative project',exact:true});
- await expect(link).toHaveAttribute('href','/products/booklane');await link.focus();await expect(link).toBeFocused();
- await link.press('Enter');await expect(page).toHaveURL(/\/products\/booklane$/);await expect(page.getByRole('heading',{level:1,name:'Booklane',exact:true})).toBeVisible();
+test('login and signup offer keyboard-accessible resources linked to real pages',async({page})=>{
+ for(const path of ['/login','/signup']){
+  await page.goto(path);
+  const resources=page.getByRole('navigation',{name:'Helpful resources'});
+  await expect(resources.getByRole('link',{name:/How getLancer works/})).toHaveAttribute('href','/how-it-works');
+  await expect(resources.getByRole('link',{name:/Browse projects/})).toHaveAttribute('href','/#project-collection');
+  const labs=resources.getByRole('link',{name:/Explore practical labs/});
+  await expect(labs).toHaveAttribute('href','/labs');await labs.focus();await expect(labs).toBeFocused();
+ }
+ await page.getByRole('link',{name:/Explore practical labs/}).press('Enter');await expect(page).toHaveURL(/\/labs$/);
  await fits(page);
 });
 

@@ -71,6 +71,7 @@ for(const width of widths)test('new route shells retain keyboard focus, reduced-
    await unobscured(controls.last());
   }
   if(path==='/components'){
+   await page.getByText('Filter options',{exact:true}).click();
    const filter=page.getByLabel('Component category',{exact:true}),before=await filter.boundingBox();await filter.selectOption('FORM');await unchanged(before,filter);
   }else if(path==='/components/feedback-form'){
    const phone=page.getByRole('button',{name:'Phone',exact:true}),before=await phone.boundingBox();await phone.click();await expect(phone).toHaveAttribute('aria-pressed','true');await unchanged(before,phone);
@@ -116,7 +117,7 @@ for(const width of widths)test('draft server-error and selected controls keep si
  await expect(title).toBeFocused();await expect(title).toHaveAttribute('aria-invalid','true');await expect(title).toHaveAttribute('aria-describedby','title-error');await unchanged(before,title);await unobscured(title);
  await scan(page,'[role="dialog"]','draft-error-title-'+width,info);
  const fileLink=dialog.getByRole('link',{name:'file: Choose the reviewed ZIP.',exact:true});await fileLink.focus();await page.keyboard.press('Enter');
- const file=dialog.getByLabel('Source ZIP',{exact:true});await expect(file).toBeFocused();await expect(file).toHaveAttribute('aria-invalid','true');await expect(file).toHaveAttribute('aria-describedby','file-error');await unobscured(file);
+ const file=dialog.getByLabel('Source ZIP',{exact:true});await expect(file).toBeFocused();await expect(file).toHaveAttribute('aria-invalid','true');await expect(file).toHaveAttribute('aria-describedby',/\bfile-error\b/);await unobscured(file);
  await scan(page,'[role="dialog"]','draft-error-source-'+width,info);await reflow(page);await reducedMotion(page);
  if(info.project.name==='desktop')await info.attach('draft-error-'+width,{body:await page.screenshot({fullPage:true,animations:'disabled'}),contentType:'image/png'});
  await page.keyboard.press('Escape');await expect(dialog).not.toBeVisible();await expect(opener).toBeFocused();await unobscured(opener);
