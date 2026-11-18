@@ -50,6 +50,7 @@ test('the frontend browser image matches the locked Playwright release', () => {
   const lock = JSON.parse(readFileSync('package-lock.json', 'utf8'));
   const image = frontend.match(/image: mcr\.microsoft\.com\/playwright:v([\d.]+)-noble@sha256:[a-f0-9]{64}\n/);
   assert.equal(image?.[1], lock.packages['node_modules/@playwright/test'].version);
+  assert.match(step(frontend, 'Trust the mounted GitHub workspace'), /run: git config --global --add safe\.directory "\$GITHUB_WORKSPACE"\n?$/);
   assert.match(step(frontend, 'Verify bundled Chromium, Firefox and WebKit'), /engine\.launch\(\)/);
   assert.doesNotMatch(frontend, /playwright[^\n]*(?:install-deps|--with-deps)/);
 });
