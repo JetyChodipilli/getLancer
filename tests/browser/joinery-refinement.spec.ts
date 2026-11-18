@@ -8,10 +8,10 @@ function contrast(a:string,b:string){
 async function fits(page:Page){await page.evaluate(()=>document.fonts.ready);await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()!.width+1);}
 const providers=(page:Page)=>page.route('**/api/v1/auth/providers',route=>route.fulfill({json:{google:false,github:false}}));
 
-test('@cross-browser Joinery local fonts and blocked-font layouts remain usable',async({page})=>{
+test('@cross-browser self-hosted Geist and blocked-font layouts remain usable',async({page})=>{
  await page.goto('/');await expect(page.locator('.site-header [role=img][aria-label=getLancer]')).toHaveCount(1);
- expect(await page.evaluate(async()=>{const fonts=await document.fonts.load('400 16px "getLancer Sans"');return fonts.length>0&&fonts.every(font=>font.status==='loaded');})).toBe(true);
- await expect(page.locator('body')).toHaveCSS('font-family',/getLancer Sans/);await fits(page);
+ expect(await page.evaluate(async()=>{const fonts=await document.fonts.load('400 16px Geist');return fonts.length>0&&fonts.every(font=>font.status==='loaded');})).toBe(true);
+ await expect(page.locator('body')).toHaveCSS('font-family',/^Geist,/);await fits(page);
  await page.route('**/fonts/**',route=>route.abort());await page.setViewportSize({width:320,height:812});
  for(const path of ['/?q=Stockroom','/login','/signup','/preview/workspace']){await page.goto(path);await expect(page.locator('main h1')).toBeVisible();await fits(page);}
  await page.setViewportSize({width:768,height:1024});await page.goto('/login');
