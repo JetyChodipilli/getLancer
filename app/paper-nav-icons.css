@@ -101,6 +101,10 @@ body .paper-feature, body .paper-project-grid .paper-project { transition: borde
   }
   body .site-header.paper-icon-header #site-navigation-bar .paper-more-nav { gap: 4px }
 }
+@media(max-width:420px) {
+  body .site-header .dock-search > svg,
+  body .site-header .dock-filter > span { display: none }
+}
 @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
   body .site-header.paper-icon-header {
     background: #f5f7ffeb;
