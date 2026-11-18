@@ -1463,7 +1463,7 @@
   "buildInputs": [
     {
       "path": ".github/workflows/ci.yml",
-      "sha256": "d490cffbe91e9fdb6baece038f479d8305193401b674c05c0814f3947c49cac0"
+      "sha256": "9c36dc2f036f26ecd75681ef56b7d7c45682e087076e72d7bf43d97a9d42e87e"
     },
     {
       "path": "backend/pom.xml",

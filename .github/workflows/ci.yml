@@ -287,6 +287,8 @@ jobs:
       - run: node --experimental-strip-types --test tests/*.test.mjs
       - name: Verify bundled Chromium, Firefox and WebKit
         run: |
+          # Firefox requires the Actions container's mounted home to belong to its user.
+          chown --no-dereference "$(id -u):$(id -g)" /github/home
           node --input-type=module <<'JS'
           import {chromium, firefox, webkit} from 'playwright';
           for (const engine of [chromium, firefox, webkit]) {

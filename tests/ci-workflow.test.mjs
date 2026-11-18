@@ -54,7 +54,8 @@ test('the frontend browser image matches the locked Playwright release', () => {
   const python = step(frontend, 'Verify Python with the isolated guest environment');
   assert.match(python, /ldconfig/);
   assert.match(python, /env -i PATH=\/usr\/bin:\/bin LANG=C\.UTF-8/);
-  assert.match(step(frontend, 'Verify bundled Chromium, Firefox and WebKit'), /engine\.launch\(\)/);
+  const browsers = step(frontend, 'Verify bundled Chromium, Firefox and WebKit');
+  assert.match(browsers, /chown --no-dereference "\$\(id -u\):\$\(id -g\)" \/github\/home[\s\S]*engine\.launch\(\)/);
   assert.doesNotMatch(frontend, /playwright[^\n]*(?:install-deps|--with-deps)/);
 });
 
