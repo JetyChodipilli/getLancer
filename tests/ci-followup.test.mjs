@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
 import {readFile} from 'node:fs/promises';
 import {catalogue} from '../scripts/build-framework-material.mjs';
 
@@ -51,4 +52,26 @@ test('root build tools retain reviewed security floors and a full dependency aud
  }
  const workflow=await readFile('.github/workflows/ci.yml','utf8');
  assert(workflow.includes('npm audit --audit-level=moderate --json > dependency-evidence/npm-full-audit.json'));
+});
+
+test('build tools compile repeated selectors with the reviewed Picomatch backport',async()=>{
+ const lock=JSON.parse(await readFile('package-lock.json','utf8'));
+ const copies=Object.entries(lock.packages).filter(([path])=>path.endsWith('/picomatch'));
+ assert(copies.length>0);
+ for(const [path,item] of copies){
+  assert.equal(item.name,'@ryotsu/picomatch',path);
+  assert.equal(item.version,'4.0.7-a',path);
+  assert.equal(item.dev,true,path);
+ }
+ for(const tool of ['micromatch','tinyglobby','vite']){
+  const load=createRequire(new URL(`../node_modules/${tool}/package.json`,import.meta.url));
+  const picomatch=load('picomatch');
+  const matcher=picomatch.makeRe('+(feature-*-draft)');
+  assert.doesNotMatch(matcher.source,/\)\+/);
+  assert(matcher.test('feature-account-draftfeature-template-draft'));
+  assert(!matcher.test('feature-account-live'));
+  assert(picomatch.isMatch('app/components/profile.tsx','app/**/*.{ts,tsx}'));
+ }
+ const micromatch=createRequire(import.meta.url)('micromatch');
+ assert.deepEqual(micromatch.capture('app/*/*.tsx','app/components/profile.tsx'),['components','profile']);
 });
