@@ -209,22 +209,26 @@ body .studio-shell.paper-studio pre { max-width: 100%; overflow: auto; }
 :is(.workspace-dialog, .demo-dialog, .business-dialog, .delivery-dialog, .care-dialog, .hosting-dialog, .commerce-dialog) :is(.panel, fieldset, .delivery-milestone-editor, .care-review) { border-radius: 6px; box-shadow: none; }
 
 .component-editor-dialog,.template-create-dialog{display:flex;flex-direction:column;overflow:hidden!important}
-.component-editor-dialog .form,.template-create-dialog .team-form,.template-create-dialog .team-form fieldset{
+.component-editor-dialog .form,.template-create-dialog .team-form{
   display:flex;flex-direction:column;min-height:0;margin:0;
 }
 .template-create-dialog .team-form>.form-error-summary{max-height:25dvh;overflow:auto}
-.draft-dialog-fields,.template-create-fields{
-  display:grid;gap:12px;min-height:0;overflow:auto;padding:5px;
+.draft-dialog-fields,.template-create-dialog .team-form-scroll-fields{
+  display:grid;gap:12px;min-height:0;overflow:auto;padding:5px;margin:0;
   overscroll-behavior:contain;scroll-padding-block:8px;
 }
-.component-editor-dialog .draft-actions,.template-create-dialog .team-form fieldset>.team-form-actions{
+.template-create-fields{display:grid;gap:12px}
+.component-editor-dialog .draft-actions,.template-create-dialog .team-form>.team-form-actions{
   flex:none;justify-content:space-between;gap:8px;
   margin-top:0;padding:12px 5px 4px;border-top:1px solid var(--paper-line);
 }
+.template-create-dialog .team-form-status{width:100%}
+.template-create-dialog .team-form-status:empty{height:0;min-height:0}
 .component-editor-dialog .draft-actions>.primary{margin-inline-start:auto}
 .component-editor-dialog .draft-source-fields{display:grid;gap:8px;margin-block:6px 12px}
 .component-editor-dialog .draft-source-picker{padding:12px;border:1px dashed var(--paper-control-border);border-radius:8px;background:var(--paper-soft)}
 .component-editor-dialog .draft-source-picker p{margin:4px 0 8px}
+.component-editor-dialog .draft-dialog-fields p.error[id]{margin:8px 0 12px}
 .component-editor-dialog .draft-zip-requirements summary{min-height:44px;padding-block:11px;cursor:pointer;font-weight:600}
 .component-editor-dialog .draft-zip-requirements p{margin:0 0 8px;color:var(--paper-muted)}
 body .studio-shell.paper-studio .college-context-editing{grid-template-columns:minmax(0,760px)}

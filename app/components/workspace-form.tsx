@@ -15,7 +15,7 @@ export function Field({name,label,value='',type='text',options,required=true,min
   {error&&<span id={id+'-error'} className="team-error">{error}</span>}
  </label>;
 }
-export function TeamForm({children,onSave,label='Save changes',busy=false,pendingLabel,pendingMessage,successMessage}:{children:ReactNode;onSave:(data:Record<string,string>)=>Promise<unknown>;label?:string;busy?:boolean;pendingLabel?:string;pendingMessage?:string;successMessage?:string}){
+export function TeamForm({children,onSave,label='Save changes',busy=false,pendingLabel,pendingMessage,successMessage,scrollFields=false}:{children:ReactNode;onSave:(data:Record<string,string>)=>Promise<unknown>;label?:string;busy?:boolean;pendingLabel?:string;pendingMessage?:string;successMessage?:string;scrollFields?:boolean}){
  const isSave=label==='Save changes';
  const waitingLabel=pendingLabel??(isSave?'Saving…':'Please wait…');
  const waitingMessage=pendingMessage??(isSave?'Saving your changes…':'Waiting for confirmation…');
@@ -39,8 +39,11 @@ export function TeamForm({children,onSave,label='Save changes',busy=false,pendin
    focusError.current=true;setError(failure.message||'This action could not be confirmed. Refresh the current record before retrying.');setFields(failure.fieldErrors||{});
   }finally{inFlight.current=false;setPending(false);}
  }
+ const actions=<div className="team-form-actions"><button type="submit" className="button primary" disabled={pending||busy}>{pending?waitingLabel:label}</button><span className="team-form-status" role="status" aria-live="polite" aria-atomic="true">{pending?waitingMessage:completed&&confirmedMessage?<><CheckCircle2 size={16} aria-hidden="true"/>{confirmedMessage}</>:''}</span></div>;
+ const fieldsGroup=<fieldset disabled={pending||busy}>{children}{!scrollFields&&actions}</fieldset>;
  return <FieldErrors.Provider value={fields}><form ref={formRef} className="team-form" aria-busy={pending||busy} onSubmit={submit} onChange={()=>setCompleted(false)}>
   {error&&<div ref={summary} tabIndex={-1} role="alert" className="error form-error-summary"><div className="feedback-heading"><CircleAlert size={20} aria-hidden="true"/><strong>{Object.keys(fields).length?'Check these details':'This action needs your attention'}</strong></div><p>{error}</p>{Object.entries(fields).length>0&&<ul>{Object.entries(fields).map(([name,message])=><li key={name}><button type="button" className="error-field-link" onClick={()=>focusField(name)}>{name.replace(/([a-z])([A-Z])/g,'$1 $2')}: {message}</button></li>)}</ul>}</div>}
-  <fieldset disabled={pending||busy}>{children}<div className="team-form-actions"><button type="submit" className="button primary" disabled={pending||busy}>{pending?waitingLabel:label}</button><span className="team-form-status" role="status" aria-live="polite" aria-atomic="true">{pending?waitingMessage:completed&&confirmedMessage?<><CheckCircle2 size={16} aria-hidden="true"/>{confirmedMessage}</>:''}</span></div></fieldset>
+  {scrollFields?<div className="team-form-scroll-fields">{fieldsGroup}</div>:fieldsGroup}
+  {scrollFields&&actions}
  </form></FieldErrors.Provider>;
 }
