@@ -94,25 +94,33 @@ export default function Explore({items, preview, totalItems, totalPages, filters
   finally{savingRef.current.delete(id);setSaving([...savingRef.current]);}
  }
 
- return <main id="main" className={'paper-marketplace'+(refined?' paper-marketplace-refined':'')}>
-  <section className="paper-exhibition" aria-labelledby="paper-home-title">
-   <div className="paper-home-frame">
+ const discovery = <div className="paper-home-story">
     <div className="paper-home-intro"><h1 id="paper-home-title">The craft behind the code.</h1><p>Discover working software, reusable components, college projects and learning resources. Meet the people behind the work.</p></div>
     <div className="paper-discovery-row">
      <form id="paper-search" className="paper-home-search" role="search" tabIndex={-1} onSubmit={event=>{event.preventDefault();update({q});}}>
       <label className="sr-only" htmlFor="paper-project-search">Search projects</label><Search size={21} aria-hidden="true"/>
-      <input id="paper-project-search" name="q" aria-label="Search projects" maxLength={200} value={q} onChange={event=>setQ(event.target.value)} placeholder="Search projects, builders or technology…"/>
+      <input id="paper-project-search" name="q" aria-label="Search projects" maxLength={200} value={q} onChange={event=>setQ(event.target.value)} placeholder="Find a project…"/>
       {q&&<button type="button" className="paper-search-clear" aria-label="Clear search" onClick={()=>{setQ('');if(filters.q)update({q:''});}}><X size={18} aria-hidden="true"/></button>}
       <button type="submit" className="paper-search-submit" disabled={pending}>{pending?'Searching…':'Search'}<ArrowRight size={17} aria-hidden="true"/></button>
      </form>
      <nav className="paper-discovery-paths" aria-label="Explore getLancer"><a href="#project-collection">Projects <ArrowRight size={16} aria-hidden="true"/></a><Link prefetch={false} href="/components">Components <ArrowRight size={16} aria-hidden="true"/></Link><Link prefetch={false} href="/college-projects">College projects <ArrowRight size={16} aria-hidden="true"/></Link><Link prefetch={false} href="/labs">Learning <ArrowRight size={16} aria-hidden="true"/></Link></nav>
     </div>
-    {!refined&&<><ProjectStack products={featured}/>{preview&&<p className="paper-sample-note">Illustrative projects and creators. <Link prefetch={false} href="/preview/workspace">Explore the workspace preview <ArrowUpRight size={14} aria-hidden="true"/></Link></p>}</>}
+ </div>;
+
+ return <main id="main" className={'paper-marketplace'+(refined?' paper-marketplace-refined':'')}>
+  <section className="paper-exhibition" aria-labelledby="paper-home-title">
+   <div className="paper-home-frame">
+    {refined ? discovery : featured.length ? <ProjectStack products={featured}>{discovery}</ProjectStack> :
+     <div className="paper-featured-projects paper-featured-components">
+      {discovery}
+      <div className="paper-feature-0"><ComponentSpecimen/></div>
+     </div>}
+    {!refined&&preview&&<p className="paper-sample-note">Illustrative projects and creators. <Link prefetch={false} href="/preview/workspace">Explore the workspace preview <ArrowUpRight size={14} aria-hidden="true"/></Link></p>}
    </div>
   </section>
 
   {!refined&&<div className="paper-chapters paper-home-frame">
-   <section className="paper-component-chapter" aria-labelledby="paper-components-title"><div className="paper-chapter-copy"><span className="paper-chapter-label">Components</span><h2 id="paper-components-title">Small pieces.<br/>Better products.</h2><p>Thoughtful frontend components for whatever comes next. Try the details before you make them yours.</p><Link prefetch={false} className="button primary" href="/components">View components <ArrowRight size={17} aria-hidden="true"/></Link></div><ComponentSpecimen/></section>
+   {featured.length>0&&<section className="paper-component-chapter" aria-labelledby="paper-components-title"><div className="paper-chapter-copy"><span className="paper-chapter-label">Components</span><h2 id="paper-components-title">Small pieces.<br/>Better products.</h2><p>Thoughtful frontend components for whatever comes next. Try the details before you make them yours.</p><Link prefetch={false} className="button primary" href="/components">View components <ArrowRight size={17} aria-hidden="true"/></Link></div><ComponentSpecimen/></section>}
    <div className="paper-learning-chapters">
     <section className="paper-learning-chapter" aria-labelledby="paper-college-title"><div><span className="paper-chapter-label">College projects</span><h2 id="paper-college-title">Ideas in practice.</h2><p>Explore student work across full stack, analytics, AI and IoT. See the problem, the approach and the contribution.</p><Link prefetch={false} href="/college-projects">Browse college projects <ArrowRight size={16} aria-hidden="true"/></Link></div><div className="paper-college-specimen" data-ui="college-preview"><span>Explore by discipline</span><Link prefetch={false} href="/college-projects?category=FULL_STACK">Full stack <ArrowUpRight size={17} aria-hidden="true"/></Link><Link prefetch={false} href="/college-projects?category=DATA_ANALYTICS">Data analytics <ArrowUpRight size={17} aria-hidden="true"/></Link><Link prefetch={false} href="/college-projects?category=AI_ML">AI & machine learning <ArrowUpRight size={17} aria-hidden="true"/></Link><Link prefetch={false} href="/college-projects?category=IOT">IoT <ArrowUpRight size={17} aria-hidden="true"/></Link></div></section>
     <section className="paper-learning-chapter" aria-labelledby="paper-learning-title"><div><span className="paper-chapter-label">Learning</span><h2 id="paper-learning-title">Build and grow.</h2><p>Learn by exploring the work. Open practical backend labs, source packages and framework previews.</p><Link prefetch={false} href="/labs">Explore learning <ArrowRight size={16} aria-hidden="true"/></Link></div><div className="paper-lab-specimen" data-ui="learning-preview"><div><span>Hands-on learning</span><Code2 size={20} aria-hidden="true"/></div><strong>From a question<br/>to working code.</strong><Link prefetch={false} href="/labs">Backend labs <ArrowRight size={16} aria-hidden="true"/></Link><Link prefetch={false} href="/components/frameworks">Framework previews <ArrowRight size={16} aria-hidden="true"/></Link></div></section>

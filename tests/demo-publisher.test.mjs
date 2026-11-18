@@ -12,6 +12,8 @@ import { createPublisher, configFromEnv, manifestHash, HARD_LIMITS, CONTENT_SECU
 const secret = 'publisher-test-secret-01234567890123456789';
 const gatewaySecret = 'gateway-test-secret-01234567890123456789';
 const adminHost = 'demo-publisher:8090';
+// Bind fixtures to IPv4 even when the runner resolves localhost to IPv6 first.
+const loopback = '127.0.0.1';
 const hash = (value) => createHash('sha256').update(value).digest('hex');
 function payload(id = randomUUID(), files = { 'index.html': '<h1>Approved static frontend</h1>', 'assets/main.js': 'throw new Error("Server must never execute this");' }, expiresAt = new Date(Date.now() + 86400_000).toISOString()) {
   const mapped = Object.entries(files).map(([filename, value]) => { const bytes = Buffer.isBuffer(value) ? value : Buffer.from(value); return {
@@ -22,7 +24,7 @@ function request(port, { method = 'GET', host = adminHost, target = '/health', b
   return new Promise((resolve, reject) => {
     const bytes = raw === undefined ? (body === undefined ? undefined : Buffer.from(JSON.stringify(body))) : Buffer.from(raw);
     const outgoing = { Host: host, ...(admin ? { Authorization: `Bearer ${secret}` } : {}), ...(bytes ? { 'Content-Type': 'application/json', 'Content-Length': bytes.length } : {}), ...headers };
-    const req = http.request({ host: 'localhost', port, method, path: target, headers: outgoing, agent: false }, (res) => {
+    const req = http.request({ host: loopback, port, method, path: target, headers: outgoing, agent: false }, (res) => {
       const chunks = []; res.on('data', (chunk) => chunks.push(chunk)); res.on('end', () => {
         const content = Buffer.concat(chunks); let json; try { json = JSON.parse(content.toString()); } catch {}
         resolve({ status: res.statusCode, headers: res.headers, bytes: content, json });
@@ -55,8 +57,8 @@ async function harness(t, overrides = {}) {
     res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ allowed: mode === 'allow' }));
   });
   gateway.on('connection', socket => { gatewaySockets.add(socket); socket.once('close', () => gatewaySockets.delete(socket)); });
-  await new Promise((resolve) => gateway.listen(0, 'localhost', resolve));
-  const config = { dataDir, secret, adminHost, publicUrlTemplate: 'http://{id}.demo.localhost:8090',
+  await new Promise((resolve) => gateway.listen(0, loopback, resolve));
+  const config = { dataDir, secret, adminHost, host: loopback, publicUrlTemplate: 'http://{id}.demo.localhost:8090',
     gatewayUrl: `http://localhost:${gateway.address().port}/api/v1/hosting/gateway`, gatewaySecret, ...overrides };
   let publisher; let port;
   t.after(async () => { if (publisher) await publisher.close(); gateway.closeAllConnections();
@@ -303,13 +305,13 @@ test('maximum valid 10 MiB and 256 files publish; credential, invalid text and d
 test('chunked oversized upload returns 413 and concurrent upload limit rejects without buffering', async (t) => {
   const h = await harness(t); const id = randomUUID();
   const oversized = await new Promise((resolve, reject) => {
-    const req = http.request({ host: 'localhost', port: h.port, method: 'PUT', path: `/deployments/${id}`, agent: false,
+    const req = http.request({ host: loopback, port: h.port, method: 'PUT', path: `/deployments/${id}`, agent: false,
       headers: { Host: adminHost, Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json', 'Transfer-Encoding': 'chunked' } }, (res) => {
       res.resume(); res.on('end', () => resolve(res.statusCode));
     }); req.on('error', reject); const chunk = Buffer.alloc(1024 * 1024, 32);
     for (let i = 0; i < 15; i++) req.write(chunk); req.end();
   }); assert.equal(oversized, 413); assert.equal((await h.admin('GET', id)).status, 404);
-  const pending = http.request({ host: 'localhost', port: h.port, method: 'PUT', path: `/deployments/${id}`, agent: false,
+  const pending = http.request({ host: loopback, port: h.port, method: 'PUT', path: `/deployments/${id}`, agent: false,
     headers: { Host: adminHost, Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json', 'Transfer-Encoding': 'chunked' } });
   pending.on('error', () => {}); pending.write('{');
   t.after(() => pending.destroy()); await new Promise((resolve) => setTimeout(resolve, 20));
@@ -318,11 +320,11 @@ test('chunked oversized upload returns 413 and concurrent upload limit rejects w
 
 test('F11 standalone process rejects a second writer and recovers abrupt crash with persistent identity/tombstone', async (t) => {
   const h = await harness(t); await h.stop();
-  const probe = http.createServer(); await new Promise((resolve) => probe.listen(0, 'localhost', resolve)); const port = probe.address().port;
+  const probe = http.createServer(); await new Promise((resolve) => probe.listen(0, loopback, resolve)); const port = probe.address().port;
   await new Promise((resolve) => probe.close(resolve));
   const env = { ...process.env, DEMO_PUBLISHER_DATA_DIR: h.dataDir, DEMO_PUBLISHER_SECRET: secret, DEMO_PUBLISHER_ADMIN_HOST: adminHost,
     DEMO_PUBLIC_URL_TEMPLATE: h.config.publicUrlTemplate, DEMO_GATEWAY_URL: h.config.gatewayUrl, DEMO_GATEWAY_SECRET: gatewaySecret,
-    DEMO_PUBLISHER_HOST: 'localhost', DEMO_PUBLISHER_PORT: String(port) };
+    DEMO_PUBLISHER_HOST: loopback, DEMO_PUBLISHER_PORT: String(port) };
   const children = []; const launch = () => { const child = spawn(process.execPath, ['ops/demo-publisher/server.mjs'], { cwd: process.cwd(), env, stdio: ['ignore', 'pipe', 'pipe'] }); children.push(child); return child; };
   t.after(async () => { for (const child of children) if (child.exitCode === null && child.signalCode === null) { child.kill('SIGKILL'); await new Promise((resolve) => child.once('exit', resolve)); } });
   const ready = (child) => new Promise((resolve, reject) => {
@@ -351,7 +353,7 @@ test('full identity capacity has durable bounded absence settlement; in-flight P
   assert.equal((await h.admin('PUT', absent.id, absent)).status, 507); assert.equal((await h.admin('GET', absent.id)).status, 404);
   const bytes = Buffer.from(JSON.stringify(absent)); let pendingRequest;
   const inFlight = new Promise((resolve, reject) => {
-    pendingRequest = http.request({ host: 'localhost', port: h.port, method: 'PUT', path: `/deployments/${absent.id}`, agent: false,
+    pendingRequest = http.request({ host: loopback, port: h.port, method: 'PUT', path: `/deployments/${absent.id}`, agent: false,
       headers: { Host: adminHost, Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json', 'Content-Length': bytes.length } }, (res) => {
       res.resume(); res.on('end', () => resolve(res.statusCode));
     }); pendingRequest.on('error', reject); pendingRequest.write(bytes.subarray(0, 1));
@@ -404,7 +406,7 @@ test('F1 stalled readers retain eight slots through finish/close and a deadline 
   h.server.on('request', (req, res) => { if (req.headers.host === `${p.id}.demo.localhost:8090`) responses.push(res); });
   t.after(() => { for (const socket of readers) socket.destroy(); });
   const stalledRead = async () => {
-    const index = responses.length; const socket = net.createConnection({ host: 'localhost', port: h.port });
+    const index = responses.length; const socket = net.createConnection({ host: loopback, port: h.port });
     socket.on('error', () => {}); socket.pause(); readers.push(socket);
     await new Promise(resolve => socket.once('connect', resolve));
     socket.write(`GET / HTTP/1.1\r\nHost: ${p.id}.demo.localhost:8090\r\n\r\n`);
@@ -444,7 +446,7 @@ test('F1 disconnected readers cancel unfinished gateway checks before returning 
   t.after(() => { for (const socket of sockets) socket.destroy(); });
   const pendingRead = async () => {
     const count = h.calls.length; const index = responses.length;
-    const socket = net.createConnection({ host: 'localhost', port: h.port }); socket.on('error', () => {}); sockets.push(socket);
+    const socket = net.createConnection({ host: loopback, port: h.port }); socket.on('error', () => {}); sockets.push(socket);
     await new Promise(resolve => socket.once('connect', resolve));
     socket.write(`GET / HTTP/1.1\r\nHost: ${p.id}.demo.localhost:8090\r\n\r\n`);
     for (let attempt = 0; attempt < 200 && h.calls.length === count; attempt++) await new Promise(resolve => setTimeout(resolve, 5));
@@ -478,7 +480,7 @@ test('F1 disconnected readers retain admission until real slow-volume reads sett
   };
   try {
     for (let i = 0; i < 8; i++) {
-      const socket = net.createConnection({ host: 'localhost', port: h.port }); socket.on('error', () => {}); sockets.push(socket);
+      const socket = net.createConnection({ host: loopback, port: h.port }); socket.on('error', () => {}); sockets.push(socket);
       await new Promise(resolve => socket.once('connect', resolve));
       socket.write(`GET / HTTP/1.1\r\nHost: ${p.id}.demo.localhost:8090\r\n\r\n`);
       for (let attempt = 0; attempt < 200 && started === i; attempt++) await new Promise(resolve => setTimeout(resolve, 5));

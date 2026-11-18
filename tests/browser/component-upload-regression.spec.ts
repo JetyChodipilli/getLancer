@@ -15,11 +15,22 @@ async function render(page:Page,demo=false){
  await page.goto('/component-upload-fixture');await page.addScriptTag({content:result.outputFiles[0].text});
 }
 function reads(path:string){if(path==='/api/v1/me')return{id:'00000000-0000-4000-8000-000000000001',roles:['DEVELOPER']};if(path==='/api/v1/me/components')return own;return{items:[],hasMore:false};}
-async function draft(page:Page){
+async function draft(page:Page,drop=false){
  await page.getByRole('button',{name:'New component',exact:true}).click();const dialog=page.getByRole('dialog');
  await dialog.getByLabel('Component title',{exact:true}).fill('Original upload for recovery');await dialog.getByLabel('Summary',{exact:true}).fill('A complete source ZIP with original attribution.');await dialog.getByRole('button',{name:'Continue to contribution',exact:true}).click();
  await dialog.getByLabel('Your contribution & intended use',{exact:true}).fill('I implemented the original interaction and preserve MIT attribution.');await dialog.getByRole('checkbox',{name:'Upload my self-contained frontend source',exact:true}).check();
- await dialog.getByLabel('Source ZIP',{exact:true}).setInputFiles({name:'original.zip',mimeType:'application/zip',buffer:archive});await dialog.getByLabel('Synthetic preview interaction',{exact:true}).fill('Try the original synthetic interaction.');await dialog.getByRole('checkbox',{name:/I preserve/}).check();return dialog;
+ const source=dialog.getByLabel('Source ZIP',{exact:true});
+ if(drop){
+  const files=await page.evaluateHandle(bytes=>{
+   const transfer=new DataTransfer();
+   transfer.items.add(new File([new Uint8Array(bytes)],'original.zip',{type:'application/zip'}));
+   return transfer;
+  },Array.from(archive));
+  await source.dispatchEvent('drop',{dataTransfer:files});
+  await files.dispose();
+  await expect(source).toBeFocused();
+ }else await source.setInputFiles({name:'original.zip',mimeType:'application/zip',buffer:archive});
+ await dialog.getByLabel('Synthetic preview interaction',{exact:true}).fill('Try the original synthetic interaction.');await dialog.getByRole('checkbox',{name:/I preserve/}).check();return dialog;
 }
 
 test('source failure retains file and version diagnostics, then retries the saved draft without duplication',async({page})=>{
@@ -35,7 +46,7 @@ test('source failure retains file and version diagnostics, then retries the save
   }
   return route.fulfill({json:{id}});
  });
- await render(page);const dialog=await draft(page);await dialog.getByRole('button',{name:'Save component draft',exact:true}).click();
+ await render(page);const dialog=await draft(page,true);await dialog.getByRole('button',{name:'Save component draft',exact:true}).click();
  const alert=dialog.getByRole('alert');await expect(alert).toContainText('Your draft details were saved.');await expect(alert).toContainText(reference);expect((await alert.textContent())!.split(reference)).toHaveLength(2);
  await dialog.getByRole('link',{name:'version: Choose a new immutable version.',exact:true}).click();const version=dialog.getByLabel('Release version',{exact:true});await expect(version).toBeFocused();await expect(version).toHaveAttribute('aria-invalid','true');
  expect(await dialog.getByLabel('Source ZIP',{exact:true}).evaluate((input:HTMLInputElement)=>input.files?.[0]?.name)).toBe('original.zip');await version.fill('1.0.1');

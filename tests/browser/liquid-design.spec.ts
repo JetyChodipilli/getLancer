@@ -138,7 +138,7 @@ test('every sample workspace renders paper surfaces, readable records and contai
     if (preview.route === 'workspace') {
       const search = page.locator('.browse-search-submit');
       await expect(search).toBeVisible();
-      await expect(search).toHaveCSS('background-color', 'rgb(35, 55, 70)');
+      await expect(search).toHaveCSS('background-color', await tokenColor(page, '--paper-ink'));
       expect((await search.boundingBox())!.height).toBeGreaterThanOrEqual(44);
       const toolbar = (await page.locator('.browse-toolbar-sticky:visible').boundingBox())!;
       const grid = (await page.locator('[role=tabpanel][data-state=active] > .grid').boundingBox())!;
@@ -428,7 +428,7 @@ test('invalid package fields keep readable values, a visible error and their sta
   await expect(page.getByRole('button', {name: 'Copy bundled sample', exact: true})).toBeFocused();
 });
 
-test('native account input wrappers show one focus indicator beside the static project exhibit', async ({page}, info) => {
+test('native account input wrappers show one focus indicator beside the resource links', async ({page}, info) => {
   await page.goto('/login');
   await expect(page.getByText('Checking account services…', {exact: true})).toHaveCount(0);
   await settle(page);
@@ -451,11 +451,10 @@ test('native account input wrappers show one focus indicator beside the static p
   await expect(email).toHaveCSS('outline-style', 'none');
   await expect(email).toHaveCSS('border-top-width', '0px');
   await expect(email).toHaveCSS('box-shadow', 'none');
-  if (page.viewportSize()!.width > 760) {
-    await expect(page.locator('.paper-auth-exhibit')).toBeVisible();
-    await expect(page.locator('.paper-auth-exhibit')).toContainText('Illustrative project');
-    await expect(page.locator('.paper-auth-exhibit [role=img]')).toBeVisible();
-  }
+  const resources = page.getByRole('navigation', {name: 'Helpful resources'});
+  await expect(resources.getByRole('link')).toHaveCount(3);
+  await expect(resources).toBeVisible();
+  await expect(page.locator('main img:not(.icy-logo img, .icy-provider img), main iframe, main video')).toHaveCount(0);
   await fits(page);
   await evidence(page, info, 'account-login-focused');
 });

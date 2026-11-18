@@ -37,5 +37,7 @@ test('draft error links reveal the right step and focus associated invalid field
  await page.getByLabel('Component title',{exact:true}).fill('Original component');await page.getByLabel('Summary',{exact:true}).fill('A complete synthetic source summary.');await page.getByRole('button',{name:'Continue to contribution',exact:true}).click();
  await page.getByLabel('Your contribution & intended use',{exact:true}).fill('I implemented the original behavior and preserved attribution.');await page.getByRole('checkbox',{name:/I preserve/}).check();await page.getByRole('button',{name:'Save component draft',exact:true}).click();
  await page.getByRole('link',{name:'title: Use the reviewed title.',exact:true}).click();const title=page.getByLabel('Component title',{exact:true});await expect(title).toBeVisible();await expect(title).toBeFocused();await expect(title).toHaveAttribute('aria-invalid','true');await expect(title).toHaveAttribute('aria-describedby','title-error');
- await page.getByRole('link',{name:'file: Choose the reviewed ZIP.',exact:true}).click();const file=page.getByLabel('Source ZIP',{exact:true});await expect(file).toBeVisible();await expect(file).toBeFocused();await expect(file).toHaveAttribute('aria-describedby','file-error');expect(errors).toEqual([]);
+ await page.getByRole('link',{name:'file: Choose the reviewed ZIP.',exact:true}).click();const file=page.getByLabel('Source ZIP',{exact:true});await expect(file).toBeVisible();await expect(file).toBeFocused();
+ await expect(file).toHaveAttribute('aria-invalid','true');
+ await expect(file).toHaveAccessibleDescription('Choose or drop one component ZIP up to 5 MiB. Choose the reviewed ZIP.');expect(errors).toEqual([]);
 });

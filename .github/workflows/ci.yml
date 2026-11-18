@@ -195,27 +195,32 @@ jobs:
           retention-days: 7
   frontend:
     runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.2-noble@sha256:65cefd09a5e943921ecd3a6e5414c603db2eb161e9eb48f2e2ccc63486dc7dc0
+      options: --ipc=host
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: {persist-credentials: false, fetch-depth: 0}
+      - name: Trust the mounted GitHub workspace
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Verify tested checkout revision
         run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with: {node-version: '24.22.3', cache: npm}
-      - run: npm ci
-      - name: Verify runtime npm advisories and inventory
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with: {python-version: '3.12'}
+      - name: Verify Python with the isolated guest environment
         run: |
-          mkdir -p dependency-evidence
-          npm audit --omit=dev --audit-level=high --json > dependency-evidence/npm-audit.json
-          npm audit --audit-level=moderate --json > dependency-evidence/npm-full-audit.json
-          npm sbom --omit=dev --sbom-format=cyclonedx > dependency-evidence/frontend-bom.json
-          node scripts/audit-sbom.mjs dependency-evidence/frontend-bom.json dependency-evidence/frontend-osv.json
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: always()
-        with:
-          name: frontend-dependency-evidence-${{ github.sha }}
-          path: dependency-evidence
-          retention-days: 7
+          printf '%s\n' "$pythonLocation/lib" > /etc/ld.so.conf.d/actions-python.conf
+          ldconfig
+          env -i PATH=/usr/bin:/bin LANG=C.UTF-8 "$(command -v python3)" -I -c 'import json, socket'
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with: {distribution: temurin, java-version: '17'}
+      - run: npm ci
+        id: frontend_install
       - name: Lint changed source with repository rules
         run: node scripts/lint-changed.mjs
         env:
@@ -280,8 +285,18 @@ jobs:
       - name: Verify separate provider protocol and durable lifecycle regressions
         run: python3 -m unittest discover -s ops/lab-provider -p 'test_*.py'
       - run: node --experimental-strip-types --test tests/*.test.mjs
-      - name: Install browsers for responsive and cross-engine acceptance
-        run: npx playwright install --with-deps chromium firefox webkit
+      - name: Verify bundled Chromium, Firefox and WebKit
+        run: |
+          # Firefox requires the Actions container's mounted home to belong to its user.
+          chown --no-dereference "$(id -u):$(id -g)" /github/home
+          node --input-type=module <<'JS'
+          import {chromium, firefox, webkit} from 'playwright';
+          for (const engine of [chromium, firefox, webkit]) {
+            const browser = await engine.launch();
+            console.log(`${engine.name()} ${browser.version()}`);
+            await browser.close();
+          }
+          JS
       - name: Verify account boundary regressions before the full browser suites
         run: npx playwright test tests/browser/pr71-core-account-boundary.spec.ts tests/browser/private-account-boundary.spec.ts tests/browser/private-owner-handoff.spec.ts --project=desktop --workers=1 --max-failures=1 --output=test-results-account-boundary
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -341,6 +356,21 @@ jobs:
             test-results/liquid-design-*/**/*.jpg
             test-results/liquid-design-*/**/*.png
             test-results/liquid-design-*/**/error-context.md
+          retention-days: 7
+      # Collect browser evidence independently. The audit still blocks the build handoff.
+      - name: Verify runtime npm advisories and inventory
+        if: ${{ !cancelled() && steps.frontend_install.outcome == 'success' }}
+        run: |
+          mkdir -p dependency-evidence
+          npm audit --omit=dev --audit-level=high --json > dependency-evidence/npm-audit.json
+          npm audit --audit-level=moderate --json > dependency-evidence/npm-full-audit.json
+          npm sbom --omit=dev --sbom-format=cyclonedx > dependency-evidence/frontend-bom.json
+          node scripts/audit-sbom.mjs dependency-evidence/frontend-bom.json dependency-evidence/frontend-osv.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: frontend-dependency-evidence-${{ github.sha }}
+          path: dependency-evidence
           retention-days: 7
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
