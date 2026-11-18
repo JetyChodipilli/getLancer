@@ -268,14 +268,17 @@ jobs:
       - name: Verify separate provider protocol and durable lifecycle regressions
         run: python3 -m unittest discover -s ops/lab-provider -p 'test_*.py'
       - run: node --experimental-strip-types --test tests/*.test.mjs
+      - name: Install system dependencies for Playwright
+        timeout-minutes: 25
+        run: sudo -- "$(command -v node)" node_modules/@playwright/test/cli.js install-deps chromium firefox webkit
       - name: Install browsers for responsive and cross-engine acceptance
         timeout-minutes: 10
         run: |
-          if timeout --kill-after=15s 4m npx playwright install --with-deps chromium firefox webkit; then
+          if timeout --kill-after=15s 4m node node_modules/@playwright/test/cli.js install chromium firefox webkit; then
             exit 0
           fi
-          echo 'Browser installation failed or timed out. Retrying once.'
-          timeout --kill-after=15s 4m npx playwright install --with-deps chromium firefox webkit
+          echo 'Browser download failed or timed out. Retrying once.'
+          timeout --kill-after=15s 4m node node_modules/@playwright/test/cli.js install chromium firefox webkit
       - name: Verify account boundary regressions before the full browser suites
         run: npx playwright test tests/browser/pr71-core-account-boundary.spec.ts tests/browser/private-account-boundary.spec.ts tests/browser/private-owner-handoff.spec.ts --project=desktop --workers=1 --max-failures=1 --output=test-results-account-boundary
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
