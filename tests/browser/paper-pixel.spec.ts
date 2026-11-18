@@ -24,6 +24,16 @@ async function accountServices(page: Page, google = false, github = false) {
   await page.route('**/api/v1/auth/providers', route => route.fulfill({json: {google, github}}));
 }
 
+async function allowRoutePrefetch(page: Page) {
+  // Give viewport observers and idle prefetch time to run without waiting for
+  // unrelated browser or application requests to reach page-wide network idle.
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+    await new Promise<void>(resolve => setTimeout(resolve, 650));
+  });
+}
+
 test('@cross-browser public exhibition exposes real projects and all four discovery paths', async ({page}, info) => {
   await page.goto('/');
   await expect(page.getByRole('heading', {level: 1, name: 'Find software worth trying.'})).toBeVisible();
@@ -68,8 +78,8 @@ test('@cross-browser discovery waits for navigation intent before requesting ano
   });
   await page.goto('/');
   await expect(page.getByRole('heading', {level: 1, name: 'Find software worth trying.'})).toBeVisible();
-  // A quiet network window lets viewport/idle prefetch work run if it is enabled.
-  await page.waitForLoadState('networkidle');
+  await expect(page.locator('.scroll-discovery')).toBeAttached();
+  await allowRoutePrefetch(page);
   expect(routeRequests, 'Discovery must not start speculative route requests before a navigation choice').toEqual([]);
   await page.evaluate(() => {
     (window as Window & {paperNavigationProbe?: string}).paperNavigationProbe = 'retained-document';
@@ -82,13 +92,13 @@ test('@cross-browser discovery waits for navigation intent before requesting ano
   expect(await page.evaluate(() => (window as Window & {paperNavigationProbe?: string}).paperNavigationProbe))
     .toBe('retained-document');
   await fits(page);
-  await page.waitForLoadState('networkidle');
+  await allowRoutePrefetch(page);
   expect([...new Set(routeRequests)]).toEqual(['/components']);
   for (const route of ['/college-projects', '/labs', '/report']) {
     routeRequests.length = 0;
     await page.goto(route);
     await expect(page.locator('main h1')).toBeVisible();
-    await page.waitForLoadState('networkidle');
+    await allowRoutePrefetch(page);
     expect(routeRequests, route + ' must wait for a navigation choice').toEqual([]);
     await fits(page);
   }
