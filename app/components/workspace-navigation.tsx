@@ -100,7 +100,9 @@ export default function WorkspaceNavigation({path, preview, operator}: {path: st
   }
 
   function hover(event: PointerEvent<HTMLButtonElement>, id: Area) {
-    if (event.pointerType !== 'mouse' || !matchMedia('(hover:hover) and (pointer:fine)').matches || open?.via === 'button' || open?.id === id) return;
+    // Use the pointer that entered the button. The primary input may be touch
+    // even when a mouse is attached, and headless engines can report no hover.
+    if (event.pointerType !== 'mouse' || open?.via === 'button' || open?.id === id) return;
     clearTimeout(timer.current);
     const button = event.currentTarget;
     timer.current = setTimeout(() => {
