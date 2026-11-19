@@ -15,6 +15,27 @@ async function partState(icon:Locator){
   const style=(node as SVGElement).style;return JSON.stringify([style.transform,style.opacity,node.getAttribute('stroke-dasharray'),node.getAttribute('stroke-dashoffset')]);
  }));
 }
+async function expectPartMotion(icon:Locator,act:()=>Promise<unknown>){
+ // Observe in the page before input. A short animation can finish before the
+ // test process gets its first post-input sample, especially on busy runners.
+ const state=await icon.evaluateHandle(node=>{
+  const value=()=>JSON.stringify([...node.querySelectorAll<SVGElement>('[data-animated-part]')].map(part=>[
+   part.style.transform,part.style.opacity,part.getAttribute('stroke-dasharray'),part.getAttribute('stroke-dashoffset'),
+  ]));
+  const before=value();
+  let moved=false;
+  const observer=new MutationObserver(()=>{moved ||= value()!==before});
+  observer.observe(node,{subtree:true,attributes:true,attributeFilter:['style','stroke-dasharray','stroke-dashoffset']});
+  return {moved:()=>moved,disconnect:()=>observer.disconnect()};
+ });
+ try{
+  await act();
+  await expect.poll(()=>state.evaluate(status=>status.moved())).toBe(true);
+ }finally{
+  await state.evaluate(status=>status.disconnect());
+  await state.dispose();
+ }
+}
 async function afterPreferenceFrame(icon:Locator){
  // Capture inside the second frame, before another host round trip can mask work.
  return icon.evaluate(node=>new Promise<string[]>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>{
@@ -80,8 +101,9 @@ test('@cross-browser workspace navigation shares icon feedback and respects redu
  const personal=navigation.getByRole('link',{name:'Personal workspace',exact:true}),components=navigation.getByRole('link',{name:'Components & slots',exact:true});
  const icon=components.locator(':scope > svg').first(),label=components.locator('span');
  const before=await label.boundingBox(),normal=await partState(icon);expect(before).not.toBeNull();expect(normal.length).toBeGreaterThan(0);
- await personal.focus();await page.keyboard.press('Tab');await expect(components).toBeFocused();
- await expect(icon).toHaveAttribute('aria-hidden','true');await expect.poll(()=>partState(icon)).not.toEqual(normal);await expect(icon).toHaveCSS('transform','none');
+ await personal.focus();
+ await expectPartMotion(icon,()=>page.keyboard.press('Tab'));await expect(components).toBeFocused();
+ await expect(icon).toHaveAttribute('aria-hidden','true');await expect(icon).toHaveCSS('transform','none');
  expect(await label.boundingBox()).toEqual(before);
  await page.emulateMedia({reducedMotion:'reduce'});await partsAreStatic(icon);expect(await afterPreferenceFrame(icon)).toEqual(normal);
  await components.hover();await partsAreStatic(icon);
@@ -95,31 +117,31 @@ test('@cross-browser navigation icons respond to focus, hover and press without 
  const icon=components.locator('.paper-nav-icon'),label=components.locator('span'),homeIcon=home.locator('.paper-nav-icon');
  const normal=await partState(icon),homeNormal=await partState(homeIcon);expect(normal.length).toBeGreaterThan(0);
  const before=await label.boundingBox();expect(before).not.toBeNull();
- await home.focus();await expect.poll(()=>partState(homeIcon)).not.toEqual(homeNormal);
+ await expectPartMotion(homeIcon,()=>home.focus());
  // Live reduction must reset drawing/opacity too, before the finite animation ends.
  await page.emulateMedia({reducedMotion:'reduce'});expect(await afterPreferenceFrame(homeIcon)).toEqual(homeNormal);await partsAreStatic(homeIcon);
  await page.emulateMedia({reducedMotion:'no-preference'});
- await page.keyboard.press('Tab');await expect(components).toBeFocused();
- await expect.poll(()=>partState(icon)).not.toEqual(normal);await expect(icon).toHaveCSS('transform','none');
+ await expectPartMotion(icon,()=>page.keyboard.press('Tab'));await expect(components).toBeFocused();
+ await expect(icon).toHaveCSS('transform','none');
  expect(await label.boundingBox()).toEqual(before);
  expect(await components.evaluate(node=>parseFloat(getComputedStyle(node).outlineWidth))).toBeGreaterThanOrEqual(2);
  await expect.poll(()=>partState(icon)).toEqual(normal); // Holding focus does not loop.
  if(await page.evaluate(()=>matchMedia('(hover:hover) and (pointer:fine)').matches)){
-  await trigger.focus();await components.hover();
-  await expect.poll(()=>partState(icon)).not.toEqual(normal);await expect.poll(()=>partState(icon)).toEqual(normal);
+  await trigger.focus();await expectPartMotion(icon,()=>components.hover());
+  await expect.poll(()=>partState(icon)).toEqual(normal);
   expect(await label.boundingBox()).toEqual(before);
  }
  const learning=nav.getByRole('link',{name:'Learning',exact:true}),flask=learning.locator('.paper-nav-icon'),flaskNormal=await partState(flask);
- await components.focus();await page.keyboard.press('Tab');await page.keyboard.press('Tab');await expect(learning).toBeFocused();
- await expect.poll(()=>partState(flask)).not.toEqual(flaskNormal);await expect(flask).toHaveCSS('transform','none');await expect.poll(()=>partState(flask)).toEqual(flaskNormal);
+ await components.focus();await page.keyboard.press('Tab');
+ await expectPartMotion(flask,()=>page.keyboard.press('Tab'));await expect(learning).toBeFocused();
+ await expect(flask).toHaveCSS('transform','none');await expect.poll(()=>partState(flask)).toEqual(flaskNormal);
  // Press the native button directly, without dragging a navigable anchor.
- const menuNormal=await partState(menuIcon(page));
  if(await page.evaluate(()=>navigator.maxTouchPoints>0)){
-  await trigger.tap();await expect.poll(()=>partState(menuIcon(page))).not.toEqual(menuNormal);
+  await expectPartMotion(menuIcon(page),()=>trigger.tap());
  }else{
   const menuBox=await trigger.boundingBox();expect(menuBox).not.toBeNull();
-  await page.mouse.move(menuBox!.x+menuBox!.width/2,menuBox!.y+menuBox!.height/2);await page.mouse.down();
-  await expect.poll(()=>partState(menuIcon(page))).not.toEqual(menuNormal);await page.mouse.up();
+  await page.mouse.move(menuBox!.x+menuBox!.width/2,menuBox!.y+menuBox!.height/2);
+  await expectPartMotion(menuIcon(page),()=>page.mouse.down());await page.mouse.up();
  }
  await expect(menuIcon(page)).toHaveCSS('transform','none');await expect(page.getByRole('menu')).toBeVisible();
  await page.keyboard.press('Escape');await expect(trigger).toBeFocused();await fits(page);
