@@ -97,8 +97,9 @@ test('account controls stay readable across short laptops and narrow phones',asy
   for(const route of ['/login','/signup']){
    await page.goto(route);await expect(page.locator('.auth-connection')).toContainText('Sign-in is unavailable');await fits(page);
    const logo=page.locator('.icy-logo').getByRole('img',{name:'getLancer',exact:true});await expect(logo).toBeVisible();
-   await expect(logo).toHaveAttribute('src','/auth/airglass-wordmark.png');
-   await expect.poll(()=>logo.evaluate((node:HTMLImageElement)=>node.naturalWidth)).toBeGreaterThan(0);
+   const lockup=logo.locator('img');
+   await expect(lockup).toHaveAttribute('src','/brand/orbit/getlancer-logo-on-dark.svg');
+   await expect.poll(()=>lockup.evaluate((node:HTMLImageElement)=>node.naturalWidth)).toBeGreaterThan(0);
    const controls=await page.locator('.icy-input input').evaluateAll(nodes=>nodes.map(node=>({font:parseFloat(getComputedStyle(node).fontSize),height:Math.round(node.getBoundingClientRect().height)})));
    for(const control of controls){expect(control.font).toBeGreaterThanOrEqual(16);expect(control.height).toBeGreaterThanOrEqual(44);}
    const panel=page.locator('.icy-form-content');

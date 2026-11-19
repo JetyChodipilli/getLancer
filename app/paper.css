@@ -170,7 +170,7 @@ body .skeleton-media,body .skeleton-line{background:#e2eaf0;border-radius:var(--
 @media(max-width:380px){body .site-header .topbar{padding-inline:16px}body .site-header .account .button{padding:10px 12px;font-size:13px}body .spectral-wordmark{font-size:20px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}body *,body *:before,body *:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
-.paper-wordmark svg{display:block;width:100%;height:auto}
+@media(forced-colors:active){body :is(.spectral-brand,.paper-footer) .paper-wordmark{background:#fff;forced-color-adjust:none}}
 body .site-header .paper-more-nav .nav-menu{display:block}
 body .site-header .paper-more-nav .nav-menu .iconbutton{display:flex}
 body .paper-footer .spectral-wordmark{color:var(--paper-ink)}

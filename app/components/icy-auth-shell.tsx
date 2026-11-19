@@ -3,6 +3,7 @@ import {useEffect,useRef} from 'react';
 import {usePathname} from 'next/navigation';
 import Link from 'next/link';
 import {ArrowUpRight} from 'lucide-react';
+import Brand from './brand';
 
 export default function IcyAuthShell({children}:{children:React.ReactNode}){
  const root=useRef<HTMLElement>(null),path=usePathname(),previousPath=useRef(path);
@@ -13,7 +14,7 @@ export default function IcyAuthShell({children}:{children:React.ReactNode}){
  return <main id="main" ref={root} className="icy-auth paper-auth">
   <div className="icy-shell">
    <aside className="icy-story" aria-labelledby="auth-story-title">
-    <Link prefetch={false} href="/" className="icy-logo" aria-label="getLancer home"><img src="/auth/airglass-wordmark.png" alt="getLancer" width={190} height={43}/></Link>
+    <Link prefetch={false} href="/" className="icy-logo" aria-label="getLancer home"><Brand onDark/></Link>
     <div className="icy-story-copy"><h2 id="auth-story-title">Find your next idea.</h2><p>A workspace for the projects you save, share, and build.</p></div>
    </aside>
    {children}
