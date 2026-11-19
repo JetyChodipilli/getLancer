@@ -95,9 +95,10 @@ test('@cross-browser navigation symbols keep labels, destinations and narrow men
 test('@cross-browser workspace navigation shares icon feedback and respects reduced motion',async({page})=>{
  await page.emulateMedia({reducedMotion:'no-preference'});await page.goto('/preview/workspace');await page.evaluate(()=>document.fonts.ready);await expect(page.locator('main h1')).toBeVisible();
  await menuButton(page).click();await expect(page.getByRole('menu')).toBeVisible();await page.keyboard.press('Escape');
- const summary=page.locator('.studio-tool-menu summary');
- await summary.focus();await summary.press('Enter');
- const navigation=page.locator('.paper-studio nav[aria-label="Workspace areas"]:visible');
+ const work=page.getByRole('navigation',{name:'Workspace navigation'}).getByRole('button',{name:'Work',exact:true});
+ await work.focus();await work.press('Enter');
+ const navigation=page.getByRole('region',{name:'Work tools'});
+ await navigation.evaluate(async node=>{await Promise.all(node.getAnimations().map(animation=>animation.finished));});
  const personal=navigation.getByRole('link',{name:'Personal workspace',exact:true}),components=navigation.getByRole('link',{name:'Components & slots',exact:true});
  const icon=components.locator(':scope > svg').first(),label=components.locator('span');
  const before=await label.boundingBox(),normal=await partState(icon);expect(before).not.toBeNull();expect(normal.length).toBeGreaterThan(0);

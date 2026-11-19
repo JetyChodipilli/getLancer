@@ -4,17 +4,8 @@ import Link from 'next/link';
 import {ArrowUpRight, Search} from 'lucide-react';
 import {useEffect, useState} from 'react';
 import {api} from '@/lib/api';
+import {clientTools, trustTools} from '@/lib/workspace-tools';
 import {WorkspaceFrame} from './workspace-frame';
-
-const clientTools=[
-  {group:'Hire', tools:[{route:'business', name:'Business hiring', description:'Create project requests and review builder proposals.'}]},
-  {group:'Deliver', tools:[{route:'delivery', name:'Delivery & payments', description:'Track milestones, approvals, and payments.'}]},
-  {group:'Buy', tools:[{route:'templates', name:'Templates & purchases', description:'Find reusable source and review past purchases.'}]},
-  {group:'Support', tools:[{route:'maintenance', name:'Maintenance & support', description:'Manage ongoing support and maintenance requests.'}]},
-];
-const reliability={route:'trust', name:'Trust & reliability', description:'Manage availability, delivery evidence, and reliability.'};
-const release={route:'operations', name:'Operations & release readiness', description:'Review operational evidence and release requirements.'};
-const labs={route:'labs', name:'Lab operations', description:'Review the state of lab programs and environments.'};
 
 export default function WorkspaceDirectory({area,preview=false}:{area:'clients'|'trust';preview?:boolean}) {
   const [query,setQuery]=useState('');
@@ -30,10 +21,7 @@ export default function WorkspaceDirectory({area,preview=false}:{area:'clients'|
 
   const isClients=area==='clients';
   const root=preview?'/preview':'/workspace';
-  const groups=isClients?clientTools:[
-    {group:'Trust',tools:[reliability]},
-    {group:'Operations',tools:[...(preview||operator?[release]:[]),...(!preview?[labs]:[])]},
-  ];
+  const groups=isClients?clientTools:trustTools(preview,operator);
   const term=query.trim().toLowerCase();
   const visible=groups.map(({group,tools})=>({
     group, tools:tools.filter(tool=>[group,tool.name,tool.description].some(value=>value.toLowerCase().includes(term))),
@@ -42,7 +30,7 @@ export default function WorkspaceDirectory({area,preview=false}:{area:'clients'|
   const title=isClients?'Clients':'Trust';
   return <WorkspaceFrame section={isClients?'clients':'trust-directory'} title={title}
     description={isClients?'Manage hiring, delivery, purchases, and support.':'Manage reliability and find operational tools.'}
-    preview={preview} operator={!isClients && operator}>
+    preview={preview}>
     <label className="studio-directory-search">
       <Search size={18} aria-hidden="true"/>
       <span className="sr-only">Find a tool in {title}</span>

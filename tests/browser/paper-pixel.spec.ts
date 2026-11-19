@@ -233,14 +233,31 @@ test('@cross-browser scrolling docks the search without losing the query or navi
   await fits(page);
 });
 
-test('@cross-browser workspace areas keep tool directories compact and team work reachable', async ({page}) => {
+test('@cross-browser workspace dropdowns keep grouped tools and team work reachable', async ({page, hasTouch}) => {
   await page.goto('/preview/workspace');
+  const appMenu = page.getByRole('button', {name: 'Open navigation menu', exact: true});
+  await appMenu.click();
+  await expect(page.getByRole('menu')).toBeVisible();
+  await page.keyboard.press('Escape');
   const areas = page.getByRole('navigation', {name: 'Workspace navigation', exact: true});
-  await expect(areas.getByRole('link')).toHaveText(['Work', 'Clients', 'Trust', 'Teams']);
-  await expect(areas.getByRole('link', {name: 'Work'})).toHaveAttribute('aria-current', 'page');
-  await areas.getByRole('link', {name: 'Clients'}).click();
+  await expect(areas.getByRole('button')).toHaveText(['Work', 'Clients', 'Trust', 'Teams']);
+  await expect(areas.getByRole('button', {name: 'Work'})).toHaveAttribute('aria-current', 'page');
+  const clients = areas.getByRole('button', {name: 'Clients', exact: true});
+  if (hasTouch) await clients.tap();
+  else await clients.hover();
+  const clientPanel = areas.getByRole('region', {name: 'Clients tools'});
+  await expect(clientPanel.getByRole('heading', {level: 3})).toHaveText(['Hire', 'Deliver', 'Buy', 'Support']);
+  await clientPanel.getByRole('link', {name: 'Business hiring'}).hover();
+  await expect(clientPanel).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(clientPanel).toBeHidden();
+  await expect(clients).toBeFocused();
+  await clients.press('ArrowDown');
+  const clientOverview = clientPanel.getByRole('link', {name: 'Clients overview'});
+  await expect(clientOverview).toBeFocused();
+  await clientOverview.press('Enter');
   await expect(page.getByRole('heading', {name: 'Clients', exact: true})).toBeVisible();
-  await expect(areas.getByRole('link', {name: 'Clients'})).toHaveAttribute('aria-current', 'page');
+  await expect(clients).toHaveAttribute('aria-current', 'page');
   const directory = page.locator('.studio-directory');
   await expect(directory.getByRole('heading')).toHaveText(['Hire', 'Deliver', 'Buy', 'Support']);
   await expect(directory.getByRole('link')).toHaveCount(4);
@@ -252,10 +269,22 @@ test('@cross-browser workspace areas keep tool directories compact and team work
   await expect(page.getByRole('status')).toHaveText('No matching tools.');
   await fits(page);
 
-  await areas.getByRole('link', {name: 'Trust'}).click();
+  await page.getByRole('button', {name: 'Find a tool', exact: true}).click();
+  const allTools = page.getByRole('searchbox', {name: 'Search workspace tools'});
+  await expect(allTools).toBeFocused();
+  await allTools.fill('payments');
+  await expect(page.getByRole('region', {name:'Find a workspace tool'}).getByRole('link')).toHaveText('Delivery & payments');
+  await page.keyboard.press('Escape');
+  await areas.getByRole('button', {name: 'Trust'}).click();
+  await areas.getByRole('link', {name: 'Trust overview'}).click();
   await expect(directory.getByRole('link', {name: /Trust & reliability/})).toHaveAttribute('href', '/preview/trust');
   await expect(directory.getByRole('link', {name: /Operations & release readiness/})).toHaveAttribute('href', '/preview/operations');
-  await areas.getByRole('link', {name: 'Teams'}).click();
+  const teams = areas.getByRole('button', {name: 'Teams', exact: true});
+  await teams.click();
+  await areas.getByRole('link', {name: 'Client leads', exact:true}).click();
+  await expect(page.getByRole('heading', {name: 'Shared client leads'})).toBeVisible();
+  await teams.click();
+  await areas.getByRole('link', {name: 'Teams overview'}).click();
   await expect(page.getByRole('heading', {name: 'Northstar Studio', exact: true})).toBeVisible();
   const opportunities = page.getByRole('region', {name: 'Team opportunities'});
   await expect(opportunities.getByRole('button', {name: /Frontend builder.*Open role/})).toBeVisible();
