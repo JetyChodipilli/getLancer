@@ -175,6 +175,8 @@ body .studio-shell.paper-studio .studio-directory-search input[type=search] {
 .paper-studio .team-attention { margin: 0 0 24px; }
 .paper-studio .team-attention h2 { margin: 0 0 10px; font-size: 1.125rem; }
 .paper-studio .team-attention button { border: 0; background: transparent; font: inherit; cursor: pointer; }
+body .studio-shell.paper-studio .team-overview .studio-metric[data-slot=card] { padding: 12px 16px; }
+body .studio-shell.paper-studio .team-overview .studio-metric strong { margin-top: 4px; font-size: 24px; line-height: 1.25; }
 @media (max-width: 480px) {
   .paper-studio .studio-directory section { grid-template-columns: 65px minmax(0, 1fr); }
   .paper-studio .studio-directory a > span { display: grid; }
@@ -381,6 +383,9 @@ body .studio-shell.paper-studio .college-context-editing{grid-template-columns:m
   body .studio-shell.paper-studio :is(.overview-card, .studio-metric[data-slot=card]) { border-right: 0; border-top: 1px solid var(--studio-line); }
   body .studio-shell.paper-studio :is(.overview-card, .studio-metric[data-slot=card]):first-child { border-top: 0; }
   body .studio-shell.paper-studio .overview-card strong { margin-top: 8px; }
+  body .studio-shell.paper-studio .team-overview .studio-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  body .studio-shell.paper-studio .team-overview .studio-metric:nth-child(2) { border-top: 0; }
+  body .studio-shell.paper-studio .team-overview .studio-metric:nth-child(odd) { border-right: 1px solid var(--studio-line); }
 }
 @media (prefers-reduced-motion: reduce) {
   .paper-studio *, .paper-studio *::before, .paper-studio *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }

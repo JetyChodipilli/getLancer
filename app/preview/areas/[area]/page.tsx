@@ -6,5 +6,5 @@ export default async function PreviewWorkspaceAreaPage({params}:{params:Promise<
   const {area}=await params;
   if(area!=='clients'&&area!=='trust')notFound();
   if(await backendOrigin())redirect('/workspace/areas/'+area);
-  return <WorkspaceDirectory area={area} preview/>;
+  return <WorkspaceDirectory key={area} area={area} preview/>;
 }

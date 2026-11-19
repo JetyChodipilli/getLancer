@@ -22,7 +22,7 @@ export default function WorkspaceDirectory({area,preview=false}:{area:'clients'|
   useEffect(()=>{
     if(area!=='trust'||preview)return;
     const controller=new AbortController();
-    void api<{roles?:string[]}>('/me',{signal:controller.signal}).then(user=>{
+    void api('/me',{signal:controller.signal}).then((user:{roles?:string[]})=>{
       if(!controller.signal.aborted)setOperator(!!user.roles?.includes('ADMIN'));
     }).catch(()=>{if(!controller.signal.aborted)setOperator(false)});
     return()=>controller.abort();
@@ -52,7 +52,7 @@ export default function WorkspaceDirectory({area,preview=false}:{area:'clients'|
     <div className="studio-directory">{visible.map(({group,tools})=><section key={group}>
       <h2>{group}</h2>
       <ul>{tools.map(({route,name,description})=><li key={route}>
-        <Link prefetch={false} href={root+'/'+route}>
+        <Link prefetch={false} tabIndex={0} href={root+'/'+route}>
           <span><strong>{name}</strong><small>{description}</small></span>
           <ArrowUpRight size={16} aria-hidden="true"/>
         </Link>

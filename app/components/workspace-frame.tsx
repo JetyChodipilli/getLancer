@@ -40,21 +40,22 @@ export function WorkspaceFrame({ children, title, description, section, preview 
     {key:'teams', title:'Teams', href:root+'/teams'},
   ];
   const current = links.find(link => link.section === section)?.title ?? (section==='clients'?'Clients':'Trust');
-  const areaLinks = links.map(({ section: key, title: label, href, Icon }) => {const animated=animatedAreas[key as Section];return <Link prefetch={false} key={key} href={href} aria-current={section === key ? 'page' : undefined}>{animated?<NavIcon name={animated}/>:<Icon size={18} aria-hidden="true" />}<span>{label}</span></Link>;});
+  // Keep links in the keyboard sequence on WebKit when its default skips anchors.
+  const areaLinks = links.map(({ section: key, title: label, href, Icon }) => {const animated=animatedAreas[key as Section];return <Link prefetch={false} tabIndex={0} key={key} href={href} aria-current={section === key ? 'page' : undefined}>{animated?<NavIcon name={animated}/>:<Icon size={18} aria-hidden="true" />}<span>{label}</span></Link>;});
   return <main id="main" className={cn('studio-shell paper-studio', className)} data-workspace={section}>
     <div className="studio-navigation">
-      <nav className="studio-area-tabs" aria-label="Workspace navigation">{areaTabs.map(({key,title,href})=><Link key={key} prefetch={false} href={href} aria-current={area===key?(areaLanding?'page':'location'):undefined}>{title}</Link>)}</nav>
+      <nav className="studio-area-tabs" aria-label="Workspace navigation">{areaTabs.map(({key,title,href})=><Link key={key} prefetch={false} tabIndex={0} href={href} aria-current={area===key?(areaLanding?'page':'location'):undefined}>{title}</Link>)}</nav>
       <details className="studio-tool-menu">
         <summary>All tools <ChevronDown size={16} aria-hidden="true" /></summary>
         <div className="studio-tool-panel">
           <nav aria-label="Workspace areas">{areaLinks}</nav>
           <nav aria-label="Discover">
-            <Link prefetch={false} href="/">Explore projects <ArrowUpRight size={14} aria-hidden="true" /></Link>
-            <Link prefetch={false} href="/templates">Explore templates <ArrowUpRight size={14} aria-hidden="true" /></Link>
-            <Link prefetch={false} href="/labs/iot">IoT simulation <ArrowUpRight size={14} aria-hidden="true" /></Link>
-            <Link prefetch={false} href="/components/frameworks">Framework previews <ArrowUpRight size={14} aria-hidden="true" /></Link>
-            <Link prefetch={false} href="/teams">Find a team <ArrowUpRight size={14} aria-hidden="true" /></Link>
-            <Link prefetch={false} href="/how-it-works">How getLancer works <ArrowUpRight size={14} aria-hidden="true" /></Link>
+            <Link prefetch={false} tabIndex={0} href="/">Explore projects <ArrowUpRight size={14} aria-hidden="true" /></Link>
+            <Link prefetch={false} tabIndex={0} href="/templates">Explore templates <ArrowUpRight size={14} aria-hidden="true" /></Link>
+            <Link prefetch={false} tabIndex={0} href="/labs/iot">IoT simulation <ArrowUpRight size={14} aria-hidden="true" /></Link>
+            <Link prefetch={false} tabIndex={0} href="/components/frameworks">Framework previews <ArrowUpRight size={14} aria-hidden="true" /></Link>
+            <Link prefetch={false} tabIndex={0} href="/teams">Find a team <ArrowUpRight size={14} aria-hidden="true" /></Link>
+            <Link prefetch={false} tabIndex={0} href="/how-it-works">How getLancer works <ArrowUpRight size={14} aria-hidden="true" /></Link>
           </nav>
         </div>
       </details>
@@ -70,6 +71,6 @@ export function PreviewControls({ title, children, note }: { title: string; chil
   return <details className="studio-preview"><summary><span className="studio-preview-label"><FlaskConical size={16} aria-hidden="true" /><strong>{title}</strong><span>Sample data only</span></span><span className="studio-preview-toggle">Preview controls <ChevronDown size={15} aria-hidden="true" /></span></summary><div className="studio-preview-content"><p>{note || 'Changes stay in this preview. No live accounts or external services are changed.'}</p><div className="studio-preview-actions">{children}</div></div></details>;
 }
 
-export function WorkspaceMetrics({ items }: { items: { label: string; value: ReactNode; detail: string; Icon: LucideIcon }[] }) {
-  return <div className="studio-metrics" role="group" aria-label="Workspace metrics">{items.map(({ label, value, detail }) => <Card className="studio-metric" key={label}><CardHeader><span>{label}</span></CardHeader><CardContent><strong>{value}</strong><p>{detail}</p></CardContent></Card>)}</div>;
+export function WorkspaceMetrics({ items }: { items: { label: string; value: ReactNode; detail?: string; Icon: LucideIcon }[] }) {
+  return <div className="studio-metrics" role="group" aria-label="Workspace metrics">{items.map(({ label, value, detail }) => <Card className="studio-metric" key={label}><CardHeader><span>{label}</span></CardHeader><CardContent><strong>{value}</strong>{detail&&<p>{detail}</p>}</CardContent></Card>)}</div>;
 }
