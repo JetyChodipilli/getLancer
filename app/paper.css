@@ -3,12 +3,13 @@
 /* Joinery licensed subsets of IBM Plex; modified names honor its reserved name. */
 @font-face{font-family:'getLancer Sans';src:url('/fonts/ibm-plex-sans-latin.woff2') format('woff2');font-style:normal;font-weight:100 700;font-display:swap}
 @font-face{font-family:'getLancer Serif';src:url('/fonts/ibm-plex-serif-latin-400.woff2') format('woff2');font-style:normal;font-weight:400;font-display:swap}
+@font-face{font-family:Geist;src:url('/fonts/geist-latin.woff2') format('woff2');font-style:normal;font-weight:100 900;font-display:swap}
 :root{
- --paper-canvas:#f0f6f6;--paper-surface:#fff;--paper-soft:#e1eeed;--paper-ink:#142b31;--paper-muted:#425d61;--paper-line:#cbdcdb;--paper-border:var(--paper-line);--paper-control-border:#6d8589;
- --paper-action:#005967;--paper-action-hover:#004653;--paper-feature-field:#cde9e5;
- --paper-dark:#142b31;--paper-dark-surface:#25434a;--paper-on-dark:#f4fbfa;--paper-dark-muted:#c1d7d7;--paper-dark-line:#658387;--paper-focus:#006675;--paper-focus-on-dark:#abebe0;--control-focus:var(--paper-focus);
+ --paper-canvas:#f3f5ff;--paper-surface:#fff;--paper-soft:#e7ebf9;--paper-ink:#17213d;--paper-muted:#464f6d;--paper-line:#d1d8eb;--paper-border:var(--paper-line);--paper-control-border:#737f9d;
+ --paper-action:#263ca3;--paper-action-hover:#1d2d83;--paper-action-light:#435cde;
+ --paper-dark:#17213d;--paper-dark-surface:#2d395b;--paper-on-dark:#f7f8ff;--paper-dark-muted:#c9d1e8;--paper-dark-line:#667597;--paper-focus:#354bc7;--paper-focus-on-dark:#c8d4ff;--control-focus:var(--paper-focus);
  --paper-focus-inverse:var(--paper-focus-on-dark);
- --paper-success:#166b45;--paper-danger:#a52b34;--paper-warning:#805710;--paper-serif:'getLancer Serif',Georgia,'Times New Roman',serif;--paper-font:'getLancer Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+ --paper-success:#166b45;--paper-danger:#a52b34;--paper-warning:#805710;--paper-serif:'getLancer Serif',Georgia,'Times New Roman',serif;--paper-font:Geist,system-ui,-apple-system,'Segoe UI',sans-serif;
  --paper-radius-surface:10px;--paper-radius-control:6px;--paper-radius-preview:8px;--paper-motion-fast:160ms;--paper-motion-standard:220ms;--paper-motion-enter:440ms;--app-motion-ease:cubic-bezier(.22,1,.36,1);
  --paper-inverse:var(--paper-dark);--paper-inverse-ink:var(--paper-on-dark);--paper-inverse-muted:var(--paper-dark-muted);--background:var(--paper-canvas);--foreground:var(--paper-ink);--card:var(--paper-surface);--card-foreground:var(--paper-ink);--popover:var(--paper-surface);--popover-foreground:var(--paper-ink);--primary:var(--paper-ink);--primary-foreground:#fff;
  --secondary:var(--paper-soft);--secondary-foreground:var(--paper-ink);--muted:var(--paper-soft);--muted-foreground:var(--paper-muted);--accent:#e8eff4;--accent-foreground:var(--paper-ink);--destructive:var(--paper-danger);--border:var(--paper-line);--input:var(--paper-control-border);--ring:var(--paper-focus);--radius:.5rem;

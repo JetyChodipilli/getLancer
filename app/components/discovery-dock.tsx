@@ -1,16 +1,14 @@
 'use client';
 import { useEffect, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, SlidersHorizontal, X } from 'lucide-react';
+import { ArrowUp, Search, SlidersHorizontal, X } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Picker } from './ui';
-import {useTaxonomy} from '@/lib/use-taxonomy';
 import type { Filters } from '@/lib/discovery';
 
-type Props={anchor:RefObject<HTMLFormElement|null>;q:string;setQ:(q:string)=>void;filters:Filters;pending:boolean;update:(change:Partial<Filters>)=>void;reset:()=>void};
-export default function DiscoveryDock({anchor,q,setQ,filters,pending,update,reset}:Props) {
- const {categories,technologies}=useTaxonomy();
+type Props={anchor:RefObject<HTMLFormElement|null>;q:string;setQ:(q:string)=>void;filters:Filters;pending:boolean;update:(change:Partial<Filters>)=>void;reset:()=>void;categories:string[];technologies:string[]};
+export default function DiscoveryDock({anchor,q,setQ,filters,pending,update,reset,categories,technologies}:Props) {
  const [target,setTarget]=useState<HTMLElement|null>(null);
  const [passed,setPassed]=useState(false);
  const [focused,setFocused]=useState(false);
@@ -20,28 +18,22 @@ export default function DiscoveryDock({anchor,q,setQ,filters,pending,update,rese
   const search=anchor.current;
   const nav=document.querySelector('.site-header .topbar');
   if(!search||!nav)return()=>cancelAnimationFrame(lookupFrame);
-  let observer:IntersectionObserver|undefined;
   let frame=0;
-  const measure=()=>{frame=0;setPassed(search!.getBoundingClientRect().bottom<=nav!.getBoundingClientRect().height+8)};
+  const measure=()=>{frame=0;setPassed(search.getBoundingClientRect().bottom<=nav.getBoundingClientRect().bottom+8)};
   const scroll=()=>{if(!frame)frame=requestAnimationFrame(measure)};
-  function watch(){
-   const height=nav!.getBoundingClientRect().height;
-   observer?.disconnect();
-   setPassed(search!.getBoundingClientRect().bottom<=height+8);
-   observer=new IntersectionObserver(([entry])=>setPassed(entry.boundingClientRect.bottom<=height+8),{rootMargin:`-${height+8}px 0px 0px 0px`,threshold:0});
-   observer.observe(search!);
-  }
-  const resize=new ResizeObserver(watch);resize.observe(nav);watch();
-  // A long mobile hero can jump from below to above the viewport without an
-  // intersection change. Measure on scroll as well so the dock still appears.
+  const resize=new ResizeObserver(scroll);resize.observe(nav);resize.observe(search);scroll();
   window.addEventListener('scroll',scroll,{passive:true});
-  return()=>{resize.disconnect();observer?.disconnect();cancelAnimationFrame(frame);cancelAnimationFrame(lookupFrame);window.removeEventListener('scroll',scroll)};
+  return()=>{resize.disconnect();cancelAnimationFrame(frame);cancelAnimationFrame(lookupFrame);window.removeEventListener('scroll',scroll)};
  },[anchor]);
  const count=[filters.category,filters.technology,filters.projectType,filters.availability,filters.liveDemo].filter(Boolean).length;
  const visible=passed||focused||open;
+ function backToTop(){
+  anchor.current?.querySelector('input')?.focus({preventScroll:true});
+  window.scrollTo({top:0,behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+ }
  useEffect(()=>{const slot=document.getElementById('discovery-nav-slot');if(slot){slot.dataset.visible=String(visible);return()=>{delete slot.dataset.visible}}},[target,visible]);
  if(!target)return null;
- return createPortal(<div className="scroll-discovery" data-visible={visible} inert={!visible} aria-hidden={!visible} onFocusCapture={()=>setFocused(true)} onBlurCapture={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))setFocused(false)}}>
+ return <>{createPortal(<div className="scroll-discovery" data-visible={visible} inert={!visible} aria-hidden={!visible} onFocusCapture={()=>setFocused(true)} onBlurCapture={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))setFocused(false)}}>
   <form className="dock-search" role="search" aria-label="Browse projects" onSubmit={e=>{e.preventDefault();update({q})}}>
    <Search size={17} aria-hidden="true"/>
    <input aria-label="Search projects while browsing" placeholder="Search projects…" value={q} maxLength={200} onChange={e=>setQ(e.target.value)}/>
@@ -61,5 +53,5 @@ export default function DiscoveryDock({anchor,q,setQ,filters,pending,update,rese
     <div className="dock-options-footer"><button className="link" onClick={reset}>Clear all</button><button className="button primary" onClick={()=>setOpen(false)}>View results</button></div>
    </PopoverContent>
   </Popover>
- </div>,target);
+ </div>,target)}{passed&&<button type="button" className="iconbutton paper-back-top" aria-label="Back to top" onClick={backToTop}><ArrowUp size={20} aria-hidden="true"/></button>}</>;
 }

@@ -2,9 +2,10 @@
 import {useEffect,useState} from 'react';
 import {api,ApiError} from './api';
 import {categories as previewCategories,technologies as previewTechnologies} from './catalog';
-export function useTaxonomy(){
+export function useTaxonomy(preview=false){
  const [categories,setCategories]=useState<string[]>([]),[technologies,setTechnologies]=useState<string[]>([]),[taxonomyError,setError]=useState('');
  useEffect(()=>{
+  if(preview)return;
   let controller:AbortController;let active=true;
   const load=()=>{
    const request=new AbortController();controller=request;
@@ -19,6 +20,6 @@ export function useTaxonomy(){
   // A back/forward-cache restore keeps this effect mounted; restart cancelled reads.
   window.addEventListener('pageshow',resume);load();
   return()=>{active=false;window.removeEventListener('pagehide',cancel);window.removeEventListener('pageshow',resume);cancel();};
- },[]);
- return {categories,technologies,taxonomyError};
+ },[preview]);
+ return preview?{categories:previewCategories,technologies:previewTechnologies,taxonomyError:''}:{categories,technologies,taxonomyError};
 }

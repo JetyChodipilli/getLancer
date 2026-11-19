@@ -78,7 +78,8 @@ test('public and workspace shells reflow at 320px with keyboard-operable local n
   const routes = ['/', '/components', '/college-projects', '/templates', '/report', '/login',
     '/preview/workspace', '/preview/components', '/preview/college-projects', '/preview/slots',
     '/preview/teams', '/preview/business', '/preview/delivery', '/preview/maintenance',
-    '/preview/hosting', '/preview/templates', '/preview/trust', '/preview/operations'];
+    '/preview/hosting', '/preview/templates', '/preview/trust', '/preview/operations',
+    '/preview/areas/clients', '/preview/areas/trust'];
   const samples: unknown[] = [];
   for (const path of routes) {
     await test.step(path, async () => {
@@ -92,29 +93,29 @@ test('public and workspace shells reflow at 320px with keyboard-operable local n
       samples.push({path, viewport: 320, documentWidth: await page.evaluate(() => document.documentElement.scrollWidth)});
       const workspace = page.locator('.studio-shell');
       if (await workspace.count()) {
-        await expect(workspace.locator('.studio-rail')).toBeHidden();
-        const mobile = workspace.locator('.studio-mobile-navigation');
-        const summary = mobile.locator('summary');
-        await expect(summary).toBeVisible();
-        await summary.focus();
-        await page.keyboard.press('Enter');
-        await expect(mobile).toHaveAttribute('open', '');
-        const navigation = mobile.getByRole('navigation', {name: 'Workspace areas', exact: true});
-        await expect(navigation).toBeVisible();
-        await expect(navigation).toHaveCSS('overflow-y', 'auto');
-        await expect(navigation.locator('[aria-current="page"]')).toHaveAttribute('href', path);
+        await expect(workspace.locator('.studio-rail')).toHaveCount(0);
+        const navigation = page.getByRole('navigation', {name: 'Workspace navigation', exact: true});
+        const trigger = navigation.locator('button[aria-current]');
+        await expect(trigger).toBeVisible();
+        await trigger.focus();
+        await trigger.press('Enter');
+        await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+        const panel = navigation.locator('.studio-tool-panel');
+        await expect(panel).toBeVisible();
+        await expect(panel).toHaveCSS('overflow-y', 'auto');
+        await expect(panel.locator('a[aria-current="page"]').first()).toHaveAttribute('href', path);
         await page.keyboard.press('Tab');
-        await expect(navigation.getByRole('link').first()).toBeFocused();
-        const destination = path === '/preview/business'
-          ? navigation.getByRole('link').first() : navigation.getByRole('link').last();
+        await expect(panel.getByRole('link').first()).toBeFocused();
+        const destination = path === '/preview/business' ? panel.getByRole('link').first() : panel.getByRole('link').last();
         const href = await destination.getAttribute('href');
         expect(href).toMatch(/^\/preview\//);
         await destination.focus();
         await expect(destination).toBeFocused();
         await expect(destination).toBeInViewport();
-        await fits(page, navigation);
+        await fits(page, panel);
         await page.keyboard.press('Enter');
-        await expect.poll(() => new URL(page.url()).pathname).toBe(href);
+        await expect.poll(() => { const url = new URL(page.url()); return url.pathname + url.search; }).toBe(href);
+        await expect(panel).toBeHidden();
         await expect(page.locator('main h1')).toBeVisible();
         await fits(page);
       }

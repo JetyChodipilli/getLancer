@@ -5,6 +5,7 @@ import {useRouter} from 'next/navigation';
 import Link from 'next/link';
 import {ArrowRight, ArrowUpRight, Bookmark, Check, CheckCircle2, Code2, Search, X} from 'lucide-react';
 import BrowseToolbar from './browse-toolbar';
+import DiscoveryDock from './discovery-dock';
 import Preview from './preview';
 import ProjectStack from './project-stack';
 import {useTaxonomy} from '@/lib/use-taxonomy';
@@ -31,7 +32,8 @@ function ComponentSpecimen() {
 }
 
 export default function Explore({items, preview, totalItems, totalPages, filters, featured}:Catalog & {featured:Catalog['items']}) {
- const {categories,technologies}=useTaxonomy();
+ const {categories,technologies}=useTaxonomy(preview);
+ const heroSearch=useRef<HTMLFormElement>(null);
  const router=useRouter();
  const draftKey=JSON.stringify([filters.q,filters.category,filters.technology]);
  const [draft,setDraft]=useState({key:draftKey,q:filters.q});
@@ -95,11 +97,11 @@ export default function Explore({items, preview, totalItems, totalPages, filters
  }
 
  const discovery = <div className="paper-home-story">
-    <div className="paper-home-intro"><h1 id="paper-home-title">The craft behind the code.</h1><p>Discover working software, reusable components, college projects and learning resources. Meet the people behind the work.</p></div>
+    <div className="paper-home-intro"><h1 id="paper-home-title">Find software worth trying.</h1><p>Search working projects, reusable components, and the people who built them.</p></div>
     <div className="paper-discovery-row">
-     <form id="paper-search" className="paper-home-search" role="search" tabIndex={-1} onSubmit={event=>{event.preventDefault();update({q});}}>
+     <form id="paper-search" className="paper-home-search" ref={heroSearch} role="search" tabIndex={-1} onSubmit={event=>{event.preventDefault();if(!pending)update({q});}}>
       <label className="sr-only" htmlFor="paper-project-search">Search projects</label><Search size={21} aria-hidden="true"/>
-      <input id="paper-project-search" name="q" aria-label="Search projects" maxLength={200} value={q} onChange={event=>setQ(event.target.value)} placeholder="Find a project…"/>
+      <input id="paper-project-search" name="q" aria-label="Search projects" maxLength={200} value={q} onChange={event=>setQ(event.target.value)} placeholder="Search projects, tech stacks, or use cases"/>
       {q&&<button type="button" className="paper-search-clear" aria-label="Clear search" onClick={()=>{setQ('');if(filters.q)update({q:''});}}><X size={18} aria-hidden="true"/></button>}
       <button type="submit" className="paper-search-submit" disabled={pending}>{pending?'Searching…':'Search'}<ArrowRight size={17} aria-hidden="true"/></button>
      </form>
@@ -108,19 +110,17 @@ export default function Explore({items, preview, totalItems, totalPages, filters
  </div>;
 
  return <main id="main" className={'paper-marketplace'+(refined?' paper-marketplace-refined':'')}>
+  <DiscoveryDock anchor={heroSearch} q={q} setQ={setQ} filters={filters} pending={pending} update={update} reset={reset} categories={categories} technologies={technologies}/>
   <section className="paper-exhibition" aria-labelledby="paper-home-title">
    <div className="paper-home-frame">
-    {refined ? discovery : featured.length ? <ProjectStack products={featured}>{discovery}</ProjectStack> :
-     <div className="paper-featured-projects paper-featured-components">
-      {discovery}
-      <div className="paper-feature-0"><ComponentSpecimen/></div>
-     </div>}
+    {discovery}
+    {!refined&&featured.length>0&&<ProjectStack products={featured}/>}
     {!refined&&preview&&<p className="paper-sample-note">Illustrative projects and creators. <Link prefetch={false} href="/preview/workspace">Explore the workspace preview <ArrowUpRight size={14} aria-hidden="true"/></Link></p>}
    </div>
   </section>
 
   {!refined&&<div className="paper-chapters paper-home-frame">
-   {featured.length>0&&<section className="paper-component-chapter" aria-labelledby="paper-components-title"><div className="paper-chapter-copy"><span className="paper-chapter-label">Components</span><h2 id="paper-components-title">Small pieces.<br/>Better products.</h2><p>Thoughtful frontend components for whatever comes next. Try the details before you make them yours.</p><Link prefetch={false} className="button primary" href="/components">View components <ArrowRight size={17} aria-hidden="true"/></Link></div><ComponentSpecimen/></section>}
+   <section className="paper-component-chapter" aria-labelledby="paper-components-title"><div className="paper-chapter-copy"><span className="paper-chapter-label">Components</span><h2 id="paper-components-title">Small pieces.<br/>Better products.</h2><p>Thoughtful frontend components for whatever comes next. Try the details before you make them yours.</p><Link prefetch={false} className="button primary" href="/components">View components <ArrowRight size={17} aria-hidden="true"/></Link></div><ComponentSpecimen/></section>
    <div className="paper-learning-chapters">
     <section className="paper-learning-chapter" aria-labelledby="paper-college-title"><div><span className="paper-chapter-label">College projects</span><h2 id="paper-college-title">Ideas in practice.</h2><p>Explore student work across full stack, analytics, AI and IoT. See the problem, the approach and the contribution.</p><Link prefetch={false} href="/college-projects">Browse college projects <ArrowRight size={16} aria-hidden="true"/></Link></div><div className="paper-college-specimen" data-ui="college-preview"><span>Explore by discipline</span><Link prefetch={false} href="/college-projects?category=FULL_STACK">Full stack <ArrowUpRight size={17} aria-hidden="true"/></Link><Link prefetch={false} href="/college-projects?category=DATA_ANALYTICS">Data analytics <ArrowUpRight size={17} aria-hidden="true"/></Link><Link prefetch={false} href="/college-projects?category=AI_ML">AI & machine learning <ArrowUpRight size={17} aria-hidden="true"/></Link><Link prefetch={false} href="/college-projects?category=IOT">IoT <ArrowUpRight size={17} aria-hidden="true"/></Link></div></section>
     <section className="paper-learning-chapter" aria-labelledby="paper-learning-title"><div><span className="paper-chapter-label">Learning</span><h2 id="paper-learning-title">Build and grow.</h2><p>Learn by exploring the work. Open practical backend labs, source packages and framework previews.</p><Link prefetch={false} href="/labs">Explore learning <ArrowRight size={16} aria-hidden="true"/></Link></div><div className="paper-lab-specimen" data-ui="learning-preview"><div><span>Hands-on learning</span><Code2 size={20} aria-hidden="true"/></div><strong>From a question<br/>to working code.</strong><Link prefetch={false} href="/labs">Backend labs <ArrowRight size={16} aria-hidden="true"/></Link><Link prefetch={false} href="/components/frameworks">Framework previews <ArrowRight size={16} aria-hidden="true"/></Link></div></section>
@@ -133,7 +133,7 @@ export default function Explore({items, preview, totalItems, totalPages, filters
    {error&&<p role="alert" className="error">{error} {preview&&<Link prefetch={false} href="/login">Sign in <ArrowRight size={15} aria-hidden="true"/></Link>}</p>}
    <p role="status" className="paper-save-notice">{saveNotice}</p>
    <div className="paper-project-grid" aria-label="Project demos" aria-busy={pending}>{items.map(product=><article className="paper-project" key={product.id}>
-    <div className="paper-project-media"><Link prefetch={false} href={'/products/'+product.slug} className="paper-project-preview" data-ui="project-preview" aria-label={'Explore '+product.title}><Preview product={product}/></Link><button className="paper-project-save" type="button" disabled={saving.includes(product.id)||!savedReady} aria-label={(saved.includes(product.id)?'Unsave ':'Save ')+product.title} aria-busy={saving.includes(product.id)} aria-pressed={saved.includes(product.id)} onClick={()=>save(product.id,product.title)}><Bookmark size={19} fill={saved.includes(product.id)?'currentColor':'none'} aria-hidden="true"/></button></div>
+    <div className="paper-project-media"><Link prefetch={false} href={'/products/'+product.slug} className="paper-project-preview" tabIndex={0} data-ui="project-preview" aria-label={'Explore '+product.title}><Preview product={product}/></Link><button className="paper-project-save" type="button" disabled={saving.includes(product.id)||!savedReady} aria-label={(saved.includes(product.id)?'Unsave ':'Save ')+product.title} aria-busy={saving.includes(product.id)} aria-pressed={saved.includes(product.id)} onClick={()=>save(product.id,product.title)}><Bookmark size={19} fill={saved.includes(product.id)?'currentColor':'none'} aria-hidden="true"/></button></div>
     <div className="paper-project-title"><h3><Link prefetch={false} href={'/products/'+product.slug}>{product.title}</Link></h3><span>{product.technology.split(',')[0]}</span></div><p>{product.summary}</p>
     <div className="paper-project-byline"><Link prefetch={false} href={'/builders/'+product.builderSlug}><span className="paper-maker-avatar" aria-hidden="true">{product.builder.split(' ').map(value=>value[0]).slice(0,2).join('')}</span>{product.builder}</Link><Link prefetch={false} href={'/products/'+product.slug} aria-label={'Open '+product.title}><ArrowUpRight size={20} aria-hidden="true"/></Link></div>
    </article>)}</div>

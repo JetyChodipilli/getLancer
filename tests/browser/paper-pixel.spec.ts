@@ -24,9 +24,19 @@ async function accountServices(page: Page, google = false, github = false) {
   await page.route('**/api/v1/auth/providers', route => route.fulfill({json: {google, github}}));
 }
 
+async function allowRoutePrefetch(page: Page) {
+  // Give viewport observers and idle prefetch time to run without waiting for
+  // unrelated browser or application requests to reach page-wide network idle.
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+    await new Promise<void>(resolve => setTimeout(resolve, 650));
+  });
+}
+
 test('@cross-browser public exhibition exposes real projects and all four discovery paths', async ({page}, info) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', {level: 1, name: 'The craft behind the code.'})).toBeVisible();
+  await expect(page.getByRole('heading', {level: 1, name: 'Find software worth trying.'})).toBeVisible();
   const paths = page.getByRole('navigation', {name: 'Explore getLancer', exact: true});
   for (const [name, href] of [['Projects', '#project-collection'], ['Components', '/components'], ['College projects', '/college-projects'], ['Learning', '/labs']]) {
     await expect(paths.getByRole('link', {name, exact: true})).toHaveAttribute('href', href);
@@ -67,9 +77,9 @@ test('@cross-browser discovery waits for navigation intent before requesting ano
     if (url.searchParams.has('_rsc')) routeRequests.push(url.pathname);
   });
   await page.goto('/');
-  await expect(page.getByRole('heading', {level: 1, name: 'The craft behind the code.'})).toBeVisible();
-  // A quiet network window lets viewport/idle prefetch work run if it is enabled.
-  await page.waitForLoadState('networkidle');
+  await expect(page.getByRole('heading', {level: 1, name: 'Find software worth trying.'})).toBeVisible();
+  await expect(page.locator('.scroll-discovery')).toBeAttached();
+  await allowRoutePrefetch(page);
   expect(routeRequests, 'Discovery must not start speculative route requests before a navigation choice').toEqual([]);
   await page.evaluate(() => {
     (window as Window & {paperNavigationProbe?: string}).paperNavigationProbe = 'retained-document';
@@ -82,13 +92,13 @@ test('@cross-browser discovery waits for navigation intent before requesting ano
   expect(await page.evaluate(() => (window as Window & {paperNavigationProbe?: string}).paperNavigationProbe))
     .toBe('retained-document');
   await fits(page);
-  await page.waitForLoadState('networkidle');
+  await allowRoutePrefetch(page);
   expect([...new Set(routeRequests)]).toEqual(['/components']);
   for (const route of ['/college-projects', '/labs', '/report']) {
     routeRequests.length = 0;
     await page.goto(route);
     await expect(page.locator('main h1')).toBeVisible();
-    await page.waitForLoadState('networkidle');
+    await allowRoutePrefetch(page);
     expect(routeRequests, route + ' must wait for a navigation choice').toEqual([]);
     await fits(page);
   }
@@ -171,14 +181,117 @@ test('@cross-browser narrow navigation is keyboard recoverable and pages fit at 
 });
 
 test('@cross-browser reduced motion keeps discovery and auth content visible without infinite motion', async ({page}) => {
+  const taxonomyRequests: string[] = [];
+  page.on('request', request => {
+    const path = new URL(request.url()).pathname;
+    if (/^\/api\/v1\/(categories|technologies)$/.test(path)) taxonomyRequests.push(path);
+  });
   await page.emulateMedia({reducedMotion: 'reduce'});
   for (const route of ['/', '/login', '/preview/workspace']) {
     await page.goto(route);
     await expect(page.locator('main h1')).toBeVisible();
+    if (route === '/login') {
+      await expect(page.locator('.auth-connection')).toContainText('Sign-in is unavailable in this preview.');
+    }
     expect(await page.locator('main').evaluate(node => node.getAnimations({subtree: true})
       .some(animation => animation.playState === 'running' && animation.effect?.getTiming().iterations === Infinity))).toBe(false);
     await fits(page);
   }
+  expect(taxonomyRequests).toEqual([]);
+});
+
+test('@cross-browser scrolling docks the search without losing the query or navigation', async ({page}) => {
+  await page.goto('/');
+  const hero = page.getByRole('textbox', {name: 'Search projects', exact: true});
+  const dock = page.getByRole('textbox', {name: 'Search projects while browsing', exact: true});
+  await expect(page.locator('.scroll-discovery')).toHaveAttribute('data-visible', 'false');
+  await expect(dock).toHaveCount(0);
+  await hero.fill('Stockroom');
+  await hero.blur();
+  await page.evaluate(() => window.scrollTo(0, document.querySelector('#project-collection')!.getBoundingClientRect().top + window.scrollY));
+  await expect(dock).toBeInViewport();
+  await expect(dock).toHaveValue('Stockroom');
+  await expect(dock).toBeVisible();
+  const menu = page.getByRole('button', {name: 'Open navigation menu'});
+  await menu.click();
+  await expect(page.getByRole('menuitem', {name: 'Components', exact: true})).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.emulateMedia({reducedMotion: 'reduce'});
+  await expect(page.locator('.scroll-discovery')).toHaveCSS('transition-duration', '0s');
+  await page.getByRole('button', {name: 'Back to top', exact: true}).click();
+  await expect(hero).toBeInViewport();
+  await expect(hero).toBeFocused();
+  await expect(hero).toHaveValue('Stockroom');
+  await expect(dock).toHaveCount(0);
+  await hero.blur();
+  await page.evaluate(() => window.scrollTo(0, document.querySelector('#project-collection')!.getBoundingClientRect().top + window.scrollY));
+  await expect(dock).toBeVisible();
+  await dock.fill('Fieldnote');
+  await dock.press('Enter');
+  await expect(page).toHaveURL(/q=Fieldnote/);
+  await expect(page.locator('.paper-project-grid .paper-project')).toHaveCount(1);
+  await fits(page);
+});
+
+test('@cross-browser workspace dropdowns keep grouped tools and team work reachable', async ({page, hasTouch}) => {
+  await page.goto('/preview/workspace');
+  const appMenu = page.getByRole('button', {name: 'Open navigation menu', exact: true});
+  await appMenu.click();
+  await expect(page.getByRole('menu')).toBeVisible();
+  await page.keyboard.press('Escape');
+  const areas = page.getByRole('navigation', {name: 'Workspace navigation', exact: true});
+  await expect(areas.getByRole('button')).toHaveText(['Work', 'Clients', 'Trust', 'Teams']);
+  await expect(areas.getByRole('button', {name: 'Work'})).toHaveAttribute('aria-current', 'page');
+  const clients = areas.getByRole('button', {name: 'Clients', exact: true});
+  if (hasTouch) await clients.tap();
+  else await clients.hover();
+  const clientPanel = areas.getByRole('region', {name: 'Clients tools'});
+  await expect(clientPanel.getByRole('heading', {level: 3})).toHaveText(['Hire', 'Deliver', 'Buy', 'Support']);
+  await clientPanel.getByRole('link', {name: 'Business hiring'}).hover();
+  await expect(clientPanel).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(clientPanel).toBeHidden();
+  await expect(clients).toBeFocused();
+  await clients.press('ArrowDown');
+  const clientOverview = clientPanel.getByRole('link', {name: 'Clients overview'});
+  await expect(clientOverview).toBeFocused();
+  await clientOverview.press('Enter');
+  await expect(page.getByRole('heading', {name: 'Clients', exact: true})).toBeVisible();
+  await expect(clients).toHaveAttribute('aria-current', 'page');
+  const directory = page.locator('.studio-directory');
+  await expect(directory.getByRole('heading')).toHaveText(['Hire', 'Deliver', 'Buy', 'Support']);
+  await expect(directory.getByRole('link')).toHaveCount(4);
+  const search = page.getByRole('searchbox', {name: 'Find a tool in Clients'});
+  await search.fill('milestones');
+  await expect(directory.getByRole('link')).toHaveCount(1);
+  await expect(directory.getByRole('link', {name: /Delivery & payments/})).toHaveAttribute('href', '/preview/delivery');
+  await search.fill('no such tool');
+  await expect(page.getByRole('status')).toHaveText('No matching tools.');
+  await fits(page);
+
+  await page.getByRole('button', {name: 'Find a tool', exact: true}).click();
+  const allTools = page.getByRole('searchbox', {name: 'Search workspace tools'});
+  await expect(allTools).toBeFocused();
+  await allTools.fill('payments');
+  await expect(page.getByRole('region', {name:'Find a workspace tool'}).getByRole('link')).toHaveText('Delivery & payments');
+  await page.keyboard.press('Escape');
+  await areas.getByRole('button', {name: 'Trust'}).click();
+  await areas.getByRole('link', {name: 'Trust overview'}).click();
+  await expect(directory.getByRole('link', {name: /Trust & reliability/})).toHaveAttribute('href', '/preview/trust');
+  await expect(directory.getByRole('link', {name: /Operations & release readiness/})).toHaveAttribute('href', '/preview/operations');
+  const teams = areas.getByRole('button', {name: 'Teams', exact: true});
+  await teams.click();
+  await areas.getByRole('link', {name: 'Client leads', exact:true}).click();
+  await expect(page.getByRole('heading', {name: 'Shared client leads'})).toBeVisible();
+  await teams.click();
+  await areas.getByRole('link', {name: 'Teams overview'}).click();
+  await expect(page.getByRole('heading', {name: 'Northstar Studio', exact: true})).toBeVisible();
+  const opportunities = page.getByRole('region', {name: 'Team opportunities'});
+  await expect(opportunities.getByRole('button', {name: /Frontend builder.*Open role/})).toBeVisible();
+  await opportunities.getByRole('button', {name: /Customer portal for a design practice/}).click();
+  await expect(page.getByRole('tab', {name: 'Leads', selected: true})).toBeFocused();
+  await expect(page.getByRole('heading', {name: 'Shared client leads'})).toBeVisible();
+  await fits(page);
 });
 
 test('preview workspaces retain truthful sample controls and responsive dialogs', async ({page}, info) => {
