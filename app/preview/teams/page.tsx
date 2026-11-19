@@ -5,5 +5,5 @@ export default async function TeamsPreviewPage({searchParams}:{searchParams:Prom
   const {tab}=await searchParams;
   const initialTab=typeof tab==='string'?tab:undefined;
   if(await backendOrigin())redirect('/workspace/teams'+(initialTab?'?tab='+encodeURIComponent(initialTab):''));
-  return <TeamWorkspace demo initialTab={initialTab}/>;
+  return <TeamWorkspace key={initialTab} demo initialTab={initialTab}/>;
 }

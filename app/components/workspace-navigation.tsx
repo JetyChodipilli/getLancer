@@ -55,10 +55,7 @@ export default function WorkspaceNavigation({path, preview, operator}: {path: st
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const focusPanel = useRef(false);
 
-  useEffect(() => {
-    setOpen(null);
-    return () => clearTimeout(timer.current);
-  }, [path]);
+  useEffect(() => () => clearTimeout(timer.current), []);
 
   useEffect(() => {
     if (!open) return;

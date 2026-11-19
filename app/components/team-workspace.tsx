@@ -70,7 +70,6 @@ export default function TeamWorkspace({demo=false,initialTab}:{demo?:boolean;ini
  const active=workspace?.team.status==='ACTIVE';const canCreate=index.canCreate;
  const tabs=['Overview','Members','Recruitment',...(commercial?['Leads']:[]),'Projects',...(staffing?['Staffing']:[]),'Activity'];
  const viewTab = tabs.includes(tab) ? tab : 'Overview';
- useEffect(()=>setTab(requestedTab),[requestedTab]);
  const openRole = active ? workspace?.roles.find(candidate => candidate.status === 'OPEN') : undefined;
  const newLead = commercial ? workspace?.leads.find(lead => lead.status === 'NEW') : undefined;
  const recruitmentTab = useRef<HTMLButtonElement>(null);
