@@ -233,6 +233,38 @@ test('@cross-browser scrolling docks the search without losing the query or navi
   await fits(page);
 });
 
+test('@cross-browser workspace areas keep tool directories compact and team work reachable', async ({page}) => {
+  await page.goto('/preview/workspace');
+  const areas = page.getByRole('navigation', {name: 'Workspace navigation', exact: true});
+  await expect(areas.getByRole('link')).toHaveText(['Work', 'Clients', 'Trust', 'Teams']);
+  await expect(areas.getByRole('link', {name: 'Work'})).toHaveAttribute('aria-current', 'page');
+  await areas.getByRole('link', {name: 'Clients'}).click();
+  await expect(page.getByRole('heading', {name: 'Clients', exact: true})).toBeVisible();
+  await expect(areas.getByRole('link', {name: 'Clients'})).toHaveAttribute('aria-current', 'page');
+  const directory = page.locator('.studio-directory');
+  await expect(directory.getByRole('heading')).toHaveText(['Hire', 'Deliver', 'Buy', 'Support']);
+  await expect(directory.getByRole('link')).toHaveCount(4);
+  const search = page.getByRole('searchbox', {name: 'Find a tool in Clients'});
+  await search.fill('milestones');
+  await expect(directory.getByRole('link')).toHaveCount(1);
+  await expect(directory.getByRole('link', {name: /Delivery & payments/})).toHaveAttribute('href', '/preview/delivery');
+  await search.fill('no such tool');
+  await expect(page.getByRole('status')).toHaveText('No matching tools.');
+  await fits(page);
+
+  await areas.getByRole('link', {name: 'Trust'}).click();
+  await expect(directory.getByRole('link', {name: /Trust & reliability/})).toHaveAttribute('href', '/preview/trust');
+  await expect(directory.getByRole('link', {name: /Operations & release readiness/})).toHaveAttribute('href', '/preview/operations');
+  await areas.getByRole('link', {name: 'Teams'}).click();
+  await expect(page.getByRole('heading', {name: 'Northstar Studio', exact: true})).toBeVisible();
+  const opportunities = page.getByRole('region', {name: 'Team opportunities'});
+  await expect(opportunities.getByRole('button', {name: /Frontend builder.*Open role/})).toBeVisible();
+  await opportunities.getByRole('button', {name: /Customer portal for a design practice/}).click();
+  await expect(page.getByRole('tab', {name: 'Leads', selected: true})).toBeFocused();
+  await expect(page.getByRole('heading', {name: 'Shared client leads'})).toBeVisible();
+  await fits(page);
+});
+
 test('preview workspaces retain truthful sample controls and responsive dialogs', async ({page}, info) => {
   for (const route of ['workspace', 'components', 'college-projects', 'teams', 'business', 'delivery', 'maintenance', 'hosting', 'templates', 'trust', 'operations']) {
     await page.goto('/preview/' + route);

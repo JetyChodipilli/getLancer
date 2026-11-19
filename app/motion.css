@@ -65,7 +65,7 @@ main.commerce-public > .commerce-cards > .commerce-card {
 /* Feedback changes material, never field geometry or confirmation placement. */
 .studio-shell :is(.button, .iconbutton, .link, .overview-card, [role="tab"]),
 .studio-shell :is(.workspace-tabs, .studio-tabs) [role="tab"],
-.studio-shell .studio-rail a,
+.studio-shell :is(.studio-area-tabs a, .studio-tool-panel a, .studio-directory a, .team-attention button),
 .studio-shell .studio-preview > summary,
 main.wrap:not(.marketplace) :is(.button, .iconbutton, .link),
 main.commerce-public :is(.button, .iconbutton, .link),

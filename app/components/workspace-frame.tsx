@@ -3,10 +3,11 @@ import Link from 'next/link';
 import { ArrowUpRight, BriefcaseBusiness, ChevronDown, Code2, Compass, FlaskConical, Layers, LifeBuoy, ShieldCheck, Users, type LucideIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import Brand from './brand';
 import NavIcon,{type NavIconName} from './nav-icon';
 
-type Section = 'personal' | 'trust' | 'teams' | 'business' | 'delivery' | 'templates' | 'maintenance' | 'hosting' | 'components' | 'college' | 'slots' | 'labs' | 'operations';
+type Section = 'personal' | 'clients' | 'trust-directory' | 'trust' | 'teams' | 'business' | 'delivery' | 'templates' | 'maintenance' | 'hosting' | 'components' | 'college' | 'slots' | 'labs' | 'operations';
+const clientSections: Section[] = ['clients', 'business', 'delivery', 'templates', 'maintenance'];
+const trustSections: Section[] = ['trust-directory', 'trust', 'operations', 'labs'];
 const animatedAreas:Partial<Record<Section,NavIconName>>={personal:'workspace',components:'components',slots:'components',college:'college',labs:'learning',teams:'teams',templates:'templates'};
 
 export function WorkspaceFrame({ children, title, description, section, preview = false, operator = false, actions, className }: {
@@ -29,22 +30,37 @@ export function WorkspaceFrame({ children, title, description, section, preview 
     { section: 'templates', title: 'Templates & purchases', href: root + '/templates', Icon: Code2 },
     { section: 'business', title: 'Business hiring', href: root + '/business', Icon: BriefcaseBusiness },
   ];
-  const current = links.find(link => link.section === section)!;
+  const area=section==='teams'?'teams':clientSections.includes(section)?'clients':trustSections.includes(section)?'trust':'work';
+  const home=preview?'/preview/workspace':'/workspace';
+  const areaLanding=section==='personal'||section==='clients'||section==='trust-directory'||section==='teams';
+  const areaTabs=[
+    {key:'work', title:'Work', href:home},
+    {key:'clients', title:'Clients', href:root+'/areas/clients'},
+    {key:'trust', title:'Trust', href:root+'/areas/trust'},
+    {key:'teams', title:'Teams', href:root+'/teams'},
+  ];
+  const current = links.find(link => link.section === section)?.title ?? (section==='clients'?'Clients':'Trust');
   const areaLinks = links.map(({ section: key, title: label, href, Icon }) => {const animated=animatedAreas[key as Section];return <Link prefetch={false} key={key} href={href} aria-current={section === key ? 'page' : undefined}>{animated?<NavIcon name={animated}/>:<Icon size={18} aria-hidden="true" />}<span>{label}</span></Link>;});
   return <main id="main" className={cn('studio-shell paper-studio', className)} data-workspace={section}>
-    <details className="studio-mobile-navigation">
-      <summary><span><Layers size={18} aria-hidden="true" /><span><small>Workspace</small><strong>{current.title}</strong></span></span><ChevronDown size={18} aria-hidden="true" /></summary>
-      <nav aria-label="Workspace areas">{areaLinks}</nav>
-      <Link prefetch={false} className="studio-mobile-discover" href="/">Explore projects <ArrowUpRight size={16} aria-hidden="true" /></Link>
-    </details>
-    <aside className="studio-rail" aria-label="Workspace navigation">
-      <div className="studio-rail-title"><Link prefetch={false} href="/" aria-label="getLancer home"><Brand /></Link><small>{preview ? 'Preview workspace' : 'Your workspace'}</small></div>
-      <nav aria-label="Workspace areas"><span className="studio-rail-label">Manage your work</span>{areaLinks}</nav>
-      <div className="studio-rail-secondary"><span className="studio-rail-label">Discover</span><Link prefetch={false} href="/"><Compass size={18} aria-hidden="true" />Explore projects<ArrowUpRight size={14} aria-hidden="true" /></Link><Link prefetch={false} href="/templates"><NavIcon name="templates"/>Explore templates<ArrowUpRight size={14} aria-hidden="true" /></Link><Link prefetch={false} href="/labs/iot"><NavIcon name="learning"/>IoT simulation<ArrowUpRight size={14} aria-hidden="true" /></Link><Link prefetch={false} href="/components/frameworks"><NavIcon name="templates"/>Framework previews<ArrowUpRight size={14} aria-hidden="true" /></Link><Link prefetch={false} href="/teams"><NavIcon name="teams"/>Find a team<ArrowUpRight size={14} aria-hidden="true" /></Link></div>
-      <div className="studio-rail-foot"><LifeBuoy size={18} aria-hidden="true" /><div><strong>A little guidance?</strong><Link prefetch={false} href="/how-it-works">See how getLancer works <ArrowUpRight size={12} aria-hidden="true" /></Link></div></div>
-    </aside>
+    <div className="studio-navigation">
+      <nav className="studio-area-tabs" aria-label="Workspace navigation">{areaTabs.map(({key,title,href})=><Link key={key} prefetch={false} href={href} aria-current={area===key?(areaLanding?'page':'location'):undefined}>{title}</Link>)}</nav>
+      <details className="studio-tool-menu">
+        <summary>All tools <ChevronDown size={16} aria-hidden="true" /></summary>
+        <div className="studio-tool-panel">
+          <nav aria-label="Workspace areas">{areaLinks}</nav>
+          <nav aria-label="Discover">
+            <Link prefetch={false} href="/">Explore projects <ArrowUpRight size={14} aria-hidden="true" /></Link>
+            <Link prefetch={false} href="/templates">Explore templates <ArrowUpRight size={14} aria-hidden="true" /></Link>
+            <Link prefetch={false} href="/labs/iot">IoT simulation <ArrowUpRight size={14} aria-hidden="true" /></Link>
+            <Link prefetch={false} href="/components/frameworks">Framework previews <ArrowUpRight size={14} aria-hidden="true" /></Link>
+            <Link prefetch={false} href="/teams">Find a team <ArrowUpRight size={14} aria-hidden="true" /></Link>
+            <Link prefetch={false} href="/how-it-works">How getLancer works <ArrowUpRight size={14} aria-hidden="true" /></Link>
+          </nav>
+        </div>
+      </details>
+    </div>
     <div className="studio-body">
-      <header className="studio-page-head"><div><nav className="studio-breadcrumb" aria-label="Breadcrumb"><Link prefetch={false} href={preview ? '/preview/workspace' : '/workspace'}>Workspace</Link><span aria-hidden="true">/</span><span aria-current="page">{section === 'personal' ? 'Personal' : current.title}</span></nav><h1>{title}</h1><p className="studio-description">{description}</p></div>{actions && <div className="studio-head-actions">{actions}</div>}</header>
+      <header className="studio-page-head"><div><nav className="studio-breadcrumb" aria-label="Breadcrumb"><Link prefetch={false} href={home}>Workspace</Link><span aria-hidden="true">/</span><span aria-current="page">{section === 'personal' ? 'Personal' : current}</span></nav><h1>{title}</h1><p className="studio-description">{description}</p></div>{actions && <div className="studio-head-actions">{actions}</div>}</header>
       {children}
     </div>
   </main>;

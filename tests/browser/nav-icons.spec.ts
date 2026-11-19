@@ -74,8 +74,7 @@ test('@cross-browser navigation symbols keep labels, destinations and narrow men
 test('@cross-browser workspace navigation shares icon feedback and respects reduced motion',async({page})=>{
  await page.emulateMedia({reducedMotion:'no-preference'});await page.goto('/preview/workspace');await page.evaluate(()=>document.fonts.ready);await expect(page.locator('main h1')).toBeVisible();
  await menuButton(page).click();await expect(page.getByRole('menu')).toBeVisible();await page.keyboard.press('Escape');
- const mobile=page.locator('.studio-mobile-navigation');
- if(await mobile.isVisible())await mobile.locator('summary').click();
+ await page.locator('.studio-tool-menu summary').click();
  const navigation=page.locator('.paper-studio nav[aria-label="Workspace areas"]:visible');
  const personal=navigation.getByRole('link',{name:'Personal workspace',exact:true}),components=navigation.getByRole('link',{name:'Components & slots',exact:true});
  const icon=components.locator(':scope > svg').first(),label=components.locator('span');
