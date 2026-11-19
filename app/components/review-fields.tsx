@@ -18,7 +18,7 @@ export default function ReviewFields({prefix}: {prefix: string}) {
         <option value="ANONYMOUS">Verified client — keep my name private</option>
         <option value="NAMED">Show the name I used for this inquiry</option>
       </select>
-      <p id={prefix+'-privacy'} className="field-hint">We keep your email private and check reviews before publication. Leave out confidential project details.</p>
+      <p id={prefix+'-privacy'} className="field-hint">Your email is never displayed. Your review is checked before publication; avoid including confidential project details.</p>
     </div>
   </fieldset>;
 }
