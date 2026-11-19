@@ -125,7 +125,7 @@
 .paper-specimen-foot>a{display:inline-flex;gap:8px;align-items:center;min-height:44px;color:var(--home-ink);font-weight:500}
 .paper-learning-chapters{display:grid;grid-template-columns:1fr 1fr;gap:56px;padding-top:40px;padding-bottom:48px;border-top:0}
 .paper-learning-chapter{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:28px;min-width:0}
-.paper-marketplace .paper-learning-chapter h2{font-size:34px;white-space:nowrap}
+.paper-marketplace .paper-learning-chapter h2{font-size:34px;overflow-wrap:anywhere}
 .paper-learning-chapter>div>p{font-size:16px;line-height:1.6;margin-bottom:16px}
 .paper-learning-chapter>div>a{display:inline-flex;align-items:center;gap:8px;min-height:44px;color:var(--home-ink);font-size:13px;font-weight:500;text-decoration:none}
 .paper-college-specimen,.paper-lab-specimen{background:var(--home-surface);padding:20px;border-radius:var(--paper-radius-surface,8px);min-width:0;box-sizing:border-box}
