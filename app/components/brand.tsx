@@ -2,6 +2,6 @@ export default function Brand({ className = '', onDark = false }: { className?: 
   const file = onDark ? 'getlancer-logo-on-dark.svg' : 'getlancer-logo.svg';
 
   return <span className={`spectral-wordmark paper-wordmark ${className}`.trim()} role="img" aria-label="getLancer">
-    <img src={`/brand/orbit/${file}`} alt="" width={2494} height={490} />
+    <img src={`/brand/orbit/${file}`} alt="" width={168} height={33} />
   </span>;
 }
