@@ -229,7 +229,7 @@ body .studio-shell .next-action p { margin-top: 4px; color: var(--studio-muted);
 .studio-shell .demo-request .demo-next { padding: 12px; border-radius: 12px; background: #eeefed; font-size: 14px; line-height: 22px; }
 .studio-shell .demo-section-head { margin-bottom: 20px; }
 .studio-shell .demo-actions { gap: 8px; }
-.team-field-label { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px 12px; font-size: 14px; line-height: 21px; }
+.team-field-label { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; font-size: 14px; line-height: 21px; }
 .team-field-label small { color: var(--studio-muted); font-size: 12px; line-height: 18px; font-weight: 400; }
 .team-field-hint { color: var(--studio-muted); font-size: 12px; line-height: 19px; font-weight: 400; }
 .team-field > .team-error, body .studio-shell .team-field > .team-error { margin: 0; padding: 0; border: 0; border-radius: 0; background: none; color: #b42318; font-size: 12px; line-height: 19px; font-weight: 400; }

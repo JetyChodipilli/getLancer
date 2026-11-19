@@ -11,35 +11,44 @@
 .form-error-summary:focus-visible{outline:3px solid var(--paper-focus,#2d5d85);outline-offset:4px}
 .field-error{display:block;margin:7px 0 0;color:var(--feedback-danger);font-size:14px;line-height:1.5}
 .field-hint,.team-field-hint{display:block;margin:7px 0 0;color:var(--paper-muted,#536572);font-size:14px;line-height:1.5}
-.field-optional{font-size:12px;font-weight:400;margin-left:8px;color:var(--paper-muted,#536572)}
-.paper-form-fields,.paper-review-fields{min-width:0;display:grid;gap:22px;border:0;padding:0;margin:0}
-.paper-form-fields label{display:block;margin-bottom:8px;font-size:14px;font-weight:600;line-height:1.4}
+.field-optional{font-size:13px;font-weight:400;color:var(--paper-muted,#536572)}
+.form-field{display:grid;align-content:start;gap:8px;min-width:0}
+body .form-field>label,body .form .form-field>label{
+  display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 8px;margin:0;
+  font-size:14px;font-weight:600;line-height:1.45;overflow-wrap:anywhere;
+}
+.form-field>:is(.field-hint,.field-error,.muted){margin:0}
+.paper-form-fields,.paper-review-fields{min-width:0;display:grid;gap:20px;border:0;padding:0;margin:0}
 .paper-form-fields input,.paper-form-fields textarea,.paper-form-fields [data-slot=select-trigger]{width:100%;min-width:0;font-size:16px}
-.paper-form-fields textarea{min-height:150px;resize:vertical}
-.paper-form-fields .split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
-.paper-form-fields .split>div{min-width:0}
+.paper-form-fields .form-field>textarea{--field-min-height:112px;resize:vertical}
+body .paper-form-fields .split{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));align-items:start;gap:16px}
+.paper-form-fields>button{justify-self:start}
 .paper-form-fields [aria-invalid=true],.profile-field-grid [aria-invalid=true],.team-field [aria-invalid=true]{border-color:var(--feedback-danger)!important;box-shadow:0 0 0 1px var(--feedback-danger)!important}
-.form-intro{color:var(--paper-muted,#536572);margin:12px 0 28px}
-.inquiry-reference{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:16px 0;margin:0 0 24px;border-block:1px solid var(--border,#d3dce2);font-size:14px;color:var(--paper-muted,#536572)}
+.structured-form-header{display:grid;gap:8px;margin:0 0 20px}
+.structured-form-page .structured-form-header h1{margin:0}
+.structured-form-header p{margin:0;color:var(--paper-muted,#536572)}
+.inquiry-reference{
+  display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;margin:0 0 8px;padding:10px 12px;
+  border:1px solid var(--paper-line);border-radius:var(--paper-radius-control);
+  background:var(--paper-canvas);color:var(--paper-muted);font-size:14px;overflow-wrap:anywhere;
+}
+.inquiry-reference>*{min-width:0}
 .inquiry-reference strong{color:var(--paper-ink,#233746);font-size:16px}
-.form-privacy{display:flex;align-items:flex-start;gap:10px;font-size:14px!important;line-height:1.6;color:var(--paper-muted,#536572)!important;margin-top:20px!important}
+.form-privacy{display:flex;align-items:flex-start;gap:8px;font-size:14px!important;line-height:1.5;color:var(--paper-muted,#536572)!important;margin:4px 0 0!important}
 .form-privacy svg{flex-shrink:0;margin-top:2px}
 .feedback-result{padding:28px!important;border:1px solid color-mix(in srgb,var(--feedback-success) 25%,transparent)!important;background:var(--feedback-success-surface)!important;color:var(--feedback-success)!important;border-radius:var(--paper-radius-surface,8px)!important;display:grid;justify-items:start;gap:14px;outline-offset:4px}
 .feedback-result h2{font-size:26px!important;line-height:1.2;margin:0!important;color:inherit!important}
 .feedback-result p{margin:0!important;color:inherit!important;font-size:16px}
 .feedback-result .button{margin-top:8px}
-.inquiry-guidance{padding:28px 12px 28px 32px!important;align-self:start}
-.inquiry-guidance h2{font-family:var(--paper-serif,serif);font-size:36px!important;line-height:1.15;font-weight:400;letter-spacing:-.035em;margin:16px 0 28px}
-.inquiry-guidance ol{list-style:none;padding:0;margin:0;counter-reset:brief}
-.inquiry-guidance li{counter-increment:brief;padding:20px 0 20px 38px;border-top:1px solid var(--border,#d3dce2);position:relative}
-.inquiry-guidance li:before{content:counter(brief,decimal-leading-zero);position:absolute;left:0;top:22px;font-size:12px;color:var(--paper-muted,#536572)}
-.inquiry-guidance li p{font-size:15px;margin:6px 0 0;color:var(--paper-muted,#536572)}
-.paper-review-fields{margin:16px 0 24px;gap:10px}
-.paper-review-fields legend{font-size:18px;font-weight:600;margin-bottom:10px}
-.paper-review-fields>label{font-size:14px;font-weight:600;margin-top:10px}
+.structured-form-page .inquiry-guidance{padding:20px;align-self:start}
+.structured-form-page .inquiry-guidance h2{font-size:21px;line-height:1.25;font-weight:650;margin:0 0 8px}
+.structured-form-page .inquiry-guidance p{margin:0 0 8px;color:var(--paper-muted)}
+.structured-form-page .inquiry-guidance p:last-child{margin:0}
+.paper-review-fields{margin:16px 0 24px;gap:16px}
+.paper-review-fields legend{font-size:18px;font-weight:600;margin-bottom:8px}
 .team-form-actions .team-form-status{display:inline-flex;align-items:center;gap:6px;color:var(--feedback-success);font-size:14px;line-height:1.5;min-height:24px}
 .team-form[aria-busy=true] .team-form-status{color:var(--paper-muted,#536572)}
 .structured-report .kit-notice{overflow-wrap:anywhere}
-@media(max-width:767px){.paper-inquiry .detailgrid{grid-template-columns:minmax(0,1fr)}.inquiry-guidance{padding:20px 0!important}.inquiry-guidance h2{font-size:30px!important}.feedback-result{padding:22px!important}}
-@media(max-width:479px){.paper-form-fields .split{grid-template-columns:minmax(0,1fr);gap:22px}.form-error-summary{padding:16px!important}.feedback-result h2{font-size:24px!important}}
+@media(max-width:767px){.paper-inquiry .detailgrid{grid-template-columns:minmax(0,1fr)}.feedback-result{padding:22px!important}}
+@media(max-width:479px){.paper-form-fields>button{justify-self:stretch}.form-error-summary{padding:16px!important}.feedback-result h2{font-size:24px!important}}
 @media(prefers-reduced-motion:no-preference){.feedback-result,.form-error-summary{animation:feedback-arrive var(--paper-motion-standard,220ms) var(--app-motion-ease)}@keyframes feedback-arrive{from{transform:translateY(4px)}to{transform:translateY(0)}}}

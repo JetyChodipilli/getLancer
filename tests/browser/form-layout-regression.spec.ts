@@ -14,6 +14,45 @@ async function labelGap(label: Locator, field: Locator) {
   expect(b!.y - a!.y - a!.height).toBeLessThanOrEqual(13);
 }
 
+test('inquiry and report labels, hints and controls keep consistent spacing', async ({page}) => {
+  await page.emulateMedia({reducedMotion: 'reduce'});
+  await page.goto('/inquiry?product=stockroom');
+  const inquiry = page.locator('main form');
+  await expect(inquiry.getByRole('combobox', {name: 'What do you need?'})).toContainText('Build something similar');
+  for (const id of ['requestType', 'budgetBand', 'timelineBand', 'clientName', 'clientEmail', 'companyName']) {
+    await labelGap(inquiry.locator('label[for="'+id+'"]'), inquiry.locator('#'+id));
+  }
+  const description = inquiry.getByLabel('Describe your project', {exact: true});
+  await expect(description).toHaveAccessibleDescription(/Include the problem/);
+  expect((await description.boundingBox())!.height).toBeGreaterThanOrEqual(110);
+  const hint = inquiry.locator('#description-hint');
+  await labelGap(inquiry.locator('label[for="description"]'), hint);
+  await labelGap(hint, description);
+  await expect(inquiry.locator('label[for="companyName"]')).toHaveCSS('display', 'flex');
+  await fits(page, inquiry);
+
+  await page.goto('/report');
+  const report = page.locator('main form');
+  for (const id of ['targetType', 'targetId', 'reason']) {
+    await labelGap(report.locator('label[for="'+id+'"]'), report.locator('#'+id));
+  }
+  const detail = report.getByLabel('What happened?', {exact: true});
+  await expect(detail).toHaveAccessibleDescription(/help us review your concern/);
+  await labelGap(report.locator('#detail-hint'), detail);
+  await fits(page, report);
+});
+
+test('template dialog gives the portalled workspace fields room above their controls', async ({page}) => {
+  await page.goto('/preview/templates');
+  await page.getByRole('button', {name: 'Create template', exact: true}).click();
+  const dialog = page.getByRole('dialog');
+  for (const name of ['Approved public proof project', 'Template title', 'License terms']) {
+    const field = dialog.getByLabel(name, {exact: true});
+    await labelGap(field.locator('..').locator('.team-field-label'), field);
+  }
+  await fits(page, dialog);
+});
+
 test('component wizard spaces fieldsets and keeps wrapping consent beside its checkbox', async ({page}, info) => {
   await page.emulateMedia({reducedMotion: 'reduce'});
   await page.route('**/api/v1/**', route => {

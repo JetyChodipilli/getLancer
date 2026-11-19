@@ -15,6 +15,17 @@ test('Labs card copy fills its column and stays readable on the public page', as
   expect(layout.description).toBeGreaterThan(150);
 });
 
+test('workspace directories put category headings above full-width links on phones', async ({page}) => {
+  await page.setViewportSize({width: 375, height: 812});
+  await page.goto('/preview/areas/trust');
+  const heading = page.getByRole('heading', {name: 'Reliability', exact: true});
+  const link = heading.locator('..').getByRole('link', {name: /Trust & reliability/});
+  await expect(heading).toBeVisible();
+  const [title, row] = await Promise.all([heading.boundingBox(), link.boundingBox()]);
+  expect(title!.width).toBeGreaterThan(200);
+  expect(row!.y).toBeGreaterThanOrEqual(title!.y + title!.height);
+});
+
 test('the public home pages offer one Back to top and retain search in the dock', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   for (const path of ['/', '/components', '/college-projects', '/labs']) {
