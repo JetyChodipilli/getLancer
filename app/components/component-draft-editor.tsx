@@ -3,12 +3,14 @@ import { useEffect, useRef, useState, type DragEvent, type FormEvent } from 'rea
 import { componentSeeds, type ComponentEntry } from '@/lib/components';
 import { ApiError } from '@/lib/api';
 import FormErrors from './form-errors';
+import FormScrollButtons from './form-scroll-buttons';
 
 export default function ComponentDraftEditor({ entry, busy, error, onSave, demo = false }: { entry: ComponentEntry | null; busy: boolean; error: ApiError | null; onSave: (event: FormEvent<HTMLFormElement>) => void; demo?: boolean }) {
   const [step, setStep] = useState(0);
   const contribution = useRef<HTMLTextAreaElement>(null);
   const title = useRef<HTMLInputElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const fields = useRef<HTMLDivElement>(null);
   const moved = useRef(false);
   useEffect(() => { if (!moved.current) { moved.current = true; return; } if (step === 1) contribution.current?.focus(); else title.current?.focus(); }, [step]);
   const [recipe, setRecipe] = useState(entry?.recipeSlug || entry?.slug || componentSeeds[0].slug);
@@ -33,7 +35,7 @@ export default function ComponentDraftEditor({ entry, busy, error, onSave, demo 
   }
 
   return <form className="form" onSubmit={next} aria-busy={busy}>
-    <div className="draft-dialog-fields">
+    <div className="draft-dialog-fields" ref={fields}>
       {demo && <p className="kit-notice">This preview saves sample recipe drafts only. Uploading your own ZIP requires a connected builder account.</p>}
       <ol className="draft-steps" aria-label="Draft steps"><li aria-current={step === 0 ? 'step' : undefined}>1 · Component details</li><li aria-current={step === 1 ? 'step' : undefined}>2 · Contribution & rights</li></ol>
       <fieldset hidden={step !== 0} disabled={busy} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
@@ -69,6 +71,6 @@ export default function ComponentDraftEditor({ entry, busy, error, onSave, demo 
       </fieldset>
       <FormErrors error={error} onField={reveal} />
     </div>
-    <div className="draft-actions">{step === 1 && <button type="button" className="button" disabled={busy} onClick={() => setStep(0)}>Back</button>}<button className="button primary" disabled={busy}>{busy ? 'Saving draft…' : step === 0 ? 'Continue to contribution' : 'Save component draft'}</button></div>
+    <div className="draft-actions"><FormScrollButtons fields={fields}/>{step === 1 && <button type="button" className="button" disabled={busy} onClick={() => setStep(0)}>Back</button>}<button className="button primary" disabled={busy}>{busy ? 'Saving draft…' : step === 0 ? 'Continue to contribution' : 'Save component draft'}</button></div>
   </form>;
 }

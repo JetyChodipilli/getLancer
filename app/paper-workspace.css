@@ -449,6 +449,10 @@ body .studio-shell.paper-studio pre { max-width: 100%; overflow: auto; }
   display:grid;gap:12px;min-height:0;overflow:auto;padding:5px;margin:0;
   overscroll-behavior:contain;scroll-padding-block:8px;
 }
+.form-scroll-buttons{display:flex;gap:4px;flex:none}
+.form-scroll-buttons .iconbutton{width:44px;height:44px}
+.form-scroll-buttons .iconbutton[aria-disabled=true]{opacity:.5;cursor:default}
+.template-create-dialog .form-scroll-buttons{margin-inline-end:auto}
 .template-create-fields{display:grid;gap:12px}
 .component-editor-dialog .draft-actions,.template-create-dialog .team-form>.team-form-actions{
   flex:none;justify-content:space-between;gap:8px;
@@ -463,6 +467,11 @@ body .studio-shell.paper-studio pre { max-width: 100%; overflow: auto; }
 .component-editor-dialog .draft-dialog-fields p.error[id]{margin:8px 0 12px}
 .component-editor-dialog .draft-zip-requirements summary{min-height:44px;padding-block:11px;cursor:pointer;font-weight:600}
 .component-editor-dialog .draft-zip-requirements p{margin:0 0 8px;color:var(--paper-muted)}
+@media (max-height: 480px) {
+  .component-editor-dialog,.template-create-dialog{overflow-y:auto!important}
+  .component-editor-dialog .form,.template-create-dialog .team-form{flex:none}
+  .draft-dialog-fields,.template-create-dialog .team-form-scroll-fields{overflow:visible}
+}
 body .studio-shell.paper-studio .college-context-editing{grid-template-columns:minmax(0,760px)}
 @media(min-width:1101px){
   body .studio-shell.paper-studio .component-workspace-records{grid-template-columns:minmax(0,2fr) minmax(0,1fr)}
@@ -485,7 +494,7 @@ body .studio-shell.paper-studio .college-context-editing{grid-template-columns:m
   body .studio-shell.paper-studio .studio-page-head { flex-direction: column; gap: 16px; padding-bottom: 24px; }
   body .studio-shell.paper-studio .studio-head-actions { width: 100%; max-width: 100%; padding-top: 0; }
   body .studio-shell.paper-studio .studio-head-actions > .button { flex: 0 1 auto; }
-  body .studio-shell.paper-studio :is(.studio-overview-grid, .kit-workspace-grid, .grid, .profile-field-grid) { grid-template-columns: minmax(0, 1fr); }
+  body .studio-shell.paper-studio :is(.studio-overview-grid, .kit-workspace-grid, .catalog-grid, .profile-field-grid) { grid-template-columns: minmax(0, 1fr); }
   body .studio-shell.paper-studio .next-action { align-items: flex-start; flex-direction: column; gap: 16px; padding: 20px; }
   body .studio-shell.paper-studio .next-action .button { width: auto; max-width: 100%; }
   body .studio-shell.paper-studio .studio-preview-actions :is(.team-field, label) { min-width: 0; width: 100%; }

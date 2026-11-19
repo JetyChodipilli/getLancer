@@ -141,7 +141,7 @@ test('every sample workspace renders paper surfaces, readable records and contai
       await expect(search).toHaveCSS('background-color', await tokenColor(page, '--paper-ink'));
       expect((await search.boundingBox())!.height).toBeGreaterThanOrEqual(44);
       const toolbar = (await page.locator('.browse-toolbar-sticky:visible').boundingBox())!;
-      const grid = (await page.locator('[role=tabpanel][data-state=active] > .grid').boundingBox())!;
+      const grid = (await page.locator('[role=tabpanel][data-state=active] > .catalog-grid').boundingBox())!;
       expect(grid.y - toolbar.y - toolbar.height, 'Cards must be separated from search chrome').toBeGreaterThanOrEqual(19);
     }
     await chrome(page.locator('.studio-preview'));

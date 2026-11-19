@@ -63,7 +63,7 @@ body .browse-search-submit:hover:not(:disabled) { background: var(--accent-foreg
 
 /* Product/demo cards keep their genuine artwork in a shared glass frame. */
 body .marketplace > .demo-gallery > .project,
-body .wrap > .grid > .project {
+body .wrap > .catalog-grid > .project {
   border: 1px solid var(--glass-line);
   border-radius: 20px;
   padding: 12px;
@@ -72,7 +72,7 @@ body .wrap > .grid > .project {
   overflow: hidden;
 }
 body .marketplace > .demo-gallery > .project .project-media,
-body .wrap > .grid > .project .thumbnail { border-radius: 12px; }
+body .wrap > .catalog-grid > .project .thumbnail { border-radius: 12px; }
 body .marketplace > .demo-gallery > .project .project-meta { padding: 14px 4px 2px; }
 body .marketplace > .demo-gallery > .project:hover,
 body .marketplace > .demo-gallery > .project:focus-within {
@@ -110,7 +110,7 @@ body .account-avatar { background: var(--accent); color: var(--accent-foreground
 
 @media (max-width: 640px) {
   body .panel, body .empty, body .commerce-filters { padding: 16px; border-radius: 16px; }
-  body .marketplace > .demo-gallery > .project, body .wrap > .grid > .project { border-radius: 16px; padding: 10px; }
+  body .marketplace > .demo-gallery > .project, body .wrap > .catalog-grid > .project { border-radius: 16px; padding: 10px; }
 }
 @supports not (backdrop-filter: blur(1px)) {
   :root { --glass-panel: #fdfdfc; --glass-chrome: #f7f7f5; }

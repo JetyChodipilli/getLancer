@@ -120,6 +120,11 @@ body :is([data-slot=dialog-content],[data-slot=alert-dialog-content]) {
   box-shadow: 0 28px 100px #191b2030; -webkit-backdrop-filter: none; backdrop-filter: none;
 }
 body [data-slot=alert-dialog-content][data-size=sm] { max-width: min(320px,calc(100vw - 32px)); }
+body :is([data-slot=dialog-content],[data-slot=alert-dialog-content],.draft-dialog-fields,.team-form-scroll-fields) {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--paper-muted, #535c71) var(--paper-soft, #eef0f6);
+}
 body :is([data-slot=dialog-header],[data-slot=alert-dialog-header]) { min-width: 0; }
 body [data-slot=dialog-content] [data-slot=dialog-header] { padding-right: 32px; }
 body .browse-filter-sheet[data-slot=dialog-content] > [data-slot=dialog-header] { padding-right: 56px; }

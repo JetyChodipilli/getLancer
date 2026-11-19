@@ -92,7 +92,7 @@ body .samplebar{margin:16px 0}
 body .empty{padding:48px 24px;max-width:760px;margin:48px auto;text-align:center}
 body .empty h1,body .empty h2{font-size:clamp(28px,4vw,44px);margin:12px 0}
 body .empty p{max-width:520px;margin:16px auto 24px;color:var(--paper-muted)}
-body .grid>.project,body .wrap>.grid>.project{padding:0;background:transparent;border:0;border-radius:0;box-shadow:none;backdrop-filter:none}
+body .catalog-grid>.project,body .wrap>.catalog-grid>.project{padding:0;background:transparent;border:0;border-radius:0;box-shadow:none;backdrop-filter:none}
 body .project .thumbnail{border-radius:var(--paper-radius-preview);overflow:hidden;border:1px solid var(--paper-line)}
 body .project .cardtitle{margin-top:16px}
 body .project .cardtitle h2{font-size:20px}

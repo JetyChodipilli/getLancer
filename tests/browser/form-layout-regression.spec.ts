@@ -56,6 +56,31 @@ test('component wizard spaces fieldsets and keeps wrapping consent beside its ch
   await dialog.getByRole('button', {name: 'Back', exact: true}).click();
   await expect(contribution).not.toBeVisible();
   await expect(title).toHaveValue('An original accessible component');
+
+  await page.setViewportSize({width: 390, height: 570});
+  await dialog.getByRole('button', {name: 'Continue to contribution', exact: true}).click();
+  await dialog.getByRole('checkbox', {name: 'Upload my self-contained frontend source'}).check();
+  const fields = dialog.locator('.draft-dialog-fields');
+  const down = dialog.getByRole('button', {name: 'Scroll form down', exact: true});
+  const up = dialog.getByRole('button', {name: 'Scroll form up', exact: true});
+  const submit = dialog.getByRole('button', {name: 'Save component draft', exact: true});
+  await expect(submit).toBeInViewport();
+  await fields.evaluate(node => { node.scrollTop = 0; });
+  await expect(up).toBeDisabled();
+  await down.focus();
+  await page.keyboard.press('Enter');
+  await expect.poll(() => fields.evaluate(node => node.scrollTop)).toBeGreaterThan(0);
+  await up.click();
+  await expect.poll(() => fields.evaluate(node => node.scrollTop)).toBe(0);
+  await expect(submit).toBeInViewport();
+  await fits(page, dialog);
+
+  await page.setViewportSize({width: 390, height: 360});
+  await expect(dialog).toHaveCSS('overflow-y', 'auto');
+  await expect.poll(() => fields.evaluate(node => node.clientHeight)).toBeGreaterThan(150);
+  await submit.focus();
+  await expect(submit).toBeInViewport();
+  await expect.poll(() => dialog.evaluate(node => node.scrollTop)).toBeGreaterThan(0);
 });
 
 test('shared form errors stay readable and linked at 200 percent text size', async ({page}) => {

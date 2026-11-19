@@ -23,7 +23,7 @@ main.commerce-public > :is(.commerce-catalog-head, .commerce-detail-grid) {
 }
 
 /* Do not translate a tab container and its entering card grid simultaneously. */
-.studio-shell [role="tabpanel"][data-state="active"]:not(:has(.studio-metrics, .workspace-overview, .grid)),
+.studio-shell [role="tabpanel"][data-state="active"]:not(:has(.studio-metrics, .workspace-overview, .catalog-grid)),
 .studio-shell .studio-body > :is(.panel, [data-slot="card"]),
 .studio-shell .studio-overview-grid > :is(section, aside),
 .studio-shell .delivery-grid > :is(.delivery-list, .delivery-detail),
@@ -34,8 +34,8 @@ main.commerce-public > :is(.commerce-catalog-head, .commerce-detail-grid) {
 
 .studio-shell .studio-metrics > .studio-metric,
 .studio-shell .workspace-overview > .overview-card,
-.studio-shell .grid > :is(.project, .panel),
-main.wrap:not(.marketplace) > .grid > .project,
+.studio-shell .catalog-grid > :is(.project, .panel),
+main.wrap:not(.marketplace) > .catalog-grid > .project,
 main.wrap.teams-page > .team-grid > .team-card,
 main.commerce-public > .commerce-cards > .commerce-card {
   animation: application-settle 480ms var(--app-motion-ease) backwards;
@@ -44,19 +44,19 @@ main.commerce-public > .commerce-cards > .commerce-card {
 
 /* Only the first four siblings stagger; longer lists never accumulate delay. */
 :is(.studio-shell .studio-metrics, .studio-shell .workspace-overview,
-    .studio-shell .grid, main.wrap:not(.marketplace) > .grid,
+    .studio-shell .catalog-grid, main.wrap:not(.marketplace) > .catalog-grid,
     main.wrap.teams-page > .team-grid, main.commerce-public > .commerce-cards)
   > :is(.studio-metric, .overview-card, .project, .panel, .team-card, .commerce-card):nth-child(2) {
   animation-delay: 40ms;
 }
 :is(.studio-shell .studio-metrics, .studio-shell .workspace-overview,
-    .studio-shell .grid, main.wrap:not(.marketplace) > .grid,
+    .studio-shell .catalog-grid, main.wrap:not(.marketplace) > .catalog-grid,
     main.wrap.teams-page > .team-grid, main.commerce-public > .commerce-cards)
   > :is(.studio-metric, .overview-card, .project, .panel, .team-card, .commerce-card):nth-child(3) {
   animation-delay: 80ms;
 }
 :is(.studio-shell .studio-metrics, .studio-shell .workspace-overview,
-    .studio-shell .grid, main.wrap:not(.marketplace) > .grid,
+    .studio-shell .catalog-grid, main.wrap:not(.marketplace) > .catalog-grid,
     main.wrap.teams-page > .team-grid, main.commerce-public > .commerce-cards)
   > :is(.studio-metric, .overview-card, .project, .panel, .team-card, .commerce-card):nth-child(4) {
   animation-delay: 120ms;

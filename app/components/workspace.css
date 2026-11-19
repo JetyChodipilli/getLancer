@@ -164,7 +164,7 @@ body .studio-shell .overview-card:is(:hover, :focus-visible) { border-color: #b5
 body .studio-shell .overview-card:is(:hover, :focus-visible) .overview-card-action svg { transform: translate(2px, -2px); }
 
 /* Existing product software stays intact inside surrounding glass cards. */
-body .studio-shell .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+body .studio-shell .catalog-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
 body .studio-shell .demo-card { padding: 0; overflow: hidden; }
 body .studio-shell .demo-card .thumbnail { min-height: 0; padding: 16px; border: 0; border-radius: 0; aspect-ratio: 1.5; }
 body .studio-shell .demo-card .demo-card-body { padding: 16px 20px 20px; }
@@ -298,7 +298,7 @@ body .studio-shell.trust-workspace .trust-project p { margin: 6px 0; font-size: 
 
 @media (max-width: 1200px) {
   body .studio-shell :is(.studio-metrics, .workspace-overview) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  body .studio-shell .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  body .studio-shell .catalog-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   body .studio-shell .studio-overview-grid { grid-template-columns: minmax(0, 1.35fr) minmax(240px, 1fr); }
   body .studio-shell .studio-head-actions { max-width: 38%; }
 }
@@ -340,7 +340,7 @@ body .studio-shell.trust-workspace .trust-project p { margin: 6px 0; font-size: 
   body .studio-shell .studio-preview-content { padding: 12px; }
   body .studio-shell .studio-preview-actions { align-items: stretch; }
   body .studio-shell .studio-preview-actions :is(.team-field, label) { width: 100%; min-width: 0; }
-  body .studio-shell :is(.studio-metrics, .workspace-overview, .grid) { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  body .studio-shell :is(.studio-metrics, .workspace-overview, .catalog-grid) { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   body .studio-shell .studio-metric[data-slot=card] { min-height: 0; padding: 16px; }
   body .studio-shell .studio-metric [data-slot=card-content] { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 16px; padding-top: 8px; }
   body .studio-shell .studio-metric p { flex: 1; min-width: 120px; margin: 0; }
