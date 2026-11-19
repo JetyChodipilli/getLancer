@@ -19,7 +19,7 @@ test('@cross-browser self-hosted Geist and blocked-font layouts remain usable',a
  await expect(page.getByLabel('Email address',{exact:true})).toBeVisible();await fits(page);
 });
 
-test('@cross-browser auth field boundaries remain visible through validation and pending',async({page})=>{
+test('@cross-browser auth field boundaries remain visible through validation and pending',async({page,hasTouch})=>{
  expect(contrast('rgb(214,217,213)','rgb(255,255,255)')).toBeLessThan(3); // Previous edge fails the same oracle.
  await providers(page);let release!:()=>void;const held=new Promise<void>(resolve=>{release=resolve;});
  await page.route('**/api/v1/auth/login',async route=>{await held;await route.fulfill({status:401,json:{error:{code:'INVALID_CREDENTIALS',message:'Check your email and password.'}}});});
@@ -29,7 +29,12 @@ test('@cross-browser auth field boundaries remain visible through validation and
  await expect(page.getByRole('alert')).toBeFocused();await expect(email).toHaveAttribute('aria-invalid','true');await boundary();
  await page.getByRole('alert').getByRole('link',{name:'Email address',exact:true}).click();await expect(email).toBeFocused();
  await page.getByRole('button',{name:'Log in',exact:true}).click();await expect(page.getByRole('alert')).toBeFocused();
- await email.fill('builder@example.test');await page.getByLabel('Password',{exact:true}).fill('synthetic-password-123');await page.getByRole('button',{name:'Log in',exact:true}).click();
+ const password=page.getByLabel('Password',{exact:true});
+ await email.fill('builder@example.test');await password.fill('synthetic-password-123');
+ await expect(email).toHaveAttribute('aria-invalid','false');await expect(password).toHaveAttribute('aria-invalid','false');
+ const login=page.getByRole('button',{name:'Log in',exact:true});
+ if(hasTouch)await login.tap();
+ else await login.click();
  await expect(page.getByRole('button',{name:'Logging in…',exact:true})).toBeDisabled();await expect(email).toBeDisabled();await boundary();release();
  await expect(page.getByRole('alert')).toContainText('Check your email and password.');await fits(page);
 });
