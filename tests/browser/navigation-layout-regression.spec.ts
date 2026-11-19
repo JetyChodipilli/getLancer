@@ -26,6 +26,37 @@ test('workspace directories put category headings above full-width links on phon
   expect(row!.y).toBeGreaterThanOrEqual(title!.y + title!.height);
 });
 
+test('workspace pointer menus close off the navbar and keep the current area distinct', async ({page, hasTouch}) => {
+  await page.emulateMedia({reducedMotion: 'reduce'});
+  await page.goto('/preview/teams?tab=activity');
+  const nav = page.getByRole('navigation', {name: 'Workspace navigation', exact: true});
+  const teams = nav.getByRole('button', {name: 'Teams', exact: true});
+  const clients = nav.getByRole('button', {name: 'Clients', exact: true});
+  const panel = nav.getByRole('region', {name: 'Clients tools', exact: true});
+  await expect(teams).toHaveAttribute('aria-current', 'page');
+  await expect(teams).toHaveCSS('text-decoration-line', 'underline');
+  await expect(teams).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+
+  if (hasTouch) await clients.tap();
+  else await clients.hover();
+  await expect(panel).toBeVisible();
+  await expect(clients).toHaveAttribute('aria-expanded', 'true');
+  await expect(clients).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(teams).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+
+  const viewport = page.viewportSize()!;
+  if (hasTouch) {
+    await page.touchscreen.tap(viewport.width - 8, viewport.height - 8);
+  } else {
+    await panel.getByRole('link', {name: 'Business hiring'}).hover();
+    await expect(panel).toBeVisible();
+    await page.mouse.move(viewport.width - 8, viewport.height - 8);
+  }
+  await expect(panel).toBeHidden();
+  await expect(clients).toHaveAttribute('aria-expanded', 'false');
+  await expect(clients).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+});
+
 test('the public home pages offer one Back to top and retain search in the dock', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   for (const path of ['/', '/components', '/college-projects', '/labs']) {

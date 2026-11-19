@@ -66,8 +66,12 @@ body .site-header.workspace-site-header #site-navigation-bar .account { grid-are
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.workspace-site-header .studio-area-tabs button:is(:hover, :active, [aria-current], [aria-expanded=true]),
-.workspace-site-header .studio-tools-search button:is(:hover, :active, [aria-expanded=true]) {
+.workspace-site-header .studio-area-tabs button[aria-current] {
+  color: var(--paper-action);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.workspace-site-header :is(.studio-area-tabs, .studio-tools-search) button[aria-expanded=true] {
   color: var(--paper-action);
   background: var(--paper-soft);
 }
@@ -80,6 +84,9 @@ body .site-header.workspace-site-header #site-navigation-bar .account { grid-are
 }
 .workspace-site-header .studio-area-tabs button svg { flex: none; }
 .workspace-site-header .studio-area-tabs button[aria-expanded=true] svg { transform: rotate(180deg); }
+@media (hover: hover) and (pointer: fine) {
+  .workspace-site-header :is(.studio-area-tabs, .studio-tools-search) button[aria-expanded=false]:hover { color: var(--paper-action); }
+}
 .workspace-site-header .studio-tool-panel {
   position: absolute;
   z-index: 2;
@@ -223,7 +230,7 @@ body .site-header.workspace-site-header #site-navigation-bar .account { grid-are
 }
 @media (forced-colors: active) {
   .workspace-site-header :is(.studio-area-tabs, .studio-tools-search button, .studio-tool-panel) { border-color: CanvasText; }
-  .workspace-site-header .studio-area-tabs button:is([aria-expanded=true], [aria-current]) { outline: 1px solid Highlight; outline-offset: -2px; }
+  .workspace-site-header .studio-area-tabs button[aria-expanded=true] { border-color: Highlight; }
 }
 
 .paper-studio .studio-directory-search {
