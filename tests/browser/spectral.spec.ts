@@ -79,10 +79,14 @@ test('phone navigation and header search remain reachable at narrow widths',asyn
  const menu=page.getByRole('button',{name:'Open navigation menu',exact:true});
  await menu.click();await expect(page.getByRole('menu')).toBeVisible();await page.keyboard.press('Escape');
  await expect(page.getByRole('menu')).toBeHidden();await expect(menu).toBeFocused();
- await page.locator('#project-collection').scrollIntoViewIfNeeded();
- await page.locator('.site-header').getByRole('link',{name:'Search projects',exact:true}).click();
+ const headerSearch=page.locator('.site-header').getByRole('link',{name:'Search projects',exact:true});
+ await headerSearch.click();
  const search=page.getByRole('textbox',{name:'Search projects',exact:true});await expect(search).toBeInViewport();
- await search.focus();await expect(search).toBeFocused();await fits(page);
+ await search.focus();await expect(search).toBeFocused();await search.blur();
+ await page.evaluate(()=>window.scrollTo(0,document.querySelector('#project-collection')!.getBoundingClientRect().top+window.scrollY));
+ const dock=page.getByRole('textbox',{name:'Search projects while browsing',exact:true});
+ await expect(dock).toBeInViewport();await expect(headerSearch).toHaveCount(0);
+ await dock.focus();await expect(dock).toBeFocused();await fits(page);
 });
 
 test('account controls stay readable across short laptops and narrow phones',async({page},info)=>{
@@ -93,14 +97,19 @@ test('account controls stay readable across short laptops and narrow phones',asy
   for(const route of ['/login','/signup']){
    await page.goto(route);await expect(page.locator('.auth-connection')).toContainText('Sign-in is unavailable');await fits(page);
    const logo=page.locator('.icy-logo').getByRole('img',{name:'getLancer',exact:true});await expect(logo).toBeVisible();
-   await expect(logo.locator('svg')).toHaveAttribute('viewBox',/\d/);
+   const lockup=logo.locator('img');
+   await expect(lockup).toHaveAttribute('src','/brand/orbit/getlancer-logo-on-dark.svg');
+   await expect.poll(()=>lockup.evaluate((node:HTMLImageElement)=>node.naturalWidth)).toBeGreaterThan(0);
    const controls=await page.locator('.icy-input input').evaluateAll(nodes=>nodes.map(node=>({font:parseFloat(getComputedStyle(node).fontSize),height:Math.round(node.getBoundingClientRect().height)})));
    for(const control of controls){expect(control.font).toBeGreaterThanOrEqual(16);expect(control.height).toBeGreaterThanOrEqual(44);}
-   const form=await page.locator('.icy-form-content').boundingBox();expect(form!.width).toBeGreaterThanOrEqual(width<=375?250:290);expect(form!.width).toBeLessThanOrEqual(440);
+   const panel=page.locator('.icy-form-content');
+   const form=await panel.boundingBox();expect(form!.width).toBeGreaterThanOrEqual(width<=375?250:290);expect(form!.width).toBeLessThanOrEqual(574);
+   const backdrop=await page.locator('.icy-shell').evaluate(node=>getComputedStyle(node).backgroundImage);
+   expect(backdrop).toContain('/auth/airglass-studio.webp');
+   await expect(panel).toHaveCSS('backdrop-filter',/blur\(22px\)/);
    if(width>760){
     const storyPanel=page.locator('.icy-story');
-    const dark=await page.evaluate(()=>{const probe=document.createElement('span');probe.style.color='var(--paper-dark)';document.body.append(probe);const color=getComputedStyle(probe).color;probe.remove();return color;});
-    await expect(storyPanel).toHaveCSS('background-color',dark);
+    await expect(storyPanel).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
     const shell=await page.locator('.icy-shell').boundingBox(),story=await page.locator('.icy-story').boundingBox();
     expect(story!.width/shell!.width).toBeGreaterThan(.4);expect(story!.width/shell!.width).toBeLessThan(.6);
     const resources=(await page.getByRole('navigation',{name:'Helpful resources'}).boundingBox())!;

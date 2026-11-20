@@ -3,7 +3,7 @@
 :root { --control-focus: var(--paper-focus, #2563eb); }
 body :is(.form,.team-field,.team-form,.studio-shell,.teams-page,.demo-filters,.commerce-field,.commerce-filters,.business-save-picker,.dock-options,[data-slot=dialog-content],[data-slot=alert-dialog-content]) :is(input:not([type=checkbox]):not([type=radio]):not([type=file]):not(:where([type=range],[type=color],[type=hidden],[type=button],[type=submit],[type=reset],[type=image],[data-slot=input-otp])),select,textarea,[data-slot=select-trigger]):not(:where(.showcase-screen *,.showcase-mobile *,.miniapp *,.product-demo *)),
 body [data-slot=input]:not(:where([type=checkbox],[type=radio],[type=file],[type=range],[type=color],[type=hidden])), body [data-slot=select-trigger] {
-  width: 100%; min-width: 0; min-height: 44px;
+  width: 100%; min-width: 0; min-height: var(--field-min-height, 44px);
   border: 1px solid var(--invalid-control-border,var(--field-border,var(--control-border))); border-radius: var(--paper-radius-control,6px);
   background: var(--field-surface,var(--control-surface)); color: var(--field-ink,var(--foreground));
   padding: 10px 12px; font: 400 16px/1.4 var(--paper-font, sans-serif);
@@ -120,6 +120,11 @@ body :is([data-slot=dialog-content],[data-slot=alert-dialog-content]) {
   box-shadow: 0 28px 100px #191b2030; -webkit-backdrop-filter: none; backdrop-filter: none;
 }
 body [data-slot=alert-dialog-content][data-size=sm] { max-width: min(320px,calc(100vw - 32px)); }
+body :is([data-slot=dialog-content],[data-slot=alert-dialog-content],.draft-dialog-fields,.team-form-scroll-fields) {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--paper-muted, #535c71) var(--paper-soft, #eef0f6);
+}
 body :is([data-slot=dialog-header],[data-slot=alert-dialog-header]) { min-width: 0; }
 body [data-slot=dialog-content] [data-slot=dialog-header] { padding-right: 32px; }
 body .browse-filter-sheet[data-slot=dialog-content] > [data-slot=dialog-header] { padding-right: 56px; }
@@ -144,7 +149,7 @@ body .form > .draft-dialog-fields > fieldset:not([hidden]) { display: grid; gap:
 body :is(.form,.team-form) label, body .team-field,
 body :is(.studio-shell,[data-slot=dialog-content]) :is(.form,.team-form,.team-field) label { font-size: 14px; line-height: 1.4; font-weight: 500; }
 body .form label:not(.filterlabel) { display: grid; gap: 8px; margin: 0; }
-body .form label:not(.filterlabel):has(+ :is(input,select,textarea,[data-slot=select-trigger])) { margin-bottom: -4px; }
+body .form label:not(.filterlabel,.form-field > label):has(+ :is(input,select,textarea,[data-slot=select-trigger])) { margin-bottom: -4px; }
 /* A consent statement is one target: the checkbox stays beside its wrapping
    text, rather than becoming a separate row under the generic label grid. */
 body .form label:has(> input:is([type=checkbox],[type=radio])) {
@@ -152,6 +157,8 @@ body .form label:has(> input:is([type=checkbox],[type=radio])) {
   padding-block: 8px; line-height: 1.5; overflow-wrap: anywhere;
 }
 body .form label:has(> input:is([type=checkbox],[type=radio])) > :is(span,div) { min-width: 0; }
+/* Workspace fields also render in dialogs mounted outside the workspace. */
+body .team-field { display: grid; align-content: start; }
 body :is(.team-field,.showcase-field,.team-form fieldset) { gap: 8px; min-width: 0; }
 body .team-form fieldset { gap: 16px; }
 /* Shared team action-row rules must not turn care's numeric group into a stack. */

@@ -9,7 +9,15 @@ async function fits(page:Page){await page.evaluate(()=>document.fonts.ready);awa
 const providers=(page:Page)=>page.route('**/api/v1/auth/providers',route=>route.fulfill({json:{google:false,github:false}}));
 
 test('@cross-browser self-hosted Geist and blocked-font layouts remain usable',async({page})=>{
- await page.goto('/');await expect(page.locator('.site-header [role=img][aria-label=getLancer]')).toHaveCount(1);
+ await page.goto('/');
+ for(const region of ['.site-header','.site-footer']){
+  const logo=page.locator(region).getByRole('img',{name:'getLancer',exact:true});
+  await expect(logo).toHaveCount(1);
+  const lockup=logo.locator('img');
+  await expect(lockup).toHaveAttribute('src','/brand/orbit/getlancer-logo.svg');
+  await expect.poll(()=>lockup.evaluate((node:HTMLImageElement)=>node.naturalWidth)).toBeGreaterThan(0);
+ }
+ await expect(page.locator('link[rel=icon][type="image/svg+xml"]')).toHaveAttribute('href','/favicon.svg');
  expect(await page.evaluate(async()=>{const fonts=await document.fonts.load('400 16px Geist');return fonts.length>0&&fonts.every(font=>font.status==='loaded');})).toBe(true);
  await expect(page.locator('body')).toHaveCSS('font-family',/^Geist,/);await fits(page);
  await page.route('**/fonts/**',route=>route.abort());await page.setViewportSize({width:320,height:812});

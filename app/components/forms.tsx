@@ -10,6 +10,44 @@ import {takeInquiryDraft} from '@/lib/inquiry-draft';
 import {track,attribution} from '@/lib/analytics';
 import {Picker} from './ui';
 
+const requestTypes = {
+ SIMILAR_BUILD: 'Build something similar',
+ CUSTOMIZE: 'Customize this project',
+ NEW_BUILD: 'Build something new',
+ CONSULTATION: 'Talk through an idea',
+};
+const budgetBands = {
+ UNDER_1K: 'Under $1,000 USD',
+ USD_1K_3K: '$1,000–$3,000 USD',
+ USD_3K_10K: '$3,000–$10,000 USD',
+ USD_10K_25K: '$10,000–$25,000 USD',
+ USD_25K_PLUS: '$25,000 or more USD',
+ NEED_ESTIMATE: 'I need an estimate',
+};
+const timelineBands = {
+ WITHIN_MONTH: 'Within a month',
+ ONE_TO_THREE_MONTHS: '1–3 months',
+ THREE_TO_SIX_MONTHS: '3–6 months',
+ FLEXIBLE: 'Flexible',
+};
+const reportTypes = { PRODUCT: 'Project', USER: 'Account', REVIEW: 'Review', INQUIRY: 'Inquiry' };
+const reportReasons = {
+ FAKE_PRODUCT: 'Fake project',
+ STOLEN_WORK: 'Stolen work',
+ IMPERSONATION: 'Impersonation',
+ MALICIOUS_LINK: 'Malicious link',
+ PHISHING: 'Phishing',
+ SPAM: 'Spam',
+ HARASSMENT: 'Harassment',
+ COPYRIGHT_IP: 'Copyright or intellectual property',
+ CONFIDENTIAL_DATA: 'Confidential information',
+ MISLEADING_CLAIM: 'Misleading claim',
+ FAKE_REVIEW: 'Fake review',
+ CLIENT_SPAM: 'Spam from a client',
+ APPEAL: 'Appeal a decision',
+ OTHER: 'Other',
+};
+
 export function InquiryForm({initialProduct,preview=false}:{initialProduct?:Product;preview?:boolean}){
  const product=initialProduct;
  const [formError,setFormError]=useState<ApiError|null>(null);
@@ -49,18 +87,19 @@ export function InquiryForm({initialProduct,preview=false}:{initialProduct?:Prod
  return <main className="wrap structured-form-page paper-inquiry" id="main">
   <Link prefetch={false} href="/" className="link">← Explore projects</Link>
   <div className="detailgrid">
-   <section className="panel form"><span className="eyebrow">Start a conversation</span><h1>Tell the builder what you need.</h1><p className="form-intro">A clear brief is the first step toward something useful.</p>
+   <section className="panel">
+    <header className="structured-form-header"><h1>Tell the builder what you need.</h1></header>
     {ok?<div ref={success} tabIndex={-1} className="success feedback-result" role="status"><CheckCircle2 size={28} aria-hidden="true"/><h2>Inquiry saved. Check your inbox.</h2><p>Confirm your email to send this inquiry to the builder.</p><Link prefetch={false} className="button" href={product?'/products/'+product.slug:'/'}>Back to the project <ArrowRight size={16}/></Link></div>:
     <form onSubmit={send} className="form" aria-busy={busy}>
      {preview&&<p className="samplebar">Sample inquiry form. You can review the fields; nothing is sent.</p>}
      <FormErrors error={formError}/>
-     {product&&<div className="inquiry-reference"><span>Inspired by</span><strong>{product.title}</strong><span>by {product.builder}</span></div>}
+     {product&&<div className="inquiry-reference"><span>Inspired by</span><span><strong>{product.title}</strong> by {product.builder}</span></div>}
      <fieldset disabled={busy} className="paper-form-fields">
-      <div data-field="requestType"><label htmlFor="requestType">What do you need?</label><Picker id="requestType" invalid={!!fieldError('requestType')} describedBy={fieldError('requestType')?'requestType-error':undefined} label="Request type" value={requestType} onChange={setRequest} options={['SIMILAR_BUILD','CUSTOMIZE','NEW_BUILD','CONSULTATION']}/>{inlineError('requestType')}</div>
-      <div><label htmlFor="description">Describe your project</label><textarea id="description" aria-invalid={!!fieldError('description')} aria-describedby={'description-hint'+(fieldError('description')?' description-error':'')} name="description" value={description} onChange={e=>setDescription(e.target.value)} required minLength={20} maxLength={5000} placeholder="What should the software help you do?"/><span id="description-hint" className="field-hint">Include the problem, who will use it, and the features that matter most.</span>{inlineError('description')}</div>
-      <div className="split"><div data-field="budgetBand"><label htmlFor="budgetBand">Budget</label><Picker id="budgetBand" invalid={!!fieldError('budgetBand')} describedBy={fieldError('budgetBand')?'budgetBand-error':undefined} label="Choose budget" value={budget} onChange={setBudget} options={['UNDER_1K','USD_1K_3K','USD_3K_10K','USD_10K_25K','USD_25K_PLUS','NEED_ESTIMATE']}/>{inlineError('budgetBand')}</div><div data-field="timelineBand"><label htmlFor="timelineBand">Timeline</label><Picker id="timelineBand" invalid={!!fieldError('timelineBand')} describedBy={fieldError('timelineBand')?'timelineBand-error':undefined} label="Choose timeline" value={timeline} onChange={setTimeline} options={['WITHIN_MONTH','ONE_TO_THREE_MONTHS','THREE_TO_SIX_MONTHS','FLEXIBLE']}/>{inlineError('timelineBand')}</div></div>
-      <div className="split"><div><label htmlFor="clientName">Your name</label><input id="clientName" aria-invalid={!!fieldError('clientName')} aria-describedby={fieldError('clientName')?'clientName-error':undefined} name="clientName" autoComplete="name" required minLength={2} maxLength={100}/>{inlineError('clientName')}</div><div><label htmlFor="clientEmail">Your email</label><input id="clientEmail" name="clientEmail" type="email" autoComplete="email" value={clientEmail} onChange={e=>setClientEmail(e.target.value)} aria-invalid={!!fieldError('clientEmail')} aria-describedby={fieldError('clientEmail')?'clientEmail-error':undefined} maxLength={254} required/>{inlineError('clientEmail')}</div></div>
-      <div><label htmlFor="companyName">Company <span className="field-optional">Optional</span></label><input id="companyName" name="companyName" autoComplete="organization" maxLength={150} aria-invalid={!!fieldError('companyName')} aria-describedby={fieldError('companyName')?'companyName-error':undefined}/>{inlineError('companyName')}</div>
+      <div className="form-field" data-field="requestType"><label htmlFor="requestType">What do you need?</label><Picker id="requestType" invalid={!!fieldError('requestType')} describedBy={fieldError('requestType')?'requestType-error':undefined} label="What do you need?" value={requestType} onChange={setRequest} options={Object.keys(requestTypes)} optionLabels={requestTypes}/>{inlineError('requestType')}</div>
+      <div className="form-field"><label htmlFor="description">Describe your project</label><span id="description-hint" className="field-hint">Include the problem, who will use it, and the features that matter most.</span><textarea id="description" aria-invalid={!!fieldError('description')} aria-describedby={'description-hint'+(fieldError('description')?' description-error':'')} name="description" value={description} onChange={e=>setDescription(e.target.value)} required minLength={20} maxLength={5000}/>{inlineError('description')}</div>
+      <div className="split"><div className="form-field" data-field="budgetBand"><label htmlFor="budgetBand">Budget</label><Picker id="budgetBand" invalid={!!fieldError('budgetBand')} describedBy={fieldError('budgetBand')?'budgetBand-error':undefined} label="Choose budget" value={budget} onChange={setBudget} options={Object.keys(budgetBands)} optionLabels={budgetBands}/>{inlineError('budgetBand')}</div><div className="form-field" data-field="timelineBand"><label htmlFor="timelineBand">Timeline</label><Picker id="timelineBand" invalid={!!fieldError('timelineBand')} describedBy={fieldError('timelineBand')?'timelineBand-error':undefined} label="Choose timeline" value={timeline} onChange={setTimeline} options={Object.keys(timelineBands)} optionLabels={timelineBands}/>{inlineError('timelineBand')}</div></div>
+      <div className="split"><div className="form-field"><label htmlFor="clientName">Your name</label><input id="clientName" aria-invalid={!!fieldError('clientName')} aria-describedby={fieldError('clientName')?'clientName-error':undefined} name="clientName" autoComplete="name" required minLength={2} maxLength={100}/>{inlineError('clientName')}</div><div className="form-field"><label htmlFor="clientEmail">Your email</label><input id="clientEmail" name="clientEmail" type="email" autoComplete="email" value={clientEmail} onChange={e=>setClientEmail(e.target.value)} aria-invalid={!!fieldError('clientEmail')} aria-describedby={fieldError('clientEmail')?'clientEmail-error':undefined} maxLength={254} required/>{inlineError('clientEmail')}</div></div>
+      <div className="form-field"><label htmlFor="companyName">Company <span className="field-optional">Optional</span></label><input id="companyName" name="companyName" autoComplete="organization" maxLength={150} aria-invalid={!!fieldError('companyName')} aria-describedby={fieldError('companyName')?'companyName-error':undefined}/>{inlineError('companyName')}</div>
       <input name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" style={{display:'none'}}/>
       {error&&!formError&&<div role="alert" className="error">{error}</div>}
       <button className="button primary" disabled={busy||!product||preview}>{busy?'Saving inquiry…':<>Send inquiry <Send size={16} aria-hidden="true"/></>}</button>
@@ -68,7 +107,11 @@ export function InquiryForm({initialProduct,preview=false}:{initialProduct?:Prod
      <p className="form-privacy"><ShieldCheck size={18} aria-hidden="true"/>No account required. Your inquiry stays private and reaches the builder after email confirmation.</p>
     </form>}
    </section>
-   <aside className="prose inquiry-guidance"><span className="eyebrow">A better brief</span><h2>Good work starts with a good conversation.</h2><ol><li><strong>The problem</strong><p>What are you trying to make easier?</p></li><li><strong>The people</strong><p>Who will use it, and what do they need?</p></li><li><strong>The essentials</strong><p>Share your must-have features and any existing tools.</p></li></ol><p>Agree on scope and next steps with your builder before work begins.</p></aside>
+   <aside className="prose inquiry-guidance">
+    <h2>Before you send</h2>
+    <p>Mention any tools you already use. Call out features you need from day one.</p>
+    <p>Agree on scope and next steps with the builder before work begins.</p>
+   </aside>
   </div>
  </main>;
 }
@@ -91,13 +134,16 @@ function ReportForTarget({initialTargetId,educationReleaseId}:{initialTargetId:s
   catch(problem){setError(problem instanceof ApiError?problem:new ApiError('Your report could not be confirmed. Check its status before retrying.','REQUEST_FAILED',0));}
   finally{inFlight.current=false;setBusy(false);}
  }
- return <main id="main" className="wrap structured-form-page"><section className="panel form structured-report"><span className="eyebrow">Help keep the community safe</span><h1>Report a concern</h1><p>Report content or choose Appeal to request another look at a moderation decision.</p>
+ return <main id="main" className="wrap structured-form-page"><section className="panel structured-report">
+  <header className="structured-form-header">
+   <h1>Report a concern</h1><p>Report content or ask us to review a moderation decision.</p>
+  </header>
   {message?<div className="success feedback-result" ref={success} role="status" tabIndex={-1}><CheckCircle2 size={28} aria-hidden="true"/><h2>Thank you for speaking up.</h2><p>{message}</p><Link prefetch={false} href="/" className="button">Explore projects <ArrowRight size={16}/></Link></div>:
   <form className="form" onSubmit={submit} aria-busy={busy}><FormErrors error={error}/><fieldset disabled={busy} className="paper-form-fields">
-   <div data-field="targetType"><label htmlFor="targetType">Report type</label>{educationReleaseId?<p className="kit-notice">Exact education artifact <code>{educationReleaseId}</code>. Its frozen source hash and disclosures will be stored privately for operator review.</p>:<Picker id="targetType" invalid={!!error?.fieldErrors.targetType} describedBy={error?.fieldErrors.targetType?'targetType-error':undefined} label="Report type" value={targetType} onChange={setTargetType} options={['PRODUCT','USER','REVIEW','INQUIRY']}/>} {error?.fieldErrors.targetType&&<span className="field-error" id="targetType-error">{error.fieldErrors.targetType}</span>}</div>
-   <div><label htmlFor="targetId">Record ID</label><input id="targetId" name="targetId" readOnly={Boolean(educationReleaseId)} required value={targetId} onChange={e=>setTargetId(e.target.value)} aria-invalid={!!error?.fieldErrors.targetId} aria-describedby={'targetId-hint'+(error?.fieldErrors.targetId?' targetId-error':'')}/><span className="field-hint" id="targetId-hint">Use the ID of the content or decision you want reviewed.</span>{error?.fieldErrors.targetId&&<span className="field-error" id="targetId-error">{error.fieldErrors.targetId}</span>}</div>
-   <div data-field="reason"><label htmlFor="reason">Reason</label><Picker id="reason" invalid={!!error?.fieldErrors.reason} describedBy={error?.fieldErrors.reason?'reason-error':undefined} label="Reason" value={reason} onChange={setReason} options={['FAKE_PRODUCT','STOLEN_WORK','IMPERSONATION','MALICIOUS_LINK','PHISHING','SPAM','HARASSMENT','COPYRIGHT_IP','CONFIDENTIAL_DATA','MISLEADING_CLAIM','FAKE_REVIEW','CLIENT_SPAM','APPEAL','OTHER']}/>{error?.fieldErrors.reason&&<span className="field-error" id="reason-error">{error.fieldErrors.reason}</span>}</div>
-   <div><label htmlFor="detail">What happened?</label><textarea id="detail" name="detail" minLength={10} maxLength={3000} required aria-invalid={!!error?.fieldErrors.detail} aria-describedby={'detail-hint'+(error?.fieldErrors.detail?' detail-error':'')}/><span className="field-hint" id="detail-hint">Be specific. Share enough context to help us review your concern.</span>{error?.fieldErrors.detail&&<span className="field-error" id="detail-error">{error.fieldErrors.detail}</span>}</div>
+   <div className="form-field" data-field="targetType">{educationReleaseId?<p className="kit-notice">Exact education artifact <code>{educationReleaseId}</code>. Its frozen source hash and disclosures will be stored privately for operator review.</p>:<><label htmlFor="targetType">Report type</label><Picker id="targetType" invalid={!!error?.fieldErrors.targetType} describedBy={error?.fieldErrors.targetType?'targetType-error':undefined} label="Report type" value={targetType} onChange={setTargetType} options={Object.keys(reportTypes)} optionLabels={reportTypes}/></>} {error?.fieldErrors.targetType&&<span className="field-error" id="targetType-error">{error.fieldErrors.targetType}</span>}</div>
+   <div className="form-field"><label htmlFor="targetId">Record ID</label><input id="targetId" name="targetId" readOnly={Boolean(educationReleaseId)} required value={targetId} onChange={e=>setTargetId(e.target.value)} aria-invalid={!!error?.fieldErrors.targetId} aria-describedby={'targetId-hint'+(error?.fieldErrors.targetId?' targetId-error':'')}/><span className="field-hint" id="targetId-hint">Use the ID of the content or decision you want reviewed.</span>{error?.fieldErrors.targetId&&<span className="field-error" id="targetId-error">{error.fieldErrors.targetId}</span>}</div>
+   <div className="form-field" data-field="reason"><label htmlFor="reason">Reason</label><Picker id="reason" invalid={!!error?.fieldErrors.reason} describedBy={error?.fieldErrors.reason?'reason-error':undefined} label="Reason" value={reason} onChange={setReason} options={Object.keys(reportReasons)} optionLabels={reportReasons}/>{error?.fieldErrors.reason&&<span className="field-error" id="reason-error">{error.fieldErrors.reason}</span>}</div>
+   <div className="form-field"><label htmlFor="detail">What happened?</label><span className="field-hint" id="detail-hint">Be specific. Share enough context to help us review your concern.</span><textarea id="detail" name="detail" minLength={10} maxLength={3000} required aria-invalid={!!error?.fieldErrors.detail} aria-describedby={'detail-hint'+(error?.fieldErrors.detail?' detail-error':'')}/>{error?.fieldErrors.detail&&<span className="field-error" id="detail-error">{error.fieldErrors.detail}</span>}</div>
    <button className="button primary" disabled={busy}>{busy?'Submitting…':'Submit report'}<ArrowRight size={16} aria-hidden="true"/></button>
   </fieldset></form>}
  </section></main>;

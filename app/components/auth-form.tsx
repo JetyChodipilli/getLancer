@@ -123,15 +123,14 @@ export function AuthForm({signup=false,preview=false}:{signup?:boolean;preview?:
    window.location.assign(url.href);
   }catch(e){setError(e instanceof Error?e.message:'Sign-in could not be started. Please try again.');setGoogleBusy(false);setProviderBusy('');inFlight.current=false;}
  }
- const title=success?'Check your inbox':isMfa?'One more step':isReset?'Reset your password':isSignup?'Make yourself at home.':'Welcome back';
+ const title=success?'Check your inbox':isMfa?'One more step':isReset?'Reset your password':isSignup?'Create an account':'Welcome back';
  const errorFields=Object.entries(errors).filter(([,message])=>message);
  return <section className="icy-form" aria-labelledby="auth-title">
   <Link prefetch={false} href="/" className="icy-browse">Browse projects <ArrowUpRight size={16} aria-hidden="true"/></Link>
   <div className="icy-form-content" key={mode}>
    {(isReset||isMfa)&&<button type="button" className="auth-back" onClick={()=>switchMode('login')} disabled={busy}><ArrowLeft size={16} aria-hidden="true"/> Back to login</button>}
-   <span className="paper-auth-form-label">{isSignup?'Join getLancer':isMfa?'Account verification':isReset?'Account recovery':'Your getLancer account'}</span>
    <h1 id="auth-title" ref={heading} tabIndex={-1}>{title}</h1>
-   <p className="icy-description">{success?email:isMfa?'Enter your authenticator code to protect administrator access.':isReset?'We’ll send you a link to get back into your account.':isSignup?'A space to share your work and discover what’s next.':'Log in to pick up where you left off.'}</p>
+   <p className="icy-description">{success?email:isMfa?'Enter your authenticator code to protect administrator access.':isReset?'We’ll send you a link to get back into your account.':isSignup?'Save projects and share what you build.':'Log in to pick up where you left off.'}</p>
    {success?<div className="auth-success" role="status"><CheckCircle2 size={28} aria-hidden="true"/><p>{success}</p><p className="paper-auth-success-help">Can’t see it? Check your spam folder and the email above.</p><button type="button" className="auth-submit" onClick={()=>switchMode(signup?'signup':'login')}>Back to {signup?'signup':'login'} <ArrowRight size={18} aria-hidden="true"/></button></div>:<>
     {servicesReady!==true&&<div className="auth-connection" role="status" aria-live="polite"><p>{servicesReady===null?'Checking account services…':serviceMessage}</p>{servicesReady===false&&<>{preview&&<Link prefetch={false} href="/preview/workspace">Explore the demo</Link>}<button type="button" onClick={()=>{setServicesReady(null);setCheckAttempt(n=>n+1)}} aria-label="Check again">Retry</button></>}</div>}
     {!isReset&&!isMfa&&<><div className="icy-providers">{(['google','github'] as const).map(provider=><button key={provider} type="button" className="icy-provider" aria-label={(googleBusy&&providerBusy===provider?'Opening sign-in with ':'Continue with ')+(provider==='google'?'Google':'GitHub')} disabled={(provider==='google'?googleReady!==true:!githubReady)||busy||googleBusy} onClick={()=>oauth(provider)}>{googleBusy&&providerBusy===provider?<LoaderCircle size={18} className="auth-spin" aria-hidden="true"/>:<img src={'/brand/'+(provider==='google'?'google-signin-icon.svg':'github-mark.png')} width={20} height={20} alt=""/>}{googleBusy&&providerBusy===provider?'Opening…':(provider==='google'?'Google':'GitHub')}</button>)}</div><div className="icy-divider"><span>or continue with email</span></div></>}
@@ -151,7 +150,7 @@ export function AuthForm({signup=false,preview=false}:{signup?:boolean;preview?:
     {!isReset&&!isMfa&&<p className="icy-switch">{isSignup?'Already have an account?':'New to getLancer?'} <Link prefetch={false} href={isSignup?'/login':'/signup'}>{isSignup?'Log in':'Create an account'}</Link></p>}
     {!isReset&&!isMfa&&servicesReady===true&&(googleReady===false||!githubReady)&&<p className="icy-service-note">{googleReady===false&&!githubReady?'Google and GitHub sign-in are unavailable.':googleReady===false?'Google sign-in is unavailable.':'GitHub sign-in is unavailable.'} Continue with {isSignup?'email to create your account':'your email and password'}.</p>}
    </>}
+   <p className="paper-auth-assistance">Need a hand? <Link prefetch={false} href="/report">Contact support</Link></p>
   </div>
-  <p className="paper-auth-assistance">Need a hand? <Link prefetch={false} href="/report">Contact support</Link></p>
  </section>;
 }

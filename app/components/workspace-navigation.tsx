@@ -102,8 +102,9 @@ export default function WorkspaceNavigation({path, preview, operator}: {path: st
   function hover(event: PointerEvent<HTMLButtonElement>, id: Area) {
     // Use the pointer that entered the button. The primary input may be touch
     // even when a mouse is attached, and headless engines can report no hover.
-    if (event.pointerType !== 'mouse' || open?.via === 'button' || open?.id === id) return;
+    if (event.pointerType !== 'mouse') return;
     clearTimeout(timer.current);
+    if (open?.via === 'button' || open?.id === id) return;
     const button = event.currentTarget;
     timer.current = setTimeout(() => {
       trigger.current = button;
@@ -111,10 +112,17 @@ export default function WorkspaceNavigation({path, preview, operator}: {path: st
     }, 130);
   }
 
-  function leave() {
+  function keepHoverOpen(event: PointerEvent<HTMLElement>) {
+    if (event.pointerType === 'mouse') clearTimeout(timer.current);
+  }
+
+  function leave(event: PointerEvent<HTMLElement>) {
+    if (event.pointerType !== 'mouse') return;
     clearTimeout(timer.current);
-    if (open?.via === 'pointer' && !panel.current?.contains(document.activeElement)) {
-      timer.current = setTimeout(() => setOpen(null), 180);
+    if (open?.via === 'pointer') {
+      timer.current = setTimeout(() => {
+        setOpen(menu => menu?.via === 'pointer' && !panel.current?.contains(document.activeElement) ? null : menu);
+      }, 180);
     }
   }
 
@@ -127,7 +135,7 @@ export default function WorkspaceNavigation({path, preview, operator}: {path: st
   }
 
   function areaPanel(area: Area) {
-    return <section ref={panel} id={'workspace-menu-' + area} className="studio-tool-panel" aria-label={areaNames[area] + ' tools'}>
+    return <section ref={panel} id={'workspace-menu-' + area} className="studio-tool-panel" aria-label={areaNames[area] + ' tools'} onPointerEnter={keepHoverOpen}>
       <div className="studio-panel-inner">
         <div className="studio-panel-heading">
           <h2>{areaNames[area]}</h2>
@@ -145,8 +153,9 @@ export default function WorkspaceNavigation({path, preview, operator}: {path: st
     !term ? ['business', 'delivery', 'components', 'teams?tab=recruitment'].includes(tool.route)
       : [tool.name, group.group, areaNames[area]].some(value => value.toLowerCase().includes(term)))));
 
-  return <div ref={root} className="studio-header-controls" onPointerEnter={() => clearTimeout(timer.current)} onPointerLeave={leave}>
-    <nav className="studio-area-tabs" aria-label="Workspace navigation">
+  return <div ref={root} className="studio-header-controls" data-menu-open={open ? '' : undefined}
+    onPointerEnter={keepHoverOpen} onPointerLeave={leave}>
+    <nav className="studio-area-tabs" aria-label="Workspace navigation" onPointerEnter={keepHoverOpen}>
       {areaKeys.map(area => <div key={area} className="studio-switch-anchor">
         <button type="button" aria-expanded={open?.id === area} aria-controls={open?.id === area ? 'workspace-menu-' + area : undefined}
           aria-current={activeArea === area ? (path === overview[area] ? 'page' : 'location') : undefined}
@@ -157,7 +166,7 @@ export default function WorkspaceNavigation({path, preview, operator}: {path: st
         {open?.id === area && areaPanel(area)}
       </div>)}
     </nav>
-    <div className="studio-tools-search">
+    <div className="studio-tools-search" onPointerEnter={leave}>
       <button type="button" aria-label="Find a tool" aria-expanded={open?.id === 'search'} aria-controls={open?.id === 'search' ? 'workspace-menu-search' : undefined}
         onClick={event => toggle('search', event.currentTarget)} onKeyDown={event => keyDown(event, 'search')}>
         <Search size={18} aria-hidden="true"/><span>Find a tool</span>
@@ -174,6 +183,6 @@ export default function WorkspaceNavigation({path, preview, operator}: {path: st
         </div>
       </section>}
     </div>
-    {open && <div className="studio-menu-scrim" aria-hidden="true" onPointerDown={() => setOpen(null)}/>}
+    {open && <div className="studio-menu-scrim" aria-hidden="true" onPointerEnter={leave} onPointerDown={() => setOpen(null)}/>}
   </div>;
 }

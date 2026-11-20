@@ -14,6 +14,45 @@ async function labelGap(label: Locator, field: Locator) {
   expect(b!.y - a!.y - a!.height).toBeLessThanOrEqual(13);
 }
 
+test('inquiry and report labels, hints and controls keep consistent spacing', async ({page}) => {
+  await page.emulateMedia({reducedMotion: 'reduce'});
+  await page.goto('/inquiry?product=stockroom');
+  const inquiry = page.locator('main form');
+  await expect(inquiry.getByRole('combobox', {name: 'What do you need?'})).toContainText('Build something similar');
+  for (const id of ['requestType', 'budgetBand', 'timelineBand', 'clientName', 'clientEmail', 'companyName']) {
+    await labelGap(inquiry.locator('label[for="'+id+'"]'), inquiry.locator('#'+id));
+  }
+  const description = inquiry.getByLabel('Describe your project', {exact: true});
+  await expect(description).toHaveAccessibleDescription(/Include the problem/);
+  expect((await description.boundingBox())!.height).toBeGreaterThanOrEqual(110);
+  const hint = inquiry.locator('#description-hint');
+  await labelGap(inquiry.locator('label[for="description"]'), hint);
+  await labelGap(hint, description);
+  await expect(inquiry.locator('label[for="companyName"]')).toHaveCSS('display', 'flex');
+  await fits(page, inquiry);
+
+  await page.goto('/report');
+  const report = page.locator('main form');
+  for (const id of ['targetType', 'targetId', 'reason']) {
+    await labelGap(report.locator('label[for="'+id+'"]'), report.locator('#'+id));
+  }
+  const detail = report.getByLabel('What happened?', {exact: true});
+  await expect(detail).toHaveAccessibleDescription(/help us review your concern/);
+  await labelGap(report.locator('#detail-hint'), detail);
+  await fits(page, report);
+});
+
+test('template dialog gives the portalled workspace fields room above their controls', async ({page}) => {
+  await page.goto('/preview/templates');
+  await page.getByRole('button', {name: 'Create template', exact: true}).click();
+  const dialog = page.getByRole('dialog');
+  for (const name of ['Approved public proof project', 'Template title', 'License terms']) {
+    const field = dialog.getByLabel(name, {exact: true});
+    await labelGap(field.locator('..').locator('.team-field-label'), field);
+  }
+  await fits(page, dialog);
+});
+
 test('component wizard spaces fieldsets and keeps wrapping consent beside its checkbox', async ({page}, info) => {
   await page.emulateMedia({reducedMotion: 'reduce'});
   await page.route('**/api/v1/**', route => {
@@ -56,6 +95,31 @@ test('component wizard spaces fieldsets and keeps wrapping consent beside its ch
   await dialog.getByRole('button', {name: 'Back', exact: true}).click();
   await expect(contribution).not.toBeVisible();
   await expect(title).toHaveValue('An original accessible component');
+
+  await page.setViewportSize({width: 390, height: 570});
+  await dialog.getByRole('button', {name: 'Continue to contribution', exact: true}).click();
+  await dialog.getByRole('checkbox', {name: 'Upload my self-contained frontend source'}).check();
+  const fields = dialog.locator('.draft-dialog-fields');
+  const down = dialog.getByRole('button', {name: 'Scroll form down', exact: true});
+  const up = dialog.getByRole('button', {name: 'Scroll form up', exact: true});
+  const submit = dialog.getByRole('button', {name: 'Save component draft', exact: true});
+  await expect(submit).toBeInViewport();
+  await fields.evaluate(node => { node.scrollTop = 0; });
+  await expect(up).toBeDisabled();
+  await down.focus();
+  await page.keyboard.press('Enter');
+  await expect.poll(() => fields.evaluate(node => node.scrollTop)).toBeGreaterThan(0);
+  await up.click();
+  await expect.poll(() => fields.evaluate(node => node.scrollTop)).toBe(0);
+  await expect(submit).toBeInViewport();
+  await fits(page, dialog);
+
+  await page.setViewportSize({width: 390, height: 360});
+  await expect(dialog).toHaveCSS('overflow-y', 'auto');
+  await expect.poll(() => fields.evaluate(node => node.clientHeight)).toBeGreaterThan(150);
+  await submit.focus();
+  await expect(submit).toBeInViewport();
+  await expect.poll(() => dialog.evaluate(node => node.scrollTop)).toBeGreaterThan(0);
 });
 
 test('shared form errors stay readable and linked at 200 percent text size', async ({page}) => {

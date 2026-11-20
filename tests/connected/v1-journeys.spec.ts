@@ -248,8 +248,8 @@ test('E2E-04 converts public search and a live-demo click into an email-confirme
   await page.getByRole('link',{name:'Build something similar',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Tell the builder what you need.',exact:true})).toBeVisible();
   await page.getByLabel('Describe your project',{exact:true}).fill(description);
-  await choose(page,page.locator('main'),'Choose budget','USD 3K 10K');
-  await choose(page,page.locator('main'),'Choose timeline','ONE TO THREE MONTHS');
+  await choose(page,page.locator('main'),'Choose budget','$3,000–$10,000 USD');
+  await choose(page,page.locator('main'),'Choose timeline','1–3 months');
   await page.getByLabel('Your name',{exact:true}).fill(client.displayName);
   await page.getByLabel('Your email',{exact:true}).fill(client.email);
   await page.getByRole('textbox',{name:'Company Optional',exact:true}).fill('Synthetic conversion shop');
@@ -331,9 +331,11 @@ test('E2E-06 reports a public showcase, triages it, suspends it and shows the ow
   await search(page,product.title);await expect(page.getByLabel('Project demos',{exact:true}).getByRole('heading',{name:product.title,exact:true})).toBeVisible();
   await page.goto('/products/'+product.slug);await page.getByRole('link',{name:'Report this project',exact:true}).click();
   await expect(page.getByLabel('Record ID',{exact:true})).toHaveValue(product.id);
-  await choose(page,page.locator('main'),'Reason','MISLEADING CLAIM');
+  await choose(page,page.locator('main'),'Reason','Misleading claim');
   await page.getByLabel('What happened?',{exact:true}).fill(detail);
-  const report=await (await mutation(page,'/reports',()=>page.getByRole('button',{name:'Submit report',exact:true}).click(),201)).json();
+  const submitted=await mutation(page,'/reports',()=>page.getByRole('button',{name:'Submit report',exact:true}).click(),201);
+  expect(submitted.request().postDataJSON()).toMatchObject({reason:'MISLEADING_CLAIM'});
+  const report=await submitted.json();
   assert.match(report.reference,/^[a-f0-9-]{36}$/);await expect(page.getByText('Your report has been saved for review.',{exact:true})).toBeVisible();
   await login(admin.page,'admin');
   await admin.page.getByText('Report priority and triage',{exact:true}).click();

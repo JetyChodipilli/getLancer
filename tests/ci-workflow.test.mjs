@@ -173,9 +173,17 @@ test('smoke and complete evidence retain SHA names and scan dependencies', () =>
   assert(!workflow.includes('github.event.pull_request.head.sha'), 'Evidence must identify the tested merge checkout, rather than the PR head');
   assert(backend.includes(`name: backend-round3-smoke-${source}\n          path: backend/target/round3-smoke-reports`));
   assert(backend.includes(`name: backend-verification-${source}\n          path: backend/target/surefire-reports`));
+  const packageName = `name: verified-backend-package-${source}`;
+  assert(backend.includes(`${packageName}\n          path: backend/target/getlancer-api-1.0.0-SNAPSHOT.jar`));
+  assert(backend.indexOf('Verify production JAR excludes test mocks') < backend.indexOf(packageName));
+  assert(job('container-security').includes(packageName));
+  const startup = job('docker-startup');
+  assert.match(startup, /^    needs: \[frontend, backend\]$/m);
+  assert(startup.includes(packageName));
+  assert.match(startup, /API_JAR_SOURCE: verified-package\s+additional_contexts:\s+verified-package: /);
   assert(backend.includes(`SECURITY_SOURCE_SHA: ${source}`));
   assert(backend.includes(`PHASE_SOURCE_SHA: ${source}`));
-  assert(job('docker-startup').includes(`PHASE_SOURCE_SHA: ${source}`));
+  assert(startup.includes(`PHASE_SOURCE_SHA: ${source}`));
   assert(backend.indexOf('Verify expected backend fixtures in complete-suite reports') < backend.indexOf('node scripts/sast-dispositions.mjs --write-evidence'));
   for (const name of ['secrets-and-sast', 'container-security']) {
     const block = job(name);

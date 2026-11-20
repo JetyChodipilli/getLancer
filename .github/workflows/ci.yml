@@ -179,6 +179,13 @@ jobs:
           assert not any(tag in name for name in entries for tag in ('demo-state', 'team-demo', 'business-demo', 'workspace-preview', 'delivery-preview', 'template-preview')), 'Frontend simulations leaked into the Java artifact'
           print('Production Java artifact contains application code and runtime dependencies only.')
           PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: verified-backend-package-${{ github.sha }}
+          path: backend/target/getlancer-api-1.0.0-SNAPSHOT.jar
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
       - name: Generate runtime Java dependency and license inventory
         run: mvn -B -f backend/pom.xml org.cyclonedx:cyclonedx-maven-plugin:2.9.1:makeAggregateBom -DincludeTestScope=false -DoutputFormat=json
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -379,7 +386,7 @@ jobs:
           if-no-files-found: error
           retention-days: 1
   docker-startup:
-    needs: frontend
+    needs: [frontend, backend]
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
@@ -395,6 +402,11 @@ jobs:
         with:
           name: frontend-build-${{ github.sha }}
           path: dist
+      - name: Retrieve the verified backend package from this workflow
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: verified-backend-package-${{ github.sha }}
+          path: ${{ runner.temp }}/verified-backend/app/target
       - name: Install native Worker verification runtime
         run: npm ci
       - name: Prepare synthetic local credentials
@@ -424,7 +436,18 @@ jobs:
           writeFileSync('.env.staging',value,{mode:0o600});
           JS
           BACKEND_IMAGE=getlancer-api:ci-validation DB_CA_FILE=/tmp/ci-postgres-ca.crt docker compose --env-file .env.staging -f compose.staging.yaml config --quiet
-      - run: docker compose up -d --build --wait --wait-timeout 240
+      - name: Start the stack with the verified backend package
+        run: |
+          docker compose -f compose.yaml -f - up -d --build --wait --wait-timeout 240 <<'YAML'
+          services:
+            api:
+              build:
+                context: ./backend
+                args:
+                  API_JAR_SOURCE: verified-package
+                additional_contexts:
+                  verified-package: ${RUNNER_TEMP}/verified-backend
+          YAML
       - name: Verify connected production frontend against the empty Java database
         run: node scripts/verify-connected-frontend.mjs
       - name: Verify connected V1 through V4 service journeys and database recovery
@@ -556,6 +579,11 @@ jobs:
         with:
           name: java-dependency-evidence-${{ github.sha }}
           path: backend/target
+      - name: Retrieve the verified backend package from this workflow
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: verified-backend-package-${{ github.sha }}
+          path: ${{ runner.temp }}/verified-backend/app/target
       - name: Install verified Trivy release
         run: |
           curl --fail --location --silent --show-error https://github.com/aquasecurity/trivy/releases/download/v0.75.0/trivy_0.75.0_Linux-64bit.tar.gz -o /tmp/trivy.tar.gz
@@ -564,7 +592,8 @@ jobs:
           tar -xzf /tmp/trivy.tar.gz -C /tmp/trivy trivy
       - name: Build reviewed runtime images without pushing
         run: |
-          docker build -t getlancer-api:scan backend
+          docker buildx build --load --build-arg API_JAR_SOURCE=verified-package \
+            --build-context "verified-package=$RUNNER_TEMP/verified-backend" -t getlancer-api:scan backend
           docker build -t getlancer-publisher:scan ops/demo-publisher
       - name: Block high and critical runtime image vulnerabilities
         run: |

@@ -30,7 +30,7 @@ export default function AdminMarketplaceMetrics({metrics}:{metrics:MarketplaceMe
   <section aria-labelledby="operator-metrics-title">
    <h3 id="operator-metrics-title">Real marketplace activity</h3>
    <p className="muted">Current supply snapshot. Outcomes, search samples and safety records cover {period.days} days: <WindowDate date={period.from}/> to <WindowDate date={period.to}/>.</p>
-   <div className="grid" aria-label="Marketplace measures">
+   <div className="catalog-grid" aria-label="Marketplace measures">
     {[
      ['Approved builders',supply.approvedBuilders,'count','Active accounts with verified email and approved profiles'],
      ['Public showcases',supply.activePublicShowcases,'count','Approved, active and public proof'],

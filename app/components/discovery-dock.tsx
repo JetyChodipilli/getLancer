@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowUp, Search, SlidersHorizontal, X } from 'lucide-react';
+import { Search, SlidersHorizontal, X } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Picker } from './ui';
@@ -27,17 +27,13 @@ export default function DiscoveryDock({anchor,q,setQ,filters,pending,update,rese
  },[anchor]);
  const count=[filters.category,filters.technology,filters.projectType,filters.availability,filters.liveDemo].filter(Boolean).length;
  const visible=passed||focused||open;
- function backToTop(){
-  anchor.current?.querySelector('input')?.focus({preventScroll:true});
-  window.scrollTo({top:0,behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
- }
  useEffect(()=>{const slot=document.getElementById('discovery-nav-slot');if(slot){slot.dataset.visible=String(visible);return()=>{delete slot.dataset.visible}}},[target,visible]);
  if(!target)return null;
- return <>{createPortal(<div className="scroll-discovery" data-visible={visible} inert={!visible} aria-hidden={!visible} onFocusCapture={()=>setFocused(true)} onBlurCapture={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))setFocused(false)}}>
+ return createPortal(<div className="scroll-discovery" data-visible={visible} inert={!visible} aria-hidden={!visible} onFocusCapture={()=>setFocused(true)} onBlurCapture={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))setFocused(false)}}>
   <form className="dock-search" role="search" aria-label="Browse projects" onSubmit={e=>{e.preventDefault();update({q})}}>
    <Search size={17} aria-hidden="true"/>
    <input aria-label="Search projects while browsing" placeholder="Search projects…" value={q} maxLength={200} onChange={e=>setQ(e.target.value)}/>
-   <button type="submit" className="dock-submit" aria-label="Submit project search" disabled={pending}><Search size={17}/></button>
+   <button type="submit" className="dock-submit" aria-label="Submit project search" disabled={pending}><span>Search</span></button>
   </form>
   <Popover open={open} onOpenChange={setOpen}><PopoverTrigger asChild><button className="button dock-filter" aria-label={count?`Filter projects (${count} active)`:'Filter projects'}><SlidersHorizontal size={18}/><span>Filters</span>{count>0&&<b>{count}</b>}</button></PopoverTrigger>
    <PopoverContent className="dock-options" align="end" sideOffset={14} aria-label="Project filters">
@@ -53,5 +49,5 @@ export default function DiscoveryDock({anchor,q,setQ,filters,pending,update,rese
     <div className="dock-options-footer"><button className="link" onClick={reset}>Clear all</button><button className="button primary" onClick={()=>setOpen(false)}>View results</button></div>
    </PopoverContent>
   </Popover>
- </div>,target)}{passed&&<button type="button" className="iconbutton paper-back-top" aria-label="Back to top" onClick={backToTop}><ArrowUp size={20} aria-hidden="true"/></button>}</>;
+ </div>,target);
 }
