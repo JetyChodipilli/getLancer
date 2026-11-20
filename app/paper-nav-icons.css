@@ -3,7 +3,10 @@
 body .site-header.paper-icon-header #site-navigation-bar>.topnav{display:flex;gap:3px;padding:3px;border:1px solid #fff;border-radius:999px}
 body .site-header.paper-icon-header:has(.scroll-discovery[data-visible=true]) #site-navigation-bar>.topnav{display:none}
 body .site-header.paper-icon-header .topnav .paper-icon-action{gap:6px;padding:0 13px;border-radius:999px;font-weight:550}
-body .site-header.paper-icon-header .topnav .paper-icon-action:is(:hover,.current){background:#dce3f5}
+body .site-header.paper-icon-header .topnav .paper-icon-action.current{background:#dce3f5}
+@media (hover:hover) and (pointer:fine){
+ body .site-header.paper-icon-header .topnav .paper-icon-action:not(.current):hover>span{text-decoration:underline;text-underline-offset:4px}
+}
 body:has(.scroll-discovery[data-visible=true]) .paper-navigation-menu .mobile-only-link{display:flex}
 .paper-nav-icon{display:block;flex:none;overflow:visible}
 .paper-nav-icon[data-nav-icon=menu]{width:22px;height:22px}

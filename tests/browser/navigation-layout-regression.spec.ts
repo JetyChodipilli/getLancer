@@ -32,6 +32,7 @@ test('workspace pointer menus close off the navbar and keep the current area dis
   const nav = page.getByRole('navigation', {name: 'Workspace navigation', exact: true});
   const teams = nav.getByRole('button', {name: 'Teams', exact: true});
   const clients = nav.getByRole('button', {name: 'Clients', exact: true});
+  const trust = nav.getByRole('button', {name: 'Trust', exact: true});
   const panel = nav.getByRole('region', {name: 'Clients tools', exact: true});
   await expect(teams).toHaveAttribute('aria-current', 'page');
   await expect(teams).toHaveCSS('text-decoration-line', 'underline');
@@ -43,6 +44,9 @@ test('workspace pointer menus close off the navbar and keep the current area dis
   await expect(clients).toHaveAttribute('aria-expanded', 'true');
   await expect(clients).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(teams).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(teams).toHaveAttribute('aria-current', 'page');
+  await expect(teams).toHaveCSS('text-decoration-line', 'none');
+  await expect(teams).toHaveCSS('color', await trust.evaluate(node => getComputedStyle(node).color));
 
   const viewport = page.viewportSize()!;
   if (hasTouch) {
@@ -55,6 +59,30 @@ test('workspace pointer menus close off the navbar and keep the current area dis
   await expect(panel).toBeHidden();
   await expect(clients).toHaveAttribute('aria-expanded', 'false');
   await expect(clients).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(teams).toHaveCSS('text-decoration-line', 'underline');
+
+  if (!hasTouch) {
+    // Hovering another trigger must leave a click-opened panel as the only highlighted menu.
+    await clients.click();
+    await trust.hover();
+    await expect(nav.locator('button[aria-expanded=true]')).toHaveCount(1);
+    await expect(clients).toHaveAttribute('aria-expanded', 'true');
+    await expect(trust).toHaveCSS('color', await teams.evaluate(node => getComputedStyle(node).color));
+    await expect(trust).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  }
+});
+
+test('public navigation reserves the filled highlight for the current page', async ({page, hasTouch}) => {
+  test.skip(hasTouch, 'Hover coverage requires a desktop pointer.');
+  await page.setViewportSize({width: 1440, height: 900});
+  await page.goto('/');
+  const nav = page.getByRole('navigation', {name: 'Main navigation', exact: true});
+  const projects = nav.getByRole('link', {name: 'Projects', exact: true});
+  const components = nav.getByRole('link', {name: 'Components', exact: true});
+  await components.hover();
+  await expect(projects).toHaveAttribute('aria-current', 'page');
+  await expect(projects).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(components).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
 });
 
 test('the public home pages offer one Back to top and retain search in the dock', async ({ page }) => {

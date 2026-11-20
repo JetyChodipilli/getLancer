@@ -153,7 +153,8 @@ export default function WorkspaceNavigation({path, preview, operator}: {path: st
     !term ? ['business', 'delivery', 'components', 'teams?tab=recruitment'].includes(tool.route)
       : [tool.name, group.group, areaNames[area]].some(value => value.toLowerCase().includes(term)))));
 
-  return <div ref={root} className="studio-header-controls" onPointerEnter={keepHoverOpen} onPointerLeave={leave}>
+  return <div ref={root} className="studio-header-controls" data-menu-open={open ? '' : undefined}
+    onPointerEnter={keepHoverOpen} onPointerLeave={leave}>
     <nav className="studio-area-tabs" aria-label="Workspace navigation" onPointerEnter={keepHoverOpen}>
       {areaKeys.map(area => <div key={area} className="studio-switch-anchor">
         <button type="button" aria-expanded={open?.id === area} aria-controls={open?.id === area ? 'workspace-menu-' + area : undefined}

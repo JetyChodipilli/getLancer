@@ -66,7 +66,7 @@ body .site-header.workspace-site-header #site-navigation-bar .account { grid-are
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.workspace-site-header .studio-area-tabs button[aria-current] {
+.workspace-site-header .studio-header-controls:not([data-menu-open]) .studio-area-tabs button[aria-current] {
   color: var(--paper-action);
   text-decoration: underline;
   text-underline-offset: 4px;
@@ -84,9 +84,6 @@ body .site-header.workspace-site-header #site-navigation-bar .account { grid-are
 }
 .workspace-site-header .studio-area-tabs button svg { flex: none; }
 .workspace-site-header .studio-area-tabs button[aria-expanded=true] svg { transform: rotate(180deg); }
-@media (hover: hover) and (pointer: fine) {
-  .workspace-site-header :is(.studio-area-tabs, .studio-tools-search) button[aria-expanded=false]:hover { color: var(--paper-action); }
-}
 .workspace-site-header .studio-tool-panel {
   position: absolute;
   z-index: 2;
