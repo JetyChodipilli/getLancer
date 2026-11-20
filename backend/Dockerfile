@@ -11,7 +11,7 @@ RUN mvn -B -DskipTests package
 FROM ${API_JAR_SOURCE} AS api-package
 
 FROM eclipse-temurin:17-jre-alpine
-RUN apk add --upgrade --no-cache 'libexpat>=2.9.0-r0' 'brotli-libs>=1.2.1-r0' \
+RUN apk add --upgrade --no-cache 'libexpat>=2.9.0-r0' 'brotli-libs>=1.2.1-r0' 'gnutls>=3.8.14-r0' \
     && addgroup -S getlancer && adduser -S getlancer -G getlancer
 USER getlancer
 WORKDIR /app
