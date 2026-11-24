@@ -11,7 +11,7 @@ import * as m from 'motion/react-m';
  * Shared controls replace upstream per-icon divs/imperative wrappers. SVG-root
  * variants move onto internal groups so labels and icon boxes never move.
  */
-export type NavIconName='home'|'components'|'college'|'learning'|'publish'|'templates'|'teams'|'saved'|'help'|'workspace'|'signin'|'search'|'menu';
+export type NavIconName='home'|'components'|'college'|'learning'|'publish'|'templates'|'teams'|'saved'|'help'|'workspace'|'signin'|'search'|'menu'|'briefcase'|'shield'|'recruitment'|'delivery'|'activity';
 
 const draw:Variants={normal:{pathLength:1,opacity:1},animate:{pathLength:[0,1],opacity:[0,1],transition:{duration:.42,opacity:{duration:.16},ease:'easeInOut'}}};
 const blocks:Variants={normal:{x:0,y:0},animate:{x:[0,-2,0],y:[0,2,0],transition:{duration:.44,ease:'easeInOut'}}};
@@ -47,6 +47,11 @@ export function IconParts({name}:{name:NavIconName}){
   case 'workspace':return <>{[[3,3,7,9],[14,3,7,5],[14,12,7,9],[3,16,7,5]].map(([x,y,width,height],i)=><m.rect key={i} data-animated-part={`tile-${i}`} x={x} y={y} width={width} height={height} rx="1" custom={i} variants={tiles} style={{transformBox:'fill-box',originX:'50%',originY:'50%'}}/>)}</>;
   case 'signin':return <><m.g data-animated-part="sign-in-arrow" variants={arrow}><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/></m.g><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/></>;
   case 'search':return <m.g data-animated-part="lens" style={{transformOrigin:'11px 11px'}} variants={lens}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.34-4.34"/></m.g>;
+  case 'briefcase':return <><rect x="3" y="7" width="18" height="14" rx="2"/><m.path data-animated-part="handle" d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" variants={upload}/><path d="M3 13h18m-11 0v2h4v-2"/></>;
+  case 'shield':return <><path d="M12 3 4 6v5c0 5 3 8 8 10 5-2 8-5 8-10V6l-8-3Z"/><m.path data-animated-part="check" d="m8.5 12 2.5 2.5 4.5-5" variants={draw}/></>;
+  case 'recruitment':return <><circle cx="9" cy="7" r="3"/><path d="M3 20v-2a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v2"/><m.path data-animated-part="add" d="M19 8v6m-3-3h6" style={{transformOrigin:'19px 11px'}} variants={tiles} custom={0}/></>;
+  case 'delivery':return <><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16m-11-5v5m6-5v5"/><m.path data-animated-part="confirmation" d="m9 15 2 2 4-4" variants={draw}/></>;
+  case 'activity':return <><path d="M4 4v16h16"/><m.path data-animated-part="pulse" d="m6 14 3-4 3 6 3-9 4 4" variants={draw}/></>;
   case 'menu':return <>{[6,12,18].map((y,i)=><m.path key={y} data-animated-part={`menu-bar-${i}`} d={`M4 ${y}h16`} variants={bars([.88,.74,.6][i],i*.05)} style={{transformBox:'view-box',originX:'20px',originY:`${y}px`}}/>)}</>;
  }
 }
