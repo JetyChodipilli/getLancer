@@ -86,6 +86,14 @@
       "sha256": "3a3052511da7d191ede8efe1662a9a78370d2aec3abbc5b16ed6cc1b96a2c15a"
     },
     {
+      "path": "backend/src/main/java/com/getlancer/admin/QueueSummaryController.java",
+      "sha256": "c89012ef6d32c464275695b33da7f8ae106edd3b42966dae25b5aa4d5e3fde1a"
+    },
+    {
+      "path": "backend/src/main/java/com/getlancer/admin/QueueSummaryService.java",
+      "sha256": "81968625e68e04936577196901300871c985e8c88b51e604f6accda1d6b1b614"
+    },
+    {
       "path": "backend/src/main/java/com/getlancer/analytics/AnalyticsController.java",
       "sha256": "659f6112b1ee7e5d64e00788ffa6d2a782d299efe405f11208bc579ec688f33b"
     },
@@ -1149,7 +1157,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/AdminHostingAuditRegressionTest.java",
-      "sha256": "7585e5bbd77972f036551841ced7f17230237a6fcdc6a25d695f63913301a36e"
+      "sha256": "b35222b7d6be607b27fb66b9d6357fb7b119ff97200cc6714a2d176ba1092eb5"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/AdminOperationsPaginationIntegrationTest.java",

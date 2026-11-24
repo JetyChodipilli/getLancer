@@ -64,6 +64,38 @@ class AdminHostingAuditRegressionTest {
    db.update("UPDATE sessions SET mfa_verified=false WHERE user_id=?",admin);mvc.perform(as(get(path).param("page","1"),"audit-admin")).andExpect(status().isForbidden());db.update("UPDATE sessions SET mfa_verified=true WHERE user_id=?",admin);
   }
  }
+ @Test void moderationSummaryCountsAcrossPagesAndRequiresCurrentMfa() throws Exception {
+  for (int index = 0; index < 51; index++) {
+   db.update("INSERT INTO reports(id,reporter_id,target_type,target_id,reason,detail,status,severity) VALUES(?,?,'USER',?,'SPAM','Closed fixture','RESOLVED','CRITICAL')",
+       UUID.randomUUID(), owner, stranger);
+  }
+  for (String state : new String[]{"OPEN", "TRIAGED", "UNDER_REVIEW"}) {
+   db.update("INSERT INTO reports(id,reporter_id,target_type,target_id,reason,detail,status,severity) VALUES(?,?,'USER',?,'SPAM','Unresolved fixture',?,'LOW')",
+       UUID.randomUUID(), owner, stranger, state);
+  }
+  String path = "/api/v1/admin/reports";
+  JsonNode unfiltered = ok(as(get(path), "audit-admin"));
+  assertEquals(54, unfiltered.path("totalItems").asInt());
+  assertEquals(50, unfiltered.path("items").size());
+  unfiltered.path("items").forEach(report -> assertEquals("RESOLVED", report.path("status").asText()));
+
+  String summary = "/api/v1/admin/metrics";
+  UUID product = db.queryForObject("SELECT id FROM products WHERE owner_user_id=?", UUID.class, owner);
+  db.update("UPDATE products SET approval_status='PENDING_REVIEW' WHERE id=?", product);
+  db.update("UPDATE developer_profiles SET approval_status='PROFILE_PENDING' WHERE user_id=?", stranger);
+  mvc.perform(as(get(summary).param("section", "moderation").param("size", "1"), "audit-admin")).andExpect(status().isOk())
+      .andExpect(jsonPath("$.projects").value(1))
+      .andExpect(jsonPath("$.profiles").value(1))
+      .andExpect(jsonPath("$.reports").value(3))
+      .andExpect(jsonPath("$.reviews").value(0));
+  assertTrue(ok(as(get(summary), "audit-admin")).has("weekly"));
+  mvc.perform(get(summary).param("section", "moderation")).andExpect(status().isUnauthorized());
+  mvc.perform(as(get(summary).param("section", "moderation"), "audit-admin")
+      .header("X-GetLancer-Account", stranger.toString())).andExpect(status().isUnauthorized());
+  mvc.perform(as(get(summary).param("section", "moderation"), "audit-owner")).andExpect(status().isForbidden());
+  db.update("UPDATE sessions SET mfa_verified=false WHERE user_id=?", admin);
+  mvc.perform(as(get(summary).param("section", "moderation"), "audit-admin")).andExpect(status().isForbidden());
+ }
  @Test void hostingOwnershipAndDisabledRuntimeFailClosedWithoutProviderCalls()throws Exception{
   mvc.perform(as(get("/api/v1/me/hosting/"+hosted),"audit-stranger")).andExpect(status().isNotFound());mvc.perform(body(post("/api/v1/me/hosting/"+hosted+"/withdraw"),"audit-stranger",Map.of())).andExpect(status().isNotFound());
   JsonNode projection=ok(as(get("/api/v1/admin/hosting"),"audit-admin"));assertEquals(1,projection.path("items").size());assertFalse(projection.toString().contains("private/audit-locator"));assertTrue(projection.at("/items/0/url").isNull());

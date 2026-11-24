@@ -7,7 +7,7 @@ import ProfileForm from '../components/profile-form';
 import ProposalReport from '../components/proposal-report';
 import {useEffect,useMemo,useCallback,useRef,useState,FormEvent} from 'react';import Link from 'next/link';import {api,accountApi,ApiError} from '@/lib/api';import {Tabs,TabsList,TabsTrigger,TabsContent} from '@/components/ui/tabs';import {Checkbox} from '@/components/ui/checkbox';import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription} from '@/components/ui/dialog';import {Picker} from '../components/ui';import {label} from '@/lib/catalog';import Preview from '../components/preview';import {Plus,ArrowUpRight,Layers,Inbox,UserRound,ChartNoAxesCombined,ShieldCheck} from 'lucide-react';
 import ClientRequests from '../components/client-requests';
-import WorkspaceOverview from '../components/workspace-overview';
+import WorkspaceOverview,{readModerationTotals,useWorkspaceModerationTotals} from '../components/workspace-overview';
 import NextAction from '../components/next-action';
 import FormErrors from '../components/form-errors';
 import PrivateAccess from '../components/private-access';
@@ -77,6 +77,17 @@ async function load(){const reconciliation=writeGeneration.current,run=++loadGen
  }catch(e){if(!mounted.current||run!==loadGeneration.current)return false;if(e instanceof ApiError&&[401,403].includes(e.status))clearPrivate();setError((e as Error).message);return false;}finally{if(mounted.current&&run===loadGeneration.current)setLoading(false);}}
 useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;loadGeneration.current++;inquiryGeneration.current++;historyGeneration.current++;};},[]);
 useEffect(()=>{let live=true;queueMicrotask(()=>{if(live)void load();});return()=>{live=false;loadGeneration.current++;};},[status]);
+const setModerationTotals=useWorkspaceModerationTotals()?.setTotals;
+useEffect(()=>{
+ if(!setModerationTotals||!me?.roles.includes('ADMIN'))return;
+ const controller=new AbortController();
+ void request('/admin/metrics?section=moderation',{cache:'no-store',signal:controller.signal}).then(raw=>{
+  if(!controller.signal.aborted&&request.isCurrent())setModerationTotals(readModerationTotals(raw));
+ }).catch(()=>{
+  if(!controller.signal.aborted&&request.isCurrent())setModerationTotals(null);
+ });
+ return ()=>{controller.abort();setModerationTotals(undefined);};
+},[generation,me?.roles,request,setModerationTotals]);
 function closeHistory(){historyGeneration.current++;setHistory(null);}
 function inquiryFailure(problem:unknown){if(request.isCurrent())setError((problem as Error).message);}
 async function openHistory(id:string){
