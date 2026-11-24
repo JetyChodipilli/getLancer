@@ -254,7 +254,7 @@ public class DeliveryRepository {
     return dispute;
   }
   Map<String, Object> disputes(HttpServletRequest request) {
-    return Pages.query(db, request, "SELECT d.id,d.engagement_id AS \"engagementId\",e.title,d.reason,d.status,d.previous_status AS \"previousStatus\",d.resolution,d.resolution_reason AS \"resolutionReason\",d.created_at AS \"createdAt\" FROM delivery_disputes d JOIN delivery_engagements e ON e.id=d.engagement_id ORDER BY (d.status='OPEN') DESC,d.created_at DESC,d.id");
+    return Pages.query(db, request, "SELECT d.id,d.engagement_id AS \"engagementId\",e.title,d.reason,d.status,d.previous_status AS \"previousStatus\",d.resolution,d.resolution_reason AS \"resolutionReason\",d.created_at AS \"createdAt\" FROM delivery_disputes d JOIN delivery_engagements e ON e.id=d.engagement_id ORDER BY (d.status='OPEN') DESC,CASE WHEN d.status='OPEN' THEN d.created_at END,d.created_at DESC,d.id");
   }
   Map<String, Object> lockDispute(UUID dispute) {
     UUID engagement = (UUID) one("SELECT engagement_id FROM delivery_disputes WHERE id=?", dispute).get("engagement_id");

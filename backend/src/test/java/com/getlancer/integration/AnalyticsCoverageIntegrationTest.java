@@ -105,6 +105,59 @@ class AnalyticsCoverageIntegrationTest {
     assertFalse(m.at("/slots/blockedActivationReason").asText().isBlank());
   }
 
+  @Test void dashboardUsesOneBoundedUtcCohortAndKeepsReadinessBehindRecentMfa() throws Exception {
+    String path = "/api/v1/admin/dashboard";
+    var session = new Cookie("gl_session", "operator");
+    mvc.perform(get(path)).andExpect(status().isUnauthorized());
+    user("dashboard-viewer", false);
+    mvc.perform(get(path).cookie(new Cookie("gl_session", "dashboard-viewer"))).andExpect(status().isForbidden());
+    mvc.perform(get(path).cookie(session).header("X-GetLancer-Account", UUID.randomUUID().toString()))
+        .andExpect(status().isUnauthorized());
+    mvc.perform(get(path).cookie(session).param("weeks", "999")).andExpect(status().isBadRequest());
+    db.update("UPDATE sessions SET mfa_verified=false WHERE user_id=?", admin);
+    mvc.perform(get(path).cookie(session)).andExpect(status().isForbidden());
+    db.update("UPDATE sessions SET mfa_verified=true WHERE user_id=?", admin);
+
+    UUID builder = user("dashboard-builder", true);
+    UUID showcase = product(builder, "PUBLIC", "ACTIVE", false, false);
+    Instant qualifiedAt = Instant.now().minus(5, ChronoUnit.DAYS);
+    UUID qualified = inquiry(showcase, builder, "private-client@dashboard.test", qualifiedAt, "CLEAR", "COMPLETED");
+    event(qualified, "RESPONDED", qualifiedAt.plus(2, ChronoUnit.HOURS));
+    event(qualified, "HIRED", qualifiedAt.plus(1, ChronoUnit.DAYS));
+    event(qualified, "COMPLETED", qualifiedAt.plus(2, ChronoUnit.DAYS));
+    inquiry(showcase, builder, "private-client@older.test", qualifiedAt.minus(35, ChronoUnit.DAYS), "CLEAR", "INQUIRY_RECEIVED");
+    inquiry(showcase, builder, "private-client@blocked.test", qualifiedAt, "BLOCKED", "INQUIRY_RECEIVED");
+    db.update("UPDATE products SET approval_status='PENDING_REVIEW' WHERE id=?",
+        product(builder, "PUBLIC", "DRAFT", false, false));
+
+    String raw = mvc.perform(get(path).cookie(session).param("weeks", "4")
+        .header("X-GetLancer-Account", admin.toString())).andExpect(status().isOk())
+        .andReturn().getResponse().getContentAsString();
+    assertFalse(raw.contains("private-client@"));
+    assertFalse(raw.contains("Secret client requirements"));
+    assertFalse(raw.contains("Private identifying title"));
+    JsonNode data = json.readTree(raw);
+    assertEquals(4, data.at("/trend").size());
+    long total = 0;
+    for (JsonNode week : data.path("trend")) total += week.path("qualified").asLong();
+    assertEquals(1, total);
+    assertEquals(total, data.at("/outcomes/qualified").asLong());
+    assertEquals(1, data.at("/outcomes/hired").asInt());
+    assertEquals(1, data.at("/outcomes/completed").asInt());
+    assertEquals(2, data.at("/outcomes/medianResponseHours").asInt());
+    assertEquals(100, data.at("/outcomes/responsePercent").asInt());
+    assertEquals(5, data.path("queues").size());
+    assertEquals(1, data.at("/queues/0/count").asInt());
+    assertTrue(data.path("readiness").isObject());
+
+    db.update("UPDATE sessions SET issued_at=now()-interval '16 minutes' WHERE user_id=?", admin);
+    mvc.perform(get(path).cookie(session).param("weeks", "12")).andExpect(status().isOk())
+        .andExpect(jsonPath("$.trend.length()").value(12))
+        .andExpect(jsonPath("$.outcomes.qualified").value(2))
+        .andExpect(jsonPath("$.outcomes.responsePercent").value(50))
+        .andExpect(jsonPath("$.readiness").value(org.hamcrest.Matchers.nullValue()));
+  }
+
   @Test void realSupplyQualifiedCohortsResponseConcentrationAndSlotActivityAreAggregated() throws Exception {
     Instant now=Instant.now(),first=now.minus(7,ChronoUnit.DAYS);
     UUID a=user("builder-a",true),b=user("builder-b",true),suspended=user("restricted-builder",true);

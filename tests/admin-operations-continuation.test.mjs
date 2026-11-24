@@ -22,7 +22,7 @@ test('all admin collection queries use bounded shared pagination, stable orderin
  const payment=readFileSync('backend/src/main/java/com/getlancer/payments/PaymentRepository.java','utf8');
  const service=readFileSync('backend/src/main/java/com/getlancer/payments/PaymentService.java','utf8');
  const deliveryService=readFileSync('backend/src/main/java/com/getlancer/delivery/DeliveryService.java','utf8');
- assert.match(delivery,/disputes\(HttpServletRequest request\)[\s\S]*?Pages\.query\(db, request,[\s\S]*?ORDER BY \(d.status='OPEN'\) DESC,d.created_at DESC,d.id/);
+ assert.match(delivery,/disputes\(HttpServletRequest request\)[\s\S]*?Pages\.query\(db, request,[\s\S]*?ORDER BY \(d.status='OPEN'\) DESC,CASE WHEN d.status='OPEN' THEN d.created_at END,d.created_at DESC,d.id/);
  assert.doesNotMatch(delivery,/d.created_at DESC LIMIT 200/);
  assert.match(payment,/accounts\(HttpServletRequest request\)[\s\S]*?Pages\.query\(db, request,[\s\S]*?ORDER BY verified_at DESC,id/);
  assert.match(payment,/attention\(HttpServletRequest request\)[\s\S]*?Pages\.query\(db, request,[\s\S]*?ORDER BY p.created_at,p.id/);

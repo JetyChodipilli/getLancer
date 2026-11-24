@@ -13,6 +13,7 @@ import NavIcon,{type NavIconName} from './nav-icon';
 type SessionUser={displayName?:string;email:string;roles?:string[]};
 export default function Header({preview=false}:{preview?:boolean}){
  const path=usePathname();
+ const adminDashboard=path==='/admin';
  const authPage=path==='/login'||path==='/signup';
  const workspacePreview=path.startsWith('/preview/');
  const workspace=workspacePreview||path==='/workspace'||path.startsWith('/workspace/');
@@ -21,15 +22,15 @@ export default function Header({preview=false}:{preview?:boolean}){
  const exitLock=useRef(false),bar=useRef<HTMLDivElement>(null);
  useEffect(()=>{
   let cancelled=false;
-  if(preview||path.startsWith('/preview/'))return;
+  if(preview||adminDashboard||path.startsWith('/preview/'))return;
   api('/me').then(user=>{if(cancelled)return;if(!user||typeof user.email!=='string'){setMe(null);return;}setMe({email:user.email,displayName:typeof user.displayName==='string'?user.displayName:undefined,roles:Array.isArray(user.roles)?user.roles.filter((role:unknown):role is string=>typeof role==='string'):[]});}).catch(()=>{if(!cancelled)setMe(null)});
   return()=>{cancelled=true};
- },[path,preview]);
+ },[path,preview,adminDashboard]);
  useEffect(()=>{
   const element=bar.current;if(!element)return;
   const resize=new ResizeObserver(()=>document.documentElement.style.setProperty('--nav-height',`${element.getBoundingClientRect().height}px`));
   resize.observe(element);return()=>resize.disconnect();
- },[authPage]);
+ },[authPage,adminDashboard]);
  async function logout(){
   if(exitLock.current)return;
   exitLock.current=true;setExitPending(true);setExitError('');
@@ -37,7 +38,7 @@ export default function Header({preview=false}:{preview?:boolean}){
   catch(problem){setExitError(problem instanceof Error?problem.message:'We could not sign you out. Please try again.');}
   finally{exitLock.current=false;setExitPending(false);}
  }
- if(authPage)return <a href="#main" className="skip">Skip to content</a>;
+ if(authPage||adminDashboard)return <a href="#main" className="skip">Skip to content</a>;
  const currentUser=preview||path.startsWith('/preview/')?null:me;
  const publish=preview?'/preview/workspace?tab=projects':currentUser?'/workspace?tab=projects':'/signup';
  const primaryLinks:{href:string;label:string;icon:NavIconName;active:boolean}[]=[{href:'/',label:'Projects',icon:'home',active:path==='/'||path.startsWith('/products/')},{href:'/components',label:'Components',icon:'components',active:path.startsWith('/components')},{href:'/college-projects',label:'College projects',icon:'college',active:path.startsWith('/college-projects')},{href:'/labs',label:'Learning',icon:'learning',active:path.startsWith('/labs')}];

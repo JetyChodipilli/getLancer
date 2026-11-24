@@ -99,13 +99,16 @@ public class OperationsMetrics {
       alerts.add(new OperationsResponse.Alert("BUDGET_PRESSURE","WARNING",1,"At least ninety percent of a monetary reservation ceiling is in use. Admissions cannot reserve beyond the cap."));
     if(Boolean.TRUE.equals(db.queryForObject("SELECT paused FROM lab_runtime_settings WHERE id=1",Boolean.class)))
       alerts.add(new OperationsResponse.Alert("ADMISSIONS_PAUSED","WARNING",1,"Operator admissions are paused; source availability and financial agreements retain their own authority."));
+    return new OperationsResponse(new OperationsResponse.Window(from,to,30,"Aggregate counts only. Optional web events require consent, raw event/session data expires within twenty-four hours; daily unlinked counts expire after ninety days and the observation window covers thirty UTC calendar dates. Financial and runtime facts retain their domain authority.",started),List.copyOf(funnels),
+        new OperationsResponse.Runtime(admitted,healthy,pending,completed,completed-healthy,percent(healthy,completed),percent(completed,admitted),scenarioFailures,quota,validation,started.toString(),started,db.queryForObject("SELECT observed_epoch FROM lab_runtime_settings WHERE id=1",java.util.UUID.class)),List.copyOf(alerts),readiness(),resources);
+  }
+  OperationsResponse.Readiness readiness() {
     var runtimeConfig=configuration.projection(); var runtimeLane=labs.runtimeAvailability(); var commerce=payments.configuration();
     boolean commerceReady=Boolean.TRUE.equals(commerce.get("enabled"));
-    var readiness=new OperationsResponse.Readiness(new OperationsResponse.Lane(runtimeLane.enabled(),runtimeConfig.enabled(),runtimeLane.reason()),
+    return new OperationsResponse.Readiness(new OperationsResponse.Lane(runtimeLane.enabled(),runtimeConfig.enabled(),runtimeLane.reason()),
         new OperationsResponse.CommerceLane(commerceReady,commerceReady,(String)commerce.get("mode"),commerceReady?"Provider collection configuration is ready; independent LIVE merchant/domain evidence is still required.":(String)commerce.get("reason")),false);
-    return new OperationsResponse(new OperationsResponse.Window(from,to,30,"Aggregate counts only. Optional web events require consent, raw event/session data expires within twenty-four hours; daily unlinked counts expire after ninety days and the observation window covers thirty UTC calendar dates. Financial and runtime facts retain their domain authority.",started),List.copyOf(funnels),
-        new OperationsResponse.Runtime(admitted,healthy,pending,completed,completed-healthy,percent(healthy,completed),percent(completed,admitted),scenarioFailures,quota,validation,started.toString(),started,db.queryForObject("SELECT observed_epoch FROM lab_runtime_settings WHERE id=1",java.util.UUID.class)),List.copyOf(alerts),readiness,resources);
   }
+
   private static OperationsResponse.Funnel funnel(Map<String,Object> row,String label) {
     return funnel((String)row.get("stage"),(String)row.get("mode"),(String)row.get("version"),row,label);
   }

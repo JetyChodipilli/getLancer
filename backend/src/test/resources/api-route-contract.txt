@@ -16,6 +16,7 @@ GET /api/v1/admin/components/review
 GET /api/v1/admin/components/{id}
 GET /api/v1/admin/concierge
 GET /api/v1/admin/concierge/{id}/matches
+GET /api/v1/admin/dashboard
 GET /api/v1/admin/deletion-requests
 GET /api/v1/admin/delivery/disputes
 GET /api/v1/admin/education-releases

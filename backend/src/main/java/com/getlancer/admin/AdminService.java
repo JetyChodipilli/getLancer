@@ -65,13 +65,10 @@ public class AdminService {
 
   public PageResponse<ProjectResponses.ManagementProject> pending(HttpServletRequest r) {
     security.admin(r);
-    var result =
-        Pages.query(
-            db,
-            r,
-            ProductRepository.SELECT
-                + " WHERE p.approval_status IN ('PENDING_REVIEW','SUSPENDED') ORDER BY"
-                + " p.updated_at,p.id");
+    String statusFilter = "PENDING_REVIEW".equals(r.getParameter("status"))
+        ? "p.approval_status = 'PENDING_REVIEW'" : "p.approval_status IN ('PENDING_REVIEW','SUSPENDED')";
+    var result = Pages.query(db, r, ProductRepository.SELECT + " WHERE " + statusFilter
+        + " ORDER BY p.updated_at,p.id");
     result.put("items", products.managementDtos(Pages.items(result)));
     return PageResponse.from(result,ProjectResponses.ManagementProject::from);
   }
@@ -95,8 +92,12 @@ public class AdminService {
       String value = r.getParameter(key);
       if (value != null && !value.isBlank()) {
         if (value.length() > 40) throw new ApiError(400, "VALIDATION_ERROR", "Filter is too long.");
-        sql += " AND " + key + "=?";
-        values.add(value);
+        if (key.equals("status") && value.equals("UNRESOLVED")) {
+          sql += " AND status <> 'RESOLVED'";
+        } else {
+          sql += " AND " + key + "=?";
+          values.add(value);
+        }
       }
     }
     return PageResponse.from(Pages.query(

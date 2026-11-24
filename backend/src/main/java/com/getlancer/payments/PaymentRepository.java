@@ -4,6 +4,7 @@ import com.getlancer.responses.PaymentResponses;
 import com.getlancer.shared.ApiError;
 import com.getlancer.shared.Pages;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -148,8 +149,21 @@ public class PaymentRepository {
     else db.update("UPDATE payment_accounts SET account_id=?,mode=?,provider_status='created',activation_confirmed=true,verified_by=?,verified_at=now() WHERE id=?",account,mode,admin,id);
     db.update("INSERT INTO payment_account_audit(id,account_mapping_id,actor_id,previous_account_id,account_id) VALUES(?,?,?,?,?)",UUID.randomUUID(),id,admin,previous,account);
   }
+  private static final String ATTENTION = " FROM payment_attempts p JOIN delivery_milestones m ON m.id=p.milestone_id JOIN delivery_engagements e ON e.id=m.engagement_id WHERE p.status IN ('UNKNOWN','CREATING') OR p.attention_reason IS NOT NULL OR p.status='DISPUTED' OR e.status='DISPUTED' OR EXISTS(SELECT 1 FROM payment_webhook_events w WHERE w.processed_at IS NULL AND w.event_kind LIKE 'refund.%' AND (w.order_id=p.order_id OR w.payment_id=p.payment_id OR (w.order_id IS NULL AND w.payment_id IS NULL)))";
+
   Map<String,Object> attention(HttpServletRequest request) {
-    return Pages.query(db, request, "SELECT p.id,p.milestone_id AS \"milestoneId\",m.engagement_id AS \"engagementId\",p.status,p.amount_minor AS \"amountMinor\",p.currency,p.mode,p.order_id AS \"orderId\",p.account_id AS \"accountId\",p.attention_reason AS \"attentionReason\",p.transfer_status AS \"transferStatus\",p.settlement_status AS \"settlementStatus\",p.created_at AS \"createdAt\" FROM payment_attempts p JOIN delivery_milestones m ON m.id=p.milestone_id JOIN delivery_engagements e ON e.id=m.engagement_id WHERE p.status IN ('UNKNOWN','CREATING') OR p.attention_reason IS NOT NULL OR p.status='DISPUTED' OR e.status='DISPUTED' OR EXISTS(SELECT 1 FROM payment_webhook_events w WHERE w.processed_at IS NULL AND w.event_kind LIKE 'refund.%' AND (w.order_id=p.order_id OR w.payment_id=p.payment_id OR (w.order_id IS NULL AND w.payment_id IS NULL))) ORDER BY p.created_at,p.id");
+    return Pages.query(db, request, "SELECT p.id,p.milestone_id AS \"milestoneId\",m.engagement_id AS \"engagementId\",p.status,p.amount_minor AS \"amountMinor\",p.currency,p.mode,p.order_id AS \"orderId\",p.account_id AS \"accountId\",p.attention_reason AS \"attentionReason\",p.transfer_status AS \"transferStatus\",p.settlement_status AS \"settlementStatus\",p.created_at AS \"createdAt\"" + ATTENTION + " ORDER BY p.created_at,p.id");
   }
+
+  public record AttentionSummary(long count, Instant oldest) {}
+
+  public AttentionSummary attentionSummary() {
+    return db.queryForObject("SELECT count(*) AS count, min(p.created_at) AS oldest" + ATTENTION,
+        (result, row) -> {
+          var oldest = result.getTimestamp("oldest");
+          return new AttentionSummary(result.getLong("count"), oldest == null ? null : oldest.toInstant());
+        });
+  }
+
   static long number(Map<String,Object> row,String key) { return ((Number)row.get(key)).longValue(); }
 }

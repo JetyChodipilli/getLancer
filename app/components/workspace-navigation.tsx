@@ -18,7 +18,7 @@ const areaKeys = Object.keys(areaNames) as Area[];
 function workspaceGroups(home: string, preview: boolean, operator: boolean): Record<Area, Group[]> {
   return {
     work: [
-      {group: 'Workspace', tools: [{route: home, name: 'Personal workspace', icon: 'workspace'}]},
+      {group: 'Workspace', tools: [{route: home, name: 'Personal workspace', icon: 'workspace'}, ...(operator && !preview ? [{route: '/admin', name: 'Admin Dashboard', icon: 'workspace' as const}] : [])]},
       {group: 'Publish', tools: [
         {route: 'components', name: 'Components & slots', icon: 'components'},
         {route: 'slots', name: 'Publishing slots', icon: 'components'},
