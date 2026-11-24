@@ -74,16 +74,24 @@
       "sha256": "3f350e39d4d3882ea693799e1fc7cc0d23322abbed5f3e3a1f54141f04029d33"
     },
     {
+      "path": "backend/src/main/java/com/getlancer/admin/AdminDashboard.java",
+      "sha256": "7ba266bb3ef85b239751cab9f7337786674a888fc5588923a487b308353fde0f"
+    },
+    {
+      "path": "backend/src/main/java/com/getlancer/admin/AdminDashboardController.java",
+      "sha256": "7a696636d4332d5585dcfd052faba5e885713ed73f73cf1fab3a6133ada1bf5f"
+    },
+    {
       "path": "backend/src/main/java/com/getlancer/admin/AdminService.java",
-      "sha256": "f8523a494a78d956344172464f8ef44efde46ef52a5be53d35c54ea3e944de19"
+      "sha256": "9497c21caf85c917dd4341423903634df2af99c497a2c8f0e7b542e7830329b4"
     },
     {
       "path": "backend/src/main/java/com/getlancer/admin/MarketplaceMetrics.java",
-      "sha256": "7c0ddbf09b3b3e4f0b33f30a2753c3fefe14561cb2fe02ed0b6c90ac45163fc0"
+      "sha256": "d99d22a752ca903f542ec6c3a1e0f98eb18854776304045d3086e5ed34a613fc"
     },
     {
       "path": "backend/src/main/java/com/getlancer/admin/OperationsMetrics.java",
-      "sha256": "3a3052511da7d191ede8efe1662a9a78370d2aec3abbc5b16ed6cc1b96a2c15a"
+      "sha256": "eaa7a4360a09ead03967ce0d8ef9cccb43116d90553f4dfc59fc673ad61f4a3f"
     },
     {
       "path": "backend/src/main/java/com/getlancer/analytics/AnalyticsController.java",
@@ -279,7 +287,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/delivery/DeliveryRepository.java",
-      "sha256": "1ae382b814e640c44677a4bee48cca7c854f972ca17eada19d438fd63d369c49"
+      "sha256": "2d0de77a6c0a72896dcc1f2c484437ba9a2d456582905e22939f904bfb2f8f87"
     },
     {
       "path": "backend/src/main/java/com/getlancer/delivery/DeliveryService.java",
@@ -543,7 +551,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/payments/PaymentRepository.java",
-      "sha256": "5a39b33ece81a36f2adb6a4abc4716fa7f3d67184089eb9aa08d1025b703a238"
+      "sha256": "6c429679aba5e48cf0b8a4e136cd3871916a75ccc59a974eb634b5a2c8490c85"
     },
     {
       "path": "backend/src/main/java/com/getlancer/payments/PaymentService.java",
@@ -612,6 +620,10 @@
     {
       "path": "backend/src/main/java/com/getlancer/responses/AccountExportResponse.java",
       "sha256": "3a02b0837cb5afd7e7821f1f6478a7021abd0389297ff65dd0abe8461517573d"
+    },
+    {
+      "path": "backend/src/main/java/com/getlancer/responses/AdminDashboardResponse.java",
+      "sha256": "40cfc30d278eda1a1154598425b93df18e85753356fc45ac3e8d28c3b44271f5"
     },
     {
       "path": "backend/src/main/java/com/getlancer/responses/AdminResponses.java",
@@ -759,7 +771,7 @@
     },
     {
       "path": "backend/src/main/resources/api-authorization-policy.txt",
-      "sha256": "2eb3a7f3635a6fecf97ad653d24036524a197edbaf21548d09e71416e7c605d1"
+      "sha256": "e88fb71f4cee67aaf8f8da033ee1aff329a82a54123e1f024da026586e9aeb1b"
     },
     {
       "path": "backend/src/main/resources/application-local.properties",
@@ -1153,11 +1165,11 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/AdminOperationsPaginationIntegrationTest.java",
-      "sha256": "a9ee4fc494acbd787f5bb52a50045010d34f225bb1f76b6275a12eecde62b95b"
+      "sha256": "aa58135b32a44ae87656210c57a5ace43c00d78dcbe888f03d6f7eed29595800"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/AnalyticsCoverageIntegrationTest.java",
-      "sha256": "06595a9115a51e550704074960d0dbda51f23365aa5bb77d90b13dbbc7bb1d61"
+      "sha256": "d2ca1568ac2731e5a6e07adf17c2485ebe01eba4917574056fac482674c9ef7e"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/AuthAuditRegressionTest.java",
@@ -1453,7 +1465,7 @@
     },
     {
       "path": "backend/src/test/resources/api-route-contract.txt",
-      "sha256": "34255cd6c22fe9219da15105690b466024c48c19a37fd1e1400f4f63576c0e35"
+      "sha256": "23e8f222814f50a42790c19cd7736834801219356872d822477f9f11fb626b49"
     },
     {
       "path": "backend/src/test/resources/mockito-extensions/org.mockito.plugins.MockMaker",
