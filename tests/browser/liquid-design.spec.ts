@@ -182,6 +182,7 @@ test('every sample workspace renders paper surfaces, readable records and contai
 });
 
 test('workspace project search joins the navigation after scrolling past the toolbar', async ({page}, info) => {
+  if (info.project.name === 'phone') await page.setViewportSize({width: 320, height: 700});
   await page.goto('/preview/workspace');
   await expect(page.locator('.demo-card')).toHaveCount(6);
   await settle(page);
@@ -196,7 +197,7 @@ test('workspace project search joins the navigation after scrolling past the too
   await page.evaluate(() => {
     const controls = document.querySelector('.workspace-browse-toolbar .browse-controls')!.getBoundingClientRect();
     const header = document.querySelector('#site-navigation-bar')!.getBoundingClientRect();
-    window.scrollTo({top: window.scrollY + controls.bottom - header.bottom + 28, behavior: 'instant'});
+    window.scrollTo({top: window.scrollY + controls.bottom - header.bottom + 160, behavior: 'instant'});
   });
   await expect(inNav).toBeFocused();
   await expect(inPage).toHaveCount(0);
@@ -211,8 +212,10 @@ test('workspace project search joins the navigation after scrolling past the too
   await expect(page.getByRole('dialog', {name: 'Find your next project'})).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(filter).toBeFocused();
+  const beforeSort = await page.evaluate(() => window.scrollY);
   await dock.getByLabel('Sort projects').selectOption('name');
   await expect(titles.first()).toHaveText('Booklane');
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(beforeSort);
   await inNav.fill('React');
   await expect(titles.first()).toHaveText('Stockroom');
   await page.evaluate(() => window.scrollTo({top: 0, behavior: 'instant'}));

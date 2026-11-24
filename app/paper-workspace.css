@@ -69,6 +69,8 @@ body .site-header.workspace-site-header:has(#workspace-project-dock:not(:empty))
 #workspace-project-dock :is(input,button,select) { scroll-margin: 0 }
 .browse-search-submit .dock-control-icon { display: none }
 body:has(#workspace-project-dock:not(:empty)) .studio-shell { --studio-sticky-top: calc(var(--nav-height) + 72px) }
+/* Keep the scroll position when the docked sort reorders the collection. */
+body:has(#workspace-project-dock:not(:empty)) .demo-layout .catalog-grid { overflow-anchor: none }
 @media (max-width: 560px) {
   #workspace-project-dock .browse-controls { gap: 6px; padding-inline: 12px }
   #workspace-project-dock .browse-search-submit > span,
