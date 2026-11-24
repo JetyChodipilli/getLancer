@@ -122,7 +122,10 @@ test('@cross-browser navigation icons respond to focus, hover and press without 
  // Live reduction must reset drawing/opacity too, before the finite animation ends.
  await page.emulateMedia({reducedMotion:'reduce'});expect(await afterPreferenceFrame(homeIcon)).toEqual(homeNormal);await partsAreStatic(homeIcon);
  await page.emulateMedia({reducedMotion:'no-preference'});
- await expectPartMotion(icon,()=>page.keyboard.press('Tab'));await expect(components).toBeFocused();
+ // Let the browser apply the media query before delivering the next focus event.
+ await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+ await expect(home).toBeFocused();
+ await expectPartMotion(icon,async()=>{await page.keyboard.press('Tab');await expect(components).toBeFocused();});
  await expect(icon).toHaveCSS('transform','none');
  expect(await label.boundingBox()).toEqual(before);
  expect(await components.evaluate(node=>parseFloat(getComputedStyle(node).outlineWidth))).toBeGreaterThanOrEqual(2);
