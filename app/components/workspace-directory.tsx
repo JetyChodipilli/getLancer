@@ -6,6 +6,7 @@ import {useEffect, useState} from 'react';
 import {api} from '@/lib/api';
 import {clientTools, trustTools} from '@/lib/workspace-tools';
 import {WorkspaceFrame} from './workspace-frame';
+import NavIcon from './nav-icon';
 
 export default function WorkspaceDirectory({area,preview=false}:{area:'clients'|'trust';preview?:boolean}) {
   const [query,setQuery]=useState('');
@@ -24,7 +25,7 @@ export default function WorkspaceDirectory({area,preview=false}:{area:'clients'|
   const groups=isClients?clientTools:trustTools(preview,operator);
   const term=query.trim().toLowerCase();
   const visible=groups.map(({group,tools})=>({
-    group, tools:tools.filter(tool=>[group,tool.name,tool.description].some(value=>value.toLowerCase().includes(term))),
+    group, tools:tools.filter(tool=>[group,tool.name,tool.description ?? ''].some(value=>value.toLowerCase().includes(term))),
   })).filter(({tools})=>tools.length>0);
   const count=visible.reduce((total,{tools})=>total+tools.length,0);
   const title=isClients?'Clients':'Trust';
@@ -39,8 +40,9 @@ export default function WorkspaceDirectory({area,preview=false}:{area:'clients'|
     {term&&<p role="status" className="studio-directory-result">{count?count+' matching '+(count===1?'tool':'tools'):'No matching tools.'}</p>}
     <div className="studio-directory">{visible.map(({group,tools})=><section key={group}>
       <h2>{group}</h2>
-      <ul>{tools.map(({route,name,description})=><li key={route}>
+      <ul>{tools.map(({route,name,description,icon})=><li key={route}>
         <Link prefetch={false} tabIndex={0} href={root+'/'+route}>
+          <NavIcon name={icon}/>
           <span><strong>{name}</strong><small>{description}</small></span>
           <ArrowUpRight size={16} aria-hidden="true"/>
         </Link>

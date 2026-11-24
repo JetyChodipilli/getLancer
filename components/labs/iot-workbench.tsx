@@ -11,7 +11,7 @@ const fields:[Exclude<Field,'topic'>,string,string,number,number][]=[['temperatu
 const message=(problem:unknown)=>problem instanceof Error?problem.message:'The action was rejected. Check the values and retry.';
 export default function IotWorkbench(){
  const [session,setSession]=useState<IotSession|null>(null),[inputs,setInputs]=useState<InputValues>(initialInputs),[errors,setErrors]=useState<Partial<Record<Field,string>>>({}),[problem,setProblem]=useState(''),[notice,setNotice]=useState('');
- const errorSummary=useRef<HTMLDivElement>(null);
+ const errorSummary=useRef<HTMLDivElement>(null),topicDetails=useRef<HTMLDetailsElement>(null);
  // Per-tab IDs and timestamps must be created after hydration, never during server render.
  useEffect(()=>{let active=true;queueMicrotask(()=>{if(!active)return;const next=createIotSession();setSession(next);setInputs({...initialInputs,topic:next.topic});});return()=>{active=false;};},[]);
  useEffect(()=>{if(problem||Object.keys(errors).length)errorSummary.current?.focus({preventScroll:false});},[problem,errors]);
@@ -21,7 +21,11 @@ export default function IotWorkbench(){
  }
  function startNew(){const next=createIotSession();setSession(next);setInputs({...initialInputs,topic:next.topic});setErrors({});setProblem('');setNotice('New isolated session created. Previous topic and messages are no longer active.');}
  function publish(event:FormEvent){event.preventDefault();if(!session)return;const found:Partial<Record<Field,string>>={};for(const [key,label,unit,min,max] of fields){const raw=inputs[key].trim(),value=Number(raw);if(!raw||!Number.isFinite(value)||value<min||value>max)found[key]=`Enter ${label.toLowerCase()} from ${min} to ${max} ${unit}.`;}
-  if(inputs.topic!==session.topic)found.topic='Use the exact topic assigned to this session.';setErrors(found);setProblem('');if(Object.keys(found).length){setNotice('');return;}
+  if(inputs.topic!==session.topic){
+   found.topic='Use the exact topic assigned to this session.';
+   if(topicDetails.current)topicDetails.current.open=true;
+  }
+  setErrors(found);setProblem('');if(Object.keys(found).length){setNotice('');return;}
   try{const next=iotAction(session,{type:'publish',temperatureC:Number(inputs.temperatureC),humidityPercent:Number(inputs.humidityPercent),thresholdC:Number(inputs.thresholdC),topic:inputs.topic});setSession(next);setNotice(`Message ${next.sequence} published. Synthetic actuator ${next.actuatorOn?'ON':'OFF'}.`);}catch(error){setProblem(message(error));setNotice('');}
  }
  return <main id="main" className="iot-shell">
@@ -30,9 +34,15 @@ export default function IotWorkbench(){
   <div className="iot-layout">
    <section className="iot-controls iot-panel" aria-labelledby="iot-input-heading"><div className="iot-section-head"><div><span className="iot-kicker">Synthetic inputs</span><h2 id="iot-input-heading">Publish telemetry</h2></div><Cpu size={22} aria-hidden="true"/></div>
     <form onSubmit={publish} noValidate>
-     {(problem||Object.keys(errors).length>0)&&<div className="iot-error-summary" role="alert" tabIndex={-1} ref={errorSummary}><strong>Publication could not complete.</strong>{problem&&<p>{problem}</p>}{Object.entries(errors).length>0&&<ul>{Object.entries(errors).map(([key,error])=><li key={key}><a href={'#iot-'+key}>{error}</a></li>)}</ul>}</div>}
+     {(problem||Object.keys(errors).length>0)&&<div className="iot-error-summary" role="alert" tabIndex={-1} ref={errorSummary}><strong>Publication could not complete.</strong>{problem&&<p>{problem}</p>}{Object.entries(errors).length>0&&<ul>{Object.entries(errors).map(([key,error])=><li key={key}><a href={'#iot-'+key} onClick={event=>{
+      const field=document.getElementById('iot-'+key);
+      if(!(field instanceof HTMLInputElement))return;
+      if(key==='topic'&&topicDetails.current)topicDetails.current.open=true;
+      event.preventDefault();
+      field.focus();
+     }}>{error}</a></li>)}</ul>}</div>}
      <div className="iot-fields">{fields.map(([key,label,unit,min,max])=><div className="iot-field" key={key}><label htmlFor={'iot-'+key}>{label}<span aria-hidden="true">{unit}</span></label><input id={'iot-'+key} type="number" min={min} max={max} step="any" inputMode="decimal" value={inputs[key]} onChange={event=>setInputs(previous=>({...previous,[key]:event.target.value}))} disabled={!session} aria-invalid={Boolean(errors[key])} aria-describedby={'iot-'+key+'-hint'+(errors[key]?' iot-'+key+'-error':'')}/><span className="iot-hint" id={'iot-'+key+'-hint'}>{min} to {max} {unit}</span>{errors[key]&&<p className="iot-field-error" id={'iot-'+key+'-error'}>{errors[key]}</p>}</div>)}</div>
-     <details className="iot-topic-control"><summary>Session topic</summary><div className="iot-field"><label htmlFor="iot-topic">Publish topic</label><input id="iot-topic" type="text" value={inputs.topic} onChange={event=>setInputs(previous=>({...previous,topic:event.target.value}))} maxLength={80} spellCheck={false} autoComplete="off" disabled={!session} aria-invalid={Boolean(errors.topic)} aria-describedby={"iot-topic-hint"+(errors.topic?" iot-topic-error":"")}/><p id="iot-topic-hint" className="iot-hint">Only this run’s exact topic is accepted.</p>{errors.topic&&<p id="iot-topic-error" className="iot-field-error">{errors.topic}</p>}</div></details>
+     <details className="iot-topic-control" ref={topicDetails}><summary>Session topic</summary><div className="iot-field"><label htmlFor="iot-topic">Publish topic</label><input id="iot-topic" type="text" value={inputs.topic} onChange={event=>setInputs(previous=>({...previous,topic:event.target.value}))} maxLength={80} spellCheck={false} autoComplete="off" disabled={!session} aria-invalid={Boolean(errors.topic)} aria-describedby={"iot-topic-hint"+(errors.topic?" iot-topic-error":"")}/><p id="iot-topic-hint" className="iot-hint">Only this run’s exact topic is accepted.</p>{errors.topic&&<p id="iot-topic-error" className="iot-field-error">{errors.topic}</p>}</div></details>
      <button className="iot-button primary iot-publish" type="submit" disabled={!session}><ArrowUpRight size={18} aria-hidden="true"/>Publish readings</button>
     </form>
     <div className="iot-connection-controls" aria-label="Protocol recovery controls"><button className="iot-button" type="button" disabled={!session} onClick={()=>act(session?.connected?'disconnect':'connect')}>{session?.connected?<WifiOff size={18} aria-hidden="true"/>:<Wifi size={18} aria-hidden="true"/>}{session?.connected?'Disconnect':'Reconnect'}</button><button className="iot-button" type="button" disabled={!session} onClick={()=>act('reset')}><RefreshCw size={18} aria-hidden="true"/>Reset device</button></div>

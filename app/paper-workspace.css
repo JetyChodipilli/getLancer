@@ -83,7 +83,12 @@ body .site-header.workspace-site-header #site-navigation-bar .account { grid-are
   white-space: nowrap;
 }
 .workspace-site-header .studio-area-tabs button svg { flex: none; }
-.workspace-site-header .studio-area-tabs button[aria-expanded=true] svg { transform: rotate(180deg); }
+.workspace-site-header .studio-area-tabs button[aria-expanded=true] .studio-area-chevron { transform: rotate(180deg); }
+.workspace-site-header :is(.studio-area-tabs, .studio-tool-panel, .studio-tools-search) .paper-nav-icon {
+  width: 17px;
+  height: 17px;
+  color: var(--paper-action);
+}
 .workspace-site-header .studio-tool-panel {
   position: absolute;
   z-index: 2;
@@ -93,7 +98,7 @@ body .site-header.workspace-site-header #site-navigation-bar .account { grid-are
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
   color: var(--paper-ink);
-  background: var(--nav-fill, #f5f7ff);
+  background: var(--paper-surface);
   border-bottom: 1px solid var(--paper-line);
   box-shadow: 0 14px 32px #14275324;
 }
@@ -102,7 +107,7 @@ body .site-header.workspace-site-header #site-navigation-bar .account { grid-are
   z-index: 1;
   inset: 100% 0 auto;
   height: 100dvh;
-  background: #14264c32;
+  background: #14264c20;
 }
 .workspace-site-header .studio-panel-inner {
   max-width: 1320px;
@@ -199,7 +204,7 @@ body .site-header.workspace-site-header #site-navigation-bar .account { grid-are
 @media (prefers-reduced-motion: no-preference) {
   .workspace-site-header .studio-tool-panel { animation: studio-panel-reveal 190ms var(--app-motion-ease) both; }
   .workspace-site-header .studio-menu-scrim { animation: studio-scrim-reveal 170ms ease-out both; }
-  .workspace-site-header .studio-area-tabs button svg { transition: transform 160ms ease; }
+  .workspace-site-header .studio-area-chevron { transition: transform 160ms ease; }
   @keyframes studio-panel-reveal { from { opacity: 0; transform: translateY(-6px); } }
   @keyframes studio-scrim-reveal { from { opacity: 0; } }
 }
@@ -216,7 +221,7 @@ body .site-header.workspace-site-header #site-navigation-bar .account { grid-are
   }
   .workspace-site-header .studio-area-tabs { grid-area: 2 / 1 / 3 / -1; justify-self: stretch; border-radius: 14px; }
   .workspace-site-header .studio-switch-anchor { flex: 1 0 auto; }
-  .workspace-site-header .studio-area-tabs button { width: 100%; padding-inline: 4px; gap: 3px; }
+  .workspace-site-header .studio-area-tabs button { width: 100%; padding-inline: 4px; gap: 4px; }
   .workspace-site-header .studio-tools-search { grid-area: 1 / 2; }
   body .site-header.workspace-site-header #site-navigation-bar .paper-more-nav { grid-area: 1 / 3; }
   body .site-header.workspace-site-header #site-navigation-bar .account { grid-area: 1 / 4; }
@@ -224,6 +229,10 @@ body .site-header.workspace-site-header #site-navigation-bar .account { grid-are
   body .site-header.workspace-site-header .account > .link { display: flex; min-height: 44px; align-items: center; font-size: .8125rem; }
   body .site-header.workspace-site-header .spectral-wordmark { width: min(128px, 100%); }
   .workspace-site-header .studio-panel-inner { padding-block: 16px; }
+}
+@media (max-width: 430px) {
+  .workspace-site-header .studio-area-chevron { display: none; }
+  .workspace-site-header .studio-area-tabs .paper-nav-icon { width: 15px; height: 15px; }
 }
 @media (forced-colors: active) {
   .workspace-site-header :is(.studio-area-tabs, .studio-tools-search button, .studio-tool-panel) { border-color: CanvasText; }
@@ -289,6 +298,8 @@ body .studio-shell.paper-studio .studio-directory-search input[type=search] {
 }
 .paper-studio :is(.studio-directory a, .team-attention button):hover { background: var(--studio-hover); }
 .paper-studio :is(.studio-directory a, .team-attention button) svg { flex: none; color: var(--studio-blue); }
+.paper-studio .studio-directory a > .paper-nav-icon { margin-inline-end: 10px; color: var(--paper-action); }
+.paper-studio .studio-directory a > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .paper-studio :is(.studio-directory a, .team-attention button) > span {
   display: flex;
   flex-wrap: wrap;

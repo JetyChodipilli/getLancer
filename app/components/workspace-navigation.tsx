@@ -3,36 +3,35 @@
 import Link from 'next/link';
 import {ArrowRight, ChevronDown, Search} from 'lucide-react';
 import {useEffect, useRef, useState, type KeyboardEvent, type PointerEvent} from 'react';
-import {clientTools, trustTools} from '@/lib/workspace-tools';
+import {clientTools, trustTools, type WorkspaceTool, type WorkspaceToolGroup} from '@/lib/workspace-tools';
 import NavIcon, {type NavIconName} from './nav-icon';
 
 type Area = 'work' | 'clients' | 'trust' | 'teams';
 type Menu = Area | 'search';
-type Tool = {route: string; name: string; icon?: NavIconName};
-type Group = {group: string; tools: Tool[]};
 type OpenMenu = {id: Menu; via: 'pointer' | 'button'};
 
 const areaNames: Record<Area, string> = {work: 'Work', clients: 'Clients', trust: 'Trust', teams: 'Teams'};
+const areaIcons: Record<Area, NavIconName> = {work: 'workspace', clients: 'briefcase', trust: 'shield', teams: 'teams'};
 const areaKeys = Object.keys(areaNames) as Area[];
 
-function workspaceGroups(home: string, preview: boolean, operator: boolean): Record<Area, Group[]> {
+function workspaceGroups(home: string, preview: boolean, operator: boolean): Record<Area, WorkspaceToolGroup[]> {
   return {
     work: [
       {group: 'Workspace', tools: [{route: home, name: 'Personal workspace', icon: 'workspace'}, ...(operator && !preview ? [{route: '/admin', name: 'Admin Dashboard', icon: 'workspace' as const}] : [])]},
       {group: 'Publish', tools: [
         {route: 'components', name: 'Components & slots', icon: 'components'},
-        {route: 'slots', name: 'Publishing slots', icon: 'components'},
+        {route: 'slots', name: 'Publishing slots', icon: 'publish'},
         {route: 'college-projects', name: 'College projects', icon: 'college'},
       ]},
-      {group: 'Demos', tools: [{route: 'hosting', name: 'Hosted frontend demos'}]},
+      {group: 'Demos', tools: [{route: 'hosting', name: 'Hosted frontend demos', icon: 'workspace'}]},
     ],
     clients: clientTools,
     trust: trustTools(preview, operator),
     teams: [
       {group: 'Studio', tools: [{route: 'teams?tab=members', name: 'Members', icon: 'teams'}]},
-      {group: 'Recruitment', tools: [{route: 'teams?tab=recruitment', name: 'Open roles'}]},
-      {group: 'Client leads', tools: [{route: 'teams?tab=leads', name: 'Client leads'}]},
-      {group: 'Shared work', tools: [{route: 'teams?tab=projects', name: 'Shared projects'}, {route: 'teams?tab=activity', name: 'Team activity'}]},
+      {group: 'Recruitment', tools: [{route: 'teams?tab=recruitment', name: 'Open roles', icon: 'recruitment'}]},
+      {group: 'Client leads', tools: [{route: 'teams?tab=leads', name: 'Client leads', icon: 'briefcase'}]},
+      {group: 'Shared work', tools: [{route: 'teams?tab=projects', name: 'Shared projects', icon: 'components'}, {route: 'teams?tab=activity', name: 'Team activity', icon: 'activity'}]},
     ],
   };
 }
@@ -126,11 +125,11 @@ export default function WorkspaceNavigation({path, preview, operator}: {path: st
     }
   }
 
-  function toolLink(tool: Tool) {
+  function toolLink(tool: WorkspaceTool) {
     const href = hrefFor(tool.route);
     return <Link prefetch={false} tabIndex={0} href={href} onClick={() => setOpen(null)}
       aria-current={path === href ? 'page' : undefined}>
-      {tool.icon && <NavIcon name={tool.icon}/>}<span>{tool.name}</span><ArrowRight size={15} aria-hidden="true"/>
+      <NavIcon name={tool.icon}/><span>{tool.name}</span><ArrowRight size={15} aria-hidden="true"/>
     </Link>;
   }
 
@@ -151,7 +150,7 @@ export default function WorkspaceNavigation({path, preview, operator}: {path: st
   const term = query.trim().toLowerCase();
   const results = areaKeys.flatMap(area => groups[area].flatMap(group => group.tools.filter(tool =>
     !term ? ['business', 'delivery', 'components', 'teams?tab=recruitment'].includes(tool.route)
-      : [tool.name, group.group, areaNames[area]].some(value => value.toLowerCase().includes(term)))));
+      : [tool.name, tool.description ?? '', group.group, areaNames[area]].some(value => value.toLowerCase().includes(term)))));
 
   return <div ref={root} className="studio-header-controls" data-menu-open={open ? '' : undefined}
     onPointerEnter={keepHoverOpen} onPointerLeave={leave}>
@@ -161,7 +160,7 @@ export default function WorkspaceNavigation({path, preview, operator}: {path: st
           aria-current={activeArea === area ? (path === overview[area] ? 'page' : 'location') : undefined}
           onClick={event => toggle(area, event.currentTarget)} onKeyDown={event => keyDown(event, area)} onPointerEnter={event => hover(event, area)}
           onPointerLeave={() => clearTimeout(timer.current)}>
-          {areaNames[area]} <ChevronDown size={14} aria-hidden="true"/>
+          <NavIcon name={areaIcons[area]}/><span>{areaNames[area]}</span><ChevronDown className="studio-area-chevron" size={14} aria-hidden="true"/>
         </button>
         {open?.id === area && areaPanel(area)}
       </div>)}
@@ -169,7 +168,7 @@ export default function WorkspaceNavigation({path, preview, operator}: {path: st
     <div className="studio-tools-search" onPointerEnter={leave}>
       <button type="button" aria-label="Find a tool" aria-expanded={open?.id === 'search'} aria-controls={open?.id === 'search' ? 'workspace-menu-search' : undefined}
         onClick={event => toggle('search', event.currentTarget)} onKeyDown={event => keyDown(event, 'search')}>
-        <Search size={18} aria-hidden="true"/><span>Find a tool</span>
+        <NavIcon name="search"/><span>Find a tool</span>
       </button>
       {open?.id === 'search' && <section id="workspace-menu-search" className="studio-tool-panel" aria-label="Find a workspace tool">
         <div className="studio-panel-inner">

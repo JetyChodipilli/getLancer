@@ -122,7 +122,10 @@ test('@cross-browser navigation icons respond to focus, hover and press without 
  // Live reduction must reset drawing/opacity too, before the finite animation ends.
  await page.emulateMedia({reducedMotion:'reduce'});expect(await afterPreferenceFrame(homeIcon)).toEqual(homeNormal);await partsAreStatic(homeIcon);
  await page.emulateMedia({reducedMotion:'no-preference'});
- await expectPartMotion(icon,()=>page.keyboard.press('Tab'));await expect(components).toBeFocused();
+ // Let the browser apply the media query before delivering the next focus event.
+ await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+ await expect(home).toBeFocused();
+ await expectPartMotion(icon,async()=>{await page.keyboard.press('Tab');await expect(components).toBeFocused();});
  await expect(icon).toHaveCSS('transform','none');
  expect(await label.boundingBox()).toEqual(before);
  expect(await components.evaluate(node=>parseFloat(getComputedStyle(node).outlineWidth))).toBeGreaterThanOrEqual(2);
@@ -161,4 +164,32 @@ test('@cross-browser reduced motion keeps navigation symbols static during inter
  const nav=page.getByRole('navigation',{name:'Main navigation',exact:true});
  await nav.getByRole('link',{name:'Projects',exact:true}).focus();await page.keyboard.press('Tab');
  const focused=nav.getByRole('link',{name:'Components',exact:true});await expect(focused).toBeFocused();await partsAreStatic(focused.locator('.paper-nav-icon'));
+});
+
+test('@cross-browser workspace categories and service links have labelled animated icons', async ({page}) => {
+ await page.goto('/preview/workspace');
+ const navigation = page.getByRole('navigation', {name: 'Workspace navigation'});
+ for (const [label, icon] of [['Work', 'workspace'], ['Clients', 'briefcase'], ['Trust', 'shield'], ['Teams', 'teams']]) {
+  const button = navigation.getByRole('button', {name: label, exact: true});
+  await expect(button.locator(`svg[data-nav-icon="${icon}"]`)).toHaveAttribute('aria-hidden', 'true');
+  await button.click();
+  const tools = page.getByRole('region', {name: label + ' tools'});
+  await expect(tools).toBeVisible();
+  const serviceLinks = tools.locator('li > a');
+  expect(await serviceLinks.count()).toBeGreaterThan(0);
+  await expect(serviceLinks.locator('svg[data-nav-icon]')).toHaveCount(await serviceLinks.count());
+  await page.keyboard.press('Escape');
+  await expect(button).toBeFocused();
+ }
+
+ await page.getByRole('button', {name: 'Find a tool', exact: true}).click();
+ const search = page.getByRole('searchbox', {name: 'Search workspace tools'});
+ await expect(search).toBeFocused();
+ await search.fill('approvals');
+ const result = page.getByRole('region', {name: 'Find a workspace tool'}).getByRole('link', {name: 'Delivery & payments', exact: true});
+ await expect(result.locator('svg[data-nav-icon="delivery"]')).toHaveAttribute('aria-hidden', 'true');
+ await result.click();
+ await expect(page).toHaveURL(/\/preview\/delivery$/);
+ await expect(page.locator('main h1')).toBeVisible();
+ await fits(page);
 });
