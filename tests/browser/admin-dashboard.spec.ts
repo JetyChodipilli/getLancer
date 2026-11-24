@@ -100,3 +100,27 @@ test('dashboard shortcuts open the filtered moderation queue and existing recove
   await expect(page.getByRole('heading', { name: 'Orders requiring attention' })).toBeVisible();
   await expect.poll(() => requested.some(path => path.startsWith('/api/v1/admin/payments/attention?'))).toBe(true);
 });
+
+test('admin demo switches sample periods and opens moderation without live API requests', async ({ page }) => {
+  const apiRequests: string[] = [];
+  page.on('request', request => {
+    const path = new URL(request.url()).pathname;
+    if (path.startsWith('/api/v1/')) apiRequests.push(path);
+  });
+
+  await page.goto('/preview/admin');
+  await expect(page.getByText(/Sample data · Marketplace activity/)).toBeVisible();
+  const kpis = page.locator('.admin-kpis');
+  await expect(kpis).toContainText('124');
+  await page.getByLabel('Dashboard period').selectOption('12');
+  await expect(kpis).toContainText('276');
+  await page.getByText('Weekly counts', { exact: true }).click();
+  await expect(page.getByRole('table', { name: 'Weeks starting Monday, UTC' }).getByRole('row')).toHaveCount(13);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  await page.getByRole('link', { name: 'Try moderation' }).click();
+  await expect(page.getByRole('heading', { name: 'Review queue', exact: true })).toBeVisible();
+  await page.getByRole('link', { name: 'Open admin dashboard' }).click();
+  await expect(page.getByText(/Sample data · Marketplace activity/)).toBeVisible();
+  expect(apiRequests).toEqual([]);
+});

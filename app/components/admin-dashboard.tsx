@@ -21,6 +21,16 @@ const navigation = [
   { label: 'Audit log', href: `${adminWorkspace}#admin-audit`, icon: FileText },
 ];
 
+const demoModeration = '/preview/workspace?view=moderation';
+const demoNavigation = [
+  { label: 'Overview', href: '/preview/admin', icon: LayoutDashboard },
+  { label: 'Moderation', href: demoModeration, icon: ShieldCheck },
+  { label: 'Commerce', href: '#admin-commerce', icon: ShoppingCart },
+  { label: 'Catalog', href: '#admin-catalog', icon: Boxes },
+  { label: 'Operations', href: '/preview/operations', icon: Gauge },
+  { label: 'Audit log', href: `${demoModeration}#demo-audit`, icon: FileText },
+];
+
 const queueLinks = {
   projects: ['Projects to review', `${adminWorkspace}&queue=projects#moderation-projects`],
   reports: ['Unresolved reports', `${adminWorkspace}&queue=reports#moderation-reports`],
@@ -80,7 +90,7 @@ function InquiryTrend({ trend }: { trend: DashboardSnapshot['trend'] }) {
   </section>;
 }
 
-function DashboardContent({ snapshot }: { snapshot: DashboardSnapshot }) {
+function DashboardContent({ snapshot, demo }: { snapshot: DashboardSnapshot; demo: boolean }) {
   const { outcomes, trend, queues, catalog, commerce, readiness } = snapshot;
   const metrics = [
     ['Qualified inquiries', numbers.format(outcomes.qualified)],
@@ -102,17 +112,19 @@ function DashboardContent({ snapshot }: { snapshot: DashboardSnapshot }) {
       <section className="admin-panel" aria-labelledby="admin-queue-title">
         <div className="admin-panel-head">
           <div><h2 id="admin-queue-title">Needs attention</h2><p className="admin-caption">Current backlog</p></div>
-          <Link prefetch={false} href={`${adminWorkspace}#moderation-queue`}>View queues</Link>
+          <Link prefetch={false} href={demo ? demoModeration : `${adminWorkspace}#moderation-queue`}>{demo ? 'Try moderation' : 'View queues'}</Link>
         </div>
         <ul className="admin-queue">{queueKeys.map(key => {
           const queue = queues.find(item => item.key === key);
-          const [label, href] = queueLinks[key];
+          const [label, liveHref] = queueLinks[key];
           if (!queue) return null;
-          return <li key={key}><Link prefetch={false} href={href}>
+          const href = demo ? (key === 'projects' || key === 'reports' ? demoModeration : null) : liveHref;
+          const row = <>
             <span>{label}{queue.severity && <span className="admin-severity"> · {queue.severity === 'HIGH' ? 'High priority' : 'Critical'}</span>}
               {queue.oldest && <small>Oldest <time dateTime={queue.oldest}>{timeLabel(queue.oldest)}</time></small>}</span>
-            <strong>{numbers.format(queue.count)}</strong><ChevronRight size={17} aria-hidden="true" />
-          </Link></li>;
+            <strong>{numbers.format(queue.count)}</strong>{href && <ChevronRight size={17} aria-hidden="true" />}
+          </>;
+          return <li key={key}>{href ? <Link prefetch={false} href={href}>{row}</Link> : <div>{row}</div>}</li>;
         })}</ul>
       </section>
       <section className="admin-panel" aria-labelledby="admin-outcomes-title">
@@ -134,7 +146,7 @@ function DashboardContent({ snapshot }: { snapshot: DashboardSnapshot }) {
       </section>
       <section className="admin-panel" aria-labelledby="admin-ready-title">
         <div className="admin-panel-head"><h2 id="admin-ready-title">Launch readiness</h2>
-          <Link prefetch={false} href="/workspace/operations">View operations</Link></div>
+          <Link prefetch={false} href={demo ? "/preview/operations" : "/workspace/operations"}>View operations</Link></div>
         {readiness ? <dl className="admin-facts">
           <div><dt>Hosted runtime</dt><dd data-tone={readiness.runtimeEnabled ? 'positive' : 'muted'}>{readiness.runtimeEnabled ? 'Enabled' : 'Disabled'}</dd></div>
           <div><dt>Live payments</dt><dd data-tone={readiness.livePaymentsEnabled ? 'positive' : 'muted'}>{readiness.livePaymentsEnabled ? 'Configured' : 'Disabled'}</dd></div>
@@ -143,7 +155,7 @@ function DashboardContent({ snapshot }: { snapshot: DashboardSnapshot }) {
       </section>
       <section className="admin-panel" id="admin-catalog" aria-labelledby="admin-catalog-title">
         <div className="admin-panel-head"><h2 id="admin-catalog-title">Catalog</h2>
-          <Link prefetch={false} href={`${adminWorkspace}#operator-metrics-title`}>View publishing metrics</Link></div>
+          {!demo && <Link prefetch={false} href={`${adminWorkspace}#operator-metrics-title`}>View publishing metrics</Link>}</div>
         <dl className="admin-facts">
           <div><dt>Active public showcases</dt><dd>{numbers.format(catalog.activeShowcases)}</dd></div>
           <div><dt>Unreachable showcase demos</dt><dd>{numbers.format(catalog.demosUnreachable)}</dd></div>
@@ -151,7 +163,7 @@ function DashboardContent({ snapshot }: { snapshot: DashboardSnapshot }) {
       </section>
       <section className="admin-panel" id="admin-commerce" aria-labelledby="admin-commerce-title">
         <div className="admin-panel-head"><h2 id="admin-commerce-title">Commerce</h2>
-          <Link prefetch={false} href={queueLinks.payments[1]}>View payment checks</Link></div>
+          {!demo && <Link prefetch={false} href={queueLinks.payments[1]}>View payment checks</Link>}</div>
         {commerce.length ? <div className="admin-table-scroll"><table>
           <caption>Provider ledger entries in the selected period</caption>
           <thead><tr><th scope="col">Product</th><th scope="col">Mode</th><th scope="col">Captured</th><th scope="col">Refunded</th></tr></thead>
@@ -165,18 +177,21 @@ function DashboardContent({ snapshot }: { snapshot: DashboardSnapshot }) {
   </>;
 }
 
-export default function AdminDashboard() {
+export default function AdminDashboard({ samples }: { samples?: Record<DashboardWeeks, DashboardSnapshot> }) {
+  const demo = Boolean(samples);
+  const overviewHref = demo ? '/preview/admin' : '/admin';
   const [weeks, setWeeks] = useState<DashboardWeeks>(4);
   const [snapshot, setSnapshot] = useState<DashboardSnapshot | null>(null);
   const [error, setError] = useState('');
   const [signedOut, setSignedOut] = useState(false);
   const [restricted, setRestricted] = useState(false);
-  const [busy, setBusy] = useState(true);
+  const [busy, setBusy] = useState(!demo);
   const [refresh, setRefresh] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const actor = useRef<string | null>(null);
 
   useEffect(() => {
+    if (demo) return;
     let active = true;
     let current: AbortController | null = null;
     let expiry: ReturnType<typeof setTimeout> | undefined;
@@ -241,14 +256,14 @@ export default function AdminDashboard() {
       window.removeEventListener('pagehide', hide);
       window.removeEventListener('pageshow', onPageShow);
     };
-  }, [weeks, refresh]);
+  }, [demo, weeks, refresh]);
 
-  const visible = snapshot?.window.weeks === weeks ? snapshot : null;
+  const visible = samples?.[weeks] ?? (snapshot?.window.weeks === weeks ? snapshot : null);
 
   return <div className="admin-dashboard">
     <aside className="admin-sidebar">
       <div className="admin-side-heading">
-        <Link prefetch={false} href="/admin" aria-label="getLancer admin overview"><Brand /></Link>
+        <Link prefetch={false} href={overviewHref} aria-label="getLancer admin overview"><Brand /></Link>
         {visible && <button type="button" className="admin-menu-toggle" aria-controls="admin-navigation"
           aria-expanded={menuOpen} onClick={() => setMenuOpen(open => !open)}>
           <Menu size={18} aria-hidden="true" />Menu
@@ -256,14 +271,14 @@ export default function AdminDashboard() {
       </div>
       {visible && <div className="admin-nav-content" id="admin-navigation" data-open={menuOpen}>
         <nav aria-label="Administration">
-          {navigation.map(({ href, label, icon: Icon }, index) =>
+          {(demo ? demoNavigation : navigation).map(({ href, label, icon: Icon }, index) =>
             <Link prefetch={false} href={href} key={label} aria-current={index === 0 ? 'page' : undefined}
               onClick={() => setMenuOpen(false)}>
               <Icon size={19} aria-hidden="true" />{label}
             </Link>)}
         </nav>
-        <Link prefetch={false} className="admin-account" href="/workspace?tab=account">
-          <span aria-hidden="true">AD</span>Administrator
+        <Link prefetch={false} className="admin-account" href={demo ? '/preview/workspace' : '/workspace?tab=account'}>
+          <span aria-hidden="true">AD</span>{demo ? 'Demo workspace' : 'Administrator'}
         </Link>
       </div>}
     </aside>
@@ -271,21 +286,24 @@ export default function AdminDashboard() {
       <header className="admin-heading">
         <div><h1>Admin Dashboard</h1>
           {visible && <p className="admin-caption">
-            Updated <time dateTime={visible.window.asOf}>{timeLabel(visible.window.asOf)}</time> · Current week in progress
+            {demo ? 'Sample data · Marketplace activity and operational queues' : <>
+              Updated <time dateTime={visible.window.asOf}>{timeLabel(visible.window.asOf)}</time> · Current week in progress
+            </>}
           </p>}
         </div>
         {!restricted && <div className="admin-controls">
           <label><CalendarDays size={18} aria-hidden="true" />
             <span className="sr-only">Dashboard period</span>
             <select value={weeks} onChange={event => {
-              setSnapshot(null); setBusy(true); setWeeks(event.target.value === '12' ? 12 : 4);
+              if (!demo) { setSnapshot(null); setBusy(true); }
+              setWeeks(event.target.value === '12' ? 12 : 4);
             }}>
               <option value={4}>Last 4 weeks</option><option value={12}>Last 12 weeks</option>
             </select>
           </label>
-          <button type="button" disabled={busy} onClick={() => { setSnapshot(null); setBusy(true); setRefresh(n => n + 1); }}>
+          {!demo && <button type="button" disabled={busy} onClick={() => { setSnapshot(null); setBusy(true); setRefresh(n => n + 1); }}>
             <RefreshCw size={17} aria-hidden="true" />Refresh
-          </button>
+          </button>}
         </div>}
       </header>
       <div aria-busy={busy}>
@@ -294,7 +312,7 @@ export default function AdminDashboard() {
           <h2>Dashboard unavailable</h2><p>{error}</p>
           {restricted && <Link prefetch={false} href={signedOut ? '/login' : '/workspace'}>{signedOut ? 'Sign in' : 'Return to workspace'}</Link>}
         </div>}
-        {visible && <DashboardContent snapshot={visible} />}
+        {visible && <DashboardContent snapshot={visible} demo={demo} />}
       </div>
     </main>
   </div>;

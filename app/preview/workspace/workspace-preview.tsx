@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import {useEffect,useState,useDeferredValue,type FormEvent} from 'react';
 import {createPortal} from 'react-dom';
 import AccountMenu from '@/app/components/account-menu';
@@ -24,8 +25,8 @@ const budgets=['UNDER_1K','USD_1K_3K','USD_3K_10K','USD_10K_25K','USD_25K_PLUS',
 const timelines=['WITHIN_MONTH','ONE_TO_THREE_MONTHS','THREE_TO_SIX_MONTHS','FLEXIBLE'];
 const titles:Record<string,string>={explore:'Discover projects',saved:'Saved projects',showcases:'Your showcases',inquiries:'Received inquiries',requests:'My requests',profile:'Builder profile',analytics:'Workspace overview',admin:'Community moderation'};
 
-export default function WorkspacePreview(){
- const [state,setState]=useState<DemoState>(createDemoState),[actorId,setActorId]=useState('alex'),[tab,setTab]=useState('explore');
+export default function WorkspacePreview({startInModeration=false}:{startInModeration?:boolean}){
+ const [state,setState]=useState<DemoState>(createDemoState),[actorId,setActorId]=useState(startInModeration?'sam':'alex'),[tab,setTab]=useState(startInModeration?'admin':'explore');
  const [ready,setReady]=useState(false),[storageIssue,setStorageIssue]=useState(false),[reset,setReset]=useState(false);
  const [modal,setModal]=useState<Modal|null>(null),[error,setError]=useState(''),[message,setMessage]=useState('');
  const [query,setQuery]=useState(''),[category,setCategory]=useState(''),[technology,setTechnology]=useState(''),[projectType,setProjectType]=useState(''),[available,setAvailable]=useState(false),[sort,setSort]=useState('recent');
@@ -38,11 +39,11 @@ export default function WorkspacePreview(){
   queueMicrotask(()=>{
    if(!active)return;
    setAccountTarget(document.getElementById('account-menu-slot'));
-   try{const raw=sessionStorage.getItem(DEMO_STORAGE_KEY);if(raw){const saved=JSON.parse(raw);if(saved.state?.version===1&&saved.state.people?.length===4&&Array.isArray(saved.state.projects)&&Array.isArray(saved.state.requests)&&Array.isArray(saved.state.reports)&&Array.isArray(saved.state.audit)&&saved.state.saved){setState(saved.state);if(accountLabels[saved.actorId])setActorId(saved.actorId);if(Object.hasOwn(titles,saved.tab))setTab(saved.tab);}else setMessage('The previous demo was reset to the current sample data.');}}
+   try{const raw=sessionStorage.getItem(DEMO_STORAGE_KEY);if(raw){const saved=JSON.parse(raw);if(saved.state?.version===1&&saved.state.people?.length===4&&Array.isArray(saved.state.projects)&&Array.isArray(saved.state.requests)&&Array.isArray(saved.state.reports)&&Array.isArray(saved.state.audit)&&saved.state.saved){setState(saved.state);if(!startInModeration&&accountLabels[saved.actorId])setActorId(saved.actorId);if(!startInModeration&&Object.hasOwn(titles,saved.tab))setTab(saved.tab);}else setMessage('The previous demo was reset to the current sample data.');}}
    catch{setStorageIssue(true);}finally{setReady(true);}
   });
   return()=>{active=false;};
- },[]);
+ },[startInModeration]);
  useEffect(()=>{
   let active=true;
   if(ready)try{sessionStorage.setItem(DEMO_STORAGE_KEY,JSON.stringify({state,actorId,tab}));}
@@ -113,13 +114,16 @@ export default function WorkspacePreview(){
    </TabsContent>)}
    <TabsContent value="profile"><section className="panel"><h2>{me.name}</h2><p className="tag">Profile: {label(me.profile)}</p>{me.reason&&<p className="samplebar">{me.reason}</p>}<form key={me.id+'-'+me.profile} className="form" onSubmit={e=>{e.preventDefault();const d=new FormData(e.currentTarget);act({type:'profile',bio:String(d.get('bio')),availability:String(d.get('availability'))},'Profile draft saved. Submit it for administrator review.')}}><label htmlFor="demo-bio">About your work</label><textarea id="demo-bio" name="bio" defaultValue={me.bio} required minLength={20} maxLength={2000}/><label htmlFor="demo-availability">Availability for client work</label><select id="demo-availability" name="availability" defaultValue={me.availability}>{['AVAILABLE_NOW','ONE_SLOT_LEFT','LIMITED','NOT_ACCEPTING'].map(a=><option key={a} value={a}>{availabilityLabel(a)}</option>)}</select><p className="muted">Client availability is separate from your three active showcase slots. Bio changes require review; availability changes do not.</p><button className="button" disabled={me.profile==='PROFILE_PENDING'}>Save profile draft</button></form>{['DRAFT','CHANGES_REQUESTED'].includes(me.profile)&&<button className="button primary demo-space" onClick={()=>act({type:'submit-profile'},'Profile submitted. Switch to Sam to review it.')}>Submit profile for approval</button>}{me.profile==='PROFILE_PENDING'&&<button className="button demo-space" onClick={()=>changeAccount('sam')}>Review as administrator</button>}</section></TabsContent>
    <TabsContent value="analytics"><h2>Your demo outcomes</h2><div className="catalog-grid demo-space">{[['Qualified inquiries',received.length],['Client-confirmed hires',received.filter(r=>['HIRED','IN_PROGRESS','COMPLETION_PENDING_CONFIRMATION','COMPLETED'].includes(r.status)).length],['Completed engagements',received.filter(r=>r.status==='COMPLETED').length],['Published reviews',received.filter(r=>r.review?.status==='PUBLISHED').length]].map(([name,count])=><article className="panel" key={name}><p>{name}</p><strong className="demo-count">{count}</strong></article>)}</div><p className="samplebar">Calculated from your actions in this demo. No production analytics are recorded.</p></TabsContent>
-   <TabsContent value="admin"><h2>Review queue</h2><p className="muted">Review evidence and record a reason for each decision.</p>
+   <TabsContent value="admin"><div className="workspacehead demo-section-head">
+    <div><h2>Review queue</h2><p className="muted">Review evidence and record a reason for each decision.</p></div>
+    <Link className="button" href="/preview/admin" prefetch={false}>Open admin dashboard</Link>
+   </div>
     {!pendingProjects.length&&!pendingProfiles.length&&!pendingReviews.length&&!openReports.length&&<div className="empty"><CheckCircle2 size={30} style={{margin:'auto'}}/><h3>You’re all caught up.</h3><p>Submit a profile, showcase, report or completed-engagement review to see it here.</p><button className="button" onClick={()=>changeAccount('leah','showcases')}>Try the builder flow</button></div>}
     {pendingProfiles.map(p=><article className="row" key={p.id}><div className="grow"><h3>{p.name}</h3><p>Builder profile · {p.bio}</p></div><button className="button" onClick={()=>open({type:'profile-review',id:p.id})}>Review profile</button></article>)}
     {pendingProjects.map(p=><article className="row" key={p.id}><div className="grow"><h3>{p.title}</h3><p>{p.builder} · Showcase review</p></div><button className="button" onClick={()=>open({type:'project-review',id:p.id})}>Review project</button></article>)}
     {pendingReviews.map(r=><article className="row" key={r.id}><div className="grow"><h3>{r.projectTitle} · {r.review?.rating} / 5</h3><p>{r.review?.reviewText}</p></div><button className="button" onClick={()=>open({type:'review-review',id:r.id})}>Moderate review</button></article>)}
     {openReports.map(r=><article className="row" key={r.id}><div className="grow"><h3>{label(r.reason)}</h3><p>{r.detail}</p></div><button className="button" onClick={()=>open({type:'report-review',id:r.id})}>Review report</button></article>)}
-    <details className="panel demo-space"><summary>Decision history ({state.audit.length})</summary>{state.audit.map(a=><article key={a.id} className="row"><div><strong>{a.message}</strong><p className="muted">{a.actor} · {new Date(a.at).toLocaleString()}</p></div></article>)}{!state.audit.length&&<p>No decisions have been recorded in this demo.</p>}</details>
+    <details className="panel demo-space" id="demo-audit"><summary>Decision history ({state.audit.length})</summary>{state.audit.map(a=><article key={a.id} className="row"><div><strong>{a.message}</strong><p className="muted">{a.actor} · {new Date(a.at).toLocaleString()}</p></div></article>)}{!state.audit.length&&<p>No decisions have been recorded in this demo.</p>}</details>
    </TabsContent>
   </Tabs>
   <Dialog open={!!modal} onOpenChange={value=>!value&&setModal(null)}><DialogContent className="demo-dialog"><DialogHeader><DialogTitle>{modal?.type==='draft'?(modal.id?'Edit showcase':'Create a showcase'):modal?.type==='inquire'?'Tell the builder what you need':modal?.type==='report'?'Report a concern':modal?.type?.endsWith('review')?'Moderation decision':modal?.type==='request'?selectedRequest?.projectTitle:selectedProject?.title}</DialogTitle><DialogDescription>Interactive demonstration. These actions only change the sample data in this tab.</DialogDescription></DialogHeader>

@@ -114,7 +114,7 @@ body:has(.admin-dashboard) > .site-footer { display: none; }
 .admin-trend text { fill: var(--admin-muted); font-size: 12px; }
 .admin-queue { margin: 13px 0 0; padding: 0; list-style: none; }
 .admin-queue li { border-top: 1px solid var(--admin-border); }
-.admin-queue a {
+.admin-queue :is(a, li > div) {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;

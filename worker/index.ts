@@ -57,7 +57,7 @@ const worker = {
 
     // Redirect before the framework starts streaming an HTTP 200 shell.
     const workspaces: Record<string,string> = {
-      '/preview/workspace':'/workspace', '/preview/trust':'/workspace/trust',
+      '/preview/admin':'/admin', '/preview/workspace':'/workspace', '/preview/trust':'/workspace/trust',
       '/preview/teams':'/workspace/teams', '/preview/business':'/workspace/business',
       '/preview/delivery':'/workspace/delivery',
       '/preview/templates':'/workspace/templates', '/preview/maintenance':'/workspace/maintenance',

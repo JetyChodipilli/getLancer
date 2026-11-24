@@ -13,7 +13,7 @@ import NavIcon,{type NavIconName} from './nav-icon';
 type SessionUser={displayName?:string;email:string;roles?:string[]};
 export default function Header({preview=false}:{preview?:boolean}){
  const path=usePathname();
- const adminDashboard=path==='/admin';
+ const adminDashboard=path==='/admin'||path==='/preview/admin';
  const authPage=path==='/login'||path==='/signup';
  const workspacePreview=path.startsWith('/preview/');
  const workspace=workspacePreview||path==='/workspace'||path.startsWith('/workspace/');
