@@ -100,6 +100,17 @@ class AdminOperationsPaginationIntegrationTest {
     }
   }
 
+  @Test void dashboardBacklogsUseFullQueuesEvenWhenTheirFirstPageIsFull() throws Exception {
+    JsonNode response = ok(as(get("/api/v1/admin/dashboard"), "operator"));
+    var queues = new java.util.HashMap<String, JsonNode>();
+    response.path("queues").forEach(queue -> queues.put(queue.path("key").asText(), queue));
+    assertEquals(206, queues.get("disputes").path("count").asInt());
+    assertEquals(55, queues.get("payments").path("count").asInt());
+    var oldest = db.queryForObject("SELECT min(created_at) FROM payment_attempts", java.sql.Timestamp.class);
+    assertEquals(oldest.toInstant(), java.time.Instant.parse(queues.get("payments").path("oldest").asText()));
+    assertEquals(206, response.at("/outcomes/qualified").asInt());
+  }
+
   @Test void everyPageRequiresCurrentAdminRoleMfaAndValidBounds() throws Exception {
     for (String path : new String[] {"/api/v1/admin/delivery/disputes", "/api/v1/admin/payments/accounts", "/api/v1/admin/payments/attention"}) {
       mvc.perform(get(path).param("page", "1")).andExpect(status().isUnauthorized());

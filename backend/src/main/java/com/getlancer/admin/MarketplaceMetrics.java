@@ -17,6 +17,53 @@ public class MarketplaceMetrics {
     this.db = db;
   }
 
+  Map<String, Object> outcomes(Timestamp from, Timestamp to) {
+    return db.queryForMap("""
+        WITH qualified AS (
+          SELECT i.id,i.developer_user_id,lower(i.client_email) AS client_key,i.email_confirmed_at,
+            min(e.created_at) FILTER(WHERE e.event_type IN ('RESPONDED','DEVELOPER_RESPONDED')) AS responded_at,
+            min(e.created_at) FILTER(WHERE e.event_type IN ('HIRED','HIRE_CONFIRMED')) AS hired_at,
+            min(e.created_at) FILTER(WHERE e.event_type IN ('COMPLETED','COMPLETION_CONFIRMED')) AS completed_at
+          FROM inquiries i LEFT JOIN inquiry_events e ON e.inquiry_id=i.id
+            AND e.created_at>=i.email_confirmed_at AND e.created_at<=?
+          WHERE i.email_confirmed_at>=? AND i.email_confirmed_at<=? AND i.moderation_status='CLEAR'
+          GROUP BY i.id,i.developer_user_id,lower(i.client_email),i.email_confirmed_at
+        ), recipient_counts AS (
+          SELECT developer_user_id,count(*) AS leads FROM qualified GROUP BY developer_user_id
+        ), top_builders AS (
+          SELECT leads FROM recipient_counts ORDER BY leads DESC,developer_user_id
+          LIMIT (SELECT ceil(count(*) * 0.1)::int FROM recipient_counts)
+        ), clients AS (
+          SELECT client_key,count(*) AS leads,count(*) FILTER(WHERE hired_at IS NOT NULL) AS hires
+          FROM qualified GROUP BY client_key
+        )
+        SELECT count(*) AS "qualifiedInquiries",
+          count(*) FILTER(WHERE responded_at IS NOT NULL) AS "respondedInquiries",
+          count(*) FILTER(WHERE email_confirmed_at<=?::timestamptz - interval '48 hours') AS "responseEligibleInquiries",
+          count(*) FILTER(WHERE email_confirmed_at<=?::timestamptz - interval '48 hours' AND responded_at IS NOT NULL) AS "respondedEligibleInquiries",
+          round(100.0 * count(*) FILTER(WHERE email_confirmed_at<=?::timestamptz - interval '48 hours' AND responded_at IS NOT NULL)
+            / nullif(count(*) FILTER(WHERE email_confirmed_at<=?::timestamptz - interval '48 hours'),0),2) AS "responseRatePercent",
+          percentile_cont(0.5) WITHIN GROUP(ORDER BY extract(epoch FROM (responded_at-email_confirmed_at))/3600.0)
+            FILTER(WHERE email_confirmed_at<=?::timestamptz - interval '48 hours' AND responded_at IS NOT NULL) AS "medianResponseHours",
+          count(*) FILTER(WHERE hired_at IS NOT NULL) AS "confirmedHires",
+          count(*) FILTER(WHERE completed_at IS NOT NULL) AS "confirmedCompletions",
+          count(*) FILTER(WHERE completed_at IS NOT NULL AND hired_at IS NOT NULL) AS "completedHires",
+          round(100.0 * count(*) FILTER(WHERE hired_at IS NOT NULL) / nullif(count(*),0),2) AS "inquiryToHirePercent",
+          round(100.0 * count(*) FILTER(WHERE completed_at IS NOT NULL AND hired_at IS NOT NULL)
+            / nullif(count(*) FILTER(WHERE hired_at IS NOT NULL),0),2) AS "hireToCompletionPercent",
+          (SELECT count(*) FROM clients) AS "uniqueClients",
+          (SELECT count(*) FROM clients WHERE leads>1) AS "repeatClients",
+          (SELECT count(*) FROM clients WHERE hires>1) AS "repeatHiredClients",
+          (SELECT count(*) FROM recipient_counts) AS "leadRecipients",
+          (SELECT count(*) FROM top_builders) AS "topBuilderCount",
+          coalesce((SELECT sum(leads) FROM top_builders),0) AS "topBuilderLeadCount",
+          round(100.0 * (SELECT sum(leads) FROM top_builders) / nullif(count(*),0),2) AS "top10LeadSharePercent",
+          (SELECT count(*) FROM reviews r JOIN qualified q ON q.id=r.inquiry_id
+            WHERE r.moderation_status='PUBLISHED' AND q.completed_at IS NOT NULL AND r.created_at>=? AND r.created_at<=?) AS "verifiedReviews"
+        FROM qualified
+        """, to, from, to, to, to, to, to, to, from, to);
+  }
+
   public Map<String, Object> snapshot() {
     Instant now = Instant.now();
     Timestamp to = Timestamp.from(now), from = Timestamp.from(now.minus(84, ChronoUnit.DAYS));
@@ -47,49 +94,7 @@ public class MarketplaceMetrics {
           count(*) FILTER(WHERE EXISTS(SELECT 1 FROM product_media m WHERE m.product_id=public_proof.id AND m.verified)) AS "imageShowcases"
         FROM public_proof
         """));
-    result.put("outcomes", db.queryForMap("""
-        WITH qualified AS (
-          SELECT i.id,i.developer_user_id,lower(i.client_email) AS client_key,i.email_confirmed_at,
-            min(e.created_at) FILTER(WHERE e.event_type IN ('RESPONDED','DEVELOPER_RESPONDED')) AS responded_at,
-            min(e.created_at) FILTER(WHERE e.event_type IN ('HIRED','HIRE_CONFIRMED')) AS hired_at,
-            min(e.created_at) FILTER(WHERE e.event_type IN ('COMPLETED','COMPLETION_CONFIRMED')) AS completed_at
-          FROM inquiries i LEFT JOIN inquiry_events e ON e.inquiry_id=i.id
-            AND e.created_at>=i.email_confirmed_at AND e.created_at<=?
-          WHERE i.email_confirmed_at>=? AND i.email_confirmed_at<=? AND i.moderation_status='CLEAR'
-          GROUP BY i.id,i.developer_user_id,lower(i.client_email),i.email_confirmed_at
-        ), recipient_counts AS (
-          SELECT developer_user_id,count(*) AS leads FROM qualified GROUP BY developer_user_id
-        ), top_builders AS (
-          SELECT leads FROM recipient_counts ORDER BY leads DESC,developer_user_id
-          LIMIT (SELECT ceil(count(*) * 0.1)::int FROM recipient_counts)
-        ), clients AS (
-          SELECT client_key,count(*) AS leads,count(*) FILTER(WHERE hired_at IS NOT NULL) AS hires
-          FROM qualified GROUP BY client_key
-        )
-        SELECT count(*) AS "qualifiedInquiries",
-          count(*) FILTER(WHERE responded_at IS NOT NULL) AS "respondedInquiries",
-          count(*) FILTER(WHERE email_confirmed_at<=?::timestamptz - interval '48 hours') AS "responseEligibleInquiries",
-          count(*) FILTER(WHERE email_confirmed_at<=?::timestamptz - interval '48 hours' AND responded_at IS NOT NULL) AS "respondedEligibleInquiries",
-          round(100.0 * count(*) FILTER(WHERE email_confirmed_at<=?::timestamptz - interval '48 hours' AND responded_at IS NOT NULL)
-            / nullif(count(*) FILTER(WHERE email_confirmed_at<=?::timestamptz - interval '48 hours'),0),2) AS "responseRatePercent",
-          percentile_cont(0.5) WITHIN GROUP(ORDER BY extract(epoch FROM (responded_at-email_confirmed_at))/3600.0)
-            FILTER(WHERE email_confirmed_at<=?::timestamptz - interval '48 hours' AND responded_at IS NOT NULL) AS "medianResponseHours",
-          count(*) FILTER(WHERE hired_at IS NOT NULL) AS "confirmedHires",
-          count(*) FILTER(WHERE completed_at IS NOT NULL) AS "confirmedCompletions",
-          round(100.0 * count(*) FILTER(WHERE hired_at IS NOT NULL) / nullif(count(*),0),2) AS "inquiryToHirePercent",
-          round(100.0 * count(*) FILTER(WHERE completed_at IS NOT NULL AND hired_at IS NOT NULL)
-            / nullif(count(*) FILTER(WHERE hired_at IS NOT NULL),0),2) AS "hireToCompletionPercent",
-          (SELECT count(*) FROM clients) AS "uniqueClients",
-          (SELECT count(*) FROM clients WHERE leads>1) AS "repeatClients",
-          (SELECT count(*) FROM clients WHERE hires>1) AS "repeatHiredClients",
-          (SELECT count(*) FROM recipient_counts) AS "leadRecipients",
-          (SELECT count(*) FROM top_builders) AS "topBuilderCount",
-          coalesce((SELECT sum(leads) FROM top_builders),0) AS "topBuilderLeadCount",
-          round(100.0 * (SELECT sum(leads) FROM top_builders) / nullif(count(*),0),2) AS "top10LeadSharePercent",
-          (SELECT count(*) FROM reviews r JOIN qualified q ON q.id=r.inquiry_id
-            WHERE r.moderation_status='PUBLISHED' AND q.completed_at IS NOT NULL AND r.created_at>=? AND r.created_at<=?) AS "verifiedReviews"
-        FROM qualified
-        """, to, from, to, to, to, to, to, to, from, to));
+    result.put("outcomes", outcomes(from, to));
     Map<String, Object> slots = db.queryForMap("""
         WITH eligible AS (
           SELECT d.user_id,greatest(s.active_slot_limit-3,0)+(SELECT count(*) FROM component_slot_purchases c

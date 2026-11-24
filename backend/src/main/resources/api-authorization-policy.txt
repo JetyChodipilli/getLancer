@@ -16,6 +16,7 @@ GET ADMIN_MFA /api/v1/admin/components/review
 GET ADMIN_MFA /api/v1/admin/components/{id}
 GET ADMIN_MFA /api/v1/admin/concierge
 GET ADMIN_MFA /api/v1/admin/concierge/{id}/matches
+GET ADMIN_MFA /api/v1/admin/dashboard
 GET ADMIN_MFA /api/v1/admin/deletion-requests
 GET ADMIN_MFA /api/v1/admin/delivery/disputes
 GET ADMIN_MFA /api/v1/admin/email-jobs
