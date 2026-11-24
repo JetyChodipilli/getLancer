@@ -25,7 +25,10 @@ body:has(.admin-dashboard) > .site-footer { display: none; }
   top: 0;
   min-height: 100vh;
 }
-.admin-sidebar > a:first-child { margin: 0 8px; display: flex; min-height: 44px; align-items: center; }
+.admin-side-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.admin-side-heading > a { display: flex; min-height: 44px; align-items: center; margin: 0 8px; }
+.admin-nav-content { display: flex; flex: 1; flex-direction: column; }
+.admin-menu-toggle { display: none; }
 .admin-sidebar img { width: 156px; height: auto; }
 .admin-sidebar nav { display: grid; gap: 4px; }
 .admin-sidebar nav a, .admin-account {
@@ -149,7 +152,12 @@ body:has(.admin-dashboard) > .site-footer { display: none; }
 @media (max-width: 830px) {
   .admin-dashboard { display: block; }
   .admin-sidebar { position: static; min-height: 0; border-right: 0; border-bottom: 1px solid var(--admin-border); padding: 10px 18px; gap: 5px; }
-  .admin-sidebar > a:first-child { margin: 0; }
+  .admin-side-heading > a { margin: 0; }
+  .admin-menu-toggle {
+    display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding-inline: 10px;
+    background: white; color: var(--admin-ink); border: 1px solid var(--admin-border); border-radius: 8px; font-size: 14px;
+  }
+  .admin-nav-content[data-open="false"] { display: none; }
   .admin-sidebar nav { display: flex; flex-wrap: wrap; }
   .admin-sidebar nav a, .admin-account { font-size: 13px; padding-inline: 8px; gap: 6px; }
   .admin-account { align-self: flex-start; }

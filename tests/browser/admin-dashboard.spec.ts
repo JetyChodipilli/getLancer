@@ -40,7 +40,16 @@ test('admin dashboard reuses the current account and keeps the trend, period and
 
   await page.goto('/admin');
   await expect(page.getByRole('heading', { name: 'Admin Dashboard' })).toBeVisible();
-  await expect(page.getByRole('navigation', { name: 'Administration' })).toBeVisible();
+  const menu = page.getByRole('button', { name: 'Menu', exact: true });
+  const navigation = page.getByRole('navigation', { name: 'Administration' });
+  await expect(navigation.or(menu)).toBeVisible();
+  if (await menu.isVisible()) {
+    await expect(navigation).toBeHidden();
+    await menu.click();
+    await expect(navigation).toBeVisible();
+    await menu.click();
+    await expect(navigation).toBeHidden();
+  }
   await expect(page.getByText('1 of 2 eligible')).toBeVisible();
   await expect(page.getByRole('link', { name: /Unresolved reports/ })).toHaveAttribute(
     'href', '/workspace?tab=admin&queue=reports#moderation-reports');

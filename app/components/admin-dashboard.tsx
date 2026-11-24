@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import {
-  ArrowRight, Boxes, CalendarDays, ChevronRight, FileText, Gauge, LayoutDashboard, RefreshCw,
+  ArrowRight, Boxes, CalendarDays, ChevronRight, FileText, Gauge, LayoutDashboard, Menu, RefreshCw,
   ShieldCheck, ShoppingCart, UsersRound,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -173,6 +173,7 @@ export default function AdminDashboard() {
   const [restricted, setRestricted] = useState(false);
   const [busy, setBusy] = useState(true);
   const [refresh, setRefresh] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
   const actor = useRef<string | null>(null);
 
   useEffect(() => {
@@ -246,16 +247,25 @@ export default function AdminDashboard() {
 
   return <div className="admin-dashboard">
     <aside className="admin-sidebar">
-      <Link prefetch={false} href="/admin" aria-label="getLancer admin overview"><Brand /></Link>
-      {!restricted && visible && <nav aria-label="Administration">
-        {navigation.map(({ href, label, icon: Icon }, index) =>
-          <Link prefetch={false} href={href} key={label} aria-current={index === 0 ? 'page' : undefined}>
-            <Icon size={19} aria-hidden="true" />{label}
-          </Link>)}
-      </nav>}
-      {visible && <Link prefetch={false} className="admin-account" href="/workspace?tab=account">
-        <span aria-hidden="true">AD</span>Administrator
-      </Link>}
+      <div className="admin-side-heading">
+        <Link prefetch={false} href="/admin" aria-label="getLancer admin overview"><Brand /></Link>
+        {visible && <button type="button" className="admin-menu-toggle" aria-controls="admin-navigation"
+          aria-expanded={menuOpen} onClick={() => setMenuOpen(open => !open)}>
+          <Menu size={18} aria-hidden="true" />Menu
+        </button>}
+      </div>
+      {visible && <div className="admin-nav-content" id="admin-navigation" data-open={menuOpen}>
+        <nav aria-label="Administration">
+          {navigation.map(({ href, label, icon: Icon }, index) =>
+            <Link prefetch={false} href={href} key={label} aria-current={index === 0 ? 'page' : undefined}
+              onClick={() => setMenuOpen(false)}>
+              <Icon size={19} aria-hidden="true" />{label}
+            </Link>)}
+        </nav>
+        <Link prefetch={false} className="admin-account" href="/workspace?tab=account">
+          <span aria-hidden="true">AD</span>Administrator
+        </Link>
+      </div>}
     </aside>
     <main id="main" className="admin-main">
       <header className="admin-heading">
