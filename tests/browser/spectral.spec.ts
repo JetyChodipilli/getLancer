@@ -103,7 +103,9 @@ test('account controls stay readable across short laptops and narrow phones',asy
    const controls=await page.locator('.icy-input input').evaluateAll(nodes=>nodes.map(node=>({font:parseFloat(getComputedStyle(node).fontSize),height:Math.round(node.getBoundingClientRect().height)})));
    for(const control of controls){expect(control.font).toBeGreaterThanOrEqual(16);expect(control.height).toBeGreaterThanOrEqual(44);}
    const panel=page.locator('.icy-form-content');
-   const form=await panel.boundingBox();expect(form!.width).toBeGreaterThanOrEqual(width<=375?250:290);expect(form!.width).toBeLessThanOrEqual(574);
+   const form=await panel.boundingBox();expect(form!.width).toBeGreaterThanOrEqual(width<=375?250:290);expect(form!.width).toBeLessThanOrEqual(460);
+   const primary=page.getByRole('button',{name:route==='/signup'?'Create account':'Log in',exact:true});
+   expect((await primary.boundingBox())!.height).toBeGreaterThanOrEqual(44);
    const backdrop=await page.locator('.icy-shell').evaluate(node=>getComputedStyle(node).backgroundImage);
    expect(backdrop).toContain('/auth/airglass-studio.webp');
    await expect(panel).toHaveCSS('backdrop-filter',/blur\(22px\)/);
@@ -118,7 +120,7 @@ test('account controls stay readable across short laptops and narrow phones',asy
    const input=page.getByLabel('Password',{exact:true});await input.fill('layout-check-123');
    await page.getByRole('button',{name:'Show password',exact:true}).click();await expect(input).toHaveAttribute('type','text');
    await page.getByRole('button',{name:'Hide password',exact:true}).click();await expect(input).toHaveAttribute('type','password');
-   await page.getByRole('button',{name:route==='/signup'?'Create account':'Log in',exact:true}).scrollIntoViewIfNeeded();
+   await primary.scrollIntoViewIfNeeded();
    await page.screenshot({path:info.outputPath(`${route.slice(1)}-${width}x${height}.png`),fullPage:true});
   }
  }

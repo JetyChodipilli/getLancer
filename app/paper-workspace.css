@@ -42,6 +42,54 @@ body .site-header.workspace-site-header #site-navigation-bar {
   background: var(--paper-surface);
 }
 .workspace-site-header .studio-tools-search { grid-area: 1 / 3; }
+/* The dock expands the sticky header without moving the collection underneath it. */
+body .site-header.workspace-site-header:has(#workspace-project-dock:not(:empty)) { margin-bottom: -60px }
+#workspace-project-dock {
+  opacity: 0;
+  transform: translateY(-5px);
+  transition: opacity 180ms ease, transform 240ms var(--app-motion-ease);
+  pointer-events: none;
+}
+#workspace-project-dock:not(:empty) { height: 60px; opacity: 1; transform: none; pointer-events: auto }
+#workspace-project-dock .browse-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  max-width: 760px;
+  margin-inline: auto;
+  padding: 4px 16px 8px;
+}
+#workspace-project-dock .browse-search { min-height: 48px; gap: 6px; padding: 1px 2px 1px 12px; border-color: var(--paper-control-border) }
+#workspace-project-dock .browse-search input { width: 0; min-height: 44px; color: var(--paper-ink); font-size: 1rem }
+#workspace-project-dock .browse-search input::placeholder { color: var(--paper-muted); opacity: 1 }
+#workspace-project-dock .browse-search-submit { min-width: 44px; min-height: 44px; padding-inline: 12px; background: var(--paper-action) }
+#workspace-project-dock .browse-filter { min-height: 44px; padding: 0 10px; border: 1px solid var(--paper-line); border-radius: 999px }
+#workspace-project-dock .browse-sort { width: auto; margin: 0; color: var(--paper-ink) }
+#workspace-project-dock .browse-sort select { min-height: 44px; font-size: .875rem }
+#workspace-project-dock :is(input,button,select) { scroll-margin: 0 }
+.browse-search-submit .dock-control-icon { display: none }
+body:has(#workspace-project-dock:not(:empty)) .studio-shell { --studio-sticky-top: calc(var(--nav-height) + 72px) }
+@media (max-width: 560px) {
+  #workspace-project-dock .browse-controls { gap: 6px; padding-inline: 12px }
+  #workspace-project-dock .browse-search-submit > span,
+  #workspace-project-dock .browse-search > svg,
+  #workspace-project-dock .browse-filter > span:not(.filter-count) { display: none }
+  #workspace-project-dock .browse-search-submit .dock-control-icon { display: inline-block }
+  #workspace-project-dock .browse-filter { min-width: 44px; padding-inline: 8px }
+  #workspace-project-dock .browse-sort {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--paper-line);
+    border-radius: 50%;
+    background: var(--paper-surface);
+  }
+  #workspace-project-dock .browse-sort > svg { position: absolute; inset: 0; margin: auto }
+  #workspace-project-dock .browse-sort select { position: absolute; inset: 0; width: 100%; opacity: 0 }
+  #workspace-project-dock .browse-sort:focus-within { outline: 2px solid var(--paper-focus); outline-offset: 2px }
+}
 body .site-header.workspace-site-header #site-navigation-bar .paper-more-nav {
   grid-area: 1 / 4;
   min-width: 44px;
@@ -401,7 +449,7 @@ body .studio-shell.paper-studio :is(.team-context-mark, .business-context-mark, 
 body .studio-shell.paper-studio :is(.business-brief-facts, .business-facts, .business-candidate-evidence, .delivery-agreement, .delivery-payment-record, .template-facts, .care-access, .hosting-state) { background: var(--studio-hover); border-color: var(--studio-line); border-radius: 6px; box-shadow: none; }
 body .studio-shell.paper-studio :is(.care-chooser nav > button, .hosting-chooser nav > button, .commerce-template-item, .delivery-list-item, .business-brief-item)[aria-current=true] { background: var(--studio-hover); color: var(--studio-ink); border-color: var(--studio-ink); box-shadow: none; }
 body .studio-shell.paper-studio :is(.kit-record, .care-requests > li, .delivery-milestone, .business-candidate, .template-workspace-card) { border-radius: 6px; box-shadow: none; }
-body .studio-shell.paper-studio :is(.studio-preview, .browse-toolbar-sticky) { border: 1px solid var(--studio-line); border-radius: 8px; background: var(--studio-record); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+body .studio-shell.paper-studio :is(.studio-preview, .workspace-browse-toolbar) { border: 1px solid var(--studio-line); border-radius: 8px; background: var(--studio-record); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
 body .studio-shell.paper-studio .studio-preview { margin-bottom: 24px; }
 body .studio-shell.paper-studio .studio-preview-label > svg { color: var(--studio-muted); }
 body .studio-shell.paper-studio .studio-preview > summary { min-height: 52px; }

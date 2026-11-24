@@ -16,7 +16,7 @@ export default function DiscoveryDock({anchor,q,setQ,filters,pending,update,rese
  useEffect(()=>{
   const lookupFrame=requestAnimationFrame(()=>setTarget(document.getElementById('discovery-nav-slot')));
   const search=anchor.current;
-  const nav=document.querySelector('.site-header');
+  const nav=document.querySelector('.site-header .topbar');
   if(!search||!nav)return()=>cancelAnimationFrame(lookupFrame);
   let frame=0;
   const measure=()=>{frame=0;setPassed(search.getBoundingClientRect().bottom<=nav.getBoundingClientRect().bottom+8)};

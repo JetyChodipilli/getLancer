@@ -195,8 +195,8 @@ body .studio-shell .studio-overview-grid aside > h3 { margin: 18px 0 4px; font-s
 body .studio-shell .studio-overview-grid aside details { margin-top: 20px; }
 
 /* Productive search chrome, with opaque controls inside it. */
-body .studio-shell .browse-toolbar-sticky { top: var(--studio-sticky-top); margin: 0 0 20px; padding: 16px; border: 1px solid var(--glass-line, var(--border)); border-radius: 20px; background: var(--glass-chrome, #ffffffb3); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
-body .studio-shell .browse-toolbar:not(.browse-toolbar-sticky) { margin-bottom: 0; }
+body .studio-shell .workspace-browse-toolbar { margin: 0 0 20px; padding: 16px; border: 1px solid var(--glass-line, var(--border)); border-radius: 20px; background: var(--glass-chrome, #ffffffb3); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+body .studio-shell .browse-toolbar:not(.workspace-browse-toolbar) { margin-bottom: 0; }
 body .studio-shell .browse-controls { gap: 12px; }
 body .studio-shell .browse-search { min-height: 48px; padding: 4px 4px 4px 12px; border-color: var(--studio-control); border-radius: 12px; background: var(--studio-record); box-shadow: none; }
 body .studio-shell .browse-search input { min-height: 36px; padding: 0; border: 0; border-radius: 0; background: transparent; }
@@ -357,7 +357,7 @@ body .studio-shell.trust-workspace .trust-project p { margin: 6px 0; font-size: 
   body .studio-shell .workspacehead select { max-width: none; }
   body .studio-shell .studio-section-head .link { margin-top: 0; }
   body .studio-shell .demo-card .demo-card-body { padding: 16px; }
-  body .studio-shell .browse-toolbar-sticky { position: static; padding: 12px; border-radius: 16px; }
+  body .studio-shell .workspace-browse-toolbar { padding: 12px; border-radius: 16px; }
   body .studio-shell .next-action { flex-wrap: wrap; padding: 16px; }
   body .studio-shell .next-action .button { width: 100%; margin-inline: 0; }
   .studio-shell :is(.form .split, .profile-field-grid) { grid-template-columns: minmax(0, 1fr); }
@@ -369,17 +369,17 @@ body .studio-shell.trust-workspace .trust-project p { margin: 6px 0; font-size: 
   .structured-form-page .panel { padding: 20px; }
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  body .studio-shell :is(.studio-rail, .studio-preview, .browse-toolbar-sticky, .panel, .demo-card, [data-slot=card], .overview-card, .team-section:not(.team-overview), .team-context, .business-section, .business-brief-panel, .business-shortlist, .business-candidate-section, .business-request-list, .business-candidate, .delivery-list, .delivery-detail, .commerce-section, .commerce-template-list), body .studio-shell .studio-overview-grid > :is(section, aside) { background: #fafaf8; }
+  body .studio-shell :is(.studio-rail, .studio-preview, .workspace-browse-toolbar, .panel, .demo-card, [data-slot=card], .overview-card, .team-section:not(.team-overview), .team-context, .business-section, .business-brief-panel, .business-shortlist, .business-candidate-section, .business-request-list, .business-candidate, .delivery-list, .delivery-detail, .commerce-section, .commerce-template-list), body .studio-shell .studio-overview-grid > :is(section, aside) { background: #fafaf8; }
 }
 @media (prefers-reduced-transparency: reduce) {
-  body .studio-shell :is(.studio-rail, .studio-preview, .browse-toolbar-sticky, .panel, .demo-card, [data-slot=card], .overview-card, .team-section:not(.team-overview), .team-context, .business-section, .business-brief-panel, .business-shortlist, .business-candidate-section, .business-request-list, .business-candidate, .delivery-list, .delivery-detail, .commerce-section, .commerce-template-list), body .studio-shell .studio-overview-grid > :is(section, aside) { background: #fafaf8; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  body .studio-shell :is(.studio-rail, .studio-preview, .workspace-browse-toolbar, .panel, .demo-card, [data-slot=card], .overview-card, .team-section:not(.team-overview), .team-context, .business-section, .business-brief-panel, .business-shortlist, .business-candidate-section, .business-request-list, .business-candidate, .delivery-list, .delivery-detail, .commerce-section, .commerce-template-list), body .studio-shell .studio-overview-grid > :is(section, aside) { background: #fafaf8; -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .studio-shell *, :is(.workspace-dialog, .business-dialog, .delivery-dialog) * { animation: none !important; transition: none !important; }
   body .studio-shell .overview-card:is(:hover, :focus-visible), body .studio-shell .overview-card:is(:hover, :focus-visible) .overview-card-action svg { transform: none; }
 }
 @media (forced-colors: active) {
-  body .studio-shell :is(.studio-rail, .studio-preview, .browse-toolbar-sticky, .panel, .demo-card, [data-slot=card], .overview-card, .workspace-tabs, .studio-tabs, .team-section:not(.team-overview), .team-context, .business-section, .business-brief-panel, .business-shortlist, .business-candidate-section, .business-request-list, .business-candidate, .delivery-list, .delivery-detail, .commerce-section, .commerce-template-list), body .studio-shell .studio-overview-grid > :is(section, aside) { border-color: CanvasText; background: Canvas; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  body .studio-shell :is(.studio-rail, .studio-preview, .workspace-browse-toolbar, .panel, .demo-card, [data-slot=card], .overview-card, .workspace-tabs, .studio-tabs, .team-section:not(.team-overview), .team-context, .business-section, .business-brief-panel, .business-shortlist, .business-candidate-section, .business-request-list, .business-candidate, .delivery-list, .delivery-detail, .commerce-section, .commerce-template-list), body .studio-shell .studio-overview-grid > :is(section, aside) { border-color: CanvasText; background: Canvas; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
   body .studio-shell .studio-rail nav a[aria-current=page], body .studio-shell :is(.workspace-tabs, .studio-tabs) [role=tab][data-state=active] { outline: 1px solid Highlight; outline-offset: -1px; }
   body .studio-shell :focus-visible { outline-color: Highlight; }
   body .studio-shell :is(.studio-rail nav a, [role=tab]):focus-visible { outline: 2px solid Highlight; outline-offset: -3px; }

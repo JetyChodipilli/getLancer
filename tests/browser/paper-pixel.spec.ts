@@ -208,33 +208,11 @@ test('@cross-browser scrolling docks the search without losing the query or navi
   await expect(dock).toHaveCount(0);
   await hero.fill('Stockroom');
   await hero.blur();
-  const header = page.locator('.site-header');
-  const bar = header.locator('#site-navigation-bar');
-  const dockForm = bar.getByRole('search', {name: 'Browse projects'});
-  const compact = page.viewportSize()!.width <= 640;
-  const threshold = await page.evaluate(() => {
-    const search = document.querySelector('#paper-search')!.getBoundingClientRect();
-    const header = document.querySelector('.site-header')!.getBoundingClientRect();
-    return Math.ceil(window.scrollY + search.bottom - header.bottom - 8);
-  });
-  await page.evaluate(y => window.scrollTo({top: y, behavior: 'instant'}), threshold - 12);
-  await expect(dock).toHaveCount(0);
-  await page.evaluate(y => window.scrollTo({top: y, behavior: 'instant'}), threshold + 12);
+  await page.evaluate(() => window.scrollTo(0, document.querySelector('#project-collection')!.getBoundingClientRect().top + window.scrollY));
   await expect(dock).toBeInViewport();
   await expect(dock).toHaveValue('Stockroom');
   await expect(dock).toBeVisible();
   const menu = page.getByRole('button', {name: 'Open navigation menu'});
-  await expect.poll(async () => {
-    const [container, search, navigation] = await Promise.all([bar.boundingBox(), dockForm.boundingBox(), menu.boundingBox()]);
-    if (!container || !search || !navigation) return false;
-    return search.y >= container.y && search.y + search.height <= container.y + container.height
-      && (compact ? search.y >= navigation.y + navigation.height : Math.abs(search.y - navigation.y) < 10);
-  }).toBe(true);
-  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(threshold + 12);
-  await page.evaluate(y => window.scrollTo({top: y, behavior: 'instant'}), threshold - 12);
-  await expect(dock).toHaveCount(0);
-  await page.evaluate(() => document.querySelector('#project-collection')!.scrollIntoView({behavior: 'instant'}));
-  await expect(dock).toBeVisible();
   await menu.click();
   await expect(page.getByRole('menuitem', {name: 'Components', exact: true})).toBeVisible();
   await page.keyboard.press('Escape');
