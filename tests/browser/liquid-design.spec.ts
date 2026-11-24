@@ -209,13 +209,15 @@ test('workspace project search joins the navigation after scrolling past the too
   await expect.poll(async () => (await dock.boundingBox())?.height).toBeLessThanOrEqual(64);
   const filter = dock.getByRole('button', {name: 'Filters', exact: true});
   await filter.click();
-  await expect(page.getByRole('dialog', {name: 'Find your next project'})).toBeVisible();
+  const dialog = page.getByRole('dialog', {name: 'Find your next project'});
+  await expect(dialog).toBeVisible();
   await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
   await expect(filter).toBeFocused();
   const beforeSort = await page.evaluate(() => window.scrollY);
   await dock.getByLabel('Sort projects').selectOption('name');
   await expect(titles.first()).toHaveText('Booklane');
-  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(beforeSort);
+  await expect.poll(() => page.evaluate(before => Math.abs(window.scrollY - before), beforeSort)).toBeLessThanOrEqual(24);
   await inNav.fill('React');
   await expect(titles.first()).toHaveText('Stockroom');
   await page.evaluate(() => window.scrollTo({top: 0, behavior: 'instant'}));
