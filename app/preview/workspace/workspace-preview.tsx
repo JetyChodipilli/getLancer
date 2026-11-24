@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import {useEffect,useState,useDeferredValue,type FormEvent} from 'react';
+import {useEffect,useRef,useState,useDeferredValue,type FormEvent} from 'react';
 import {createPortal} from 'react-dom';
 import AccountMenu from '@/app/components/account-menu';
 import DemoRolePicker from '@/app/components/demo-role-picker';
@@ -25,10 +25,18 @@ const budgets=['UNDER_1K','USD_1K_3K','USD_3K_10K','USD_10K_25K','USD_25K_PLUS',
 const timelines=['WITHIN_MONTH','ONE_TO_THREE_MONTHS','THREE_TO_SIX_MONTHS','FLEXIBLE'];
 const titles:Record<string,string>={explore:'Discover projects',saved:'Saved projects',showcases:'Your showcases',inquiries:'Received inquiries',requests:'My requests',profile:'Builder profile',analytics:'Workspace overview',admin:'Community moderation'};
 
-export default function WorkspacePreview({startInModeration=false}:{startInModeration?:boolean}){
- const [state,setState]=useState<DemoState>(createDemoState),[actorId,setActorId]=useState(startInModeration?'sam':'alex'),[tab,setTab]=useState(startInModeration?'admin':'explore');
+const startTabs = {moderation:'admin', publishing:'showcases', saved:'saved', inquiry:'explore', report:'explore', project:'explore'} as const;
+
+export default function WorkspacePreview({startView,projectSlug}:{
+ startView?:keyof typeof startTabs;
+ projectSlug?:string;
+}){
+ const [state,setState]=useState<DemoState>(createDemoState);
+ const [actorId,setActorId]=useState(startView==='moderation'?'sam':startView==='publishing'?'leah':'alex');
+ const [tab,setTab]=useState<string>(startView?startTabs[startView]:'explore');
  const [ready,setReady]=useState(false),[storageIssue,setStorageIssue]=useState(false),[reset,setReset]=useState(false);
  const [modal,setModal]=useState<Modal|null>(null),[error,setError]=useState(''),[message,setMessage]=useState('');
+ const returnFocus=useRef<HTMLElement|null>(null);
  const [query,setQuery]=useState(''),[category,setCategory]=useState(''),[technology,setTechnology]=useState(''),[projectType,setProjectType]=useState(''),[available,setAvailable]=useState(false),[sort,setSort]=useState('recent');
  const [accountTarget,setAccountTarget]=useState<HTMLElement|null>(null);
  const searchQuery=useDeferredValue(query);
@@ -39,11 +47,31 @@ export default function WorkspacePreview({startInModeration=false}:{startInModer
   queueMicrotask(()=>{
    if(!active)return;
    setAccountTarget(document.getElementById('account-menu-slot'));
-   try{const raw=sessionStorage.getItem(DEMO_STORAGE_KEY);if(raw){const saved=JSON.parse(raw);if(saved.state?.version===1&&saved.state.people?.length===4&&Array.isArray(saved.state.projects)&&Array.isArray(saved.state.requests)&&Array.isArray(saved.state.reports)&&Array.isArray(saved.state.audit)&&saved.state.saved){setState(saved.state);if(!startInModeration&&accountLabels[saved.actorId])setActorId(saved.actorId);if(!startInModeration&&Object.hasOwn(titles,saved.tab))setTab(saved.tab);}else setMessage('The previous demo was reset to the current sample data.');}}
-   catch{setStorageIssue(true);}finally{setReady(true);}
+   let restored:DemoState|undefined;
+   try {
+    const raw=sessionStorage.getItem(DEMO_STORAGE_KEY);
+    if(raw){
+     const saved=JSON.parse(raw);
+     if(saved.state?.version===1&&saved.state.people?.length===4&&Array.isArray(saved.state.projects)&&Array.isArray(saved.state.requests)&&Array.isArray(saved.state.reports)&&Array.isArray(saved.state.audit)&&saved.state.saved){
+      restored=saved.state;
+      setState(saved.state);
+      if((!startView||startView==='saved'||startView==='project'||startView==='report')&&Object.hasOwn(accountLabels,saved.actorId))setActorId(saved.actorId);
+      if(!startView&&Object.hasOwn(titles,saved.tab))setTab(saved.tab);
+     }else setMessage('The previous demo was reset to the current sample data.');
+    }
+   } catch {
+    setStorageIssue(true);
+   }
+   if(startView==='inquiry'||startView==='report'||startView==='project'){
+    const project=publicDemoProjects(restored??createDemoState()).find(item=>
+     item.slug===projectSlug&&(startView!=='inquiry'||(item.availableForSimilarWork&&item.ownerId!=='alex')));
+    if(project)setModal({type:startView==='inquiry'?'inquire':startView,id:project.id});
+    else setError('This sample project is unavailable. Choose another project to continue.');
+   }
+   setReady(true);
   });
   return()=>{active=false;};
- },[startInModeration]);
+ },[startView,projectSlug]);
  useEffect(()=>{
   let active=true;
   if(ready)try{sessionStorage.setItem(DEMO_STORAGE_KEY,JSON.stringify({state,actorId,tab}));}
@@ -62,7 +90,10 @@ export default function WorkspacePreview({startInModeration=false}:{startInModer
  function act(action:DemoAction,notice='Demo changes saved.'){
   try{setState(applyDemoAction(state,me.id,action));setError('');setMessage(notice);return true;}catch(e){setError((e as Error).message);return false;}
  }
- function open(value:Modal){setError('');setModal(value);}
+ function open(value:Modal){
+  if(!modal&&document.activeElement instanceof HTMLElement)returnFocus.current=document.activeElement;
+  setError('');setModal(value);
+ }
  function changeAccount(id:string,nextTab?:string){setActorId(id);setTab(nextTab||(id==='sam'?'admin':id==='alex'?'explore':'showcases'));setModal(null);setMessage('');setError('');setRequestFilter('');}
  function submitDraft(e:FormEvent<HTMLFormElement>){e.preventDefault();const data=new FormData(e.currentTarget);if(act({type:'draft',id:modal?.id,title:String(data.get('title')),summary:String(data.get('summary')),description:String(data.get('description')),contribution:String(data.get('contribution')),category:String(data.get('category')),technology:String(data.get('technology')),projectType:String(data.get('projectType')),rightsConfirmed:data.get('rightsConfirmed')==='on'},'Draft saved. Add sample proof, then submit it for review.')){setModal(null);setLifecycle('DRAFT');setTab('showcases');}}
  const publicProjects=publicDemoProjects(state);
@@ -126,8 +157,13 @@ export default function WorkspacePreview({startInModeration=false}:{startInModer
     <details className="panel demo-space" id="demo-audit"><summary>Decision history ({state.audit.length})</summary>{state.audit.map(a=><article key={a.id} className="row"><div><strong>{a.message}</strong><p className="muted">{a.actor} · {new Date(a.at).toLocaleString()}</p></div></article>)}{!state.audit.length&&<p>No decisions have been recorded in this demo.</p>}</details>
    </TabsContent>
   </Tabs>
-  <Dialog open={!!modal} onOpenChange={value=>!value&&setModal(null)}><DialogContent className="demo-dialog"><DialogHeader><DialogTitle>{modal?.type==='draft'?(modal.id?'Edit showcase':'Create a showcase'):modal?.type==='inquire'?'Tell the builder what you need':modal?.type==='report'?'Report a concern':modal?.type?.endsWith('review')?'Moderation decision':modal?.type==='request'?selectedRequest?.projectTitle:selectedProject?.title}</DialogTitle><DialogDescription>Interactive demonstration. These actions only change the sample data in this tab.</DialogDescription></DialogHeader>
-   {modal?.type==='project'&&selectedProject&&<><div className="thumbnail demo-detail-proof"><Preview product={selectedProject}/></div><p>{selectedProject.description}</p><h3>Builder’s contribution</h3><p>{selectedProject.contribution}</p><div className="panel"><h3>{selectedProject.builder}</h3><p>{state.people.find(p=>p.id===selectedProject.ownerId)?.bio}</p><p>{availabilityLabel(state.people.find(p=>p.id===selectedProject.ownerId)?.availability||'')}</p></div><div className="tags"><span className="tag">{selectedProject.technology}</span><span className="tag">{selectedProject.category}</span><span className="tag">{label(selectedProject.projectType)}</span></div><div className="demo-actions"><button className="button primary" disabled={me.admin||selectedProject.ownerId===me.id||!publicProjects.some(p=>p.id===selectedProject.id)} onClick={()=>open({type:'inquire',id:selectedProject.id})}>Build something similar</button><button className="button" onClick={()=>act({type:'save',id:selectedProject.id},'Demo shortlist updated.')}>{state.saved[me.id]?.includes(selectedProject.id)?'Unsave project':'Save project'}</button><button className="link" onClick={()=>open({type:'report',id:selectedProject.id})}>Report concern</button></div>{selectedProject.ownerId===me.id&&<p className="muted">This is your showcase. Choose another builder’s project to commission work.</p>}<h3>Client reviews</h3>{state.requests.filter(r=>r.builderId===selectedProject.ownerId&&r.review?.status==='PUBLISHED').map(r=><article className="panel" key={r.id}><strong>{r.review?.rating} / 5 · {r.review?.visibility==='NAMED'?who(r.clientId):'Verified client'}</strong><p>{r.review?.reviewText}</p><span className="muted">Simulated completed engagement</span></article>)}{!state.requests.some(r=>r.builderId===selectedProject.ownerId&&r.review?.status==='PUBLISHED')&&<p className="muted">No published demo reviews yet.</p>}<p className="samplebar">This proof is illustrative. Live external demos, downloads and checkout are not simulated.</p></>}
+  <Dialog open={!!modal} onOpenChange={value=>!value&&setModal(null)}><DialogContent className="demo-dialog" onCloseAutoFocus={event=>{
+   const target=returnFocus.current?.isConnected?returnFocus.current:
+    document.querySelector<HTMLElement>('.demo-layout [role="tab"][aria-selected="true"]');
+   if(target){event.preventDefault();target.focus();}
+   returnFocus.current=null;
+  }}><DialogHeader><DialogTitle>{modal?.type==='draft'?(modal.id?'Edit showcase':'Create a showcase'):modal?.type==='inquire'?'Tell the builder what you need':modal?.type==='report'?'Report a concern':modal?.type?.endsWith('review')?'Moderation decision':modal?.type==='request'?selectedRequest?.projectTitle:selectedProject?.title}</DialogTitle><DialogDescription>Interactive demonstration. These actions only change the sample data in this tab.</DialogDescription></DialogHeader>
+   {modal?.type==='project'&&selectedProject&&<><div className="thumbnail demo-detail-proof"><Preview product={selectedProject}/></div><p>{selectedProject.description}</p><h3>Builder’s contribution</h3><p>{selectedProject.contribution}</p><div className="panel"><h3>{selectedProject.builder}</h3><p>{state.people.find(p=>p.id===selectedProject.ownerId)?.bio}</p><p>{availabilityLabel(state.people.find(p=>p.id===selectedProject.ownerId)?.availability||'')}</p></div><div className="tags"><span className="tag">{selectedProject.technology}</span><span className="tag">{selectedProject.category}</span><span className="tag">{label(selectedProject.projectType)}</span></div><div className="demo-actions"><button className="button primary" disabled={me.admin||selectedProject.ownerId===me.id||!selectedProject.availableForSimilarWork||!publicProjects.some(p=>p.id===selectedProject.id)} onClick={()=>open({type:'inquire',id:selectedProject.id})}>Build something similar</button><button className="button" onClick={()=>act({type:'save',id:selectedProject.id},'Demo shortlist updated.')}>{state.saved[me.id]?.includes(selectedProject.id)?'Unsave project':'Save project'}</button><button className="link" onClick={()=>open({type:'report',id:selectedProject.id})}>Report concern</button></div>{selectedProject.ownerId===me.id&&<p className="muted">This is your showcase. Choose another builder’s project to commission work.</p>}<h3>Client reviews</h3>{state.requests.filter(r=>r.builderId===selectedProject.ownerId&&r.review?.status==='PUBLISHED').map(r=><article className="panel" key={r.id}><strong>{r.review?.rating} / 5 · {r.review?.visibility==='NAMED'?who(r.clientId):'Verified client'}</strong><p>{r.review?.reviewText}</p><span className="muted">Simulated completed engagement</span></article>)}{!state.requests.some(r=>r.builderId===selectedProject.ownerId&&r.review?.status==='PUBLISHED')&&<p className="muted">No published demo reviews yet.</p>}<p className="samplebar">This proof is illustrative. Live external demos, downloads and checkout are not simulated.</p></>}
    {modal?.type==='inquire'&&selectedProject&&<form className="form" onSubmit={e=>{e.preventDefault();const data=new FormData(e.currentTarget);if(act({type:'inquire',productId:selectedProject.id,description:String(data.get('description')),budgetBand:String(data.get('budget')),timelineBand:String(data.get('timeline'))},'Inquiry saved. Open the demo inbox in My requests to confirm it.')){setModal(null);setTab('requests');}}}><p className="samplebar">Inspired by {selectedProject.title} · {selectedProject.builder}</p><label htmlFor="demo-brief">Describe your project</label><textarea id="demo-brief" name="description" required minLength={20} maxLength={5000} placeholder="What should the software help you do?"/><label htmlFor="demo-budget">Budget</label><select id="demo-budget" name="budget" required defaultValue=""><option value="" disabled>Choose a budget</option>{budgets.map(b=><option key={b} value={b}>{label(b)}</option>)}</select><label htmlFor="demo-timeline">Timeline</label><select id="demo-timeline" name="timeline" required defaultValue=""><option value="" disabled>Choose a timeline</option>{timelines.map(t=><option key={t} value={t}>{label(t)}</option>)}</select><p>From {me.name} · {me.id}@example.test</p><p className="muted">Use a fictional brief. The demo uses the selected sample account and does not send email. Scope, contracts and payment are agreed directly with the builder.</p><button className="button primary">Send inquiry</button></form>}
    {modal?.type==='draft'&&<form className="form showcase-editor" onSubmit={submitDraft} key={modal.id||'new'}>{(['title','summary','description','contribution'] as const).map(name=><label key={name}>{label(name)}{['description','contribution'].includes(name)?<textarea name={name} defaultValue={selectedProject?.[name]||''} required minLength={name==='description'?20:10} maxLength={name==='description'?5000:2000}/>:<input name={name} defaultValue={selectedProject?.[name]||''} required minLength={name==='title'?3:10} maxLength={name==='title'?120:240}/>}</label>)}<label>Category<select name="category" defaultValue={selectedProject?.category||'Productivity'}>{categories.map(c=><option key={c}>{c}</option>)}</select></label><label>Technology<select name="technology" defaultValue={selectedProject?.technology||'React'}>{technologies.map(t=><option key={t}>{t}</option>)}</select></label><label>Project type<select name="projectType" defaultValue={selectedProject?.projectType||'SAAS'}><option value="SAAS">SaaS</option><option value="CLIENT">Client work</option><option value="OPEN_SOURCE">Open source</option></select></label><label className="filterlabel"><input type="checkbox" name="rightsConfirmed" defaultChecked={selectedProject?.rightsConfirmed||false}/>I have permission to showcase this work.</label><p className="muted">Editing returns the showcase to draft for review. Add sample proof after saving; files are not uploaded in this demo.</p><button className="button primary">Save draft</button></form>}
    {modal?.type==='request'&&selectedRequest&&<><span className="tag">{label(selectedRequest.status)}</span><p>{selectedRequest.description}</p><p className="muted">Client: {who(selectedRequest.clientId)} · Builder: {who(selectedRequest.builderId)}</p><p className="demo-next">{actionHint(selectedRequest)}</p>

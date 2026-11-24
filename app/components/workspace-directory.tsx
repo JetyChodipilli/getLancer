@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import {ArrowUpRight, Search} from 'lucide-react';
-import {useEffect, useState} from 'react';
+import {ArrowUpRight, Search, X} from 'lucide-react';
+import {useEffect, useRef, useState} from 'react';
 import {api} from '@/lib/api';
 import {clientTools, trustTools} from '@/lib/workspace-tools';
 import {WorkspaceFrame} from './workspace-frame';
@@ -11,6 +11,7 @@ import NavIcon from './nav-icon';
 export default function WorkspaceDirectory({area,preview=false}:{area:'clients'|'trust';preview?:boolean}) {
   const [query,setQuery]=useState('');
   const [operator,setOperator]=useState(false);
+  const searchField=useRef<HTMLInputElement>(null);
   useEffect(()=>{
     if(area!=='trust'||preview)return;
     const controller=new AbortController();
@@ -32,11 +33,17 @@ export default function WorkspaceDirectory({area,preview=false}:{area:'clients'|
   return <WorkspaceFrame section={isClients?'clients':'trust-directory'} title={title}
     description={isClients?'Manage hiring, delivery, purchases, and support.':'Manage reliability and find operational tools.'}
     preview={preview}>
-    <label className="studio-directory-search">
-      <Search size={18} aria-hidden="true"/>
-      <span className="sr-only">Find a tool in {title}</span>
-      <input type="search" placeholder={'Find a tool in '+title} value={query} onChange={event=>setQuery(event.target.value)}/>
-    </label>
+    <div className="studio-directory-controls">
+      <label className="studio-directory-search">
+        <Search size={18} aria-hidden="true"/>
+        <span className="sr-only">Find a tool in {title}</span>
+        <input ref={searchField} type="search" placeholder={'Find a tool in '+title} value={query} onChange={event=>setQuery(event.target.value)}/>
+      </label>
+      {query && <button type="button" className="button studio-clear-search" onClick={()=>{
+        setQuery('');
+        searchField.current?.focus();
+      }}><X size={16} aria-hidden="true"/>Clear search</button>}
+    </div>
     {term&&<p role="status" className="studio-directory-result">{count?count+' matching '+(count===1?'tool':'tools'):'No matching tools.'}</p>}
     <div className="studio-directory">{visible.map(({group,tools})=><section key={group}>
       <h2>{group}</h2>
