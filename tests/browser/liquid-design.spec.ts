@@ -140,7 +140,7 @@ test('every sample workspace renders paper surfaces, readable records and contai
       await expect(search).toBeVisible();
       await expect(search).toHaveCSS('background-color', await tokenColor(page, '--paper-ink'));
       expect((await search.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-      const toolbar = (await page.locator('.browse-toolbar-sticky:visible').boundingBox())!;
+      const toolbar = (await page.locator('.workspace-browse-toolbar:visible').boundingBox())!;
       const grid = (await page.locator('[role=tabpanel][data-state=active] > .catalog-grid').boundingBox())!;
       expect(grid.y - toolbar.y - toolbar.height, 'Cards must be separated from search chrome').toBeGreaterThanOrEqual(19);
     }
@@ -181,22 +181,51 @@ test('every sample workspace renders paper surfaces, readable records and contai
   expect(errors).toEqual([]);
 });
 
-test('workspace search chrome stays clear of the floating navigation when scrolling', async ({page}, info) => {
+test('workspace project search joins the navigation after scrolling past the toolbar', async ({page}, info) => {
+  if (info.project.name === 'phone') await page.setViewportSize({width: 320, height: 700});
   await page.goto('/preview/workspace');
   await expect(page.locator('.demo-card')).toHaveCount(6);
   await settle(page);
-  const toolbar = page.locator('.browse-toolbar-sticky:visible');
-  if (page.viewportSize()!.width > 640) {
-    const before = (await toolbar.boundingBox())!;
-    await page.evaluate(top => window.scrollTo({top, behavior: 'instant'}), before.y);
-    await expect.poll(async () => {
-      const nav = (await page.locator('.site-header').boundingBox())!;
-      const search = (await toolbar.boundingBox())!;
-      return search.y - nav.y - nav.height;
-    }).toBeGreaterThanOrEqual(20);
-  } else {
-    await expect(toolbar).toHaveCSS('position', 'static');
-  }
+  const toolbar = page.locator('.workspace-browse-toolbar:visible');
+  const titles = page.locator('.demo-card .cardtitle h3');
+  const dock = page.locator('header #workspace-project-dock');
+  const inPage = toolbar.getByRole('textbox', {name: 'Search demo projects'});
+  const inNav = dock.getByRole('textbox', {name: 'Search demo projects'});
+  await expect(toolbar).toHaveCSS('position', 'static');
+  await expect(inNav).toHaveCount(0);
+  await inPage.focus();
+  await page.evaluate(() => {
+    const controls = document.querySelector('.workspace-browse-toolbar .browse-controls')!.getBoundingClientRect();
+    const header = document.querySelector('#site-navigation-bar')!.getBoundingClientRect();
+    window.scrollTo({top: window.scrollY + controls.bottom - header.bottom + 160, behavior: 'instant'});
+  });
+  await expect(inNav).toBeFocused();
+  await expect(inPage).toHaveCount(0);
+  await expect(page.getByRole('button', {name: 'Find a tool', exact: true})).toBeVisible();
+  await expect.poll(async () => {
+    const [header, row] = await Promise.all([page.locator('.site-header').boundingBox(), dock.boundingBox()]);
+    return header && row ? Math.abs(row.y + row.height - header.y - header.height) : Infinity;
+  }).toBeLessThanOrEqual(1);
+  await expect.poll(async () => (await dock.boundingBox())?.height).toBeLessThanOrEqual(64);
+  const filter = dock.getByRole('button', {name: 'Filters', exact: true});
+  await filter.click();
+  const dialog = page.getByRole('dialog', {name: 'Find your next project'});
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(filter).toBeFocused();
+  const beforeSort = await page.evaluate(() => window.scrollY);
+  await dock.getByLabel('Sort projects').selectOption('name');
+  await expect(titles.first()).toHaveText('Booklane');
+  await expect.poll(() => page.evaluate(before => Math.abs(window.scrollY - before), beforeSort)).toBeLessThanOrEqual(24);
+  await inNav.fill('React');
+  await expect(titles.first()).toHaveText('Stockroom');
+  await page.evaluate(() => window.scrollTo({top: 0, behavior: 'instant'}));
+  await expect(inPage).toHaveValue('React');
+  await expect(toolbar.getByLabel('Sort projects')).toHaveValue('name');
+  await expect(inNav).toHaveCount(0);
+  await page.emulateMedia({reducedMotion: 'reduce'});
+  await expect(dock).toHaveCSS('transition-duration', '0s');
   await fits(page);
   await evidence(page, info, 'workspace-navigation-clearance');
 });

@@ -3,6 +3,7 @@
 import {useEffect, useId, useRef, useState, useTransition} from 'react';
 import {useRouter} from 'next/navigation';
 import Link from 'next/link';
+import {demoProjectPath,demoPublishingPath} from '@/lib/demo-links';
 import {ArrowRight, ArrowUpRight, Bookmark, Check, CheckCircle2, Code2, Search, X} from 'lucide-react';
 import BrowseToolbar from './browse-toolbar';
 import DiscoveryDock from './discovery-dock';
@@ -82,7 +83,7 @@ export default function Explore({items, preview, totalItems, totalPages, filters
  }
  function reset(){setQ('');update(emptyFilters);}
  async function save(id:string,title:string) {
-  if(preview){setError('Sign in to save projects to your collection. These projects are illustrative.');return;}
+  if(preview)return;
   if(savingRef.current.has(id))return;
   const wasSaved=saved.includes(id),epoch=accessEpoch.current;
   savingRef.current.add(id);setSaving([...savingRef.current]);setError('');setSaveNotice((wasSaved?'Removing ':'Saving ')+title+'…');
@@ -128,12 +129,14 @@ export default function Explore({items, preview, totalItems, totalPages, filters
   </div>}
 
   <section className="paper-collection paper-home-frame" id="project-collection" aria-labelledby="paper-collection-title" tabIndex={-1}>
-   <div className="paper-collection-heading"><div><h2 id="paper-collection-title">Explore the collection</h2><p>{refined?'Find the work that fits your next idea.':'A closer look at what independent builders are making.'}</p></div><Link prefetch={false} className="paper-publish-link" href="/workspace">Share your work <ArrowUpRight size={17} aria-hidden="true"/></Link></div>
+   <div className="paper-collection-heading"><div><h2 id="paper-collection-title">Explore the collection</h2><p>{refined?'Find the work that fits your next idea.':'A closer look at what independent builders are making.'}</p></div><Link prefetch={false} className="paper-publish-link" href={preview?demoPublishingPath:"/workspace"}>{preview?"Try publishing":"Share your work"} <ArrowUpRight size={17} aria-hidden="true"/></Link></div>
    <BrowseToolbar filters={filters} query={q} onQuery={setQ} onChange={update} onReset={reset} count={totalItems} categories={categories} technologies={technologies} pending={pending} illustrative={preview}/>
-   {error&&<p role="alert" className="error">{error} {preview&&<Link prefetch={false} href="/login">Sign in <ArrowRight size={15} aria-hidden="true"/></Link>}</p>}
+   {error&&<p role="alert" className="error">{error}</p>}
    <p role="status" className="paper-save-notice">{saveNotice}</p>
    <div className="paper-project-grid" aria-label="Project demos" aria-busy={pending}>{items.map(product=><article className="paper-project" key={product.id}>
-    <div className="paper-project-media"><Link prefetch={false} href={'/products/'+product.slug} className="paper-project-preview" tabIndex={0} data-ui="project-preview" aria-label={'Explore '+product.title}><Preview product={product}/></Link><button className="paper-project-save" type="button" disabled={saving.includes(product.id)||!savedReady} aria-label={(saved.includes(product.id)?'Unsave ':'Save ')+product.title} aria-busy={saving.includes(product.id)} aria-pressed={saved.includes(product.id)} onClick={()=>save(product.id,product.title)}><Bookmark size={19} fill={saved.includes(product.id)?'currentColor':'none'} aria-hidden="true"/></button></div>
+    <div className="paper-project-media"><Link prefetch={false} href={'/products/'+product.slug} className="paper-project-preview" tabIndex={0} data-ui="project-preview" aria-label={'Explore '+product.title}><Preview product={product}/></Link>{preview
+     ? <Link className="paper-project-save" href={demoProjectPath('project',product.slug)} aria-label={'Save '+product.title+' in the demo'} prefetch={false}><Bookmark size={19} aria-hidden="true"/></Link>
+     : <button className="paper-project-save" type="button" disabled={saving.includes(product.id)||!savedReady} aria-label={(saved.includes(product.id)?'Unsave ':'Save ')+product.title} aria-busy={saving.includes(product.id)} aria-pressed={saved.includes(product.id)} onClick={()=>save(product.id,product.title)}><Bookmark size={19} fill={saved.includes(product.id)?'currentColor':'none'} aria-hidden="true"/></button>}</div>
     <div className="paper-project-title"><h3><Link prefetch={false} href={'/products/'+product.slug}>{product.title}</Link></h3><span>{product.technology.split(',')[0]}</span></div><p>{product.summary}</p>
     <div className="paper-project-byline"><Link prefetch={false} href={'/builders/'+product.builderSlug}><span className="paper-maker-avatar" aria-hidden="true">{product.builder.split(' ').map(value=>value[0]).slice(0,2).join('')}</span>{product.builder}</Link><Link prefetch={false} href={'/products/'+product.slug} aria-label={'Open '+product.title}><ArrowUpRight size={20} aria-hidden="true"/></Link></div>
    </article>)}</div>

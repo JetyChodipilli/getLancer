@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import {ArrowRight, ChevronDown, Search} from 'lucide-react';
+import {ArrowRight, ChevronDown, Search, X} from 'lucide-react';
 import {useEffect, useRef, useState, type KeyboardEvent, type PointerEvent} from 'react';
 import {clientTools, trustTools, type WorkspaceTool, type WorkspaceToolGroup} from '@/lib/workspace-tools';
 import NavIcon, {type NavIconName} from './nav-icon';
@@ -173,9 +173,15 @@ export default function WorkspaceNavigation({path, preview, operator}: {path: st
       {open?.id === 'search' && <section id="workspace-menu-search" className="studio-tool-panel" aria-label="Find a workspace tool">
         <div className="studio-panel-inner">
           <div className="studio-panel-heading"><h2>Find a workspace tool</h2></div>
-          <label className="studio-menu-search-field"><Search size={18} aria-hidden="true"/><span className="sr-only">Search workspace tools</span>
-            <input ref={searchField} type="search" placeholder="Try payments, publishing, or roles" value={query} onChange={event => setQuery(event.target.value)}/>
-          </label>
+          <div className="studio-directory-controls">
+            <label className="studio-menu-search-field"><Search size={18} aria-hidden="true"/><span className="sr-only">Search workspace tools</span>
+              <input ref={searchField} type="search" placeholder="Try payments, publishing, or roles" value={query} onChange={event=>setQuery(event.target.value)}/>
+            </label>
+            {query && <button type="button" className="button studio-clear-search" onClick={()=>{
+              setQuery('');
+              searchField.current?.focus();
+            }}><X size={16} aria-hidden="true"/>Clear search</button>}
+          </div>
           <div className="studio-menu-results">{results.length
             ? <ul>{results.map(tool => <li key={tool.route}>{toolLink(tool)}</li>)}</ul>
             : <p role="status">No tools match your search.</p>}</div>

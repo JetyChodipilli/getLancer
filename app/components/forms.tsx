@@ -7,6 +7,7 @@ import FormErrors from './form-errors';
 import {api,ApiError} from '@/lib/api';
 import type {Product} from '@/lib/catalog';
 import {takeInquiryDraft} from '@/lib/inquiry-draft';
+import {demoProjectPath} from '@/lib/demo-links';
 import {track,attribution} from '@/lib/analytics';
 import {Picker} from './ui';
 
@@ -48,7 +49,7 @@ const reportReasons = {
  OTHER: 'Other',
 };
 
-export function InquiryForm({initialProduct,preview=false}:{initialProduct?:Product;preview?:boolean}){
+export function InquiryForm({initialProduct,preview=false}:{initialProduct:Product;preview?:boolean}){
  const product=initialProduct;
  const [formError,setFormError]=useState<ApiError|null>(null);
  const [description,setDescription]=useState(''),[clientEmail,setClientEmail]=useState('');
@@ -60,8 +61,11 @@ export function InquiryForm({initialProduct,preview=false}:{initialProduct?:Prod
   const frame=requestAnimationFrame(()=>{
    const params=new URLSearchParams(location.search);
    if(params.get('requestType')==='NEW_BUILD')setRequest('NEW_BUILD');
-   if(product){const draft=takeInquiryDraft(product.slug);if(draft){setDescription(draft.description);setClientEmail(draft.clientEmail)}if(!preview)track('inquiry_started',product.id);}
-   else setError('Choose a project before sending an inquiry.');
+   if(!preview){
+    const draft=takeInquiryDraft(product.slug);
+    if(draft){setDescription(draft.description);setClientEmail(draft.clientEmail);}
+    track('inquiry_started',product.id);
+   }
   });
   return()=>cancelAnimationFrame(frame);
  },[product,preview]);
@@ -72,7 +76,6 @@ export function InquiryForm({initialProduct,preview=false}:{initialProduct?:Prod
   e.preventDefault();if(inFlight.current)return;
   setFormError(null);setError('');
   if(preview){setError('This is a sample inquiry. Nothing is sent.');return;}
-  if(!product){setError('Choose a project before sending an inquiry.');return;}
   if(!budget||!timeline){setFormError(new ApiError('Choose a budget and timeline to continue.','VALIDATION_ERROR',400,undefined,{...(!budget?{budgetBand:'Choose the budget range that fits your project.'}:{}),...(!timeline?{timelineBand:'Choose when you would like to begin.'}:{})}));return;}
   if(!intentKey.current){
    if(!globalThis.crypto?.randomUUID){setError('Open getLancer over a secure connection to send your inquiry.');return;}
@@ -91,10 +94,12 @@ export function InquiryForm({initialProduct,preview=false}:{initialProduct?:Prod
     <header className="structured-form-header"><h1>Tell the builder what you need.</h1></header>
     {ok?<div ref={success} tabIndex={-1} className="success feedback-result" role="status"><CheckCircle2 size={28} aria-hidden="true"/><h2>Inquiry saved. Check your inbox.</h2><p>Confirm your email to send this inquiry to the builder.</p><Link prefetch={false} className="button" href={product?'/products/'+product.slug:'/'}>Back to the project <ArrowRight size={16}/></Link></div>:
     <form onSubmit={send} className="form" aria-busy={busy}>
-     {preview&&<p className="samplebar">Sample inquiry form. You can review the fields; nothing is sent.</p>}
+     {preview&&<div className="samplebar inquiry-demo-start"><p>Preview the form below or try a simulated inquiry using a sample account.</p>
+      <Link className="button primary" href={demoProjectPath('inquiry',product.slug)}>Try a sample inquiry <ArrowRight size={16} aria-hidden="true"/></Link>
+     </div>}
      <FormErrors error={formError}/>
      {product&&<div className="inquiry-reference"><span>Inspired by</span><span><strong>{product.title}</strong> by {product.builder}</span></div>}
-     <fieldset disabled={busy} className="paper-form-fields">
+     <fieldset disabled={busy||preview} className="paper-form-fields">
       <div className="form-field" data-field="requestType"><label htmlFor="requestType">What do you need?</label><Picker id="requestType" invalid={!!fieldError('requestType')} describedBy={fieldError('requestType')?'requestType-error':undefined} label="What do you need?" value={requestType} onChange={setRequest} options={Object.keys(requestTypes)} optionLabels={requestTypes}/>{inlineError('requestType')}</div>
       <div className="form-field"><label htmlFor="description">Describe your project</label><span id="description-hint" className="field-hint">Include the problem, who will use it, and the features that matter most.</span><textarea id="description" aria-invalid={!!fieldError('description')} aria-describedby={'description-hint'+(fieldError('description')?' description-error':'')} name="description" value={description} onChange={e=>setDescription(e.target.value)} required minLength={20} maxLength={5000}/>{inlineError('description')}</div>
       <div className="split"><div className="form-field" data-field="budgetBand"><label htmlFor="budgetBand">Budget</label><Picker id="budgetBand" invalid={!!fieldError('budgetBand')} describedBy={fieldError('budgetBand')?'budgetBand-error':undefined} label="Choose budget" value={budget} onChange={setBudget} options={Object.keys(budgetBands)} optionLabels={budgetBands}/>{inlineError('budgetBand')}</div><div className="form-field" data-field="timelineBand"><label htmlFor="timelineBand">Timeline</label><Picker id="timelineBand" invalid={!!fieldError('timelineBand')} describedBy={fieldError('timelineBand')?'timelineBand-error':undefined} label="Choose timeline" value={timeline} onChange={setTimeline} options={Object.keys(timelineBands)} optionLabels={timelineBands}/>{inlineError('timelineBand')}</div></div>
@@ -102,9 +107,9 @@ export function InquiryForm({initialProduct,preview=false}:{initialProduct?:Prod
       <div className="form-field"><label htmlFor="companyName">Company <span className="field-optional">Optional</span></label><input id="companyName" name="companyName" autoComplete="organization" maxLength={150} aria-invalid={!!fieldError('companyName')} aria-describedby={fieldError('companyName')?'companyName-error':undefined}/>{inlineError('companyName')}</div>
       <input name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" style={{display:'none'}}/>
       {error&&!formError&&<div role="alert" className="error">{error}</div>}
-      <button className="button primary" disabled={busy||!product||preview}>{busy?'Saving inquiry…':<>Send inquiry <Send size={16} aria-hidden="true"/></>}</button>
+      {!preview&&<button className="button primary" disabled={busy}>{busy?'Saving inquiry…':<>Send inquiry <Send size={16} aria-hidden="true"/></>}</button>}
      </fieldset>
-     <p className="form-privacy"><ShieldCheck size={18} aria-hidden="true"/>No account required. Your inquiry stays private and reaches the builder after email confirmation.</p>
+     {!preview&&<p className="form-privacy"><ShieldCheck size={18} aria-hidden="true"/>No account required. Your inquiry stays private and reaches the builder after email confirmation.</p>}
     </form>}
    </section>
    <aside className="prose inquiry-guidance">

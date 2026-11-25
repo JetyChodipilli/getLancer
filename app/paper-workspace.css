@@ -42,13 +42,63 @@ body .site-header.workspace-site-header #site-navigation-bar {
   background: var(--paper-surface);
 }
 .workspace-site-header .studio-tools-search { grid-area: 1 / 3; }
+/* The dock expands the sticky header without moving the collection underneath it. */
+body .site-header.workspace-site-header:has(#workspace-project-dock:not(:empty)) { margin-bottom: -60px }
+#workspace-project-dock {
+  opacity: 0;
+  transform: translateY(-5px);
+  transition: opacity 180ms ease, transform 240ms var(--app-motion-ease);
+  pointer-events: none;
+}
+#workspace-project-dock:not(:empty) { height: 60px; opacity: 1; transform: none; pointer-events: auto }
+#workspace-project-dock .browse-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  max-width: 760px;
+  margin-inline: auto;
+  padding: 4px 16px 8px;
+}
+#workspace-project-dock .browse-search { min-height: 48px; gap: 6px; padding: 1px 2px 1px 12px; border-color: var(--paper-control-border) }
+#workspace-project-dock .browse-search input { width: 0; min-height: 44px; color: var(--paper-ink); font-size: 1rem }
+#workspace-project-dock .browse-search input::placeholder { color: var(--paper-muted); opacity: 1 }
+#workspace-project-dock .browse-search-submit { min-width: 44px; min-height: 44px; padding-inline: 12px; background: var(--paper-action) }
+#workspace-project-dock .browse-filter { min-height: 44px; padding: 0 10px; border: 1px solid var(--paper-line); border-radius: 999px }
+#workspace-project-dock .browse-sort { width: auto; margin: 0; color: var(--paper-ink) }
+#workspace-project-dock .browse-sort select { min-height: 44px; font-size: .875rem }
+#workspace-project-dock :is(input,button,select) { scroll-margin: 0 }
+.browse-search-submit .dock-control-icon { display: none }
+body:has(#workspace-project-dock:not(:empty)) .studio-shell { --studio-sticky-top: calc(var(--nav-height) + 72px) }
+/* Keep the scroll position when the docked sort reorders the collection. */
+body:has(#workspace-project-dock:not(:empty)) .demo-layout .catalog-grid { overflow-anchor: none }
+@media (max-width: 560px) {
+  #workspace-project-dock .browse-controls { gap: 6px; padding-inline: 12px }
+  #workspace-project-dock .browse-search-submit > span,
+  #workspace-project-dock .browse-search > svg,
+  #workspace-project-dock .browse-filter > span:not(.filter-count) { display: none }
+  #workspace-project-dock .browse-search-submit .dock-control-icon { display: inline-block }
+  #workspace-project-dock .browse-filter { min-width: 44px; padding-inline: 8px }
+  #workspace-project-dock .browse-sort {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--paper-line);
+    border-radius: 50%;
+    background: var(--paper-surface);
+  }
+  #workspace-project-dock .browse-sort > svg { position: absolute; inset: 0; margin: auto }
+  #workspace-project-dock .browse-sort select { position: absolute; inset: 0; width: 100%; opacity: 0 }
+  #workspace-project-dock .browse-sort:focus-within { outline: 2px solid var(--paper-focus); outline-offset: 2px }
+}
 body .site-header.workspace-site-header #site-navigation-bar .paper-more-nav {
   grid-area: 1 / 4;
   min-width: 44px;
   margin: 0;
 }
 body .site-header.workspace-site-header #site-navigation-bar .account { grid-area: 1 / 5; margin: 0; }
-.workspace-site-header :is(.studio-area-tabs, .studio-tools-search) button {
+.workspace-site-header :is(.studio-area-tabs button, .studio-tools-search > button) {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -71,12 +121,12 @@ body .site-header.workspace-site-header #site-navigation-bar .account { grid-are
   text-decoration: underline;
   text-underline-offset: 4px;
 }
-.workspace-site-header :is(.studio-area-tabs, .studio-tools-search) button[aria-expanded=true] {
+.workspace-site-header :is(.studio-area-tabs button, .studio-tools-search > button)[aria-expanded=true] {
   color: var(--paper-action);
   background: var(--paper-soft);
 }
 .workspace-site-header .studio-area-tabs button[aria-expanded=true] { border-color: var(--paper-line); }
-.workspace-site-header .studio-tools-search button {
+.workspace-site-header .studio-tools-search > button {
   border-color: var(--paper-line);
   background: var(--paper-surface);
   box-shadow: inset 0 1px 0 #fff, 0 8px 24px -17px #27376a70;
@@ -210,8 +260,8 @@ body .site-header.workspace-site-header #site-navigation-bar .account { grid-are
 }
 @media (max-width: 850px) {
   .workspace-site-header .studio-menu-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .workspace-site-header .studio-tools-search button { width: 44px; }
-  .workspace-site-header .studio-tools-search button span { display: none; }
+  .workspace-site-header .studio-tools-search > button { width: 44px; }
+  .workspace-site-header .studio-tools-search > button span { display: none; }
 }
 @media (max-width: 680px) {
   body .site-header.workspace-site-header #site-navigation-bar {
@@ -234,8 +284,12 @@ body .site-header.workspace-site-header #site-navigation-bar .account { grid-are
   .workspace-site-header .studio-area-chevron { display: none; }
   .workspace-site-header .studio-area-tabs .paper-nav-icon { width: 15px; height: 15px; }
 }
+@media (max-width: 360px) {
+  .workspace-site-header .studio-area-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .workspace-site-header .studio-area-tabs button { flex-direction: column; gap: 2px; padding: 5px 2px; }
+}
 @media (forced-colors: active) {
-  .workspace-site-header :is(.studio-area-tabs, .studio-tools-search button, .studio-tool-panel) { border-color: CanvasText; }
+  .workspace-site-header :is(.studio-area-tabs, .studio-tools-search > button, .studio-tool-panel) { border-color: CanvasText; }
   .workspace-site-header .studio-area-tabs button[aria-expanded=true] { border-color: Highlight; }
 }
 
@@ -397,7 +451,7 @@ body .studio-shell.paper-studio :is(.team-context-mark, .business-context-mark, 
 body .studio-shell.paper-studio :is(.business-brief-facts, .business-facts, .business-candidate-evidence, .delivery-agreement, .delivery-payment-record, .template-facts, .care-access, .hosting-state) { background: var(--studio-hover); border-color: var(--studio-line); border-radius: 6px; box-shadow: none; }
 body .studio-shell.paper-studio :is(.care-chooser nav > button, .hosting-chooser nav > button, .commerce-template-item, .delivery-list-item, .business-brief-item)[aria-current=true] { background: var(--studio-hover); color: var(--studio-ink); border-color: var(--studio-ink); box-shadow: none; }
 body .studio-shell.paper-studio :is(.kit-record, .care-requests > li, .delivery-milestone, .business-candidate, .template-workspace-card) { border-radius: 6px; box-shadow: none; }
-body .studio-shell.paper-studio :is(.studio-preview, .browse-toolbar-sticky) { border: 1px solid var(--studio-line); border-radius: 8px; background: var(--studio-record); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+body .studio-shell.paper-studio :is(.studio-preview, .workspace-browse-toolbar) { border: 1px solid var(--studio-line); border-radius: 8px; background: var(--studio-record); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
 body .studio-shell.paper-studio .studio-preview { margin-bottom: 24px; }
 body .studio-shell.paper-studio .studio-preview-label > svg { color: var(--studio-muted); }
 body .studio-shell.paper-studio .studio-preview > summary { min-height: 52px; }
@@ -535,3 +589,18 @@ body .studio-shell.paper-studio .college-context-editing{grid-template-columns:m
   body .studio-shell.paper-studio .overview-card:is(:hover, :focus-visible) .overview-card-action svg,
   body .studio-shell.paper-studio .next-action .button:hover svg { transform: none; }
 }
+
+.studio-directory-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+.studio-directory-controls > :is(.studio-menu-search-field, .studio-directory-search) {
+  flex: 1 1 240px;
+  min-width: 0;
+  margin: 0;
+}
+.studio-directory-controls .studio-clear-search { flex: none; min-height: 44px; }
+.studio-directory-controls input[type=search]::-webkit-search-cancel-button { appearance: none; }
