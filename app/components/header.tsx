@@ -41,7 +41,7 @@ export default function Header({preview=false}:{preview?:boolean}){
  }
  if(authPage||adminDashboard)return <a href="#main" className="skip">Skip to content</a>;
  const currentUser=preview||path.startsWith('/preview/')?null:me;
- const publish=preview?demoPublishingPath:currentUser?'/workspace?tab=projects':'/signup';
+ const publish=preview?demoPublishingPath:currentUser?'/workspace?tab=showcases':'/signup';
  const primaryLinks:{href:string;label:string;icon:NavIconName;active:boolean}[]=[{href:'/',label:'Projects',icon:'home',active:path==='/'||path.startsWith('/products/')},{href:'/components',label:'Components',icon:'components',active:path.startsWith('/components')},{href:'/college-projects',label:'College projects',icon:'college',active:path.startsWith('/college-projects')},{href:'/labs',label:'Learning',icon:'learning',active:path.startsWith('/labs')}];
  const moreLinks:{href:string;label:string;icon:NavIconName;active:boolean}[]=[{href:publish,label:'Publish your work',icon:'publish',active:false},{href:'/templates',label:'Source templates',icon:'templates',active:path.startsWith('/templates')},{href:'/teams',label:'Teams & studios',icon:'teams',active:path.startsWith('/teams')},{href:preview?demoSavedPath:'/saved',label:'Saved projects',icon:'saved',active:path==='/saved'},{href:'/how-it-works',label:'How it works',icon:'help',active:path==='/how-it-works'},{href:currentUser?'/workspace':'/login',label:currentUser?'My workspace':'Sign in',icon:currentUser?'workspace':'signin',active:path.startsWith('/workspace')}];
  return <><a href="#main" className="skip">Skip to content</a><header className={'site-header paper-header paper-icon-header'+(workspace?' workspace-site-header':'')}><div id="site-navigation-bar" className="topbar" ref={bar}>

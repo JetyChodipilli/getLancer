@@ -294,6 +294,37 @@ test('@cross-browser workspace dropdowns keep grouped tools and team work reacha
   await fits(page);
 });
 
+test('@cross-browser a workspace dialog returns keyboard focus after pointer activation', async ({page, hasTouch}) => {
+  await page.goto('/preview/business');
+  const opener = page.getByRole('button', {name: 'New project request', exact: true});
+  if (hasTouch) await opener.tap();
+  else await opener.click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByLabel('Project title', {exact: true})).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(opener).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(dialog).toBeVisible();
+});
+
+test('@cross-browser Back to top leaves the focused source download clear at 320px', async ({page}) => {
+  await page.setViewportSize({width:320, height:1000});
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await page.goto('/college-projects/stockroom');
+  const main = page.getByRole('main');
+  await main.getByRole('link').first().focus();
+  await page.keyboard.press('Tab');
+  const download = main.getByRole('link', {name:'Download original sample source', exact:true});
+  await download.focus();
+  await expect(page.getByRole('button', {name:'Back to top', exact:true})).toBeVisible();
+  await expect.poll(() => download.evaluate(link => {
+    const box = link.getBoundingClientRect();
+    const hit = document.elementFromPoint(box.right - 3, box.top + box.height / 2);
+    return link.contains(hit);
+  })).toBe(true);
+});
+
 test('preview workspaces retain truthful sample controls and responsive dialogs', async ({page}, info) => {
   for (const route of ['workspace', 'components', 'college-projects', 'teams', 'business', 'delivery', 'maintenance', 'hosting', 'templates', 'trust', 'operations']) {
     await page.goto('/preview/' + route);
