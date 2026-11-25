@@ -1,7 +1,7 @@
 {
   "schema": 2,
-  "reviewedAt": "2026-11-18",
-  "expiresAt": "2026-11-25T00:00:00Z",
+  "reviewedAt": "2026-11-25",
+  "expiresAt": "2026-12-02T00:00:00Z",
   "findings": [
     {
       "path": "backend/src/main/java/com/getlancer/admin/AdminController.java",

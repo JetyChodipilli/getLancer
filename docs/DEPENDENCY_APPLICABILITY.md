@@ -1,6 +1,8 @@
 # Backend dependency applicability
 
-The November 18, 2026 review expires on November 25 at 00:00 UTC. It covers the same exact package versions and advisory revisions and requires fresh passing CI evidence. The review checked both published Spring advisories, the application handler registry tests and the bounded JSON replay.
+The November 25, 2026 review expires on December 2 at 00:00 UTC. It covers the same exact package versions and advisory revisions and requires fresh passing CI evidence. The review checked both published Spring advisories, the application handler registry tests and the bounded JSON replay.
+
+November 25 reassessment: reopened both linked vendor advisories and retrieved their current OSV records. Rechecked the production rendering references, both application-context registry tests, the exact finite owner-authorized JSON replay and its escaping/size/other-owner regression. The real reports from main run [45544955243](https://github.com/JetyChodipilli/getLancer/actions/runs/45544955243/job/138972215321), whose complete 1,020-test backend suite passed, contain the two passing MVC tests and the passing finite-replay test. No required rendering feature was introduced. Renewed the explicit one-week review deadline and the expiry-boundary test; exact coordinates, advisory revisions, severities, source inspection, required runtime tests and the one-hour evidence window remain enforced. This is a renewed application-specific assessment, not a dependency patch. Final repair CI must produce its own current passing evidence.
 
 The OSV scan retains every advisory match in its report. Unassessed matches fail CI. Each conditional assessment below is restricted to its exact advisory revision and package version, and requires its own passing application test report parsed as actual XML testcase elements, excluding logged text, CDATA and comments, from the last hour, newer than production, dependency and test inputs, plus hashes of those inputs. Future report timestamps are rejected. It is not a patched-dependency or zero-advisory claim.
 
@@ -16,7 +18,7 @@ Evidence: `ComponentsIntegrationTest.mvcHandlersDoNotExposeXsltViewRendering`, `
 
 ## CVE-2026-47890 / GHSA-j9f9-w8pj-32f8
 
-Reviewed 2026-11-18. Package: `org.springframework:spring-webmvc:6.2.19`, OSV revision `2026-10-07T13:30:04.802772Z`.
+Reviewed 2026-11-25. Package: `org.springframework:spring-webmvc:6.2.19`, OSV revision `2026-10-07T13:30:04.802772Z`.
 
 [Spring's advisory](https://spring.io/security/cve-2026-47890/) requires view fragments streamed over Server-Sent Events, with attacker-controlled streamed data. The application contains no streaming emitter, fragment renderer or WebFlux configuration. V4.7 introduces one finite owner-authorized event replay: `LabController.events` returns a fully materialized `ResponseEntity<String>` containing JSON frames. It does not invoke Spring view-fragment rendering. The source gate accepts only that exact reviewed method; another event-stream declaration, changed return type/delegate, emitter, fragment renderer or reactive configuration still blocks. A real Spring-context regression inspects every application handler and streaming emitter beans. An additional current lab regression checks the finite response type, JSON escaping of forged frame/HTML text, the response cap and rejection of another owner. Missing, failed, skipped, stale or future proof rejects the disposition. Source, lab-test and report hashes bind the assessment to this application; advisory changes and the existing expiry still invalidate it.
 
