@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import {ArrowUpRight, Search, X} from 'lucide-react';
-import {useEffect, useRef, useState} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
 import {api} from '@/lib/api';
 import {clientTools, trustTools} from '@/lib/workspace-tools';
 import {WorkspaceFrame} from './workspace-frame';
@@ -12,6 +12,11 @@ export default function WorkspaceDirectory({area,preview=false}:{area:'clients'|
   const [query,setQuery]=useState('');
   const [operator,setOperator]=useState(false);
   const searchField=useRef<HTMLInputElement>(null);
+  const attachSearchField=useCallback((input:HTMLInputElement|null)=>{
+    searchField.current=input;
+    // A visitor can type into the server-rendered field before React attaches.
+    if(input?.value)setQuery(input.value);
+  },[]);
   useEffect(()=>{
     if(area!=='trust'||preview)return;
     const controller=new AbortController();
@@ -37,7 +42,7 @@ export default function WorkspaceDirectory({area,preview=false}:{area:'clients'|
       <label className="studio-directory-search">
         <Search size={18} aria-hidden="true"/>
         <span className="sr-only">Find a tool in {title}</span>
-        <input ref={searchField} type="search" placeholder={'Find a tool in '+title} value={query} onChange={event=>setQuery(event.target.value)}/>
+        <input ref={attachSearchField} type="search" placeholder={'Find a tool in '+title} value={query} onChange={event=>setQuery(event.target.value)}/>
       </label>
       {query && <button type="button" className="button studio-clear-search" onClick={()=>{
         setQuery('');

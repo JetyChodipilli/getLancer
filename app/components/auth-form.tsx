@@ -35,8 +35,9 @@ export function AuthForm({signup=false,preview=false}:{signup?:boolean;preview?:
  const [validationAttempt,setValidationAttempt]=useState(0);
  const [success,setSuccess]=useState(''),[busy,setBusy]=useState(false),[googleBusy,setGoogleBusy]=useState(false);
  const [githubReady,setGithubReady]=useState(false),[providerBusy,setProviderBusy]=useState('');
- const [googleReady,setGoogleReady]=useState<boolean|null>(null),[servicesReady,setServicesReady]=useState<boolean|null>(null);
- const [serviceMessage,setServiceMessage]=useState(''),[checkAttempt,setCheckAttempt]=useState(0);
+ const [googleReady,setGoogleReady]=useState<boolean|null>(null);
+ const [serviceState,setServiceState]=useState<'checking'|'ready'|'preview'|'unavailable'>('checking'),[checkAttempt,setCheckAttempt]=useState(0);
+ const servicesReady=serviceState==='ready';
  const notice=useRef<HTMLDivElement>(null),heading=useRef<HTMLHeadingElement>(null),inFlight=useRef(false),submitPointer=useRef(false);
  const isSignup=mode==='signup',isMfa=mode==='mfa',isReset=mode==='reset';
 
@@ -44,11 +45,11 @@ export function AuthForm({signup=false,preview=false}:{signup?:boolean;preview?:
   const controller=new AbortController();
   api('/auth/providers',{signal:controller.signal}).then(r=>{
    if(controller.signal.aborted)return;
-   setGoogleReady(r.google===true);setGithubReady(r.github===true);setServicesReady(true);
+   setGoogleReady(r.google===true);setGithubReady(r.github===true);setServiceState('ready');
   }).catch(e=>{
    if(controller.signal.aborted)return;
-   setGoogleReady(false);setGithubReady(false);setServicesReady(false);
-   setServiceMessage(e instanceof ApiError&&e.code==='BACKEND_NOT_CONFIGURED'?'Sign-in is unavailable in this preview.':'Account services are temporarily unavailable. Check your connection and try again.');
+   setGoogleReady(false);setGithubReady(false);
+   setServiceState(e instanceof ApiError&&e.code==='BACKEND_NOT_CONFIGURED'?'preview':'unavailable');
   });
   return()=>controller.abort();
  },[checkAttempt]);
@@ -132,7 +133,11 @@ export function AuthForm({signup=false,preview=false}:{signup?:boolean;preview?:
    <h1 id="auth-title" ref={heading} tabIndex={-1}>{title}</h1>
    <p className="icy-description">{success?email:isMfa?'Enter your authenticator code to protect administrator access.':isReset?'We’ll send you a link to get back into your account.':isSignup?'Save projects and share what you build.':'Log in to pick up where you left off.'}</p>
    {success?<div className="auth-success" role="status"><CheckCircle2 size={28} aria-hidden="true"/><p>{success}</p><p className="paper-auth-success-help">Can’t see it? Check your spam folder and the email above.</p><button type="button" className="auth-submit" onClick={()=>switchMode(signup?'signup':'login')}>Back to {signup?'signup':'login'} <ArrowRight size={18} aria-hidden="true"/></button></div>:<>
-    {servicesReady!==true&&<div className="auth-connection" role="status" aria-live="polite"><p>{servicesReady===null?'Checking account services…':serviceMessage}</p>{servicesReady===false&&<>{preview&&<Link prefetch={false} href="/preview/workspace">Explore the demo</Link>}<button type="button" onClick={()=>{setServicesReady(null);setCheckAttempt(n=>n+1)}} aria-label="Check again">Retry</button></>}</div>}
+    {!servicesReady&&<div className="auth-connection" role="status" aria-live="polite">
+     <p>{serviceState==='checking'?'Checking account services…':serviceState==='preview'?'Sign-in is unavailable in this preview.':'Account services are temporarily unavailable. Check your connection and try again.'}</p>
+     {(serviceState==='preview'||(preview&&serviceState==='unavailable'))&&<Link prefetch={false} href="/preview/workspace">Explore the demo</Link>}
+     {serviceState==='unavailable'&&<button type="button" onClick={()=>{setServiceState('checking');setCheckAttempt(n=>n+1)}} aria-label="Check again">Retry</button>}
+    </div>}
     {!isReset&&!isMfa&&<><div className="icy-providers">{(['google','github'] as const).map(provider=><button key={provider} type="button" className="icy-provider" aria-label={(googleBusy&&providerBusy===provider?'Opening sign-in with ':'Continue with ')+(provider==='google'?'Google':'GitHub')} disabled={(provider==='google'?googleReady!==true:!githubReady)||busy||googleBusy} onClick={()=>oauth(provider)}>{googleBusy&&providerBusy===provider?<LoaderCircle size={18} className="auth-spin" aria-hidden="true"/>:<img src={'/brand/'+(provider==='google'?'google-signin-icon.svg':'github-mark.png')} width={20} height={20} alt=""/>}{googleBusy&&providerBusy===provider?'Opening…':(provider==='google'?'Google':'GitHub')}</button>)}</div><div className="icy-divider"><span>or continue with email</span></div></>}
     <form className="icy-fields" onSubmit={submit} noValidate aria-busy={busy||googleBusy} onPointerDownCapture={event=>{const target=event.target;submitPointer.current=target instanceof Element&&Boolean(target.closest('button[type="submit"]'))}} onPointerCancelCapture={()=>{submitPointer.current=false}}>
      {error&&<div className="auth-error" ref={notice} role="alert" tabIndex={-1}>{errorFields.length>0&&<strong>Check these details</strong>}<p>{error}</p>{errorFields.length>0&&<ul>{errorFields.map(([field])=><li key={field}><a href={'#'+fieldIds[field]} onClick={event=>{event.preventDefault();focusField(field)}}>{{name:'Full name',email:'Email address',password:'Password',totp:'Authenticator code'}[field]||field}</a></li>)}</ul>}</div>}
