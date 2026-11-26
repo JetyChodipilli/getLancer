@@ -57,7 +57,7 @@ test('profile refresh-only retry never invokes the write endpoint',async()=>{
 test('notification reads prevent duplicate requests, retain failed rows, and retry without stale errors',async()=>{
  const pending=deferred();let writes=0;const {values,context}=accountContext({active:{current:true},reads:{current:new Set()},api:()=>{writes++;return writes===1?pending.promise:Promise.resolve({ok:true});}});
  values.setNotifications=[{id:'owned',title:'Owned notice'},{id:'other',title:'Another notice'}];
- const markRead=routine(account,'async function markRead(','\n  const context=',context),first=markRead('owned');await markRead('owned');assert.equal(writes,1);assert.deepEqual(values.setReading,['owned']);
+ const markRead=routine(account,'async function markRead(','\n  const context =',context),first=markRead('owned');await markRead('owned');assert.equal(writes,1);assert.deepEqual(values.setReading,['owned']);
  pending.reject(new Error('Temporary read failure'));await first;assert.equal(values.setNotifications[0].read_at,undefined);assert.equal(values.setError,'Temporary read failure');assert.deepEqual(values.setReading,[]);
  await markRead('owned');assert.equal(writes,2);assert.equal(values.setError,'');assert.ok(values.setNotifications[0].read_at);assert.equal(values.setNotifications[1].read_at,undefined);
 });
