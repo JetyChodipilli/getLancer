@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useEffectEvent, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { flushSync } from 'react-dom';
 import { Code2, Layers, Plus, Wallet } from 'lucide-react';
@@ -42,7 +42,28 @@ export default function ComponentWorkspace({ demo = false }: { demo?: boolean })
    }catch(problem){if(mounted.current&&current===generation.current){if(problem instanceof ApiError&&[401,403].includes(problem.status))clearPrivate(problem);else setError(problem instanceof ApiError?problem:new ApiError((problem as Error).message,'LOCAL_ERROR',400));}return false;}
    finally{if(mounted.current&&current===generation.current)setLoading(false);}
   }
-  useEffect(()=>{let active=true;mounted.current=true;queueMicrotask(()=>{if(active)void load();});return()=>{active=false;mounted.current=false;generation.current++;invalidateCheckout();};},[demo]);
+  const loadComponentWorkspace = useEffectEvent(() => {
+    void load();
+  });
+
+  useEffect(() => {
+    let active = true;
+    const generationRef = generation;
+    mounted.current = true;
+
+    queueMicrotask(() => {
+      if (active) {
+        loadComponentWorkspace();
+      }
+    });
+
+    return () => {
+      active = false;
+      mounted.current = false;
+      generationRef.current++;
+      invalidateCheckout();
+    };
+  }, [demo]);
   async function run(work:()=>Promise<void>){if(busy)return;setBusy(true);setError(null);setMessage('');try{await work();}catch(problem){if(!mounted.current||problem instanceof DOMException&&problem.name==='AbortError')return;if(problem instanceof ApiError&&problem.code==='PAYMENT_ORDER_REJECTED')key.current=undefined;if(problem instanceof ApiError&&[401,403].includes(problem.status))clearPrivate(problem);else setError(problem instanceof ApiError?problem:new ApiError((problem as Error).message,'LOCAL_ERROR',400));}finally{if(mounted.current)setBusy(false);}}
   async function create(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();const current=generation.current,form=new FormData(e.currentTarget),file=form.get('file'),body={recipeSlug:String(form.get('recipeSlug')),title:String(form.get('title')),summary:String(form.get('summary')),contribution:String(form.get('contribution')),rightsConsent:form.get('rightsConsent')==='on'};
