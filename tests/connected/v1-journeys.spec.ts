@@ -97,8 +97,16 @@ async function confirmation(page:Page,email:string,consumed:Set<string>,heading:
  await mutation(page,'/auth/confirm',()=>page.getByRole('button',{name:'Confirm',exact:true}).click());
  await expect(page.getByRole('status')).toHaveText('Your response has been recorded.');
 }
+async function moderationTool(page:Page,tool:'Review queue'|'Report triage'){
+ const sections=page.getByRole('tablist',{name:'Control center sections'});
+ await sections.getByRole('tab',{name:'Moderation',exact:true}).click();
+ const tools=page.getByRole('tablist',{name:'Moderation tools'});
+ await tools.getByRole('tab',{name:tool,exact:true}).click();
+ return page.getByRole('tabpanel',{name:tool,exact:true});
+}
 async function approve(admin:Page,kind:'profile'|'project',title:string,reason:string){
- const row=admin.locator('.row').filter({has:admin.getByRole('heading',{name:title,exact:true})});
+ const queue=await moderationTool(admin,'Review queue');
+ const row=queue.locator('.row').filter({has:admin.getByRole('heading',{name:title,exact:true})});
  await row.getByRole('button',{name:kind==='profile'?'Review profile':'Review project',exact:true}).click();
  const dialog=admin.getByRole('dialog');
  await dialog.getByLabel('Reason',{exact:true}).fill(reason);
@@ -134,11 +142,11 @@ test('E2E-01 developer signs up, verifies delivered email, submits a profile and
   await expect(page.getByRole('status').filter({hasText:'Profile saved.'})).toBeVisible();
   await mutation(page,'/developer/profile/submit',()=>page.getByRole('button',{name:'Submit profile for approval',exact:true}).click());
   await expect(page.getByRole('button',{name:'Submit profile for approval',exact:true})).toHaveCount(0);
-  await expect(page.getByText(/Profile status: Profile Pending/)).toBeVisible();
+  await expect(page.getByText(/Your builder profile is in review\./)).toBeVisible();
   await login(admin.page,'admin');await approve(admin.page,'profile',actor.displayName,'V1 browser review: complete synthetic builder profile and verified email.');
   await workspace(page,'showcases');
   await expect(page.getByRole('button',{name:'New draft',exact:true})).toBeEnabled();
-  await expect(page.getByText(/Profile status:/)).toHaveCount(0);
+  await expect(page.getByText(/Your builder profile is in review\./)).toHaveCount(0);
   await reflow(page);await page.screenshot({path:info.outputPath('v1-onboarding-approved.png'),fullPage:true});
   expect(failures).toEqual([]);
  }finally{await admin.context.close();}
@@ -155,14 +163,24 @@ test('E2E-02 publishes a new draft with a real screenshot, live URL, review and 
   await dialog.getByLabel('Summary',{exact:true}).fill('Accessible stock and order management for small independent shops.');
   await dialog.getByLabel('Description',{exact:true}).fill('A working stock tracking showcase with product search, order history and accessible review controls.');
   await dialog.getByLabel('Contribution',{exact:true}).fill('Designed the schema and implemented the stock review and order history workflows.');
-  await dialog.getByLabel('Live Url (optional)',{exact:true}).fill('https://example.com/getlancer-v1-demo');
+  await dialog.getByText('Optional links',{exact:true}).click();
+  await dialog.getByLabel('Live demo URL',{exact:true}).fill('https://example.com/getlancer-v1-demo');
   await choose(page,dialog,'Choose category','Inventory');
   await dialog.getByRole('checkbox',{name:'I have permission to showcase this work.',exact:true}).check();
-  const created=await (await mutation(page,'/developer/products',()=>dialog.getByRole('button',{name:'Save draft',exact:true}).click(),201)).json();
-  assert.match(created.id,/^[a-f0-9-]{36}$/);await expect(dialog).not.toBeVisible();
-  await page.getByRole('tab',{name:'Drafts & review',exact:true}).click();
-  await card(page,title).getByRole('button',{name:'Edit showcase',exact:true}).click();
   const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEElEQVR4nGNQSjsDRAwQCgAilgVRqmC7UQAAAABJRU5ErkJggg==','base64');
+  await dialog.getByLabel('Upload preview media',{exact:true}).setInputFiles({name:'v1-stock-cover.png',mimeType:'image/png',buffer:png});
+  await expect(dialog.getByRole('img',{name:'Listing cover preview',exact:true})).toHaveJSProperty('naturalWidth',2);
+  const [draft,cover]=await Promise.all([
+   mutation(page,'/developer/products',()=>dialog.getByRole('button',{name:'Save draft',exact:true}).click(),201),
+   page.waitForResponse(response=>/\/api\/v1\/developer\/products\/[a-f0-9-]+\/cover$/.test(new URL(response.url()).pathname)&&response.request().method()==='POST'),
+  ]);
+  const created=await draft.json();
+  assert.match(created.id,/^[a-f0-9-]{36}$/);
+  expect(cover.status()).toBe(200);
+  expect(await cover.json()).toEqual({imageUrl:'/api/v1/media/'+created.id+'?variant=cover'});
+  await expect(dialog).not.toBeVisible();
+  await expect(page.getByRole('tab',{name:'Drafts & review',exact:true})).toHaveAttribute('aria-selected','true');
+  await card(page,title).getByRole('button',{name:'Edit showcase',exact:true}).click();
   const [put]=await Promise.all([
    page.waitForResponse(r=>new URL(r.url()).origin==='http://localhost:9000'&&r.request().method()==='PUT'),
    mutation(page,'/developer/products/'+created.id+'/media/complete',()=>dialog.getByLabel('Add proof image (PNG or JPEG, up to 5 MB)',{exact:true}).setInputFiles({name:'v1-stock-proof.png',mimeType:'image/png',buffer:png})),
@@ -179,7 +197,8 @@ test('E2E-02 publishes a new draft with a real screenshot, live URL, review and 
   await search(visitor.page,title);
   await expect(visitor.page.getByLabel('Project demos',{exact:true}).getByRole('heading',{name:title,exact:true})).toHaveCount(0);
   await login(admin.page,'admin');
-  const submitted=admin.page.locator('.row').filter({has:admin.page.getByRole('heading',{name:title,exact:true})});
+  const reviews=await moderationTool(admin.page,'Review queue');
+  const submitted=reviews.locator('.row').filter({has:admin.page.getByRole('heading',{name:title,exact:true})});
   await submitted.getByRole('button',{name:'Review project',exact:true}).click();
   const review=admin.page.getByRole('dialog'),proof=review.getByRole('img',{name:'Synthetic inventory stock screen submitted through the real browser upload.',exact:true});
   await expect(proof).toBeVisible();await expect(proof).toHaveJSProperty('naturalWidth',2);
@@ -338,8 +357,8 @@ test('E2E-06 reports a public showcase, triages it, suspends it and shows the ow
   const report=await submitted.json();
   assert.match(report.reference,/^[a-f0-9-]{36}$/);await expect(page.getByText('Your report has been saved for review.',{exact:true})).toBeVisible();
   await login(admin.page,'admin');
-  await admin.page.getByText('Report priority and triage',{exact:true}).click();
-  const triage=admin.page.locator('article.panel').filter({has:admin.page.getByText(detail,{exact:true})});
+  const triagePanel=await moderationTool(admin.page,'Report triage');
+  const triage=triagePanel.locator('article.panel').filter({has:admin.page.getByText(detail,{exact:true})});
   await triage.getByLabel('Priority',{exact:true}).selectOption('HIGH');
   await triage.getByLabel('Review stage',{exact:true}).selectOption('UNDER_REVIEW');
   await triage.getByLabel('Investigation note (private)',{exact:true}).fill('Inspected this synthetic report, current public listing and builder contribution.');
@@ -348,7 +367,8 @@ test('E2E-06 reports a public showcase, triages it, suspends it and shows the ow
   await expect(triage).toHaveCount(0);
   // Refresh the primary report queue after the independent triage panel saves its decision.
   await admin.page.reload();
-  const queue=admin.page.locator('.row').filter({has:admin.page.getByText(detail,{exact:true})});
+  const reviewQueue=await moderationTool(admin.page,'Review queue');
+  const queue=reviewQueue.locator('.row').filter({has:admin.page.getByText(detail,{exact:true})});
   await expect(queue).toContainText('Under Review');await queue.getByRole('button',{name:'Review report',exact:true}).click();
   const decision=admin.page.getByRole('dialog');
   await expect(decision.getByText(product.title,{exact:true})).toBeVisible();
