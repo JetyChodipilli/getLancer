@@ -63,9 +63,9 @@ test('late saved removal cannot alter a replacement list and a current success r
 });
 
 test('private preview effect cannot publish an old resource after its cleanup',async()=>{
- const text=source('private-preview'),start=text.indexOf(' useEffect(()=>{'),end=text.indexOf('\n return <main',start);assert.ok(start>=0&&end>start);
+ const text=source('private-preview'),start=text.indexOf('  useEffect(() => {'),end=text.indexOf('\n  return (',start);assert.ok(start>=0&&end>start);
  const alpha=deferred(),beta=deferred(),state={project:null,error:''};let cleanup;
- const run=Function('id','api','setProject','setError','useEffect',text.slice(start,end));
+ const run=Function('id','api','setProject','setError','useEffect',stripTypeScriptTypes(text.slice(start,end),{mode:'transform'}));
  const api=path=>path.endsWith('/alpha')?alpha.promise:beta.promise;
  const effect=work=>{cleanup=work();};
  run('alpha',api,value=>state.project=value,value=>state.error=value,effect);cleanup();

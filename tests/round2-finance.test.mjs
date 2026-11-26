@@ -15,7 +15,7 @@ const extract=(source,start,end)=>{
 };
 const pageCode=extract(delivery,'export function operationPage(','export function appendOperationRecords(').replace('export ','');
 const deliveryCode=extract(delivery,' const clear=useCallback(',' const pageRequest=')+extract(delivery,' async function save(',' function more(');
-const maintenanceCode=extract(maintenance,' async function load(',' return <details');
+const maintenanceCode=extract(maintenance,'  async function load(','\n  return (');
 class ApiError extends Error{constructor(message,code,status){super(message);this.code=code;this.status=status;}}
 const defer=()=>{let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};};
 const page=items=>({items,page:0,size:12,hasMore:false,totalItems:items.length,totalPages:items.length?1:0});

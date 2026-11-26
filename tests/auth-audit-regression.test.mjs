@@ -12,7 +12,7 @@ function routine(source,start,end,context){
  const first=source.indexOf(start),last=source.indexOf(end,first);assert.ok(first>=0&&last>first,'Executable routine boundaries exist');
  const js=stripTypeScriptTypes(source.slice(first,last),{mode:'transform'});
  if(context.api&&!context.request)context.request=(...args)=>context.api(...args);
- return Function(...Object.keys(context),js+';return '+start.match(/function (\w+)/)[1]+';')(...Object.values(context));
+ return Function(...Object.keys(context),js+';return '+start.match(/\b(?:function|const)\s+(\w+)/)[1]+';')(...Object.values(context));
 }
 function deferred(){let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no});return{promise,resolve,reject};}
 function stateContext(extra={}){
@@ -23,7 +23,9 @@ function stateContext(extra={}){
 }
 function accountContext(extra={}){
  const fixture=stateContext({generation:{current:0},...extra});
- fixture.context.failed=routine(account,'function failed(','\n  useEffect(()=>{',fixture.context);
+ fixture.context.useCallback=fn=>fn;
+ fixture.context.invalidateGeneration=routine(account,'const invalidateGeneration = useCallback(','\n\n  useEffect',fixture.context);
+ fixture.context.failed=routine(account,'const failed = useCallback(','\n\n  useEffect',fixture.context);
  return fixture;
 }
 const event={preventDefault(){},currentTarget:new Map([['displayName','Synthetic builder']])};
@@ -94,7 +96,7 @@ test('auth submits share one pending login intent and do not send duplicate requ
 test('OAuth rejects external destinations and credential-bearing provider URLs',async()=>{
  for(const authorizationUrl of ['https://untrusted.example.test/signin','https://someone@accounts.google.com/signin']){
   const {values,context}=stateContext({inFlight:{current:false},googleReady:true,githubReady:true,isSignup:false,mode:'login',remember:false,URL,window:{location:{assign:()=>assert.fail('Unsafe OAuth destination navigated')}},api:async()=>({authorizationUrl})});
-  await routine(auth,'async function oauth(','\n const title=',context)('google');
+  await routine(auth,'async function oauth(','\n  const title =',context)('google');
   assert.match(values.setError,/Sign-in could not be started/);assert.equal(context.inFlight.current,false);assert.equal(values.setGoogleBusy,false);
  }
 });

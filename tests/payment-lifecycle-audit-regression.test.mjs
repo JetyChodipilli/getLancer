@@ -63,7 +63,9 @@ test('definitive provider rejection permits a fresh key while an uncertain order
 });
 
 const operationSource=readFileSync(new URL('../app/components/maintenance-operations.tsx',import.meta.url),'utf8');
-const operationsCode=stripTypeScriptTypes(operationSource.slice(operationSource.indexOf(' async function load('),operationSource.indexOf(' return <details')),{mode:'transform'});
+const operationsStart=operationSource.indexOf('  async function load('),operationsEnd=operationSource.indexOf('\n  return (',operationsStart);
+assert.ok(operationsStart>=0&&operationsEnd>operationsStart,'Actual maintenance operation boundaries exist');
+const operationsCode=stripTypeScriptTypes(operationSource.slice(operationsStart,operationsEnd),{mode:'transform'});
 const pageSource=readFileSync(new URL('../app/components/delivery-operations.tsx',import.meta.url),'utf8');
 const pageCode=stripTypeScriptTypes(pageSource.slice(pageSource.indexOf('export function operationPage('),pageSource.indexOf('export function appendOperationRecords(')).replace('export ',''),{mode:'transform'});
 const operationPage=items=>({items,page:0,size:12,hasMore:false,totalItems:items.length,totalPages:items.length?1:0});

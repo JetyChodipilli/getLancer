@@ -10,7 +10,7 @@ const source=()=>readFileSync(new URL('../app/components/education-source.tsx',i
 function routine(start,end,context){
  const text=source(),first=text.indexOf(start),last=text.indexOf(end,first);
  assert.ok(first>=0&&last>first,'Actual production routine boundaries exist');
- return Function(...Object.keys(context),stripTypeScriptTypes(text.slice(first,last),{mode:'transform'})+';return '+start.match(/function (\w+)/)[1]+';')(...Object.values(context));
+ return Function(...Object.keys(context),stripTypeScriptTypes(text.slice(first,last),{mode:'transform'})+';return '+start.match(/\b(?:function|const)\s+(\w+)/)[1]+';')(...Object.values(context));
 }
 const deferred=()=>Promise.withResolvers();
 function fixture({orderStatus='ORDER_CREATED',orderWork,verificationWork,checkoutLoad}={}){
@@ -26,7 +26,8 @@ function fixture({orderStatus='ORDER_CREATED',orderWork,verificationWork,checkou
   },
   loadTemplateCheckout:checkoutLoad??(async()=>class{constructor(options){state.options=options;}on(_name,callback){state.failed=callback;}open(){state.opened++;}close(){state.closed++;throw Error('SDK close unavailable');}}),
  };
- if(source().includes('function invalidateCheckout()'))context.invalidateCheckout=routine('function invalidateCheckout()','\n useEffect',context);
+ context.useCallback=fn=>fn;
+ context.invalidateCheckout=routine('const invalidateCheckout=useCallback(','\n const invalidateGeneration=',context);
  const checkout=routine('async function checkout(){','\n const s=',context);
  return{state,context,checkout};
 }
