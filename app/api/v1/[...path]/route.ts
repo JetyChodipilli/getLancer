@@ -30,6 +30,11 @@ async function proxy(req: Request, {params}: {params: Promise<{path: string[]}>}
   const clientIp=req.headers.get('cf-connecting-ip');
   if(proxySecret){headers.set('X-GetLancer-Proxy',proxySecret);headers.set('X-GetLancer-Request-ID',requestId);if(clientIp&&/^[0-9a-fA-F:.]{3,45}$/.test(clientIp))headers.set('X-GetLancer-Client-IP',clientIp)}
   for (const key of ['cookie', 'idempotency-key', 'x-getlancer-account']) { const value = req.headers.get(key); if (value || (key === 'x-getlancer-account' && value !== null)) headers.set(key, value); }
+  const mediaRequest=req.method==='GET'&&path.length===2&&path[0]==='media';
+  if(mediaRequest){
+    const range=req.headers.get('range');
+    if(range&&/^bytes=(?:[0-9]{1,12}-[0-9]{0,12}|-[0-9]{1,12})$/.test(range))headers.set('Range',range);
+  }
   if (req.method === 'GET' && path.length === 3 && path[0] === 'lab-runs' && path[2] === 'events') {
     const cursor = req.headers.get('last-event-id');
     if (cursor && !/^[0-9]{1,18}$/.test(cursor)) return Response.json({error:{code:'VALIDATION_ERROR',message:'Invalid event cursor.'}}, {status:400});
@@ -44,6 +49,10 @@ async function proxy(req: Request, {params}: {params: Promise<{path: string[]}>}
     const result = new Headers({'Content-Type': response.headers.get('content-type') || 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff'});
     for (const cookie of response.headers.getSetCookie()) result.append('Set-Cookie', cookie);
     for (const key of ['retry-after','x-request-id','content-disposition','server-timing']) { const value = response.headers.get(key); if (value) result.set(key,value); }
+    if(mediaRequest)for(const key of ['accept-ranges','content-range','content-length']){
+      const value=response.headers.get(key);
+      if(value)result.set(key,value);
+    }
     // Only the OAuth callback may redirect, and only to these app-owned destinations.
     const location=response.headers.get('location');
     if(['auth/google/callback','auth/github/callback'].includes(path.join('/'))&&response.status===303&&location&&/^\/(?:workspace|(?:login|signup)\?auth_error=[a-z_]+(?:&provider=github)?)$/.test(location))result.set('Location',location);

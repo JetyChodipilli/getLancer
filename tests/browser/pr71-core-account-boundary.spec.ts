@@ -85,6 +85,21 @@ test('proof upload confirms its staged bytes only after a fresh actor and privat
  await stageProofUpload(page);await respond(page,'/api/v1/me',user(A));await records(page,A,'ACTIVE',first(),first([proofProduct]));await finishProofConfirmation(page);
 });
 
+test('a builder approval denial keeps the authenticated workspace and profile tab',async({page})=>{
+ await mount(page);
+ const owner=user(A);
+ await respond(page,'/api/v1/me',{...owner,profile:{...owner.profile,approval_status:'DRAFT'}});
+ await records(page,A,'ACTIVE',first(),first([{...proofProduct,approvalStatus:'APPROVED',draftStatus:'DRAFT'}]));
+ await page.getByRole('button',{name:'Submit update for review'}).click();
+ const message='Your builder profile needs approval before you can use this tool.';
+ await respond(page,proofBase+'/submit',{error:{code:'BUILDER_APPROVAL_REQUIRED',message}},403,'POST',A);
+ await expect(page.getByRole('alert').filter({hasText:message})).toBeVisible();
+ await expect(page.getByRole('link',{name:'Log in',exact:true})).toHaveCount(0);
+ await expect(page.getByText('Your showcases are hidden from Explore and search until your builder profile is approved.',{exact:false})).toBeVisible();
+ await page.getByRole('button',{name:'Open builder profile',exact:true}).click();
+ await expect(page.getByRole('tab',{name:'Profile',exact:true})).toHaveAttribute('aria-selected','true');
+});
+
 test('proof upload retains staged bytes after a failed fresh read and retry confirmation reads again',async({page})=>{
  await stageProofUpload(page);await respond(page,'/api/v1/me',user(A));await respond(page,'/api/v1/developer/products?lifecycleStatus=ACTIVE',{error:{code:'UNAVAILABLE',message:'Current products are unavailable.'}},503,'GET',A);await respond(page,'/api/v1/developer/inquiries',first(),200,'GET',A);await respond(page,'/api/v1/developer/analytics',{},200,'GET',A);
  await expect(page.getByText('Image bytes were uploaded. Confirmation is still pending.',{exact:true})).toBeVisible();await expect(page.getByText('Image bytes were uploaded, but current workspace details could not be refreshed. Reload proof images before confirming the upload.',{exact:true})).toBeVisible();const retry=page.getByRole('button',{name:'Retry image confirmation',exact:true});await expect(retry).toBeDisabled();await expect(page.getByLabel('Add proof image (PNG or JPEG, up to 5 MB)',{exact:true})).toBeDisabled();

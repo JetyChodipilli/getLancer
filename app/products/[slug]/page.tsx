@@ -58,7 +58,7 @@ export default async function Detail({params}:Props) {
     {illustrative && <p className="samplebar project-detail-sample">Illustrative project · Inquiries and reports use sample data.</p>}
     <div className="detailgrid">
       <div className="stack">
-        <div className="detailpreview"><Preview product={product}/></div>
+        <div className="detailpreview"><Preview product={product} playVideo/></div>
         {product.media && product.media.length > 1 && <div className="proofgallery">
           {product.media.slice(1).map(media=><img key={media.id} src={media.url} alt={media.alt||'Project screenshot'} loading="lazy"/>)}
         </div>}
@@ -71,7 +71,7 @@ export default async function Detail({params}:Props) {
           {product.demoCheckedAt?' · Checked '+new Date(product.demoCheckedAt).toLocaleDateString():' · Not checked yet'}. Reachability is not a safety guarantee.</p>}
         {!illustrative && <HostedDemos productId={product.id}/>}
         {product.repositoryVerified && <p>Repository evidence reviewed for this showcase.</p>}
-        {product.videoUrl && <DemoVideo url={product.videoUrl}/>}
+        {!product.previewVideoUrl && product.videoUrl && <DemoVideo url={product.videoUrl}/>}
         <div className="prose">
           <h2>What this project solves</h2><p>{product.description}</p>
           {product.repositoryUrl && <ExternalLink href={product.repositoryUrl} rel="noopener noreferrer" target="_blank">

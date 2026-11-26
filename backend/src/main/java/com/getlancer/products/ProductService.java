@@ -6,6 +6,9 @@ import static com.getlancer.shared.Support.id;
 import static com.getlancer.shared.Support.text;
 import static com.getlancer.shared.Support.uuid;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.getlancer.media.MediaService;
 import com.getlancer.notifications.Mail;
 import com.getlancer.responses.ProjectResponses;
 import com.getlancer.security.Security;
@@ -15,6 +18,7 @@ import com.getlancer.shared.Rules;
 import com.getlancer.shared.Support;
 import com.getlancer.trust.DemoHealth;
 import jakarta.servlet.http.HttpServletRequest;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -30,9 +34,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class ProductService {
+  private static final ObjectMapper DRAFT_JSON = new ObjectMapper();
   final int reliabilityMinimum;
 
   final JdbcTemplate db;
@@ -136,6 +142,8 @@ public class ProductService {
     x.put("currency", p.get("currency_code"));
     if (!media.isEmpty())
       x.put("imageUrl", "/api/v1/media/" + media.get(0).get("id") + "?variant=thumbnail");
+    if (Boolean.TRUE.equals(p.get("has_cover")))
+      x.put(previewField(p.get("cover_type")), MediaService.coverUrl(p.get("id"), "cover"));
     x.put(
         "media",
         media.stream()
@@ -310,7 +318,7 @@ public class ProductService {
 
   public ProjectResponses.Owned own(HttpServletRequest r) {
     UUID u = security.developer(r, false);
-    String sql = SELECT + " WHERE p.owner_user_id=?";
+    String sql = ProductRepository.MANAGEMENT + " WHERE p.owner_user_id=?";
     List<Object> args = new ArrayList<>();
     args.add(u);
     for (String key : List.of("lifecycleStatus", "approvalStatus")) {
@@ -336,7 +344,7 @@ public class ProductService {
     result.put(
         "totalOwned",
         db.queryForObject("SELECT count(*) FROM products WHERE owner_user_id=?", Integer.class, u));
-    result.put("items", managementDtos(Pages.items(result)));
+    result.put("items", withDrafts(Pages.items(result), false));
     result.put("capacity", publishing.capacity(u,"PROJECT"));
     result.put(
         "activeCount",
@@ -365,7 +373,7 @@ public class ProductService {
         "",
         "",
         "");
-    save(p, b, u);
+    save(p, b, u, false, false);
     requireCurrentDeveloper(u, r);
     return Map.of("id", p);
   }
@@ -374,15 +382,16 @@ public class ProductService {
   public Map<String, Object> edit(UUID id, Map<String, Object> b, HttpServletRequest r) {
     UUID u = security.developer(r, true);
     publishing.lock(u);
-    owned(id, u);
+    var current = owned(id, u);
     requireCurrentDeveloper(u, r);
-    save(id, b, u);
+    requireDraftEditable(current);
+    save(id, b, u, hasPublishedVersionToPreserve(current), false);
     // A later taxonomy or repository-proof write can also have waited on a database lock.
     requireCurrentDeveloper(u, r);
-    return Map.of("ok", true);
+    return Map.of("ok", true, "id", id);
   }
 
-  void save(UUID p, Map<String, Object> b, UUID u) {
+  private void save(UUID p, Map<String, Object> b, UUID u, boolean stage, boolean retainPublication) {
     String category = text(b, "category", 1, 100);
     if (db.queryForObject(
             "SELECT count(*) FROM categories WHERE name=? AND active=true", Integer.class, category)
@@ -419,18 +428,30 @@ public class ProductService {
             .contains(type)
         || !Set.of("PUBLIC", "PRIVATE_CASE_STUDY", "NDA_SAFE").contains(visibility))
       throw new ApiError(400, "VALIDATION_ERROR", "Choose a valid project type and visibility.");
+    String title = text(b, "title", 3, 120), summary = text(b, "summary", 5, 240);
+    String description = text(b, "description", 20, 10000), contribution = text(b, "contribution", 10, 3000);
+    if (stage) {
+      try {
+        db.update("UPDATE products SET draft_details=?::jsonb,draft_status='DRAFT',draft_review_id=NULL WHERE id=?",
+            DRAFT_JSON.writeValueAsString(b), p);
+      } catch (IOException e) {
+        throw new IllegalStateException("Cannot save project draft.", e);
+      }
+      return;
+    }
     db.update(
         "UPDATE products SET"
-            + " title=?,summary=?,description=?,project_type=?,category=?,technology=?,visibility=?,contribution_text=?,live_url=?,video_url=?,available_for_similar_work=?,rights_confirmed=?,approval_status='DRAFT',lifecycle_status='DRAFT',updated_at=now()"
+            + " title=?,summary=?,description=?,project_type=?,category=?,technology=?,visibility=?,contribution_text=?,live_url=?,video_url=?,available_for_similar_work=?,rights_confirmed=?,updated_at=now()"
+            + (retainPublication ? "" : ",approval_status='DRAFT',lifecycle_status='DRAFT'")
             + " WHERE id=? AND owner_user_id=?",
-        text(b, "title", 3, 120),
-        text(b, "summary", 5, 240),
-        text(b, "description", 20, 10000),
+        title,
+        summary,
+        description,
         type,
         category,
         technology,
         visibility,
-        text(b, "contribution", 10, 3000),
+        contribution,
         live,
         video,
         Boolean.TRUE.equals(b.get("availableForSimilarWork")),
@@ -461,6 +482,112 @@ public class ProductService {
           "INSERT INTO product_technologies SELECT ?,slug FROM technologies WHERE name=?", p, t);
   }
 
+  private static String previewField(Object mediaType) {
+    return "video/mp4".equals(mediaType) ? "previewVideoUrl" : "imageUrl";
+  }
+
+  private static boolean hasPublishedVersionToPreserve(Map<String, Object> project) {
+    return "APPROVED".equals(project.get("approval_status"))
+        && ("ACTIVE".equals(project.get("lifecycle_status")) || project.get("draft_status") != null);
+  }
+
+  private static void requireDraftEditable(Map<String, Object> project) {
+    if ("PENDING_REVIEW".equals(project.get("draft_status")))
+      throw new ApiError(409, "INVALID_STATE_TRANSITION", "This update is already in review.");
+  }
+
+  private static Map<String, Object> draftDetails(Map<String, Object> row) {
+    if (!(row.get("draft_details") instanceof String json)) return Map.of();
+    try {
+      return DRAFT_JSON.readValue(json, new TypeReference<Map<String, Object>>() {});
+    } catch (IOException e) {
+      throw new IllegalStateException("Cannot read project draft.", e);
+    }
+  }
+
+  public List<Map<String, Object>> withDrafts(List<Map<String, Object>> rows, boolean review) {
+    var results = managementDtos(rows);
+    for (int i = 0; i < rows.size(); i++) {
+      var row = rows.get(i);
+      if (row.get("draft_status") == null || !"APPROVED".equals(row.get("approval_status"))) continue;
+      var result = results.get(i);
+      var draft = new LinkedHashMap<>(draftDetails(row));
+      if (Boolean.TRUE.equals(row.get("has_draft_cover"))) {
+        draft.put("imageUrl", null);
+        draft.put("previewVideoUrl", null);
+        draft.put(previewField(row.get("draft_cover_type")), MediaService.coverUrl(row.get("id"), "draft-cover"));
+      }
+      result.put("draft", draft);
+      result.put("draftStatus", row.get("draft_status"));
+      if (review && "PENDING_REVIEW".equals(row.get("draft_status"))) {
+        result.putAll(draft);
+        result.put("approvalStatus", "PENDING_REVIEW");
+        result.put("draftReviewId", row.get("draft_review_id"));
+      }
+    }
+    return results;
+  }
+
+  @Transactional
+  public Map<String, Object> uploadCover(UUID id, MultipartFile file, HttpServletRequest request)
+      throws IOException {
+    UUID owner = security.developer(request, true);
+    if (!Boolean.TRUE.equals(db.queryForObject(
+        "SELECT EXISTS(SELECT 1 FROM products WHERE id=? AND owner_user_id=?)",
+        Boolean.class, id, owner))) throw new ApiError(404, "NOT_FOUND", "Project not found.");
+    var preview = MediaService.previewUpload(file);
+    publishing.lock(owner);
+    var project = owned(id, owner);
+    requireCurrentDeveloper(owner, request);
+    requireDraftEditable(project);
+    boolean published = hasPublishedVersionToPreserve(project);
+    if (!published && !Set.of("DRAFT", "CHANGES_REQUESTED").contains(project.get("approval_status")))
+      throw new ApiError(409, "INVALID_STATE_TRANSITION", "Save an editable draft before uploading a cover.");
+    if (published) {
+      db.update("UPDATE products SET draft_cover_image=?,draft_cover_type=?,draft_status='DRAFT',draft_review_id=NULL WHERE id=?",
+          preview.bytes(), preview.type(), id);
+    } else {
+      db.update("UPDATE products SET cover_image=?,cover_type=? WHERE id=?", preview.bytes(), preview.type(), id);
+    }
+    return Map.of(previewField(preview.type()), MediaService.coverUrl(id, published ? "draft-cover" : "cover"));
+  }
+
+  /** Called under the moderation transaction and the project owner's publishing lock. */
+  public void reviewDraft(UUID id, UUID owner, UUID reviewId, String decision) {
+    var project = owned(id, owner);
+    if (!"APPROVED".equals(project.get("approval_status"))
+        || !"PENDING_REVIEW".equals(project.get("draft_status"))
+        || !reviewId.equals(project.get("draft_review_id")))
+      throw new ApiError(409, "REVIEW_SOURCE_CHANGED", "Reload the current project update before reviewing.");
+    switch (decision) {
+      case "APPROVED" -> {
+        var details = draftDetails(project);
+        if (!details.isEmpty()) save(id, details, owner, false, true);
+        db.update("UPDATE products SET cover_image=coalesce(draft_cover_image,cover_image),"
+            + "cover_type=coalesce(draft_cover_type,cover_type),draft_details=NULL,"
+            + "draft_cover_image=NULL,draft_cover_type=NULL,draft_status=NULL,draft_review_id=NULL,updated_at=now() WHERE id=?", id);
+      }
+      case "CHANGES_REQUESTED", "REJECTED" ->
+          db.update("UPDATE products SET draft_status=?,draft_review_id=NULL WHERE id=?", decision, id);
+      default -> throw new ApiError(400, "VALIDATION_ERROR", "Choose a review decision for this update.");
+    }
+  }
+
+  private void submitDraft(UUID id, Map<String, Object> project) {
+    requireDraftEditable(project);
+    var draft = draftDetails(project);
+    if (!Boolean.TRUE.equals(draft.getOrDefault("rightsConfirmed", project.get("rights_confirmed"))))
+      throw new ApiError(400, "VALIDATION_ERROR", "Confirm your right to showcase this work.");
+    if ("PUBLIC".equals(draft.getOrDefault("visibility", project.get("visibility")))
+        && !Boolean.TRUE.equals(project.get("has_cover"))
+        && !Boolean.TRUE.equals(project.get("has_draft_cover"))
+        && repository.media(id).isEmpty()
+        && Objects.toString(draft.getOrDefault("videoUrl", project.get("video_url")), "").isBlank()
+        && Objects.toString(draft.getOrDefault("liveUrl", project.get("live_url")), "").isBlank())
+      throw new ApiError(400, "VALIDATION_ERROR", "Upload a preview image or video, or add a live demo before submitting.");
+    db.update("UPDATE products SET draft_status='PENDING_REVIEW',draft_review_id=? WHERE id=?", id(), id);
+  }
+
   public Map<String, Object> owned(UUID p, UUID u) {
     var rows = repository.findOwnedForUpdate(p, u);
     if (rows.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Project not found.");
@@ -478,11 +605,16 @@ public class ProductService {
     requireCurrentDeveloper(u, r);
     switch (action) {
       case "submit" -> {
+        if ("APPROVED".equals(p.get("approval_status")) && p.get("draft_status") != null) {
+          submitDraft(id, p);
+          break;
+        }
         if (!Set.of("DRAFT", "CHANGES_REQUESTED").contains(p.get("approval_status")))
           throw new ApiError(409, "INVALID_STATE_TRANSITION", "Project cannot be submitted now.");
         if (!Boolean.TRUE.equals(p.get("rights_confirmed")))
           throw new ApiError(400, "VALIDATION_ERROR", "Confirm your right to showcase this work.");
         if (p.get("visibility").equals("PUBLIC")
+            && !Boolean.TRUE.equals(p.get("has_cover"))
             && db.queryForObject(
                     "SELECT count(*) FROM product_media WHERE product_id=? AND verified=true",
                     Integer.class,

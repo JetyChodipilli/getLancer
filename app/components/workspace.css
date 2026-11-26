@@ -402,3 +402,117 @@ body .studio-shell :is(.studio-rail, .workspace-layout) { min-width: 0; max-widt
 /* Inner lifecycle tabs have no workspace-tabs class; keep their own scroll area. */
 body .studio-shell [data-slot=tabs-list] { max-width: 100%; overflow-x: auto; }
 body .studio-shell [data-slot=tabs-list] [role=tab] { flex-shrink: 0; }
+
+/* Cover and field spacing in the project and component editors. */
+.real-showcase-editor > :is(.cover-image-field, .showcase-optional-links) { grid-column: 1 / -1; min-width: 0; }
+.cover-image-field, .showcase-optional-links { display: grid; gap: 16px; min-width: 0; }
+.cover-image-field { padding: 16px; border: 1px solid var(--line); border-radius: 12px; }
+.cover-image-field .showcase-field, .real-showcase-editor .showcase-field {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.cover-image-field :is(p, figure), .real-showcase-editor .showcase-field > p { margin: 0; }
+.cover-image-preview { display: grid; gap: 8px; }
+.cover-image-preview :is(img, video), .kit-cover-image {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 8px;
+}
+.cover-image-preview figcaption { font-size: 0.875rem; }
+.showcase-optional-links { padding: 12px 16px; }
+.showcase-optional-links summary { cursor: pointer; min-height: 44px; align-content: center; }
+.showcase-link-fields { display: grid; gap: 16px; margin-block-start: 12px; }
+.real-showcase-editor { row-gap: 16px; }
+.real-showcase-editor :is(input:not([type=checkbox]), textarea, button[data-slot=select-trigger]),
+.component-editor-dialog .draft-dialog-fields :is(input:not([type=checkbox]), textarea, select) {
+  min-height: 44px;
+  padding-block: 10px;
+  padding-inline: 12px;
+}
+
+.listing-preview-video {
+  display: block;
+  width: 100%;
+  max-height: 70vh;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+  background: var(--ink);
+  border-radius: 8px;
+}
+.showcase-moderation-form { display: grid; gap: 20px; }
+.showcase-moderation-form > p,
+.showcase-moderation-form .reported-evidence > :is(h3, p) { margin: 0; }
+.showcase-moderation-form .reported-evidence {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 20px;
+}
+.showcase-moderation-form .showcase-field { display: grid; gap: 10px; min-width: 0; }
+.showcase-moderation-form .reported-evidence .showcase-field { margin-block-start: 8px; }
+.showcase-moderation-form :is(select, textarea) { padding: 12px; min-height: 44px; }
+.showcase-moderation-form .moderation-actions { gap: 12px; flex-wrap: wrap; }
+.showcase-moderation-form .moderation-actions .button { min-height: 44px; }
+
+/* Tabbed operator tools share the workspace's panel and form tokens. */
+.control-center { display: grid; gap: 16px; min-width: 0; margin-block: 12px 24px; }
+.control-center-heading, .control-center-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+}
+.control-center-heading .stack { flex-wrap: wrap; gap: 8px; }
+body .studio-shell .control-center [data-slot=tabs-list] {
+  display: flex;
+  flex-wrap: wrap;
+  min-height: 48px;
+  height: auto;
+  max-width: 100%;
+  width: fit-content;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 4px 4px 6px;
+}
+.control-center-tabs, .control-center-subtabs { min-width: 0; gap: 16px; }
+.control-center-tabs > [role=tablist] { border-bottom: 1px solid var(--paper-control-border, #dce2f2); }
+.control-center [role=tab] {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+}
+.control-center [role=tab][aria-selected=true] {
+  border-color: var(--studio-control);
+  background: var(--studio-record);
+  color: var(--studio-blue-hover);
+  font-weight: 650;
+}
+.control-center [role=tab]:focus-visible { outline: 2px solid var(--paper-focus); outline-offset: -3px; }
+.control-center-tool, .control-center-review-list { display: grid; gap: 16px; min-width: 0; }
+.control-center-tool :is(h3, h4, p), .control-center-review-list :is(h2, h3, p) { margin: 0; }
+.control-center-open > details > summary { display: none; }
+.control-center-open > details[open] { display: grid; gap: 16px; }
+.control-center-form { display: grid; gap: 16px; min-width: 0; }
+.control-center :is(.showcase-field, .form > label:has(input:not([type=checkbox]), select, textarea)),
+.control-center-dialog .showcase-field { display: grid; gap: 8px; }
+.control-center-toolbar input { width: min(220px, 100%); }
+.control-center-form :is(input:not([type=checkbox]), select, textarea), .control-center-toolbar input { min-height: 44px; }
+.control-center-checkbox { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.control-center-dialog-actions { justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.control-center-table { overflow-x: auto; padding: 3px; }
+.control-center-table table { width: 100%; border-collapse: collapse; }
+.control-center-table :is(td, th) { padding: 10px 12px; vertical-align: middle; text-align: left; }
+.control-center-table td small { display: block; margin-top: 4px; color: var(--muted); overflow-wrap: anywhere; }
+.control-center-table .button { min-height: 44px; }
+@media (max-width: 640px) {
+  .control-center-heading, .control-center-toolbar { align-items: flex-start; }
+  .control-center-toolbar > .showcase-field { flex: 1 1 100%; }
+  .control-center-toolbar input { width: 100%; }
+  .control-center-table :is(td, th) { padding: 8px; }
+}

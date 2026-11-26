@@ -203,6 +203,7 @@ POST /api/v1/components/razorpay/webhook
 POST /api/v1/components/{slug}/save
 POST /api/v1/developer/products
 POST /api/v1/developer/products/{id}/access
+POST /api/v1/developer/products/{id}/cover
 POST /api/v1/developer/products/{id}/verification
 POST /api/v1/developer/products/{id}/{action}
 POST /api/v1/developer/products/{product}/media
@@ -239,6 +240,7 @@ POST /api/v1/me/component-slot-purchases
 POST /api/v1/me/component-slot-purchases/{id}/reconcile
 POST /api/v1/me/component-slot-purchases/{id}/verify
 POST /api/v1/me/components
+POST /api/v1/me/components/{id}/cover
 POST /api/v1/me/components/{id}/preview
 POST /api/v1/me/components/{id}/source
 POST /api/v1/me/components/{id}/{action}

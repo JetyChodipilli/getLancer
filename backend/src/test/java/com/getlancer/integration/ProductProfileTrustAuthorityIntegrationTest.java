@@ -2,6 +2,7 @@ package com.getlancer.integration;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.getlancer.shared.Support;
 import com.getlancer.testing.TestDatabaseGuard;
@@ -153,6 +154,9 @@ class ProductProfileTrustAuthorityIntegrationTest {
 
   @Test
   void projectEditRollsBackWhenSessionRevokedDuringLaterRepositoryProofWrite() throws Exception {
+    // In-place writes still apply to unpublished drafts.
+    db.update("UPDATE products SET approval_status='DRAFT',lifecycle_status='DRAFT' WHERE id=?", product);
+    originalProduct = db.queryForMap("SELECT * FROM products WHERE id=?", product);
     var call = as(patch("/api/v1/developer/products/" + product), "product-authority-builder")
         .content("""
             {"title":"Changed authority project","summary":"Changed project summary",
@@ -165,6 +169,105 @@ class ProductProfileTrustAuthorityIntegrationTest {
     revokeDuringObservedLockWait("SELECT product_id FROM repository_verifications WHERE product_id=? FOR UPDATE",
         product, call, () -> db.update("DELETE FROM sessions WHERE user_id=?", builder), 401);
     assertNoCommittedEffects();
+  }
+
+  @Test
+  void materialProfileEditHidesSearchResultUntilReapprovalWithoutEndingSession() throws Exception {
+    String search = "/api/v1/products";
+    String title = "Existing authority project";
+    String owner = "product-authority-builder";
+    mvc.perform(get(search).param("q", title)).andExpect(status().isOk())
+        .andExpect(jsonPath("$.items[0].id").value(product.toString()));
+    mvc.perform(as(put("/api/v1/developer/profile"), owner).content("""
+        {"displayName":"product-authority-builder","headline":"Updated builder headline",
+         "bio":"Existing builder biography with retained public evidence.","technology":"Java",
+         "category":"Authority boundary category","availabilityStatus":"AVAILABLE_NOW",
+         "githubUrl":"","linkedinUrl":""}
+        """)).andExpect(status().isOk());
+    mvc.perform(get(search).param("q", title)).andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(0));
+    mvc.perform(as(post("/api/v1/developer/products/" + product + "/submit"), owner))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error.code").value("BUILDER_APPROVAL_REQUIRED"));
+    mvc.perform(as(get("/api/v1/me"), owner))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(builder.toString()));
+    mvc.perform(as(post("/api/v1/developer/profile/submit"), owner)).andExpect(status().isOk());
+    mvc.perform(get(search).param("q", title)).andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(0));
+    mvc.perform(as(post("/api/v1/admin/profiles/" + builder + "/approve"), "product-authority-admin")
+        .content("{\"reason\":\"Reviewed the updated builder headline\"}")).andExpect(status().isOk());
+    mvc.perform(get(search).param("q", title)).andExpect(status().isOk())
+        .andExpect(jsonPath("$.items[0].id").value(product.toString()));
+  }
+
+  @Test
+  void publishedPreviewRemainsVisibleUntilTheExactUpdateIsApproved() throws Exception {
+    String owner = "product-authority-builder", admin = "product-authority-admin";
+    String editUrl = "/api/v1/developer/products/" + product;
+    String listing = "/api/v1/products/" + product, image = "/api/v1/media/" + product;
+    var png = new java.io.ByteArrayOutputStream();
+    javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(16,9,java.awt.image.BufferedImage.TYPE_INT_RGB),
+        "png", png);
+    var publishedCover = com.getlancer.media.MediaService.previewUpload(
+        new org.springframework.mock.web.MockMultipartFile("file","cover.png","image/png",png.toByteArray()));
+    db.update("UPDATE products SET cover_image=?,cover_type=?,live_url='https://example.com/original' WHERE id=?",
+        publishedCover.bytes(),publishedCover.type(),product);
+    mvc.perform(as(patch(editUrl),owner).content("""
+        {"title":"Updated project title","summary":"A reviewed update for the project",
+         "description":"The replacement preview awaits an independent review.","projectType":"SAAS",
+         "category":"Authority boundary category","technology":"","visibility":"PUBLIC",
+         "contribution":"Updated the project preview","liveUrl":"https://example.com/updated",
+         "rightsConfirmed":true,"availableForSimilarWork":true}
+        """)).andExpect(status().isOk());
+
+    // Minimal MP4 container fixture. Playback is verified separately in a browser.
+    byte[] mp4 = java.nio.ByteBuffer.allocate(34)
+        .putInt(16).putInt(0x66747970).putInt(0x69736f6d).putInt(0)
+        .putInt(9).putInt(0x6d6f6f76).put((byte) 1)
+        .putInt(9).putInt(0x6d646174).put((byte) 1).array();
+    var file = new org.springframework.mock.web.MockMultipartFile("file","preview.mp4","video/mp4",mp4);
+    mvc.perform(as(multipart(editUrl+"/cover").file(file),owner).contentType("multipart/form-data")).andExpect(status().isOk())
+        .andExpect(jsonPath("$.previewVideoUrl").value(image+"?variant=draft-cover"));
+    mvc.perform(get(image).param("variant","draft-cover")).andExpect(status().isUnauthorized());
+    mvc.perform(as(post(editUrl+"/submit"),owner)).andExpect(status().isNoContent());
+    mvc.perform(as(multipart(editUrl+"/cover").file(file),owner).contentType("multipart/form-data")).andExpect(status().isConflict());
+    mvc.perform(get(listing)).andExpect(status().isOk())
+        .andExpect(jsonPath("$.title").value("Existing authority project"))
+        .andExpect(jsonPath("$.liveUrl").value("https://example.com/original"))
+        .andExpect(jsonPath("$.imageUrl").value(image+"?variant=cover"))
+        .andExpect(jsonPath("$.previewVideoUrl").doesNotExist());
+    mvc.perform(get("/api/v1/products").param("q", "Existing authority project"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items[0].id").value(product.toString()))
+        .andExpect(jsonPath("$.items[0].imageUrl").value(image + "?variant=cover"));
+    mvc.perform(get("/api/v1/products").param("q", "Updated project title"))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.totalItems").value(0));
+    mvc.perform(get(image).param("variant","cover")).andExpect(content().bytes(publishedCover.bytes()));
+    mvc.perform(as(get("/api/v1/admin/products/pending"),admin))
+        .andExpect(jsonPath("$.items[0].previewVideoUrl").value(image+"?variant=draft-cover"))
+        .andExpect(jsonPath("$.items[0].title").value("Updated project title"));
+    UUID token = db.queryForObject("SELECT draft_review_id FROM products WHERE id=?",UUID.class,product);
+    var decision = "/api/v1/admin/products/"+product+"/approve";
+    mvc.perform(as(post(decision).param("draftReviewId",UUID.randomUUID().toString()),admin)
+        .content("{\"reason\":\"Stale review token\"}")).andExpect(status().isConflict());
+    mvc.perform(as(post(decision).param("draftReviewId",token.toString()),admin)
+        .content("{\"reason\":\"Reviewed the submitted preview\"}")).andExpect(status().isOk());
+    mvc.perform(get(listing)).andExpect(status().isOk())
+        .andExpect(jsonPath("$.title").value("Updated project title"))
+        .andExpect(jsonPath("$.liveUrl").value("https://example.com/updated"))
+        .andExpect(jsonPath("$.lifecycleStatus").value("ACTIVE"))
+        .andExpect(jsonPath("$.previewVideoUrl").value(image+"?variant=cover"));
+    mvc.perform(get("/api/v1/products").param("q", "Updated project title"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items[0].id").value(product.toString()))
+        .andExpect(jsonPath("$.items[0].previewVideoUrl").value(image + "?variant=cover"));
+    mvc.perform(get("/api/v1/products").param("q", "Existing authority project"))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.totalItems").value(0));
+    mvc.perform(get(image).param("variant","cover").header("Range","bytes=0-15"))
+        .andExpect(status().isPartialContent()).andExpect(content().contentType("video/mp4"))
+        .andExpect(header().string("Content-Range","bytes 0-15/34"))
+        .andExpect(content().bytes(java.util.Arrays.copyOf(mp4,16)));
   }
 
   @Test

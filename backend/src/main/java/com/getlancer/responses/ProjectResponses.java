@@ -73,6 +73,7 @@ public final class ProjectResponses {
       Long priceMaxMinor,
       String currency,
       @JsonInclude(JsonInclude.Include.NON_NULL) String imageUrl,
+      @JsonInclude(JsonInclude.Include.NON_NULL) String previewVideoUrl,
       List<Media> media) {
     public static Project from(Map<String,Object> row) {
       return new Project(ResponseRows.uuid(row,"id"),
@@ -105,6 +106,7 @@ public final class ProjectResponses {
           ResponseRows.integer64(row,"priceMaxMinor"),
           ResponseRows.string(row,"currency"),
           ResponseRows.string(row,"imageUrl"),
+          ResponseRows.string(row,"previewVideoUrl"),
           ResponseRows.rows(row,"media", Media::from));
     }
   }
@@ -139,8 +141,12 @@ public final class ProjectResponses {
       Long priceMaxMinor,
       String currency,
       @JsonInclude(JsonInclude.Include.NON_NULL) String imageUrl,
+      @JsonInclude(JsonInclude.Include.NON_NULL) String previewVideoUrl,
       List<Media> media,
-      String moderationReason) {
+      String moderationReason,
+      @JsonInclude(JsonInclude.Include.NON_NULL) Map<String, Object> draft,
+      @JsonInclude(JsonInclude.Include.NON_NULL) String draftStatus,
+      @JsonInclude(JsonInclude.Include.NON_NULL) UUID draftReviewId) {
     public static ManagementProject from(Map<String,Object> row) {
       return new ManagementProject(ResponseRows.uuid(row,"id"),
           ResponseRows.string(row,"slug"),
@@ -172,8 +178,12 @@ public final class ProjectResponses {
           ResponseRows.integer64(row,"priceMaxMinor"),
           ResponseRows.string(row,"currency"),
           ResponseRows.string(row,"imageUrl"),
+          ResponseRows.string(row,"previewVideoUrl"),
           ResponseRows.rows(row,"media", Media::from),
-          ResponseRows.string(row,"moderationReason"));
+          ResponseRows.string(row,"moderationReason"),
+          row.containsKey("draft") ? ResponseRows.row(row,"draft") : null,
+          ResponseRows.string(row,"draftStatus"),
+          ResponseRows.uuid(row,"draftReviewId"));
     }
   }
 }

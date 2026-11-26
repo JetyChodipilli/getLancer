@@ -1,10 +1,15 @@
 import { ArrowUpRight, Box, CalendarDays, Check, ChevronRight, LayoutDashboard, Layers, Package, Settings, Users } from 'lucide-react';
 import type { Product } from '@/lib/catalog';
+import HoverPreviewVideo from './hover-preview-video';
 
 // Illustrations belong to the frontend sample catalog. Real projects only show uploaded media.
-export default function Preview({ product: p, naturalAspect = false }: { product: Product; naturalAspect?: boolean }) {
+export default function Preview({ product: p, naturalAspect = false, playVideo = false, hoverVideo = false }: { product: Product; naturalAspect?: boolean; playVideo?: boolean; hoverVideo?: boolean }) {
+  if (p.previewVideoUrl && hoverVideo && !playVideo)
+    return <HoverPreviewVideo src={p.previewVideoUrl} poster={p.imageUrl} title={p.title}/>;
+  if (p.previewVideoUrl) return <video className="listing-preview-video" src={p.previewVideoUrl+'#t=0.1'}
+    aria-label={p.title+' video preview'} controls={playVideo} muted={!playVideo} playsInline preload="metadata" />;
   if (p.imageUrl) return <img src={p.imageUrl} alt={`${p.title} project screenshot`} style={{ width: '100%', height: naturalAspect ? 'auto' : '100%', objectFit: naturalAspect ? 'contain' : 'cover', display: 'block' }} loading="lazy" />;
-  if (!p.illustrative) return <div className="proof-missing">{p.title}<span>Project screenshot unavailable</span></div>;
+  if (!p.illustrative) return <div className="proof-missing">{p.title}<span>Project preview unavailable</span></div>;
   if (naturalAspect && p.previewFormat === 'portrait') return <div className="showcase-mobile" role="img" aria-label={`${p.title} illustrative learning interface`}><div className="showcase-phone" aria-hidden="true">
     <div className="showcase-phone-top"><span>9:41</span><span>•••</span></div>
     <div className="showcase-phone-brand"><Layers size={18} /><strong>{p.title}</strong><span className="showcase-avatar">EC</span></div>

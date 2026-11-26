@@ -149,7 +149,7 @@ body .form > .draft-dialog-fields > fieldset:not([hidden]) { display: grid; gap:
 body :is(.form,.team-form) label, body .team-field,
 body :is(.studio-shell,[data-slot=dialog-content]) :is(.form,.team-form,.team-field) label { font-size: 14px; line-height: 1.4; font-weight: 500; }
 body .form label:not(.filterlabel) { display: grid; gap: 8px; margin: 0; }
-body .form label:not(.filterlabel,.form-field > label):has(+ :is(input,select,textarea,[data-slot=select-trigger])) { margin-bottom: -4px; }
+body .form label:not(.filterlabel, .form-field > label, .showcase-field > label):has(+ :is(input,select,textarea,[data-slot=select-trigger])) { margin-bottom: -4px; }
 /* A consent statement is one target: the checkbox stays beside its wrapping
    text, rather than becoming a separate row under the generic label grid. */
 body .form label:has(> input:is([type=checkbox],[type=radio])) {

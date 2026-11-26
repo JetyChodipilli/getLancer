@@ -85,6 +85,25 @@
 }
 .paper-feature:first-child .paper-feature-media { aspect-ratio: 2.375 }
 .paper-feature-media > img { width: 100%; height: 100%; object-fit: cover }
+.listing-hover-preview {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+.listing-hover-preview > :is(.listing-hover-video, .listing-hover-poster) {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  object-fit: cover;
+  border-radius: inherit;
+}
+.listing-hover-poster {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
 .paper-feature-media .proof-missing { min-height: 100%; padding: 12px }
 .paper-feature-caption { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 3px 2px }
 .paper-feature-caption h3 { margin: 0; font-size: 18px; letter-spacing: -.03em }

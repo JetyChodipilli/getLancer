@@ -83,7 +83,7 @@ export function frontendCsp(connected: boolean, nonce = createFrontendNonce(), p
   }
   const storage = connected && upload ? ' ' + upload : '';
   const payment = connected ? ' https://checkout.razorpay.com https://api.razorpay.com' : '';
-  return `default-src 'self'; script-src 'self' 'nonce-${nonce}' ${trustedRecipeScriptSources.join(' ')}${connected ? ' https://checkout.razorpay.com' : ''}; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'${payment}${storage}; frame-src 'self' https://www.youtube-nocookie.com https://player.vimeo.com https://www.loom.com${payment}${publisher ? ' ' + publisher : ''}; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`;
+  return `default-src 'self'; script-src 'self' 'nonce-${nonce}' ${trustedRecipeScriptSources.join(' ')}${connected ? ' https://checkout.razorpay.com' : ''}; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; connect-src 'self'${payment}${storage}; frame-src 'self' https://www.youtube-nocookie.com https://player.vimeo.com https://www.loom.com${payment}${publisher ? ' ' + publisher : ''}; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`;
 }
 
 /** Apply the same protections to HTML, API and image-optimizer responses. */

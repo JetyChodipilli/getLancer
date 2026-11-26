@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
 
-const workflow = readFileSync('.github/workflows/ci.yml', 'utf8');
+const workflow = readFileSync('.github/workflows/ci.yml', 'utf8').replace(/\r\n/g, '\n');
 const fixtureClasses = [
   'com.getlancer.integration.Round3FinanceIntegrationTest',
   'com.getlancer.integration.Round3MarketplaceIntegrationTest',
@@ -42,7 +42,8 @@ function temporary(t) {
 }
 
 function executePython(code, root, env = {}) {
-  return spawnSync('python3', ['-c', code], {cwd: root, env: {...process.env, ...env}, encoding: 'utf8'});
+  const python = process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
+  return spawnSync(python, ['-c', code], {cwd: root, env: {...process.env, ...env}, encoding: 'utf8'});
 }
 
 test('the frontend browser image matches the locked Playwright release', () => {

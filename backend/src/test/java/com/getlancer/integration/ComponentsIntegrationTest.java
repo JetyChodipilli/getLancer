@@ -112,6 +112,31 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     var c=response(body(post("/api/v1/me/components"),"builder",Map.of("recipeSlug","portfolio-card","title","Original recipe selection","summary","An original recipe with honest attribution.","contribution","Selected the original MIT recipe for a specific portfolio use case.","rightsConsent",true)));
     return UUID.fromString(c.path("id").asText());
   }
+  @Test
+  void componentCoverPublishesOnlyWithTheSubmittedRevision() throws Exception {
+    UUID id = draft();
+    var cover = new java.io.ByteArrayOutputStream();
+    javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(16,9,java.awt.image.BufferedImage.TYPE_INT_RGB),
+        "png", cover);
+    var upload = multipart("/api/v1/me/components/"+id+"/cover").file(
+        new org.springframework.mock.web.MockMultipartFile("file","component.png","image/png",cover.toByteArray()));
+    mvc.perform(as(upload,"builder").header("Origin","http://localhost:3000").header("X-Requested-With","getlancer"))
+        .andExpect(status().isOk());
+    String media = "/api/v1/media/"+id;
+    String slug = response(as(get("/api/v1/me/components/"+id),"builder")).get("slug").asText();
+    mvc.perform(get(media).param("variant","component-cover")).andExpect(status().isNotFound());
+    mvc.perform(as(get(media).param("variant","component-draft-cover"),"builder"))
+        .andExpect(status().isOk()).andExpect(content().contentType("image/jpeg"));
+    submit(id);
+    mvc.perform(as(get(media).param("variant","component-review-cover"),"admin"))
+        .andExpect(status().isOk()).andExpect(content().contentType("image/jpeg"));
+    mvc.perform(approve(id)).andExpect(status().isOk());
+    mvc.perform(get("/api/v1/components/"+slug))
+        .andExpect(jsonPath("$.coverUrl").value(media+"?variant=component-cover"));
+    mvc.perform(get(media).param("variant","component-cover"))
+        .andExpect(status().isOk()).andExpect(content().contentType("image/jpeg"));
+  }
+
   void submit(UUID id)throws Exception{
     response(body(post("/api/v1/me/components/"+id+"/submit"),"builder",Map.of()));
   }

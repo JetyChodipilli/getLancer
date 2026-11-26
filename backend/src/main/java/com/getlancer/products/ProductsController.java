@@ -78,6 +78,14 @@ public class ProductsController {
     return service.edit(id, TypedInputs.map(b), r);
   }
 
+  @PostMapping(value = "/developer/products/{id}/cover", consumes = "multipart/form-data")
+  public Map<String, Object> cover(
+      @PathVariable UUID id,
+      @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+      HttpServletRequest request) throws java.io.IOException {
+    return service.uploadCover(id, file, request);
+  }
+
   @PostMapping("/developer/products/{id}/{action}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public Map<String, Object> action(

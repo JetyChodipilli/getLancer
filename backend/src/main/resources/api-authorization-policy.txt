@@ -178,6 +178,7 @@ POST SIGNED_WEBHOOK /api/v1/commerce/razorpay/webhook
 POST SIGNED_WEBHOOK /api/v1/components/razorpay/webhook
 POST DEVELOPER /api/v1/developer/products
 POST DEVELOPER /api/v1/developer/products/{id}/access
+POST DEVELOPER /api/v1/developer/products/{id}/cover
 POST DEVELOPER /api/v1/developer/products/{id}/verification
 POST DEVELOPER /api/v1/developer/products/{id}/{action}
 POST DEVELOPER /api/v1/developer/products/{product}/media
@@ -265,6 +266,7 @@ POST SESSION /api/v1/components/{slug}/save
 DELETE SESSION /api/v1/components/{slug}/save
 GET DEVELOPER /api/v1/me/components/{id}
 POST DEVELOPER /api/v1/me/components/{id}/source
+POST DEVELOPER /api/v1/me/components/{id}/cover
 POST DEVELOPER /api/v1/me/components/{id}/preview
 GET PUBLIC /api/v1/components/{slug}/preview
 GET PUBLIC /api/v1/components/{slug}/source

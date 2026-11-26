@@ -100,6 +100,9 @@ public class ComponentService {
     out.put("recipeSlug",c.get("recipe_slug"));
     out.put("slug",c.get("slug"));
     var context=reviewContext(c);
+    if (context.containsKey("coverHash"))
+      out.put(previewField(context.get("coverType")), com.getlancer.media.MediaService.coverUrl(c.get("id"),
+          Set.of("PENDING","SUSPENDED").contains(c.get("status")) ? "component-review-cover" : "component-cover"));
     out.put("title",context.get("title"));
     out.put("summary",context.get("summary"));
     out.put("contribution",context.get("contribution"));
@@ -167,6 +170,14 @@ public class ComponentService {
     if(!"ACTIVE".equals(row.get("status"))){
       var context=snapshot(row.get("published_context"));
       for(String key:List.of("title","summary","contribution"))if(context.containsKey(key))out.put(key,context.get(key));
+    }
+    out.remove("coverUrl");
+    out.remove("previewVideoUrl");
+    if (row.get("published_context") != null) {
+      var publishedContext = snapshot(row.get("published_context"));
+      if (publishedContext.containsKey("coverHash"))
+        out.put(previewField(publishedContext.get("coverType")),
+            com.getlancer.media.MediaService.coverUrl(row.get("id"), "component-cover"));
     }
     out.remove("reviewReason");
     out.remove("sourceHash");
@@ -379,8 +390,45 @@ public class ComponentService {
   @Transactional public Object ownDetail(UUID id,HttpServletRequest r){
     UUID owner=security.developer(r,false);slots.lockAuthority(owner);security.developer(r,false);
     var rows=db.queryForList("SELECT c.id,c.recipe_slug,c.slug,c.title,c.summary,c.contribution,c.revision,c.status,c.review_reason,c.published_at,c.published_source,c.published_context,c.draft_source,c.submitted_source,c.submitted_context,c.withdrawn_at,d.display_name AS creator,d.slug AS builder_slug"+JOIN+" WHERE c.id=? AND c.owner_id=?",id,owner);
-    if(rows.isEmpty())throw new ApiError(404,"NOT_FOUND","Component not found.");return privateEntry(rows.get(0));
+    if(rows.isEmpty())throw new ApiError(404,"NOT_FOUND","Component not found.");
+    var result=privateEntry(rows.get(0));
+    String draftType = db.queryForObject("SELECT draft_cover_type FROM component_entries WHERE id=?",String.class,id);
+    if (draftType != null) {
+      result.remove("coverUrl");
+      result.remove("previewVideoUrl");
+      result.put(previewField(draftType),com.getlancer.media.MediaService.coverUrl(id,"component-draft-cover"));
+    } else if (rows.get(0).get("published_context") != null) {
+      var context = snapshot(rows.get(0).get("published_context"));
+      if (context.containsKey("coverHash")) {
+        result.put(previewField(context.get("coverType")),
+            com.getlancer.media.MediaService.coverUrl(id,"component-cover"));
+      }
+    }
+    return result;
   }
+
+  private static String previewField(Object mediaType) {
+    return "video/mp4".equals(mediaType) ? "previewVideoUrl" : "coverUrl";
+  }
+
+  @Transactional
+  public Map<String,Object> uploadCover(UUID id, org.springframework.web.multipart.MultipartFile file, HttpServletRequest request)
+      throws java.io.IOException {
+    UUID owner = security.developer(request,true);
+    if (!Boolean.TRUE.equals(db.queryForObject(
+        "SELECT EXISTS(SELECT 1 FROM component_entries WHERE id=? AND owner_id=?)",
+        Boolean.class,id,owner))) throw new ApiError(404,"NOT_FOUND","Component not found.");
+    var preview = com.getlancer.media.MediaService.previewUpload(file);
+    slots.lock(owner);
+    if (!owner.equals(security.developer(request,true)))
+      throw new ApiError(403,"FORBIDDEN","Builder account access changed.");
+    int changed = db.update("UPDATE component_entries SET draft_cover_image=?,draft_cover_type=?,revision=revision+1,updated_at=now()"
+        + " WHERE id=? AND owner_id=? AND status IN ('DRAFT','ARCHIVED')",preview.bytes(),preview.type(),id,owner);
+    if (changed == 0)
+      throw new ApiError(409,"INVALID_COMPONENT_STATE","Save an editable component draft before uploading a cover.");
+    return Map.of(previewField(preview.type()),com.getlancer.media.MediaService.coverUrl(id,"component-draft-cover"));
+  }
+
   @Transactional public Object create(Map<String,Object> b,HttpServletRequest r) {
     UUID owner=security.developer(r,true);
     slots.lock(owner);
@@ -411,7 +459,20 @@ public class ComponentService {
     if(next.equals("PENDING")){requireAvailableRecipeSource(id,c.get("recipe_slug").toString(),candidate);security.developer(r,true);}
     if(next.equals("PENDING")&&db.queryForObject("SELECT count(*) FROM component_releases WHERE component_id=?",Integer.class,id)>=100&&!canonical(candidate).equals(canonical(publishedSource(c))))throw new ApiError(409,"VERSION_LIMIT","A component supports up to 100 reviewed releases.");
     if(next.equals("PENDING")&&db.queryForObject("SELECT count(*) FROM component_entries WHERE owner_id=? AND status='PENDING'",Integer.class,owner)>=3)throw new ApiError(409,"PENDING_LIMIT","Wait for review of your three pending submissions.");
-    db.update("UPDATE component_entries SET status=?,revision=revision+1,submitted_source=CASE WHEN ?='PENDING' THEN ?::jsonb ELSE submitted_source END,submitted_context=CASE WHEN ?='PENDING' THEN ?::jsonb ELSE submitted_context END,withdrawn_at=CASE WHEN ?='withdraw' THEN now() ELSE withdrawn_at END,updated_at=now() WHERE id=?",next,next,encode(c.get("draft_source")==null?publishedSource(c):snapshot(c.get("draft_source"))),next,encode(Map.of("title",c.get("title"),"summary",c.get("summary"),"contribution",c.get("contribution"))),action,id);
+    var context = new LinkedHashMap<>(Map.of("title",c.get("title"),"summary",c.get("summary"),"contribution",c.get("contribution")));
+    if (next.equals("PENDING")) {
+      var media = db.queryForMap("SELECT coalesce(draft_cover_image,published_cover_image) AS bytes,"
+          + "coalesce(draft_cover_type,published_cover_type) AS type FROM component_entries WHERE id=?",id);
+      if (media.get("bytes") instanceof byte[] cover) {
+        context.put("coverHash",com.getlancer.hosting.StaticArchive.sha(cover));
+        context.put("coverType",media.get("type"));
+      }
+    }
+    db.update("UPDATE component_entries SET status=?,revision=revision+1,submitted_source=CASE WHEN ?='PENDING' THEN ?::jsonb ELSE submitted_source END,submitted_context=CASE WHEN ?='PENDING' THEN ?::jsonb ELSE submitted_context END,"
+        + "submitted_cover_image=CASE WHEN ?='PENDING' THEN coalesce(draft_cover_image,published_cover_image) ELSE submitted_cover_image END,"
+        + "submitted_cover_type=CASE WHEN ?='PENDING' THEN coalesce(draft_cover_type,published_cover_type) ELSE submitted_cover_type END,"
+        + "withdrawn_at=CASE WHEN ?='withdraw' THEN now() ELSE withdrawn_at END,updated_at=now() WHERE id=?",
+        next,next,encode(candidate),next,encode(context),next,next,action,id);
     if(action.equals("withdraw"))db.update("UPDATE component_previews SET state='REVOKED' WHERE component_id=?",id);
     slots.audit(owner,id,"COMPONENT_"+next,"Creator changed publication state.");
     return Map.of("status",next);
@@ -483,6 +544,11 @@ public class ComponentService {
       if(!newRelease&&(!canonical(snapshot(versions.get(0).get("source"))).equals(canonical(submitted))||!versions.get(0).get("revision").equals(db.queryForObject("SELECT max(revision) FROM component_releases WHERE component_id=?",Long.class,id))))throw new ApiError(409,"VERSION_EXISTS","Use a new version for different source; reviewed versions are immutable.");
     }
     db.update("UPDATE component_entries SET status=?,revision=revision+1,submitted_source=CASE WHEN ?='SUSPENDED' THEN ?::jsonb ELSE submitted_source END,submitted_context=CASE WHEN ?='SUSPENDED' THEN ?::jsonb ELSE submitted_context END,review_reason=?,published_at=CASE WHEN ?='ACTIVE' THEN coalesce(published_at,now()) ELSE published_at END,published_source=CASE WHEN ?='ACTIVE' THEN coalesce(published_source,?::jsonb) ELSE published_source END,published_context=CASE WHEN ?='ACTIVE' THEN ?::jsonb ELSE published_context END,withdrawn_at=CASE WHEN ?='ACTIVE' THEN NULL ELSE withdrawn_at END,updated_at=now() WHERE id=?",next,next,encode(submitted),next,encode(context),reason,next,next,encode(submitted),next,encode(context),next,id);
+    if (next.equals("ACTIVE"))
+      db.update("UPDATE component_entries SET published_cover_image=submitted_cover_image,published_cover_type=submitted_cover_type,"
+          + "draft_cover_image=NULL,draft_cover_type=NULL WHERE id=?",id);
+    else if (next.equals("SUSPENDED") && !"PENDING".equals(c.get("status")))
+      db.update("UPDATE component_entries SET submitted_cover_image=published_cover_image,submitted_cover_type=published_cover_type WHERE id=?",id);
     if(next.equals("ACTIVE")&&newRelease)db.update("INSERT INTO component_releases(component_id,revision,source,context,source_sha256) VALUES(?,?,?::jsonb,?::jsonb,?)",id,((Number)c.get("revision")).longValue(),encode(submitted),encode(context),submitted.get("sha256"));
     db.update("INSERT INTO component_review_assessments(id,component_id,revision,source_hash,admin_id,decision,reason,assessments,restored_decision_id) VALUES(?,?,?,?,?,?,?,?::jsonb,?)",id(),id,c.get("revision"),b.get("sourceHash"),admin,restoredDecision==null?decision:"APPEAL_RESTORE",reason,assessments==null?null:encode(assessments),restoredDecision);
     slots.audit(admin,id,"REVIEW_"+decision,reason);
