@@ -75,11 +75,33 @@ class MarketplaceIntegrationTest {
     var body = new LinkedHashMap<String,Object>();
     body.putAll(Map.of("title","Indicative inventory", "summary","Track stock for independent shops.","description","A working stock and order tracking system for small independent retailers.","category","Inventory","technology","React","projectType","SAAS","visibility","PUBLIC","contribution","Designed and implemented the complete stock workflow."));
     body.put("pricingMode","RANGE");body.put("priceMinMinor",12500);body.put("priceMaxMinor",25000);body.put("currency","INR");
-    mvc.perform(patch("/api/v1/developer/products/"+product).cookie(new Cookie("gl_session",session)).header("Origin","http://localhost:3000").header("X-Requested-With","getlancer").contentType("application/json").content(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(body))).andExpect(status().isOk());
-    assertEquals(12500L,db.queryForObject("SELECT price_min_minor FROM products WHERE id=?",Long.class,product));
-    mvc.perform(get("/api/v1/developer/products").cookie(new Cookie("gl_session",session))).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].pricingMode").value("RANGE")).andExpect(jsonPath("$.items[0].priceMaxMinor").value(25000));
+    body.put("rightsConfirmed",true);
+    body.put("liveUrl","https://example.com/inventory");
+    String draft = "/api/v1/developer/products/" + product;
+    String listing = "/api/v1/products/" + product;
+    mvc.perform(patch(draft).cookie(new Cookie("gl_session",session)).header("Origin","http://localhost:3000").header("X-Requested-With","getlancer").contentType("application/json").content(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(body))).andExpect(status().isOk());
+    assertNull(db.queryForObject("SELECT price_min_minor FROM products WHERE id=?",Long.class,product));
+    mvc.perform(get(listing)).andExpect(status().isOk())
+        .andExpect(jsonPath("$.priceMinMinor").doesNotExist());
+    mvc.perform(get("/api/v1/developer/products").cookie(new Cookie("gl_session",session)))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].draft.pricingMode").value("RANGE"))
+        .andExpect(jsonPath("$.items[0].draft.priceMinMinor").value(12500))
+        .andExpect(jsonPath("$.items[0].draft.priceMaxMinor").value(25000));
     body.put("priceMaxMinor",10000);
     mvc.perform(patch("/api/v1/developer/products/"+product).cookie(new Cookie("gl_session",session)).header("Origin","http://localhost:3000").header("X-Requested-With","getlancer").contentType("application/json").content(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(body))).andExpect(status().isBadRequest());
+    mvc.perform(postJson(draft+"/submit","{}",session)).andExpect(status().isNoContent());
+    UUID review = db.queryForObject("SELECT draft_review_id FROM products WHERE id=?",UUID.class,product);
+    String operator = clientSession();
+    db.update("INSERT INTO user_roles(user_id,role) VALUES(?,'ADMIN')",other);
+    db.update("UPDATE sessions SET mfa_verified=true WHERE user_id=?",other);
+    mvc.perform(postJson("/api/v1/admin/products/"+product+"/approve",
+        "{\"reason\":\"Verified the indicative project price update.\"}",operator).param("draftReviewId",review.toString()))
+        .andExpect(status().isOk());
+    mvc.perform(get(listing)).andExpect(status().isOk())
+        .andExpect(jsonPath("$.pricingMode").value("RANGE"))
+        .andExpect(jsonPath("$.priceMinMinor").value(12500))
+        .andExpect(jsonPath("$.priceMaxMinor").value(25000));
+    assertEquals(12500L,db.queryForObject("SELECT price_min_minor FROM products WHERE id=?",Long.class,product));
     assertThrows(org.springframework.dao.DataAccessException.class, () -> db.update("UPDATE products SET price_min_minor=NULL WHERE id=?",product));
     assertEquals(0,db.queryForObject("SELECT count(*) FROM payment_attempts",Integer.class));
   }

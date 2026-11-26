@@ -1241,7 +1241,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/MarketplaceIntegrationTest.java",
-      "sha256": "e067562acaa0657ca794bdf0121ccb55f12bb81b845ad3d6d0d2218790f385b7"
+      "sha256": "498112ab17b9dbed92a00c9bc2e9e81fb6ac466367a347ba5c944e20b624792a"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/OperationsIntegrationTest.java",
