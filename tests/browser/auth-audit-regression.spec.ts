@@ -18,11 +18,29 @@ async function fixture(page:Page,kind:'account'|'profile'|'login'|'signup'){
   ${component}createRoot(document.getElementById('root')).render(<Harness/>);
  `,loader:'tsx',resolveDir:process.cwd()},bundle:true,write:false,platform:'browser',format:'iife',jsx:'automatic',define:{'process.env.NODE_ENV':'"test"'},plugins:[{name:'scoped-fixture',setup(plugin){
   plugin.onResolve({filter:/^next\/link$/},()=>({path:'link',namespace:'fixture'}));
+  // AuthForm uses Next Image, which needs a browser-only stand-in in this fixture.
+  plugin.onResolve({filter:/^next\/image$/},()=>({path:'image',namespace:'auth-audit-image'}));
+  plugin.onLoad({filter:/^image$/,namespace:'auth-audit-image'},()=>({
+   contents:'export default function Image({src,alt,unoptimized,...props}){return <img src={src} alt={alt} {...props}/>}',
+   loader:'jsx',resolveDir:process.cwd()
+  }));
   plugin.onResolve({filter:/moderation-workflow$/},()=>({path:'moderation',namespace:'fixture'}));
   plugin.onLoad({filter:/.*/,namespace:'fixture'},args=>({contents:args.path==='link'?'import React from "react";export default function Link({href,children,...props}){return <a href={href} {...props}>{children}</a>}':'export default function ModerationWorkflow(){return null}',loader:'jsx',resolveDir:process.cwd()}));
  }}]})).outputFiles[0].text;
  await page.route('**/auth-audit-fixture',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Account audit regression</title></head><body><div id="root"></div></body></html>'}));
- await page.goto('/auth-audit-fixture');await page.addStyleTag({content:readFileSync('app/form-controls.css','utf8')});await page.addScriptTag({content});
+ await page.goto('/auth-audit-fixture');await page.addStyleTag({content:readFileSync('app/form-controls.css','utf8')});
+ const startupErrors:string[]=[];
+ const captureStartupError=(error:Error)=>{startupErrors.push(error.message);};
+ page.on('pageerror',captureStartupError);
+ try{
+  await page.addScriptTag({content});
+  const initialized=await page.evaluate(()=>{
+   const state=window as unknown as HarnessWindow;
+   return [state.requests,state.pending,state.reloadPending].every(Array.isArray)&&state.reloadCalls===0;
+  });
+  expect(initialized,'Auth fixture initialization failed: '+(startupErrors.join('; ')||'request queues not initialized')).toBe(true);
+  expect(startupErrors,'Auth fixture startup exceptions').toEqual([]);
+ }finally{page.off('pageerror',captureStartupError);}
 }
 async function respond(page:Page,path:string,body:unknown,status=200){
  await expect.poll(()=>page.evaluate(path=>(window as unknown as HarnessWindow).pending.some(row=>row.path===path),path)).toBe(true);
