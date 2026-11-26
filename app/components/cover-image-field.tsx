@@ -4,19 +4,16 @@ import { useEffect, useId, useState } from 'react';
 
 export default function CoverImageField({ imageUrl, videoUrl, disabled }: { imageUrl?: string; videoUrl?: string; disabled?: boolean }) {
   const id = useId();
-  const [selection, setSelection] = useState<File>();
-  const [preview, setPreview] = useState<string>();
+  const [selection, setSelection] = useState<{ url: string; video: boolean }>();
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (!selection) return;
-    const url = URL.createObjectURL(selection);
-    setPreview(url);
-    return () => URL.revokeObjectURL(url);
+    return () => URL.revokeObjectURL(selection.url);
   }, [selection]);
 
-  const media = selection ? preview : videoUrl || imageUrl;
-  const video = selection ? selection.type === 'video/mp4' : !!videoUrl;
+  const media = selection?.url || videoUrl || imageUrl;
+  const video = selection?.video ?? !!videoUrl;
   return (
     <section className="cover-image-field">
       <div className="showcase-field">
@@ -39,7 +36,7 @@ export default function CoverImageField({ imageUrl, videoUrl, disabled }: { imag
               return;
             }
             setError('');
-            setSelection(file);
+            setSelection(file ? { url: URL.createObjectURL(file), video: file.type === 'video/mp4' } : undefined);
           }}
         />
         {error && <p id={id+'-error'} className="error" role="alert">{error}</p>}
