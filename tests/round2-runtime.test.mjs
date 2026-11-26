@@ -32,6 +32,7 @@ class RuntimeAuthorityHarness {
  static class ResponseEntity<T> {final T payload;ResponseEntity(T v){payload=v;}static Builder ok(){return new Builder();}static class Builder{Builder contentType(String s){return this;}Builder header(String k,String v){return this;}<T>ResponseEntity<T> body(T value){return new ResponseEntity<>(value);}}}
  static class Media {
  final Db db=new Db();final Security security=new Security();final S3 s3=new S3();final String bucket="private";
+ ResponseEntity<byte[]> cover(UUID id,String variant,HttpServletRequest r){throw new AssertionError("Unexpected database cover read in storage authority harness");}
  ${method(media,'public ResponseEntity<byte[]> get(')}
  ${method(media,'private Map<String, Object> readable(',true)}
  ${method(media,'private String storageKey(',true)}

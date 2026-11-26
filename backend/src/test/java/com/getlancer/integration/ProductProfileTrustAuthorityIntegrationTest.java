@@ -1,9 +1,11 @@
 package com.getlancer.integration;
 
+import static org.hamcrest.Matchers.hasItem;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.getlancer.shared.Support;
 import com.getlancer.testing.TestDatabaseGuard;
 import jakarta.servlet.http.Cookie;
@@ -35,6 +37,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 class ProductProfileTrustAuthorityIntegrationTest {
   @Autowired JdbcTemplate db;
   @Autowired MockMvc mvc;
+  @Autowired ObjectMapper json;
   UUID builder, operator, product, inquiry;
   Map<String, Object> originalProduct, originalProfile, originalProof, originalEntitlement, originalInquiry;
   List<Map<String, Object>> originalCategories, originalInquiryEvents;
@@ -169,6 +172,48 @@ class ProductProfileTrustAuthorityIntegrationTest {
     revokeDuringObservedLockWait("SELECT product_id FROM repository_verifications WHERE product_id=? FOR UPDATE",
         product, call, () -> db.update("DELETE FROM sessions WHERE user_id=?", builder), 401);
     assertNoCommittedEffects();
+  }
+
+  @Test
+  void firstUploadBecomesDiscoverableToAnIndependentViewerAfterApproval() throws Exception {
+    String owner = "product-authority-builder", reader = "project-catalogue-reader";
+    UUID client = user(reader);
+    db.update("DELETE FROM user_roles WHERE user_id=? AND role='DEVELOPER'", client);
+    String catalogue = "/api/v1/products", title = "First review booking showcase";
+    var created = mvc.perform(as(post("/api/v1/developer/products"), owner).content("""
+        {"title":"First review booking showcase","summary":"A booking workflow for small providers",
+         "description":"An original hosted booking workflow with a locally uploaded cover.",
+         "projectType":"SAAS","category":"Authority boundary category","technology":"",
+         "visibility":"PUBLIC","contribution":"I designed and built the booking flow","rightsConfirmed":true}
+        """)).andExpect(status().isCreated()).andReturn().getResponse();
+    String id = json.readTree(created.getContentAsString()).path("id").asText();
+    String projectPath = "/api/v1/developer/products/" + id;
+    String coverUrl = "/api/v1/media/" + id + "?variant=cover";
+    var png = new java.io.ByteArrayOutputStream();
+    javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(16,9,java.awt.image.BufferedImage.TYPE_INT_RGB),
+        "png", png);
+    var file = new org.springframework.mock.web.MockMultipartFile("file", "cover.png", "image/png", png.toByteArray());
+    mvc.perform(as(multipart(projectPath + "/cover").file(file), owner).contentType("multipart/form-data"))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.imageUrl").value(coverUrl));
+    mvc.perform(as(get(catalogue).param("q", title), reader)).andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(0));
+
+    mvc.perform(as(post(projectPath + "/submit"), owner)).andExpect(status().isNoContent());
+    mvc.perform(as(get(catalogue).param("q", title), reader)).andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(0));
+    mvc.perform(as(post("/api/v1/admin/products/" + id + "/approve"), "product-authority-admin")
+        .content("{\"reason\":\"Reviewed the uploaded booking example\"}")).andExpect(status().isOk());
+
+    mvc.perform(get(catalogue)).andExpect(status().isOk()).andExpect(jsonPath("$.items[*].id", hasItem(id)));
+    var result = mvc.perform(as(get(catalogue).param("q", title), reader)).andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(1))
+        .andExpect(jsonPath("$.items[0].id").value(id))
+        .andExpect(jsonPath("$.items[0].imageUrl").value(coverUrl))
+        .andExpect(jsonPath("$.items[0].lifecycleStatus").value("ACTIVE"))
+        .andReturn().getResponse();
+    String slug = json.readTree(result.getContentAsString()).path("items").get(0).path("slug").asText();
+    mvc.perform(as(get(catalogue + "/" + slug), reader)).andExpect(status().isOk())
+        .andExpect(jsonPath("$.title").value(title));
   }
 
   @Test

@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import {useState,useEffect,useRef,type ReactNode} from 'react';
+import {useState,useEffect,useRef,type ReactNode,type Ref} from 'react';
 import {Tabs,TabsList,TabsTrigger,TabsContent} from '@/components/ui/tabs';
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription} from '@/components/ui/dialog';
 import {api,ApiError} from '@/lib/api';
@@ -42,9 +42,9 @@ function openPanel(wrapper: HTMLDivElement | null) {
   if (panel instanceof HTMLDetailsElement) panel.open = true;
 }
 
-function AdminPanel({title,children}:{title:string;children:ReactNode}) {
+function AdminPanel({title,children,titleRef}:{title:string;children:ReactNode;titleRef?:Ref<HTMLHeadingElement>}) {
   return <section className="control-center-tool">
-    <h3 tabIndex={-1}>{title}</h3>
+    <h3 ref={titleRef} tabIndex={-1}>{title}</h3>
     <div className="control-center-open" ref={openPanel}>{children}</div>
   </section>;
 }
@@ -53,6 +53,7 @@ export default function AdminTools({request=api,onDenied,reload,queue}:{request?
  const [section,setSection]=useState(queue?'moderation':'community');
  const [community,setCommunity]=useState('taxonomy'),[moderation,setModeration]=useState('queue');
  const [payments,setPayments]=useState('disputes'),[publishing,setPublishing]=useState('source');
+ const hostingTitle=useRef<HTMLHeadingElement>(null);
  const [taxonomySearch,setTaxonomySearch]=useState(''),[editor,setEditor]=useState<TaxonomyItem|'new'|null>(null);
  const editorButton=useRef<HTMLButtonElement|null>(null);
  useEffect(()=>{
@@ -199,7 +200,7 @@ export default function AdminTools({request=api,onDenied,reload,queue}:{request?
     <Tabs value={publishing} onValueChange={setPublishing} className="control-center-subtabs">
      <TabsList aria-label="Publishing tools"><TabsTrigger value="source">Source marketplace</TabsTrigger><TabsTrigger value="hosting">Frontend hosting</TabsTrigger><TabsTrigger value="education">Education releases</TabsTrigger></TabsList>
      <TabsContent value="source"><AdminPanel title="Source marketplace review and recovery"><TemplateOperations request={request} onDenied={onDenied} reload={reload}/></AdminPanel></TabsContent>
-     <TabsContent value="hosting"><AdminPanel title="Hosted frontend review and recovery"><HostingOperations request={request} onDenied={onDenied} reload={reload}/></AdminPanel></TabsContent>
+     <TabsContent value="hosting"><AdminPanel title="Hosted frontend review and recovery" titleRef={hostingTitle}><HostingOperations request={request} onDenied={onDenied} reload={reload} fallbackFocus={hostingTitle}/></AdminPanel></TabsContent>
      <TabsContent value="education"><section className="control-center-tool"><h3>Education releases</h3><Link className="button" href="/admin/education">Review education releases</Link></section></TabsContent>
     </Tabs>
    </TabsContent>

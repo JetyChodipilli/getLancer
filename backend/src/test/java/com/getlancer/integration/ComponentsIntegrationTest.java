@@ -176,8 +176,9 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     when(provider.payment(anyString())).thenAnswer(i->json.valueToTree(Map.of("id","pay_component123","order_id","order_component123","amount",order.path("amount").longValue()-(wrongAmount?1:0),"currency","INR","status",captured?"captured":"authorized","captured",captured,"amount_refunded",refunded)));
   }
   @Test void publicCuratedSourcesStayFreeAndBackendLabAvailabilityIsHonest()throws Exception{
-    mvc.perform(get("/api/v1/components")).andExpect(status().isOk()).andExpect(jsonPath("$.totalItems").value(24)).andExpect(jsonPath("$.items[0].files").doesNotExist());
-    mvc.perform(get("/api/v1/components/quiet-sign-in")).andExpect(status().isOk()).andExpect(jsonPath("$.license").value("MIT")).andExpect(jsonPath("$.files['index.html']").isString());
+    mvc.perform(get("/api/v1/components")).andExpect(status().isOk()).andExpect(jsonPath("$.totalItems").value(0)).andExpect(jsonPath("$.items").isEmpty());
+    mvc.perform(get("/api/v1/components").param("q","Quiet sign-in")).andExpect(status().isOk()).andExpect(jsonPath("$.totalItems").value(0));
+    mvc.perform(get("/api/v1/components/quiet-sign-in")).andExpect(status().isOk()).andExpect(jsonPath("$.license").value("MIT")).andExpect(jsonPath("$.files['index.html']").isString()).andExpect(jsonPath("$.related").isEmpty());
     mvc.perform(get("/api/v1/components?kind=BACKEND")).andExpect(jsonPath("$.items").isEmpty()).andExpect(jsonPath("$.executionMode").value("Source only"));
     mvc.perform(get("/api/v1/components?page=-1")).andExpect(status().isBadRequest());
   }
@@ -185,20 +186,32 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     return get("/api/v1/components").param("language","JavaScript").param("framework","VANILLA").param("license","MIT").param("mode","Browser local");
   }
   @Test void combinedComponentFiltersMatchLegacyMetadataBeforeStablePagination()throws Exception{
+    UUID published=draft();submit(published);response(approve(published));
+    db.update("""
+        INSERT INTO component_entries
+          (id,owner_id,recipe_slug,slug,title,summary,contribution,status,published_at,published_source,published_context)
+        SELECT gen_random_uuid(),owner_id,recipe_slug,'pagination-'||n,title,summary,contribution,
+          status,published_at,published_source,published_context
+        FROM component_entries CROSS JOIN generate_series(1,12) AS n WHERE id=?
+        """,published);
     var first=response(combinedComponents());var next=response(combinedComponents().param("page","1"));var empty=response(combinedComponents().param("page","2"));
-    assertEquals(24,first.path("totalItems").asInt());assertEquals(2,first.path("totalPages").asInt());assertEquals(12,first.path("size").asInt());assertTrue(first.path("hasMore").asBoolean());
-    assertEquals(12,first.path("items").size());assertEquals(12,next.path("items").size());assertFalse(next.path("hasMore").asBoolean());assertTrue(empty.path("items").isEmpty());assertEquals(24,empty.path("totalItems").asInt());assertEquals(2,empty.path("page").asInt());
-    var slugs=new HashSet<String>();for(var page:List.of(first,next))for(var item:page.path("items")){assertTrue(slugs.add(item.path("slug").asText()));assertFalse(item.has("files"));}
-    var match=response(combinedComponents().param("category","AUTH").param("q","password"));assertEquals(1,match.path("totalItems").asInt());assertEquals("quiet-sign-in",match.path("items").get(0).path("slug").asText());
-    assertEquals(24,response(get("/api/v1/components").param("language","js").param("framework","HTML / CSS / JavaScript").param("license","mit").param("mode","browser local")).path("totalItems").asInt());
+    assertEquals(13,first.path("totalItems").asInt());assertEquals(2,first.path("totalPages").asInt());assertEquals(12,first.path("size").asInt());assertTrue(first.path("hasMore").asBoolean());
+    assertEquals(12,first.path("items").size());assertEquals(1,next.path("items").size());assertFalse(next.path("hasMore").asBoolean());assertTrue(empty.path("items").isEmpty());assertEquals(13,empty.path("totalItems").asInt());assertEquals(2,empty.path("page").asInt());
+    var slugs=new HashSet<String>();for(var page:List.of(first,next))for(var item:page.path("items")){assertTrue(slugs.add(item.path("slug").asText()));assertEquals("builder",item.path("builderSlug").asText());assertFalse(item.has("files"));}
+    assertEquals(13,response(combinedComponents().param("category","CARD").param("q","Original recipe selection")).path("totalItems").asInt());
+    assertEquals(13,response(get("/api/v1/components").param("language","js").param("framework","HTML / CSS / JavaScript").param("license","mit").param("mode","browser local")).path("totalItems").asInt());
     for(var filter:Map.of("language","Java","framework","React","license","Apache-2.0","mode","Source only").entrySet())assertEquals(0,response(get("/api/v1/components").param(filter.getKey(),filter.getValue())).path("totalItems").asInt());
   }
   @Test void combinedComponentCountsExcludePrivateDraftsAndRecheckCurrentCreatorAuthority()throws Exception{
     var ids=new HashSet<String>();
     for(int n=0;n<2;n++){UUID id=draft();submit(id);response(approve(id));ids.add("remix-"+id);}
     draft(); // An unpublished record must affect neither totals nor page boundaries.
-    var last=response(combinedComponents().param("page","2"));assertEquals(26,last.path("totalItems").asInt());assertEquals(3,last.path("totalPages").asInt());assertEquals(2,last.path("items").size());assertFalse(last.path("hasMore").asBoolean());
+    var last=response(combinedComponents());assertEquals(2,last.path("totalItems").asInt());assertEquals(1,last.path("totalPages").asInt());assertEquals(2,last.path("items").size());assertFalse(last.path("hasMore").asBoolean());
     var shown=new HashSet<String>();for(var item:last.path("items")){shown.add(item.path("slug").asText());assertFalse(item.has("files"));assertFalse(item.has("reviewReason"));assertFalse(item.has("sourceHash"));}assertEquals(ids,shown);
+    var slugs=List.copyOf(ids);
+    mvc.perform(get("/api/v1/components/"+slugs.get(0))).andExpect(status().isOk())
+        .andExpect(jsonPath("$.related.length()").value(1)).andExpect(jsonPath("$.related[0].slug").value(slugs.get(1)))
+        .andExpect(jsonPath("$.related[0].files").doesNotExist());
     assertEquals(2,response(combinedComponents().param("builder","builder")).path("totalItems").asInt());assertEquals(0,response(combinedComponents().param("builder","other")).path("totalItems").asInt());
     db.update("UPDATE users SET account_status='SUSPENDED' WHERE id=?",builder);assertEquals(0,response(combinedComponents().param("builder","builder")).path("totalItems").asInt());db.update("UPDATE users SET account_status='ACTIVE' WHERE id=?",builder);
     db.update("UPDATE developer_profiles SET approval_status='PROFILE_PENDING' WHERE user_id=?",builder);assertEquals(0,response(combinedComponents().param("builder","builder")).path("totalItems").asInt());db.update("UPDATE developer_profiles SET approval_status='APPROVED' WHERE user_id=?",builder);
@@ -224,17 +237,16 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
       transaction.setRollbackOnly(); // The temporary role, grants and policies never escape this test.
       db.execute("CREATE ROLE "+reader+" NOLOGIN NOINHERIT");
       db.execute("GRANT USAGE ON SCHEMA getlancer_test TO "+reader);
-      db.execute("GRANT SELECT (id,owner_id,recipe_slug,status,withdrawn_at,published_filter_metadata) ON component_entries TO "+reader);
+      db.execute("GRANT SELECT (id,owner_id,recipe_slug,status,published_at,withdrawn_at,published_filter_metadata) ON component_entries TO "+reader);
       db.execute("GRANT SELECT (component_id,revision,filter_metadata) ON component_releases TO "+reader);
       for(String table:List.of("users","developer_profiles","user_roles","component_recipe_enforcement"))db.execute("GRANT SELECT ON "+table+" TO "+reader);
       for(String table:List.of("component_entries","component_releases","users","developer_profiles","user_roles","component_recipe_enforcement"))db.execute("CREATE POLICY "+reader+" ON "+table+" FOR SELECT TO "+reader+" USING (true)");
       db.execute("SET LOCAL ROLE "+reader);
       assertFalse(db.queryForObject("SELECT has_column_privilege(current_user,'getlancer_test.component_releases','source','SELECT')",Boolean.class));
       assertFalse(db.queryForObject("SELECT has_column_privilege(current_user,'getlancer_test.component_entries','published_source','SELECT')",Boolean.class));
-      // Curated cards fill page zero, so these requests perform counts/filters only.
-      // They must succeed even though this connection cannot read any source snapshot.
-      assertEquals(25L,catalogue.catalog("","","FRONTEND","",0).get("totalItems"));
-      assertEquals(24L,catalogue.catalog("","","FRONTEND","",0,"JavaScript","VANILLA","MIT","Browser local").get("totalItems"));
+      // The page after the sole publication can read counts without source snapshot privileges.
+      assertEquals(1L,catalogue.catalog("","","FRONTEND","",1).get("totalItems"));
+      assertEquals(0L,catalogue.catalog("","","FRONTEND","",1,"JavaScript","VANILLA","MIT","Browser local").get("totalItems"));
     });
     response(body(post("/api/v1/me/components/"+id+"/withdraw"),"builder",Map.of()));
     assertEquals(0,response(get("/api/v1/components").param("builder","builder")).path("totalItems").asInt());

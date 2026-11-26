@@ -255,7 +255,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/components/ComponentService.java",
-      "sha256": "289b928cfeda0095fd007452b81ad05b057e3b5b11328860366481b60311c18c"
+      "sha256": "e13f6b78d578405d0c39cdb4e826b401e3822673e679e47e58e85f79ac03af4e"
     },
     {
       "path": "backend/src/main/java/com/getlancer/components/ComponentSlotService.java",
@@ -1197,7 +1197,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/ComponentReportingIntegrationTest.java",
-      "sha256": "f7fdfd094c9cbf4ecafb0373658a0f436b963cfae56abaa6b9236a033446768d"
+      "sha256": "606b43836b210567ffcd721133a3fa4c10bcabd02504958defd779b54ecf45e8"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/ComponentReviewAssessmentsIntegrationTest.java",
@@ -1205,7 +1205,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/ComponentsIntegrationTest.java",
-      "sha256": "a00cca435be79c30ac549fcb274a40928acce941f4afd22eb3c63ef372e1c060"
+      "sha256": "b357a4da8ce9da7f773d1b7951b301bde01402921b7c028b6df408659198341d"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/ConciergeAuthorityLockIntegrationTest.java",
@@ -1261,7 +1261,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/ProductProfileTrustAuthorityIntegrationTest.java",
-      "sha256": "c03f434c033ca74449485fb3fc5842dd09c47251f1bdbdc9f3e1cbe0ab33d8b1"
+      "sha256": "6128419ea82ed56e71366e90d5e252f2125fdb242470602d6596ca5406cb1fa0"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/PublishingAuditRegressionTest.java",
