@@ -18,7 +18,14 @@ function script(kind:Kind){
    const template={id:selection.slug,slug:selection.slug,title:'Template '+selection.slug,summary:'Reviewed source for the selected release.',description:'Original reviewed source.',category:'SAAS',technology:'REACT',priceMinor:selection.priceMinor||10000,currency:'INR',productId:'project-'+selection.slug,sellerId:'seller',sellerName:'Reviewed builder',versionId:selection.slug+'-v1',version:'1.0.0',licenseTerms:selection.licenseTerms||'One commercial end product. Preserve attribution.',status:'ACTIVE',createdAt:'2026-10-27T06:00:00Z'};
    return ${kind==='save'?'<ComponentSaveButton slug={selection.slug} preview={!!selection.preview}/>':kind==='saved'?'<SavedComponents preview={!!selection.preview}/>':kind==='private'?'<PrivatePreview id={selection.slug}/>':'<TemplateDetailView template={template} preview={!!selection.preview}/>'};
   }createRoot(document.getElementById('root')).render(<Harness/>);
- `,loader:'tsx',resolveDir:process.cwd()},bundle:true,write:false,format:'iife',platform:'browser',jsx:'automatic',loader:{'.css':'empty'},define:{'process.env.NODE_ENV':'"test"'},plugins:[{name:'fixture-link',setup(plugin){plugin.onResolve({filter:/^next\/link$/},()=>({path:'link',namespace:'fixture'}));plugin.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:'export default function Link({href,children,...props}){return <a href={href} {...props}>{children}</a>}',loader:'jsx',resolveDir:process.cwd()}));}}]}).then(result=>result.outputFiles[0].text);
+ `,loader:'tsx',resolveDir:process.cwd()},bundle:true,write:false,format:'iife',platform:'browser',jsx:'automatic',loader:{'.css':'empty'},define:{'process.env.NODE_ENV':'"test"'},plugins:[{name:'fixture-link',setup(plugin){plugin.onResolve({filter:/^next\/link$/},()=>({path:'link',namespace:'fixture'}));
+ // PrivatePreview imports Next Image; standalone browser fixtures lack its runtime.
+ plugin.onResolve({filter:/^next\/image$/},()=>({path:'image',namespace:'round2-marketplace-image'}));
+ plugin.onLoad({filter:/^image$/,namespace:'round2-marketplace-image'},()=>({
+  contents:'export default function Image({src,alt,unoptimized,...props}){return <img src={src} alt={alt} {...props}/>}',
+  loader:'jsx',resolveDir:process.cwd()
+ }));
+ plugin.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:'export default function Link({href,children,...props}){return <a href={href} {...props}>{children}</a>}',loader:'jsx',resolveDir:process.cwd()}));}}]}).then(result=>result.outputFiles[0].text);
  scripts.set(kind,pending);return pending;
 }
 async function render(page:Page,kind:Kind){

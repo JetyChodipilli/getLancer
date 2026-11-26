@@ -435,6 +435,12 @@ test('failed sign-out retains the account and provides a recoverable response',a
  // Emit imported component CSS in memory, just as the application bundler does.
  const bundle=await build({stdin:{contents:`import React from 'react';import{createRoot}from'react-dom/client';import Header from './app/components/header';createRoot(document.getElementById('root')).render(<Header preview={false}/>);`,loader:'tsx',resolveDir:process.cwd()},bundle:true,write:false,outdir:'paper-header-fixture',platform:'browser',format:'iife',jsx:'automatic',define:{'process.env.NODE_ENV':'"test"'},plugins:[{name:'header-router-fixture',setup(plugin){
   plugin.onResolve({filter:/^next\/(link|navigation)$/},args=>({path:args.path,namespace:'header-fixture'}));
+  // Standalone esbuild fixtures do not include the framework image runtime.
+  plugin.onResolve({filter:/^next\/image$/},()=>({path:'image',namespace:'header-image-fixture'}));
+  plugin.onLoad({filter:/^image$/,namespace:'header-image-fixture'},()=>({
+   contents:'export default function Image({src,alt,unoptimized,...props}){return <img src={src} alt={alt} {...props}/>}',
+   loader:'jsx',resolveDir:process.cwd()
+  }));
   plugin.onLoad({filter:/.*/,namespace:'header-fixture'},args=>({contents:args.path==='next/link'?'import React from "react";export default function Link({href,children,...props}){return <a href={href} {...props}>{children}</a>}':'export const usePathname=()=>"/";',loader:'jsx',resolveDir:process.cwd()}));
  }}]});
  await page.route('**/paper-header-fixture',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div></body></html>'}));

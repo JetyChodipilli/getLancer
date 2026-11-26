@@ -24,6 +24,14 @@ test('homepage video is silent, has no controls and pauses when hover ends',asyn
       loader:'tsx',resolveDir:process.cwd(),
     },
     bundle:true,write:false,platform:'browser',format:'iife',jsx:'automatic',
+    define:{'process.env.NODE_ENV':'"test"'},
+    plugins:[{name:'preview-image-fixture',setup(plugin){
+      plugin.onResolve({filter:/^next\/image$/},()=>({path:'image',namespace:'preview-image-fixture'}));
+      plugin.onLoad({filter:/^image$/,namespace:'preview-image-fixture'},()=>({
+        contents:'export default function Image({unoptimized,...props}){return <img {...props}/>}',
+        loader:'jsx',resolveDir:process.cwd(),
+      }));
+    }}],
   });
   await page.route('**/homepage-hover-fixture',route=>route.fulfill({
     contentType:'text/html',body:'<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><main></main>',

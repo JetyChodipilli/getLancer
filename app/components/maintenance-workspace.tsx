@@ -1,6 +1,6 @@
 'use client';
 
-import {useEffect,useRef,useState} from 'react';
+import {useCallback,useEffect,useEffectEvent,useRef,useState} from 'react';
 import Link from 'next/link';
 import {ArrowUpRight,Clock3,LifeBuoy,Plus,RefreshCw,ShieldCheck} from 'lucide-react';
 import {Card,CardContent,CardHeader} from '@/components/ui/card';
@@ -55,7 +55,20 @@ export default function MaintenanceWorkspace({demo=false}:{demo?:boolean}) {
     finally{if(run===generation.current&&mounted.current)setLoading(false);}
   }
   // Browser-only URL state is applied after hydration; cancellation protects discarded effect runs.
-  useEffect(()=>{let active=true;mounted.current=true;queueMicrotask(()=>{if(!active)return;const query=new URLSearchParams(window.location.search);setSourceHint(query.get('engagementId')||'');const requested=query.get('tab');if(requested&&['requests','billing','terms'].includes(requested))setTab(requested);const id=query.get('maintenanceId')||'';void load(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)?id:'');});return()=>{active=false;mounted.current=false;generation.current++;invalidateCheckout();};},[]);
+  const invalidateGeneration=useCallback(()=>{generation.current++;},[]);
+  const loadMaintenanceWorkspace=useEffectEvent(()=>{
+    const query=new URLSearchParams(window.location.search);
+    setSourceHint(query.get('engagementId')||'');
+    const requested=query.get('tab');
+    if(requested&&['requests','billing','terms'].includes(requested))setTab(requested);
+    const id=query.get('maintenanceId')||'';
+    void load(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)?id:'');
+  });
+  useEffect(()=>{
+    let active=true;mounted.current=true;
+    queueMicrotask(()=>{if(active)loadMaintenanceWorkspace();});
+    return()=>{active=false;mounted.current=false;invalidateGeneration();invalidateCheckout();};
+  },[invalidateGeneration]);
   const post=(path:string,body:unknown={},key?:string)=>api(path,{method:'POST',headers:key?{'Idempotency-Key':key}:{},body:JSON.stringify(body)});
   async function recoverWrite(problem:unknown,id:string,page:number,run:number){
     if(!mounted.current||run!==generation.current)return;

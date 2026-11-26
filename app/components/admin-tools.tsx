@@ -1,6 +1,15 @@
+
 'use client';
+
 import Link from 'next/link';
-import {useState,useEffect,useRef,type ReactNode,type Ref} from 'react';
+import {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  type ReactNode,
+  type Ref,
+} from 'react';
 import {Tabs,TabsList,TabsTrigger,TabsContent} from '@/components/ui/tabs';
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription} from '@/components/ui/dialog';
 import {api,ApiError} from '@/lib/api';
@@ -14,11 +23,56 @@ import ReportTriage from './report-triage';
 import ModerationWorkflow from './moderation-workflow';
 import TeamModeration from './team-moderation';
 import MoreRecords,{type PageInfo} from './more-records';
-function uncertain(problem:unknown){return !(problem instanceof ApiError)||problem.status===0||problem.status>=500;}
-type Metrics={failedEmails:number;weekly:{week:string;qualified:number;hires:number;completed:number}[];sources?:{source:string;qualified:number;hires:number}[];reportedValues?:{currency:string;total:number;proposals:number}[];marketplace?:MarketplaceMetricsData};
-type TaxonomyItem={slug:string;name:string;active:boolean};
-type AuditEntry={id:string;target_type:string;action:string;reason:string;created_at:string;target_id:string};
-type Account={id:string;email:string;account_status:string;moderation_reason?:string};
+
+function uncertain(problem:unknown){
+  return !(problem instanceof ApiError)||
+    problem.status===0||
+    problem.status>=500;
+}
+
+type Metrics={
+  failedEmails:number;
+  weekly:{
+    week:string;
+    qualified:number;
+    hires:number;
+    completed:number;
+  }[];
+  sources?:{
+    source:string;
+    qualified:number;
+    hires:number;
+  }[];
+  reportedValues?:{
+    currency:string;
+    total:number;
+    proposals:number;
+  }[];
+  marketplace?:MarketplaceMetricsData;
+};
+
+type TaxonomyItem={
+  slug:string;
+  name:string;
+  active:boolean;
+};
+
+type AuditEntry={
+  id:string;
+  target_type:string;
+  action:string;
+  reason:string;
+  created_at:string;
+  target_id:string;
+};
+
+type Account={
+  id:string;
+  email:string;
+  account_status:string;
+  moderation_reason?:string;
+};
+
 const centerTabs = [
  ['community','Community'], ['moderation','Moderation'], ['payments','Payments'],
  ['publishing','Publishing'], ['analytics','Analytics'],
@@ -49,44 +103,419 @@ function AdminPanel({title,children,titleRef}:{title:string;children:ReactNode;t
   </section>;
 }
 
-export default function AdminTools({request=api,onDenied,reload,queue}:{request?:typeof api;onDenied?:(problem:unknown)=>void;reload?:()=>Promise<boolean>;queue?:ReactNode}){
- const [section,setSection]=useState(queue?'moderation':'community');
- const [community,setCommunity]=useState('taxonomy'),[moderation,setModeration]=useState('queue');
- const [payments,setPayments]=useState('disputes'),[publishing,setPublishing]=useState('source');
- const hostingTitle=useRef<HTMLHeadingElement>(null);
- const [taxonomySearch,setTaxonomySearch]=useState(''),[editor,setEditor]=useState<TaxonomyItem|'new'|null>(null);
- const editorButton=useRef<HTMLButtonElement|null>(null);
- useEffect(()=>{
-  function selectDestination() {
-   const destination=locations[location.hash.slice(1)];
-   if (!destination) return;
-   const [tab,tool]=destination;
-   setSection(tab);
-   if(tool&&tab==='community')setCommunity(tool);
-   if(tool&&tab==='payments')setPayments(tool);
-   if(tool&&tab==='moderation')setModeration(tool);
+export default function AdminTools({
+  request=api,
+  onDenied,
+  reload,
+  queue,
+}:{
+  request?:typeof api;
+  onDenied?:(problem:unknown)=>void;
+  reload?:()=>Promise<boolean>;
+  queue?:ReactNode;
+}){
+
+  const [section,setSection]=useState(queue?'moderation':'community');
+  const [community,setCommunity]=useState('taxonomy'),[moderation,setModeration]=useState('queue');
+  const [payments,setPayments]=useState('disputes'),[publishing,setPublishing]=useState('source');
+  const hostingTitle=useRef<HTMLHeadingElement>(null);
+  const [taxonomySearch,setTaxonomySearch]=useState(''),[editor,setEditor]=useState<TaxonomyItem|'new'|null>(null);
+  const editorButton=useRef<HTMLButtonElement|null>(null);
+  useEffect(()=>{
+   function selectDestination() {
+    const destination=locations[location.hash.slice(1)];
+    if (!destination) return;
+    const [tab,tool]=destination;
+    setSection(tab);
+    if(tool&&tab==='community')setCommunity(tool);
+    if(tool&&tab==='payments')setPayments(tool);
+    if(tool&&tab==='moderation')setModeration(tool);
+   }
+   selectDestination();
+   window.addEventListener('hashchange',selectDestination);
+   return()=>window.removeEventListener('hashchange',selectDestination);
+  },[]);
+
+  const [metrics,setMetrics]=useState<Metrics|null>(null);
+  const [kind,setKind]=useState('categories');
+  const [items,setItems]=useState<TaxonomyItem[]>([]);
+  const [history,setHistory]=useState<AuditEntry[]>([]);
+  const [accounts,setAccounts]=useState<Account[]>([]);
+  const [error,setError]=useState('');
+  const [busy,setBusy]=useState(false);
+  const [message,setMessage]=useState('');
+
+  const [needsReload,setNeedsReload]=useState(false);
+  const [recordsReady,setRecordsReady]=useState(false);
+  const [taxonomyReady,setTaxonomyReady]=useState(false);
+
+  const [historyPage,setHistoryPage]=useState<PageInfo|null>(null);
+  const [historyEpoch,setHistoryEpoch]=useState(0);
+  const [searching,setSearching]=useState(false);
+
+  const [authorityEpoch,setAuthorityEpoch]=useState(0);
+  const [auditRevision,setAuditRevision]=useState(0);
+
+  const mounted=useRef(true);
+  const authority=useRef(0);
+  const auditVersion=useRef(0);
+  const taxonomyVersion=useRef(0);
+  const searchVersion=useRef(0);
+  const pending=useRef(false);
+  const currentKind=useRef(kind);
+
+  const invalidateAuthority=useCallback(()=>{
+    authority.current++;
+  },[]);
+
+  useEffect(()=>{
+    mounted.current=true;
+
+    return()=>{
+      mounted.current=false;
+      invalidateAuthority();
+    };
+  },[invalidateAuthority]);
+
+  function failed(problem:unknown){
+    if(
+      problem instanceof ApiError&&
+      [401,403].includes(problem.status)
+    ){
+      authority.current++;
+      setAuthorityEpoch(authority.current);
+      searchVersion.current++;
+
+      setMetrics(null);
+      setEditor(null);
+      setItems([]);
+      setHistory([]);
+      setAccounts([]);
+      setHistoryPage(null);
+      setMessage('');
+      setSearching(false);
+      setRecordsReady(false);
+      setTaxonomyReady(false);
+    }
+
+    setError((problem as Error).message);
   }
-  selectDestination();
-  window.addEventListener('hashchange',selectDestination);
-  return()=>window.removeEventListener('hashchange',selectDestination);
- },[]);
- const [metrics,setMetrics]=useState<Metrics|null>(null);const [kind,setKind]=useState('categories'),[items,setItems]=useState<TaxonomyItem[]>([]),[history,setHistory]=useState<AuditEntry[]>([]),[accounts,setAccounts]=useState<Account[]>([]),[error,setError]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
- const [needsReload,setNeedsReload]=useState(false),[recordsReady,setRecordsReady]=useState(false),[taxonomyReady,setTaxonomyReady]=useState(false);
- const [historyPage,setHistoryPage]=useState<PageInfo|null>(null),[historyEpoch,setHistoryEpoch]=useState(0),[searching,setSearching]=useState(false);
- const [authorityEpoch,setAuthorityEpoch]=useState(0),[auditRevision,setAuditRevision]=useState(0);
- const mounted=useRef(true),authority=useRef(0),auditVersion=useRef(0),taxonomyVersion=useRef(0),searchVersion=useRef(0),pending=useRef(false),currentKind=useRef(kind);
- useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;authority.current++;};},[]);
- function failed(problem:unknown){if(problem instanceof ApiError&&[401,403].includes(problem.status)){authority.current++;setAuthorityEpoch(authority.current);searchVersion.current++;setMetrics(null);setEditor(null);setItems([]);setHistory([]);setAccounts([]);setHistoryPage(null);setMessage('');setSearching(false);setRecordsReady(false);setTaxonomyReady(false);}setError((problem as Error).message);}
- async function loadTaxonomy(selectedKind=kind){const run=authority.current,version=++taxonomyVersion.current;const next:{items:TaxonomyItem[]}=await request('/admin/'+selectedKind);if(mounted.current&&run===authority.current&&version===taxonomyVersion.current&&selectedKind===currentKind.current){setItems(next.items);setTaxonomyReady(true);}}
- async function refreshControls(){if(pending.current)return;pending.current=true;setBusy(true);setError('');setMessage('');const run=authority.current,version=++auditVersion.current;setAuditRevision(version);try{const [nextMetrics,audit]:[Metrics,PageInfo&{items:AuditEntry[]},void]=await Promise.all([request('/admin/metrics'),request('/admin/audit'),loadTaxonomy()]);if(reload&&!await reload())throw new Error('Current workspace details could not be refreshed.');if(mounted.current&&run===authority.current&&version===auditVersion.current){setMetrics(nextMetrics);setHistory(audit.items);setHistoryPage(audit);setHistoryEpoch(value=>value+1);setRecordsReady(true);setNeedsReload(false);}}catch(problem){if(mounted.current&&run===authority.current){setNeedsReload(true);failed(problem);}}finally{pending.current=false;if(mounted.current)setBusy(false);}}
- useEffect(()=>{let live=true;const run=authority.current,version=++taxonomyVersion.current;queueMicrotask(()=>{if(!live)return;setTaxonomyReady(false);setItems([]);setError('');void request('/admin/'+kind).then((r:{items:TaxonomyItem[]})=>{if(live&&run===authority.current&&version===taxonomyVersion.current){setItems(r.items);setTaxonomyReady(true);}}).catch(problem=>{if(live&&run===authority.current&&version===taxonomyVersion.current){setItems([]);failed(problem)}});});return()=>{live=false}},[kind,request]);
- useEffect(()=>{let live=true;const run=authority.current,version=++auditVersion.current;queueMicrotask(()=>{if(!live)return;setAuditRevision(version);void Promise.all([request('/admin/metrics'),request('/admin/audit')]).then(([nextMetrics,audit]:[Metrics,PageInfo&{items:AuditEntry[]}])=>{if(live&&mounted.current&&run===authority.current&&version===auditVersion.current){setMetrics(nextMetrics);setHistory(audit.items);setHistoryPage(audit);setHistoryEpoch(value=>value+1);setRecordsReady(true);}}).catch(problem=>{if(live&&mounted.current&&run===authority.current)failed(problem);});});return()=>{live=false;};},[request]);
- async function mutate(path:string,body:Record<string,unknown>,refresh?:()=>Promise<void>){if(pending.current||needsReload||!recordsReady||!taxonomyReady)return false;pending.current=true;const run=authority.current,version=++auditVersion.current;setAuditRevision(version);taxonomyVersion.current++;let saved=false;setBusy(true);setError('');setMessage('');try{await request(path,{method:'POST',body:JSON.stringify(body)});saved=true;setNeedsReload(true);if(!mounted.current||run!==authority.current)return false;const audit:PageInfo&{items:AuditEntry[]}=await request('/admin/audit');await refresh?.();if(reload&&!await reload())throw new Error('Current workspace details could not be refreshed.');if(!mounted.current||run!==authority.current||version!==auditVersion.current)return false;setHistory(audit.items);setHistoryPage(audit);setHistoryEpoch(value=>value+1);setNeedsReload(false);setMessage('Saved and current records refreshed.');return true;}catch(problem){if(mounted.current&&run===authority.current){failed(problem);if(saved||uncertain(problem)){setNeedsReload(true);setMessage(saved?'The change was recorded. Refresh community controls before another change.':'This change could not be confirmed. Refresh community controls before trying again.');}if(saved)setError('The change was recorded, but current records could not be refreshed. Refresh before repeating it. '+(problem as Error).message);}return false;}finally{pending.current=false;if(mounted.current)setBusy(false)}}
- async function saveTaxonomy(body:Record<string,unknown>){
-  const selectedKind=kind;
-  if(await mutate('/admin/'+selectedKind,body,()=>loadTaxonomy(selectedKind)))setEditor(null);
- }
- async function findAccounts(query:string){const version=++searchVersion.current,run=authority.current;setSearching(true);setError('');setMessage('');setAccounts([]);try{const next:{items:Account[]}=await request('/admin/accounts?q='+encodeURIComponent(query));if(mounted.current&&run===authority.current&&version===searchVersion.current)setAccounts(next.items);}catch(problem){if(mounted.current&&run===authority.current&&version===searchVersion.current)failed(problem);}finally{if(mounted.current&&version===searchVersion.current)setSearching(false);}}
+
+  async function loadTaxonomy(selectedKind=kind){
+    const run=authority.current;
+    const version=++taxonomyVersion.current;
+
+    const next:{items:TaxonomyItem[]}=await request(
+      '/admin/'+selectedKind
+    );
+
+    if(
+      mounted.current&&
+      run===authority.current&&
+      version===taxonomyVersion.current&&
+      selectedKind===currentKind.current
+    ){
+      setItems(next.items);
+      setTaxonomyReady(true);
+    }
+  }
+
+  async function refreshControls(){
+    if(pending.current)return;
+
+    pending.current=true;
+
+    setBusy(true);
+    setError('');
+    setMessage('');
+
+    const run=authority.current;
+    const version=++auditVersion.current;
+
+    setAuditRevision(version);
+
+    try{
+      const [nextMetrics,audit]:[
+        Metrics,
+        PageInfo&{items:AuditEntry[]},
+        void
+      ]=await Promise.all([
+        request('/admin/metrics'),
+        request('/admin/audit'),
+        loadTaxonomy()
+      ]);
+
+      if(reload&&!await reload()){
+        throw new Error(
+          'Current workspace details could not be refreshed.'
+        );
+      }
+
+      if(
+        mounted.current&&
+        run===authority.current&&
+        version===auditVersion.current
+      ){
+        setMetrics(nextMetrics);
+        setHistory(audit.items);
+        setHistoryPage(audit);
+        setHistoryEpoch(value=>value+1);
+        setRecordsReady(true);
+        setNeedsReload(false);
+      }
+    }catch(problem){
+      if(mounted.current&&run===authority.current){
+        setNeedsReload(true);
+        failed(problem);
+      }
+    }finally{
+      pending.current=false;
+
+      if(mounted.current)setBusy(false);
+    }
+  }
+
+  useEffect(()=>{
+    let live=true;
+
+    const run=authority.current;
+    const version=++taxonomyVersion.current;
+
+    queueMicrotask(()=>{
+      if(!live)return;
+
+      setTaxonomyReady(false);
+      setItems([]);
+      setError('');
+
+      void request('/admin/'+kind)
+        .then((r:{items:TaxonomyItem[]})=>{
+          if(
+            live&&
+            run===authority.current&&
+            version===taxonomyVersion.current
+          ){
+            setItems(r.items);
+            setTaxonomyReady(true);
+          }
+        })
+        .catch(problem=>{
+          if(
+            live&&
+            run===authority.current&&
+            version===taxonomyVersion.current
+          ){
+            setItems([]);
+            failed(problem);
+          }
+        });
+    });
+
+    return()=>{
+      live=false;
+    };
+  },[kind,request]);
+
+  useEffect(()=>{
+    let live=true;
+
+    const run=authority.current;
+    const version=++auditVersion.current;
+
+    queueMicrotask(()=>{
+      if(!live)return;
+
+      setAuditRevision(version);
+
+      void Promise.all([
+        request('/admin/metrics'),
+        request('/admin/audit')
+      ])
+      .then(([nextMetrics,audit]:[
+        Metrics,
+        PageInfo&{items:AuditEntry[]}
+      ])=>{
+        if(
+          live&&
+          mounted.current&&
+          run===authority.current&&
+          version===auditVersion.current
+        ){
+          setMetrics(nextMetrics);
+          setHistory(audit.items);
+          setHistoryPage(audit);
+          setHistoryEpoch(value=>value+1);
+          setRecordsReady(true);
+        }
+      })
+      .catch(problem=>{
+        if(
+          live&&
+          mounted.current&&
+          run===authority.current
+        ){
+          failed(problem);
+        }
+      });
+    });
+
+    return()=>{
+      live=false;
+    };
+  },[request]);
+
+  async function mutate(
+    path:string,
+    body:Record<string,unknown>,
+    refresh?:()=>Promise<void>
+  ){
+    if(
+      pending.current||
+      needsReload||
+      !recordsReady||
+      !taxonomyReady
+    )return false;
+
+    pending.current=true;
+
+    const run=authority.current;
+    const version=++auditVersion.current;
+
+    setAuditRevision(version);
+    taxonomyVersion.current++;
+
+    let saved=false;
+
+    setBusy(true);
+    setError('');
+    setMessage('');
+
+    try{
+      await request(path,{
+        method:'POST',
+        body:JSON.stringify(body)
+      });
+
+      saved=true;
+
+      setNeedsReload(true);
+
+      if(
+        !mounted.current||
+        run!==authority.current
+      )return false;
+
+      const audit:PageInfo&{items:AuditEntry[]}=
+        await request('/admin/audit');
+
+      await refresh?.();
+
+      if(reload&&!await reload()){
+        throw new Error(
+          'Current workspace details could not be refreshed.'
+        );
+      }
+
+      if(
+        !mounted.current||
+        run!==authority.current||
+        version!==auditVersion.current
+      )return false;
+
+      setHistory(audit.items);
+      setHistoryPage(audit);
+      setHistoryEpoch(value=>value+1);
+      setNeedsReload(false);
+      setMessage('Saved and current records refreshed.');
+
+      return true;
+
+    }catch(problem){
+      if(mounted.current&&run===authority.current){
+        failed(problem);
+
+        if(saved||uncertain(problem)){
+          setNeedsReload(true);
+
+          setMessage(
+            saved
+              ?'The change was recorded. Refresh community controls before another change.'
+              :'This change could not be confirmed. Refresh community controls before trying again.'
+          );
+        }
+
+        if(saved){
+          setError(
+            'The change was recorded, but current records could not be refreshed. Refresh before repeating it. '+
+            (problem as Error).message
+          );
+        }
+      }
+
+      return false;
+
+    }finally{
+      pending.current=false;
+
+      if(mounted.current)setBusy(false);
+    }
+  }
+
+  async function saveTaxonomy(
+    body:Record<string,unknown>
+  ){
+    const selectedKind=kind;
+
+    if(
+      await mutate(
+        '/admin/'+selectedKind,
+        body,
+        ()=>loadTaxonomy(selectedKind)
+      )
+    ){
+      setEditor(null);
+    }
+  }
+
+  async function findAccounts(query:string){
+    const version=++searchVersion.current;
+    const run=authority.current;
+
+    setSearching(true);
+    setError('');
+    setMessage('');
+    setAccounts([]);
+
+    try{
+      const next:{items:Account[]}=await request(
+        '/admin/accounts?q='+encodeURIComponent(query)
+      );
+
+      if(
+        mounted.current&&
+        run===authority.current&&
+        version===searchVersion.current
+      ){
+        setAccounts(next.items);
+      }
+    }catch(problem){
+      if(
+        mounted.current&&
+        run===authority.current&&
+        version===searchVersion.current
+      ){
+        failed(problem);
+      }
+    }finally{
+      if(
+        mounted.current&&
+        version===searchVersion.current
+      ){
+        setSearching(false);
+      }
+    }
+  }
+
  const renderAuthority=authorityEpoch,renderAudit=auditRevision,blocked=busy||needsReload||!recordsReady||!taxonomyReady;
  const search = taxonomySearch.trim().toLowerCase();
  const visibleItems = items.filter(item=>!search||item.name.toLowerCase().includes(search)||item.slug.includes(search));

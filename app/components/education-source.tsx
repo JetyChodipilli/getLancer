@@ -1,14 +1,37 @@
+
 'use client';
-import {useEffect,useRef,useState} from 'react';
+import {useCallback,useEffect,useRef,useState} from 'react';
 import Link from 'next/link';
 import {api} from '@/lib/api';
 import {downloadTemplateSource,loadTemplateCheckout,templatePrice,templateStatus,type TemplateOrder} from '@/lib/templates';
 import {type EducationOffer,type EducationRelease} from '@/lib/education';
 import EducationPackage from './education-package';
-export default function EducationSource({release,preview=false,previewPackageUrl}:{release:EducationRelease;preview?:boolean;previewPackageUrl?:string|null}){
- const [offer,setOffer]=useState<EducationOffer|null>(preview?{release,package:release.snapshot.sourceBinding,available:release.snapshot.mode==='FREE',checkoutAvailable:false,reason:'Illustrative source offer. No merchant checkout is available.'}:null),[error,setError]=useState(''),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[consent,setConsent]=useState(false),[order,setOrder]=useState<TemplateOrder|null>(null);const key=useRef(''),alive=useRef(true),generation=useRef(0),pending=useRef(false),checkoutGeneration=useRef(0),gatewayRef=useRef<{close?:()=>void}|null>(null),summary=useRef<HTMLParagraphElement>(null);
- function invalidateCheckout(){checkoutGeneration.current++;const previous=gatewayRef.current;gatewayRef.current=null;try{previous?.close?.();}catch{/* Obsolete callbacks remain invalid if the SDK cannot close. */}}
- useEffect(()=>{alive.current=true;const current=++generation.current;key.current='';pending.current=false;setConsent(false);setOrder(null);setError('');setMessage('');setBusy(false);if(preview)setOffer({release,package:release.snapshot.sourceBinding,available:release.snapshot.mode==='FREE',checkoutAvailable:false,reason:'Illustrative source offer. No merchant checkout is available.'});else{setOffer(null);api('/education-releases/'+release.id+'/source-offer').then(value=>{if(value.release?.id!==release.id||value.release?.productId!==release.productId||value.release?.sourceHash!==release.sourceHash)throw Error('The source offer did not match this reviewed release. Refresh its current state.');if(alive.current&&current===generation.current)setOffer(value);}).catch(problem=>{if(alive.current&&current===generation.current){setOffer(null);setError(problem.message);}});}return()=>{alive.current=false;generation.current++;invalidateCheckout();};},[release.id,release.productId,release.sourceHash,preview]);useEffect(()=>{if(error)summary.current?.focus();},[error]);
+
+type EducationSourceProps={release:EducationRelease;preview?:boolean;previewPackageUrl?:string|null};
+export default function EducationSource(props:EducationSourceProps){
+ const {release,preview=false}=props;
+ return <EducationSourceContent key={JSON.stringify([release.id,release.productId,release.sourceHash,preview])} {...props}/>;
+}
+function EducationSourceContent({release,preview=false,previewPackageUrl}:EducationSourceProps){
+ const [remoteOffer,setOffer]=useState<EducationOffer|null>(null),[error,setError]=useState(''),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[consent,setConsent]=useState(false),[order,setOrder]=useState<TemplateOrder|null>(null);const key=useRef(''),alive=useRef(true),generation=useRef(0),pending=useRef(false),checkoutGeneration=useRef(0),gatewayRef=useRef<{close?:()=>void}|null>(null),summary=useRef<HTMLParagraphElement>(null);
+ const {id:releaseId,productId,sourceHash}=release;
+ const offer:EducationOffer|null=preview?{release,package:release.snapshot.sourceBinding,available:release.snapshot.mode==='FREE',checkoutAvailable:false,reason:'Illustrative source offer. No merchant checkout is available.'}:remoteOffer;
+ const invalidateCheckout=useCallback(()=>{checkoutGeneration.current++;const previous=gatewayRef.current;gatewayRef.current=null;try{previous?.close?.();}catch{/* Obsolete callbacks remain invalid if the SDK cannot close. */}},[]);
+ const invalidateGeneration=useCallback(()=>{generation.current++;},[]);
+ useEffect(()=>{
+  alive.current=true;
+  const current=++generation.current;
+  if(!preview){
+   api('/education-releases/'+releaseId+'/source-offer').then(value=>{
+    if(value.release?.id!==releaseId||value.release?.productId!==productId||value.release?.sourceHash!==sourceHash)throw Error('The source offer did not match this reviewed release. Refresh its current state.');
+    if(alive.current&&current===generation.current)setOffer(value);
+   }).catch((problem:unknown)=>{
+    if(alive.current&&current===generation.current){setOffer(null);setError(problem instanceof Error?problem.message:'Unable to load the source offer.');}
+   });
+  }
+  return()=>{alive.current=false;invalidateGeneration();invalidateCheckout();};
+ },[releaseId,productId,sourceHash,preview,invalidateGeneration,invalidateCheckout]);
+ useEffect(()=>{if(error)summary.current?.focus();},[error]);
  async function free(){if(pending.current)return;pending.current=true;const current=generation.current;setBusy(true);setError('');try{await downloadTemplateSource('/education-releases/'+release.id+'/source','education-'+release.id+'.zip');if(!alive.current||current!==generation.current)return;setMessage('Reviewed free source downloaded. Preserve its license and attribution.');}catch(problem){if(alive.current&&current===generation.current)setError((problem as Error).message);}finally{if(alive.current&&current===generation.current){pending.current=false;setBusy(false);}}}
  async function reconcile(){if(!order||preview||pending.current)return;pending.current=true;const current=generation.current;setBusy(true);setError('');try{const purchase=await api('/template-purchases/'+order.id+'/reconcile',{method:'POST',body:'{}'});if(!alive.current||current!==generation.current)return;setOrder({...order,status:purchase.status});setMessage('Current purchase status: '+templateStatus(purchase.status)+'. Purchase history shows current download eligibility.');}catch(problem){if(alive.current&&current===generation.current)setError((problem as Error).message);}finally{if(alive.current&&current===generation.current){pending.current=false;setBusy(false);}}}
  async function checkout(){

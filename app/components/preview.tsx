@@ -1,36 +1,567 @@
-import { ArrowUpRight, Box, CalendarDays, Check, ChevronRight, LayoutDashboard, Layers, Package, Settings, Users } from 'lucide-react';
+
+import Image from 'next/image';
+
+import {
+  ArrowUpRight,
+  Box,
+  CalendarDays,
+  Check,
+  ChevronRight,
+  LayoutDashboard,
+  Layers,
+  Package,
+  Settings,
+  Users,
+} from 'lucide-react';
+
 import type { Product } from '@/lib/catalog';
 import HoverPreviewVideo from './hover-preview-video';
 
-// Illustrations belong to the frontend sample catalog. Real projects only show uploaded media.
-export default function Preview({ product: p, naturalAspect = false, playVideo = false, hoverVideo = false }: { product: Product; naturalAspect?: boolean; playVideo?: boolean; hoverVideo?: boolean }) {
-  if (p.previewVideoUrl && hoverVideo && !playVideo)
-    return <HoverPreviewVideo src={p.previewVideoUrl} poster={p.imageUrl} title={p.title}/>;
-  if (p.previewVideoUrl) return <video className="listing-preview-video" src={p.previewVideoUrl+'#t=0.1'}
-    aria-label={p.title+' video preview'} controls={playVideo} muted={!playVideo} playsInline preload="metadata" />;
-  if (p.imageUrl) return <img src={p.imageUrl} alt={`${p.title} project screenshot`} style={{ width: '100%', height: naturalAspect ? 'auto' : '100%', objectFit: naturalAspect ? 'contain' : 'cover', display: 'block' }} loading="lazy" />;
-  if (!p.illustrative) return <div className="proof-missing">{p.title}<span>Project preview unavailable</span></div>;
-  if (naturalAspect && p.previewFormat === 'portrait') return <div className="showcase-mobile" role="img" aria-label={`${p.title} illustrative learning interface`}><div className="showcase-phone" aria-hidden="true">
-    <div className="showcase-phone-top"><span>9:41</span><span>•••</span></div>
-    <div className="showcase-phone-brand"><Layers size={18} /><strong>{p.title}</strong><span className="showcase-avatar">EC</span></div>
-    <p className="showcase-eyebrow">YOUR LEARNING SPACE</p><h3>A little progress.<br />Every day.</h3><p className="showcase-muted">Welcome back, Elena.</p>
-    <div className="showcase-course"><span>CONTINUE LEARNING</span><div className="showcase-course-art">Aa<ArrowUpRight /></div><h4>Designing for<br />the real world.</h4><p>Lesson 04 · 12 min</p><div className="showcase-progress"><i /></div></div>
-    <div className="showcase-section"><strong>Your next chapters</strong><ChevronRight size={14} /></div>
-    {['Layout & balance', 'Type that speaks', 'Putting it together'].map((title, i) => <div className="showcase-lesson" key={title}><span>0{i + 1}</span><div><strong>{title}</strong><small>Design foundations · 12 min</small></div><ChevronRight size={12} /></div>)}
-    <div className="showcase-phone-nav"><span><LayoutDashboard size={14} />Home</span><span><Layers size={14} />Courses</span><span><Users size={14} />Profile</span></div>
-  </div></div>;
+// Illustrations belong to the frontend sample catalog.
+// Real projects only show uploaded media.
 
-  const booking = p.category === 'Booking', crm = p.category === 'CRM', restaurant = p.category === 'Restaurants', productivity = p.category === 'Productivity', learning = p.category === 'Education';
-  const title = booking ? 'Your week, at a glance.' : crm ? 'Every connection counts.' : restaurant ? 'A smooth service starts here.' : productivity ? 'Make room for great work.' : learning ? 'Keep your curiosity going.' : 'Everything, in stock.';
-  const section = booking ? 'Calendar' : crm ? 'Contacts' : restaurant ? 'Floor plan' : productivity ? 'Projects' : learning ? 'Courses' : 'Inventory';
-  return <div className={`showcase-screen showcase-${p.category.toLowerCase()}${naturalAspect ? ' showcase-natural' : ''}`} role="img" aria-label={`${p.title} illustrative ${section.toLowerCase()} interface`}><div className="showcase-app" aria-hidden="true">
-    <aside className="showcase-side"><div className="showcase-brand"><Box /><strong>{p.title}</strong></div><span className="showcase-nav-label">WORKSPACE</span>{[[LayoutDashboard, 'Overview'], [booking ? CalendarDays : Package, section], [Users, 'People'], [Settings, 'Settings']].map(([Icon, label]) => { const ItemIcon = Icon as typeof LayoutDashboard; return <div className={`showcase-nav-item${label === section ? ' is-selected' : ''}`} key={String(label)}><ItemIcon /><span>{String(label)}</span></div>; })}<div className="showcase-side-foot"><span className="showcase-avatar">JD</span><span>Personal workspace</span></div></aside>
-    <div className="showcase-main"><div className="showcase-top"><span>Workspace <ChevronRight /> {section}</span><span className="showcase-avatar">JD</span></div><div className="showcase-heading"><div><p>{section}</p><h3>{title}</h3></div><span className="showcase-add">+ New</span></div>
-      {booking ? <><div className="showcase-period"><strong>September 7–9</strong><span>Week view</span></div><div className="showcase-calendar">{['Mon 07', 'Tue 08', 'Wed 09'].map((day, i) => <div key={day}><strong>{day}</strong><div className="showcase-event"><small>{['09:00', '11:30', '14:00'][i]}</small><b>{['Team meeting', 'Consultation', 'Design review'][i]}</b><span>30 min</span></div><div className="showcase-calendar-space" /><div className="showcase-event is-soft"><small>16:00</small><b>{['Project planning', 'Client check-in', 'Weekly wrap-up'][i]}</b><span>45 min</span></div></div>)}</div></> :
-        restaurant ? <><div className="showcase-stats"><div><span>Tables in service</span><strong>8 <small>/ 12</small></strong></div><div><span>Upcoming reservations</span><strong>6</strong></div></div><div className="showcase-section"><strong>Main dining room</strong><span>● Available · ● In service</span></div><div className="showcase-floor">{['01', '02', '03', '04'].map((table, i) => <div key={table} className={i === 1 ? 'is-free' : ''}><Users /><strong>Table {table}</strong><span>{i === 1 ? 'Available' : 'In service'}</span></div>)}</div></> :
-        productivity ? <div className="showcase-kanban">{['Planned', 'In progress', 'Ready'].map((stage, i) => <div key={stage}><div className="showcase-column-title"><strong>{stage}</strong><span>1</span></div><div className="showcase-task"><small>{['PRODUCT', 'ENGINEERING', 'REVIEW'][i]}</small><strong>{['Customer portal', 'API integration', 'Design system'][i]}</strong><p>{['Scope the first release', 'Connect core services', 'Review component library'][i]}</p><div><span className="showcase-avatar">{['LM', 'NP', 'DK'][i]}</span><span>This week</span></div></div></div>)}</div> :
-        learning ? <><div className="showcase-desktop-course"><span>CONTINUE LEARNING</span><strong>Building for the web.</strong><p>Lesson 04 · Designing a better experience</p><div className="showcase-progress"><i /></div></div>{['Foundations', 'Your first interface', 'Putting it together'].map((name, i) => <div className="showcase-lesson" key={name}><span>0{i + 1}</span><strong>{name}</strong>{i === 0 ? <Check size={12} /> : <small>12 min</small>}</div>)}</> :
-        <><div className="showcase-stats"><div><span>{crm ? 'Active contacts' : 'Total products'}</span><strong>{crm ? '42' : '248'}</strong></div><div><span>{crm ? 'Follow-ups this week' : 'Items to restock'}</span><strong>{crm ? '12' : '8'}</strong></div></div><div className="showcase-records"><div className="showcase-record-head"><span>{crm ? 'Name' : 'Product'}</span><span>{crm ? 'Company' : 'Stock'}</span><span>Status</span></div>{(crm ? ['Sarah Chen', 'Michael Torres', 'Emily Watson'] : ['Wireless headphones', 'Canvas tote bag', 'Ceramic mug']).map((name, i) => <div className="showcase-record" key={name}><span><span className="showcase-item">{crm ? name[0] : <Package size={13} />}</span><strong>{name}</strong></span><span>{crm ? ['GreenLeaf', 'Brightside', 'NextGen'][i] : [142, 28, 64][i]}</span><span className="showcase-status">{crm ? ['Qualified', 'Proposal', 'Qualified'][i] : 'In stock'}</span></div>)}</div></>}
+export default function Preview({
+  product: p,
+  naturalAspect = false,
+  playVideo = false,
+  hoverVideo = false,
+}: {
+  product: Product;
+  naturalAspect?: boolean;
+  playVideo?: boolean;
+  hoverVideo?: boolean;
+}) {
+  if (p.previewVideoUrl && hoverVideo && !playVideo) {
+    return <HoverPreviewVideo src={p.previewVideoUrl} poster={p.imageUrl} title={p.title} />;
+  }
+
+  if (p.previewVideoUrl) {
+    return (
+      <video
+        className="listing-preview-video"
+        src={`${p.previewVideoUrl}#t=0.1`}
+        aria-label={`${p.title} video preview`}
+        controls={playVideo}
+        muted={!playVideo}
+        playsInline
+        preload="metadata"
+      />
+    );
+  }
+
+  if (p.imageUrl) {
+    return (
+      <Image
+        src={p.imageUrl}
+        alt={`${p.title} project screenshot`}
+        width={1200}
+        height={675}
+        unoptimized
+        loading="lazy"
+        style={{
+          width: '100%',
+          height: naturalAspect ? 'auto' : '100%',
+          objectFit: naturalAspect ? 'contain' : 'cover',
+          display: 'block',
+        }}
+      />
+    );
+  }
+
+  if (!p.illustrative) {
+    return (
+      <div className="proof-missing">
+        {p.title}
+        <span>Project preview unavailable</span>
+      </div>
+    );
+  }
+
+  if (
+    naturalAspect &&
+    p.previewFormat === 'portrait'
+  ) {
+    return (
+      <div
+        className="showcase-mobile"
+        role="img"
+        aria-label={`${p.title} illustrative learning interface`}
+      >
+        <div
+          className="showcase-phone"
+          aria-hidden="true"
+        >
+          <div className="showcase-phone-top">
+            <span>9:41</span>
+            <span>•••</span>
+          </div>
+
+          <div className="showcase-phone-brand">
+            <Layers size={18} />
+            <strong>{p.title}</strong>
+            <span className="showcase-avatar">EC</span>
+          </div>
+
+          <p className="showcase-eyebrow">
+            YOUR LEARNING SPACE
+          </p>
+
+          <h3>
+            A little progress.
+            <br />
+            Every day.
+          </h3>
+
+          <p className="showcase-muted">
+            Welcome back, Elena.
+          </p>
+
+          <div className="showcase-course">
+            <span>CONTINUE LEARNING</span>
+
+            <div className="showcase-course-art">
+              Aa<ArrowUpRight />
+            </div>
+
+            <h4>
+              Designing for
+              <br />
+              the real world.
+            </h4>
+
+            <p>Lesson 04 · 12 min</p>
+
+            <div className="showcase-progress">
+              <i />
+            </div>
+          </div>
+
+          <div className="showcase-section">
+            <strong>Your next chapters</strong>
+            <ChevronRight size={14} />
+          </div>
+
+          {[
+            'Layout & balance',
+            'Type that speaks',
+            'Putting it together',
+          ].map((title, i) => (
+            <div
+              className="showcase-lesson"
+              key={title}
+            >
+              <span>0{i + 1}</span>
+
+              <div>
+                <strong>{title}</strong>
+                <small>
+                  Design foundations · 12 min
+                </small>
+              </div>
+
+              <ChevronRight size={12} />
+            </div>
+          ))}
+
+          <div className="showcase-phone-nav">
+            <span>
+              <LayoutDashboard size={14} />
+              Home
+            </span>
+
+            <span>
+              <Layers size={14} />
+              Courses
+            </span>
+
+            <span>
+              <Users size={14} />
+              Profile
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const booking = p.category === 'Booking';
+  const crm = p.category === 'CRM';
+  const restaurant = p.category === 'Restaurants';
+  const productivity = p.category === 'Productivity';
+  const learning = p.category === 'Education';
+
+  const title = booking
+    ? 'Your week, at a glance.'
+    : crm
+      ? 'Every connection counts.'
+      : restaurant
+        ? 'A smooth service starts here.'
+        : productivity
+          ? 'Make room for great work.'
+          : learning
+            ? 'Keep your curiosity going.'
+            : 'Everything, in stock.';
+
+  const section = booking
+    ? 'Calendar'
+    : crm
+      ? 'Contacts'
+      : restaurant
+        ? 'Floor plan'
+        : productivity
+          ? 'Projects'
+          : learning
+            ? 'Courses'
+            : 'Inventory';
+
+  return (
+    <div
+      className={`showcase-screen showcase-${p.category.toLowerCase()}${naturalAspect ? ' showcase-natural' : ''}`}
+      role="img"
+      aria-label={`${p.title} illustrative ${section.toLowerCase()} interface`}
+    >
+      <div
+        className="showcase-app"
+        aria-hidden="true"
+      >
+        <aside className="showcase-side">
+          <div className="showcase-brand">
+            <Box />
+            <strong>{p.title}</strong>
+          </div>
+
+          <span className="showcase-nav-label">
+            WORKSPACE
+          </span>
+
+          {[
+            [LayoutDashboard, 'Overview'],
+            [booking ? CalendarDays : Package, section],
+            [Users, 'People'],
+            [Settings, 'Settings'],
+          ].map(([Icon, label]) => {
+            const ItemIcon =
+              Icon as typeof LayoutDashboard;
+
+            return (
+              <div
+                className={`showcase-nav-item${label === section ? ' is-selected' : ''}`}
+                key={String(label)}
+              >
+                <ItemIcon />
+                <span>{String(label)}</span>
+              </div>
+            );
+          })}
+
+          <div className="showcase-side-foot">
+            <span className="showcase-avatar">
+              JD
+            </span>
+
+            <span>Personal workspace</span>
+          </div>
+        </aside>
+
+        <div className="showcase-main">
+          <div className="showcase-top">
+            <span>
+              Workspace <ChevronRight /> {section}
+            </span>
+
+            <span className="showcase-avatar">
+              JD
+            </span>
+          </div>
+
+          <div className="showcase-heading">
+            <div>
+              <p>{section}</p>
+              <h3>{title}</h3>
+            </div>
+
+            <span className="showcase-add">
+              + New
+            </span>
+          </div>
+
+          {booking ? (
+            <>
+              <div className="showcase-period">
+                <strong>September 7–9</strong>
+                <span>Week view</span>
+              </div>
+
+              <div className="showcase-calendar">
+                {[
+                  'Mon 07',
+                  'Tue 08',
+                  'Wed 09',
+                ].map((day, i) => (
+                  <div key={day}>
+                    <strong>{day}</strong>
+
+                    <div className="showcase-event">
+                      <small>
+                        {['09:00', '11:30', '14:00'][i]}
+                      </small>
+
+                      <b>
+                        {[
+                          'Team meeting',
+                          'Consultation',
+                          'Design review',
+                        ][i]}
+                      </b>
+
+                      <span>30 min</span>
+                    </div>
+
+                    <div className="showcase-calendar-space" />
+
+                    <div className="showcase-event is-soft">
+                      <small>16:00</small>
+
+                      <b>
+                        {[
+                          'Project planning',
+                          'Client check-in',
+                          'Weekly wrap-up',
+                        ][i]}
+                      </b>
+
+                      <span>45 min</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : restaurant ? (
+            <>
+              <div className="showcase-stats">
+                <div>
+                  <span>Tables in service</span>
+                  <strong>
+                    8 <small>/ 12</small>
+                  </strong>
+                </div>
+
+                <div>
+                  <span>Upcoming reservations</span>
+                  <strong>6</strong>
+                </div>
+              </div>
+
+              <div className="showcase-section">
+                <strong>Main dining room</strong>
+                <span>● Available · ● In service</span>
+              </div>
+
+              <div className="showcase-floor">
+                {[
+                  '01',
+                  '02',
+                  '03',
+                  '04',
+                ].map((table, i) => (
+                  <div
+                    key={table}
+                    className={
+                      i === 1 ? 'is-free' : ''
+                    }
+                  >
+                    <Users />
+
+                    <strong>Table {table}</strong>
+
+                    <span>
+                      {i === 1
+                        ? 'Available'
+                        : 'In service'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : productivity ? (
+            <div className="showcase-kanban">
+              {[
+                'Planned',
+                'In progress',
+                'Ready',
+              ].map((stage, i) => (
+                <div key={stage}>
+                  <div className="showcase-column-title">
+                    <strong>{stage}</strong>
+                    <span>1</span>
+                  </div>
+
+                  <div className="showcase-task">
+                    <small>
+                      {[
+                        'PRODUCT',
+                        'ENGINEERING',
+                        'REVIEW',
+                      ][i]}
+                    </small>
+
+                    <strong>
+                      {[
+                        'Customer portal',
+                        'API integration',
+                        'Design system',
+                      ][i]}
+                    </strong>
+
+                    <p>
+                      {[
+                        'Scope the first release',
+                        'Connect core services',
+                        'Review component library',
+                      ][i]}
+                    </p>
+
+                    <div>
+                      <span className="showcase-avatar">
+                        {['LM', 'NP', 'DK'][i]}
+                      </span>
+
+                      <span>This week</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : learning ? (
+            <>
+              <div className="showcase-desktop-course">
+                <span>CONTINUE LEARNING</span>
+
+                <strong>
+                  Building for the web.
+                </strong>
+
+                <p>
+                  Lesson 04 · Designing a better experience
+                </p>
+
+                <div className="showcase-progress">
+                  <i />
+                </div>
+              </div>
+
+              {[
+                'Foundations',
+                'Your first interface',
+                'Putting it together',
+              ].map((name, i) => (
+                <div
+                  className="showcase-lesson"
+                  key={name}
+                >
+                  <span>0{i + 1}</span>
+                  <strong>{name}</strong>
+
+                  {i === 0
+                    ? <Check size={12} />
+                    : <small>12 min</small>}
+                </div>
+              ))}
+            </>
+          ) : (
+            <>
+              <div className="showcase-stats">
+                <div>
+                  <span>
+                    {crm
+                      ? 'Active contacts'
+                      : 'Total products'}
+                  </span>
+
+                  <strong>
+                    {crm ? '42' : '248'}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>
+                    {crm
+                      ? 'Follow-ups this week'
+                      : 'Items to restock'}
+                  </span>
+
+                  <strong>
+                    {crm ? '12' : '8'}
+                  </strong>
+                </div>
+              </div>
+
+              <div className="showcase-records">
+                <div className="showcase-record-head">
+                  <span>
+                    {crm ? 'Name' : 'Product'}
+                  </span>
+
+                  <span>
+                    {crm ? 'Company' : 'Stock'}
+                  </span>
+
+                  <span>Status</span>
+                </div>
+
+                {(
+                  crm
+                    ? [
+                        'Sarah Chen',
+                        'Michael Torres',
+                        'Emily Watson',
+                      ]
+                    : [
+                        'Wireless headphones',
+                        'Canvas tote bag',
+                        'Ceramic mug',
+                      ]
+                ).map((name, i) => (
+                  <div
+                    className="showcase-record"
+                    key={name}
+                  >
+                    <span>
+                      <span className="showcase-item">
+                        {crm
+                          ? name[0]
+                          : <Package size={13} />}
+                      </span>
+
+                      <strong>{name}</strong>
+                    </span>
+
+                    <span>
+                      {crm
+                        ? [
+                            'GreenLeaf',
+                            'Brightside',
+                            'NextGen',
+                          ][i]
+                        : [142, 28, 64][i]}
+                    </span>
+
+                    <span className="showcase-status">
+                      {crm
+                        ? [
+                            'Qualified',
+                            'Proposal',
+                            'Qualified',
+                          ][i]
+                        : 'In stock'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
     </div>
-  </div></div>;
+  );
 }

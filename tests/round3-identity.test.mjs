@@ -130,7 +130,12 @@ test('a definitive rejected private write releases its barrier for a corrected r
 
 const accountScope=productionScope(account,'AccountSettingsForIdentity');
 const accountNames=['revokeExports','failed','markRead','exportData'];
-const accountDeclarations=[callback(accountScope,'revokeExports'),...accountNames.slice(1).map(name=>routine(accountScope,name))];
+const accountDeclarations = [
+  callback(accountScope, 'revokeExports'),
+  callback(accountScope, 'invalidateGeneration'),
+  callback(accountScope, 'failed'),
+  ...accountNames.slice(2).map(name => routine(accountScope, name))
+];
 function accountFixture({api,request=api,reload,...extra}={}){
  const state={setNotifications:[{id:'private-notification',title:'Private account notification'}],setNotificationPage:{page:0,hasMore:true},setNotificationError:'',setError:'',setMessage:'',setReading:[]},downloads=[],createdURLs=[],revokedURLs=[],timers=new Map();let timerId=0;
  const context={ApiError,active:{current:true},generation:{current:0},reads:{current:new Set()},mutation:{current:false},exportURLs:{current:new Map()},useCallback:fn=>fn,request:request||(()=>assert.fail('Unexpected account transport')),reload,Blob,URL:{createObjectURL:()=>{const url='blob:private-'+createdURLs.length;createdURLs.push(url);return url;},revokeObjectURL:url=>revokedURLs.push(url)},window:{setTimeout:fn=>{const id=++timerId;timers.set(id,fn);return id;},clearTimeout:id=>timers.delete(id)},document:{createElement:()=>({click(){downloads.push(this.download);}})},...extra,...setters(account,state)};

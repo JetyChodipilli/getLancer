@@ -1,5 +1,5 @@
 'use client';
-import {useCallback,useEffect,useRef,useState,type ReactNode} from 'react';
+import {useCallback,useEffect,useEffectEvent,useRef,useState,type ReactNode} from 'react';
 import Link from 'next/link';
 import {Building2,BriefcaseBusiness,Bookmark,Users,Plus,Search,ShieldCheck} from 'lucide-react';
 import {api,accountApi,ApiError} from '@/lib/api';
@@ -60,7 +60,22 @@ export default function BusinessWorkspace({demo=false}:{demo?:boolean}){
  async function selectList(id:string){const run=++generation.current;setBusy(true);setError('');setListId(id);setSaved([]);try{const result=await request(base+'/talent-lists/'+id+'/entries');if(run!==generation.current)return;setSaved(result.items);setPages(p=>({...p,saved:result}));}catch(e){if(run===generation.current){setError((e as Error).message);denied(e);}}finally{if(run===generation.current)setBusy(false);}}
  const more=<T,>(path:string,page:BusinessPage|undefined,onItems:(rows:T[])=>void,label:string,collection?:string,onPage?:(page:BusinessPage)=>void)=>page&&<BusinessMore<T> key={path+':'+(collection||'items')} path={path} page={page} request={request} collection={collection} onItems={onItems} onPage={onPage} label={label} onDenied={denied}/>;
 
- useEffect(()=>{let active=true;queueMicrotask(()=>{if(active)void load('','','');});return()=>{active=false;generation.current++;context.current++;}},[actor]);
+ const loadForActor = useEffectEvent(() => {
+  void load('', '', '');
+ });
+ useEffect(() => {
+  let active = true;
+  const generationRef = generation;
+  const contextRef = context;
+  queueMicrotask(() => {
+   if (active) loadForActor();
+  });
+  return () => {
+   active = false;
+   generationRef.current++;
+   contextRef.current++;
+  };
+ }, [actor]);
  async function mutate(path:string,body:unknown={},method='POST',confirmation='Business action recorded.'){
   if(writes.current.operation||writes.current.fenced)return false;
   const operation=Symbol('business change'),run=context.current;let saved=false;
@@ -132,7 +147,20 @@ function ConciergePanel({request,demo,onDenied}:{request:BusinessRequest;demo:bo
  const [items,setItems]=useState<ConciergeRecord[]>([]),[history,setHistory]=useState<ConciergeRecord[]>([]),[pages,setPages]=useState<{items?:BusinessPage;history?:BusinessPage}>({}),[selected,setSelected]=useState(''),[matches,setMatches]=useState<Candidate[]>([]),[error,setError]=useState(''),[busy,setBusy]=useState(false),[note,setNote]=useState('');const generation=useRef(0);
  function denied(problem:unknown){if([401,403,404].includes((problem as {status?:number}).status||0)){setError(problem instanceof Error?problem.message:'Administrator access is no longer available.');generation.current++;setItems([]);setHistory([]);setPages({});setMatches([]);setSelected('');setNote('');setBusy(false);}}
  async function load(){const run=++generation.current;setBusy(true);setNote('');try{const result=await call('/admin/concierge');if(run!==generation.current)return;setItems(result.items);setHistory(result.history);setRefresh(old=>old+1);setPages({items:result.itemsPage,history:result.historyPage});setSelected('');setMatches([]);setError('');return true;}catch(e){if(run===generation.current){setItems([]);setHistory([]);setPages({});setSelected('');setMatches([]);setError((e as Error).message);denied(e);}return false;}finally{if(run===generation.current)setBusy(false);}}
- useEffect(()=>{let active=true;queueMicrotask(()=>{if(active)void load();});return()=>{active=false;generation.current++;}},[]);
+ const loadConciergeQueue = useEffectEvent(() => {
+  void load();
+ });
+ useEffect(() => {
+  let active = true;
+  const generationRef = generation;
+  queueMicrotask(() => {
+   if (active) loadConciergeQueue();
+  });
+  return () => {
+   active = false;
+   generationRef.current++;
+  };
+ }, []);
  async function select(id:string){const run=++generation.current;setSelected(id);setMatches([]);setBusy(true);setError('');try{const result=await call('/admin/concierge/'+id+'/matches');if(run===generation.current)setMatches(result.items)}catch(e){if(run===generation.current){setError((e as Error).message);denied(e);}}finally{if(run===generation.current)setBusy(false);}}
  async function mutate(id:string,body:unknown,suffix='',method='PATCH'){if(!items.some(item=>item.id===id))return false;const run=generation.current;let saved=false;setBusy(true);setError('');setNote('');try{await call('/admin/concierge/'+id+suffix,{method,body:JSON.stringify(body)});if(run!==generation.current)return false;saved=true;const loaded=await load();if(loaded===undefined)return false;if(!loaded)throw new Error('The sourcing update was saved, but the queue could not be refreshed. Refresh the queue to retry.');const confirmation=suffix==='/shortlist'?'Candidate recommendation recorded. No candidate was contacted.':'Sourcing update recorded.';setNote(demo?'Local sample: '+confirmation:confirmation);return true;}catch(e){if(!saved&&run!==generation.current)return false;setError((e as Error).message);denied(e);throw e}finally{setBusy(false)}}
  return <section className="business-section business-concierge-admin" aria-busy={busy}>
