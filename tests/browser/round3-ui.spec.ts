@@ -14,6 +14,12 @@ async function renderExplore(page:Page,initiallySaved=false){
     createRoot(document.getElementById('round3-ui-root')).render(<Fixture/>);
   `,resolveDir:process.cwd(),loader:'tsx'},bundle:true,write:false,platform:'browser',format:'iife',jsx:'automatic',alias:{'@':process.cwd()},define:{'process.env.NODE_ENV':'"test"'},plugins:[{name:'round3-ui-navigation',setup(plugin){
     plugin.onResolve({filter:/^next\/(link|navigation)$/},args=>({path:args.path,namespace:'round3-ui-next'}));
+    // The standalone browser bundle has no Next image runtime.
+    plugin.onResolve({filter:/^next\/image$/},()=>({path:'image',namespace:'round3-ui-image'}));
+    plugin.onLoad({filter:/^image$/,namespace:'round3-ui-image'},()=>({
+      contents:'export default function Image({src,alt,unoptimized,...props}){return <img src={src} alt={alt} {...props}/>}',
+      loader:'jsx',resolveDir:process.cwd()
+    }));
     plugin.onLoad({filter:/.*/,namespace:'round3-ui-next'},args=>({contents:args.path==='next/link'?'export default function Link({children,...props}){return <a {...props}>{children}</a>}':'export function useRouter(){return {push(){}}}',loader:'jsx',resolveDir:process.cwd()}));
   }}]});
   await page.goto('/report');
