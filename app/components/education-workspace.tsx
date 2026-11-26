@@ -1,41 +1,1432 @@
+
 'use client';
-import {useEffect,useRef,useState} from 'react';
+
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+} from 'react';
+
 import Link from 'next/link';
 import {accountApi,ApiError} from '@/lib/api';
 import {collegeCategories} from '@/lib/components';
 import {type SourceTemplate,templatePrice} from '@/lib/templates';
-import {educationDraftBody,educationDraftFrom,educationEvidence,educationLabel,educationModeLabel,educationModes,educationPackageLists,educationSubmissionIssues,emptyEducationDraft,isDataAiCategory,type EducationAcademic,type EducationDraft,type EducationRelease} from '@/lib/education';
+import {
+  educationDraftBody,
+  educationDraftFrom,
+  educationEvidence,
+  educationLabel,
+  educationModeLabel,
+  educationModes,
+  educationPackageLists,
+  educationSubmissionIssues,
+  emptyEducationDraft,
+  isDataAiCategory,
+  type EducationAcademic,
+  type EducationDraft,
+  type EducationRelease,
+} from '@/lib/education';
+
 import EducationPackage from './education-package';
 import {EducationDataAiEditor} from './education-data-ai';
 import FormErrors from './form-errors';
+
 type Product={id:string;title:string};
-export default function EducationWorkspace({products,demo=false,onAuthenticationLost,accountId}:{products:Product[];demo?:boolean;accountId?:string|null;onAuthenticationLost:(error:ApiError)=>void}){
- const [productId,setProductId]=useState(products[0]?.id||''),[releases,setReleases]=useState<EducationRelease[]>([]),[record,setRecord]=useState<EducationRelease|null>(null),[draft,setDraft]=useState<EducationDraft|null>(null),[academic,setAcademic]=useState<EducationAcademic|null>(null),[step,setStep]=useState(0),[busy,setBusy]=useState(false),[error,setError]=useState<ApiError|null>(null),[message,setMessage]=useState(''),[latest,setLatest]=useState<EducationRelease|null>(null),[templates,setTemplates]=useState<SourceTemplate[]>([]),[sourcePage,setSourcePage]=useState(0),[sourceHasMore,setSourceHasMore]=useState(false),[hasMore,setHasMore]=useState(false),[page,setPage]=useState(0);const generation=useRef(0),mounted=useRef(true),heading=useRef<HTMLHeadingElement>(null),form=useRef<HTMLFormElement>(null);
- async function request(path:string,init?:RequestInit){const current=generation.current;const result=await accountApi(accountId,path,init);if(!mounted.current||current!==generation.current)throw new DOMException('Discarded education response.','AbortError');return result;}
- function failed(problem:unknown){if(!mounted.current||problem instanceof DOMException&&problem.name==='AbortError')return;const value=problem instanceof ApiError?problem:new ApiError((problem as Error).message,'REQUEST_FAILED',0);setError(value);if([401,403].includes(value.status)){generation.current++;setReleases([]);setRecord(null);setDraft(null);setAcademic(null);setTemplates([]);setLatest(null);setMessage('');onAuthenticationLost(value);}}
- async function load(nextPage=0){const current=++generation.current;if(demo){setReleases([]);return;}try{const data=await request('/me/education-releases?page='+nextPage+'&size=50');if(current!==generation.current)return;setReleases(old=>nextPage?[...old,...data.items]:data.items);setHasMore(Boolean(data.hasMore));setPage(nextPage);}catch(problem){if(current===generation.current)failed(problem);}}
- useEffect(()=>{let active=true;mounted.current=true;queueMicrotask(()=>{if(active)void load();});return()=>{active=false;mounted.current=false;generation.current++;};},[demo,accountId]);useEffect(()=>{if(error)form.current?.querySelector<HTMLElement>('[role="alert"]')?.focus();},[error]);
- function open(value:EducationRelease){setRecord(value);setDraft(educationDraftFrom(value));setAcademic({...value.academic});setProductId(value.productId);setStep(0);setLatest(null);setError(null);setMessage('');}
- function start(copy?:EducationRelease){setRecord(null);const value=copy?educationDraftFrom(copy):emptyEducationDraft();delete value.revision;setDraft(value);setAcademic(null);setStep(0);setLatest(null);setError(null);setMessage('');if(copy)setProductId(copy.productId);}
- function field<K extends keyof EducationDraft>(key:K,value:EducationDraft[K]){setDraft(old=>old?{...old,[key]:value}:old);}
- function next(index:number){setStep(index);requestAnimationFrame(()=>{heading.current?.focus({preventScroll:true});form.current?.scrollIntoView({block:'start'});});}
- function merge(value:EducationRelease){setReleases(old=>[value,...old.filter(item=>item.id!==value.id)]);open(value);}
- async function save(){if(!draft||!productId||busy)return;setBusy(true);setError(null);try{if(demo){const snapshot={productId,slug:productId,title:products.find(p=>p.id===productId)?.title||'Sample project',summary:'Illustrative private draft.',language:'',contribution:'Existing sample attribution.',...educationDraftBody(draft)};const value={id:record?.id||crypto.randomUUID(),productId,revision:(record?.revision||0)+1,status:'DRAFT',snapshot,academic:{revision:1,shareAcademicDetails:false}} as EducationRelease;merge(value);setMessage('Illustrative draft saved. No upload, platform review or purchase was performed.');return;}const body=educationDraftBody(draft),value=await request(record?'/me/education-releases/'+record.id:'/me/college-projects/'+productId+'/releases',{method:record?'PATCH':'POST',body:JSON.stringify(body)});merge(value);setMessage('Draft saved. Unfinished fields stay private until submission and review.');}catch(problem){failed(problem);if(problem instanceof ApiError&&problem.status===409)setMessage('Your entered fields are retained. Inspect the latest saved revision before replacing them.');}finally{setBusy(false);}}
- async function compare(){if(!record||demo)return;setBusy(true);try{setLatest(await request('/me/education-releases/'+record.id));}catch(problem){failed(problem);}finally{setBusy(false);}}
- async function sources(more=false){if(demo){setMessage('Preview source selection is illustrative. Connect an approved source version to submit a paid release.');return;}setBusy(true);setError(null);try{const nextPage=more?sourcePage+1:0,data=await request('/me/templates?page='+nextPage+'&size=50');setTemplates(old=>more?[...old,...data.items]:data.items);setSourcePage(nextPage);setSourceHasMore(data.hasMore);}catch(problem){failed(problem);}finally{setBusy(false);}}
- function chooseSource(value:string){if(!value){field('versionId',undefined);return;}const [templateId,versionId]=value.split(':'),template=templates.find(item=>item.id===templateId),version=template?.versions?.find(item=>item.id===versionId);if(!version||!draft)return;setDraft({...draft,versionId,package:{...draft.package,licenseTerms:version.licenseTerms||''}});}
- async function upload(file:File|undefined){if(!file||!record||!draft||demo||busy)return;if(!draft.rightsConsent){setError(new ApiError('Confirm your source rights before uploading.','RIGHTS_REQUIRED',400));return;}if(file.size===0||file.size>5*1024*1024||!file.name.toLowerCase().endsWith('.zip')){setError(new ApiError('Choose a nonempty source ZIP no larger than 5 MiB.','SOURCE_LIMIT',400));return;}setBusy(true);setError(null);setMessage('');try{const body=new FormData();body.set('file',file);body.set('revision',String(record.revision));body.set('rightsConsent','true');const uploaded:EducationRelease=await request('/me/education-releases/'+record.id+'/source',{method:'POST',body});setRecord(uploaded);setReleases(old=>[uploaded,...old.filter(item=>item.id!==uploaded.id)]);setDraft({...draft,revision:uploaded.revision});setMessage('Private source ZIP inspected. Its exact files and checksum are shown below; confirm rights again before submission.');}catch(problem){failed(problem);}finally{setBusy(false);}}
- async function submit(){if(!record||!draft||demo||busy)return;const issues=educationSubmissionIssues(draft,record.sourceBinding||record.snapshot.sourceBinding);if(issues.length){setError(new ApiError(issues.join(' '),'INCOMPLETE_RELEASE',400));return;}setBusy(true);setError(null);try{const saved:EducationRelease=await request('/me/education-releases/'+record.id,{method:'PATCH',body:JSON.stringify(educationDraftBody(draft))});setRecord(saved);setDraft({...draft,revision:saved.revision});setReleases(old=>[saved,...old.filter(item=>item.id!==saved.id)]);merge(await request('/me/education-releases/'+record.id+'/submit',{method:'POST',body:JSON.stringify({revision:saved.revision,rightsConsent:draft.rightsConsent})}));setMessage('Exact source and category evidence submitted for private operator review.');}catch(problem){failed(problem);}finally{setBusy(false);}}
- async function privacy(){if(!record||!academic||demo)return;setBusy(true);setError(null);try{const value=await request('/me/education-releases/'+record.id+'/academic',{method:'PATCH',body:JSON.stringify(academic)});const updated:EducationRelease=value.snapshot?value:{...record,academic:value};merge(updated);setMessage('Academic visibility updated. Reviewed source and license terms remain unchanged.');}catch(problem){failed(problem);}finally{setBusy(false);}}
- const editable=!record||record.status==='DRAFT',sourceOptions=templates.filter(item=>item.productId===productId&&item.status==='ACTIVE').flatMap(item=>(item.versions||[]).filter(version=>version.status==='APPROVED').map(version=>({template:item,version}))),issues=draft?educationSubmissionIssues(draft,record?.sourceBinding||record?.snapshot.sourceBinding):[];
- return <section style={{marginTop:32}} aria-label="Education releases"><header className="kit-detail-head"><div><h2>Reviewed education releases</h2><p>Start with your approved college showcase. Its accepted contribution and team authority carry through; a source license does not confer authorship.</p></div><button className="button primary" disabled={busy||!products.length} onClick={()=>start()}>New education release</button></header><div className="form-field"><label htmlFor="education-project">Existing project showcase for releases</label><select id="education-project" className="button" value={productId} disabled={busy||Boolean(draft)} onChange={event=>setProductId(event.target.value)}>{products.map(product=><option value={product.id} key={product.id}>{product.title}</option>)}</select></div><FormErrors error={draft?null:error} prefix="education-"/>{message&&<p role="status" className="kit-notice">{message}</p>}<div className="kit-grid">{releases.filter(value=>value.productId===productId).map(value=><article className="kit-record" key={value.id}><div className="kit-badges"><span>{educationModeLabel(value.snapshot.mode)}</span><span>{educationLabel(value.status)}</span><span>Revision {value.revision}</span></div><h3>{value.snapshot.title}</h3>{value.reviewReason&&<p>Private review feedback: {value.reviewReason}</p>}<button className="button" disabled={busy} onClick={()=>open(value)}>{value.status==='DRAFT'?'Edit private draft':'Inspect frozen release'}</button>{value.status!=='DRAFT'&&<button className="button" disabled={busy} onClick={()=>start(value)}>Create corrected release</button>}</article>)}</div>{hasMore&&<button className="button" disabled={busy} onClick={()=>void load(page+1)}>Load more private releases</button>}
- {draft&&<form ref={form} className="form kit-record" onSubmit={event=>{event.preventDefault();void save();}} style={{marginTop:24,scrollMarginTop:'var(--studio-sticky-top, 100px)'}}><nav aria-label="Education release steps" className="kit-actions">{['Details','Build / Evidence','Access / License','Review'].map((label,index)=><button type="button" className={'button'+(step===index?' primary':'')} aria-current={step===index?'step':undefined} key={label} onClick={()=>next(index)}>{index+1}. {label}</button>)}</nav><h3 tabIndex={-1} ref={heading}>{['Details','Build / Evidence','Access / License','Review'][step]}</h3><FormErrors error={error} prefix="education-"/>{error?.status===409&&record&&<><button type="button" className="button" disabled={busy} onClick={()=>void compare()}>Inspect latest saved revision</button>{latest&&<details open><summary>Latest server revision {latest.revision}</summary><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{JSON.stringify(latest.snapshot,null,2)}</pre><button type="button" className="button" onClick={()=>open(latest)}>Replace my entered fields with this saved revision</button></details>}</>}{!editable&&<p className="kit-notice">This submitted release is immutable. Create a corrected release for source changes. Academic consent can be changed independently below.</p>}
- <fieldset disabled={busy||!editable} style={{border:0,padding:0,minWidth:0}}>
- {step===0&&<><label htmlFor="education-category">Release category</label><select id="education-category" value={draft.category} onChange={event=>{const category=event.target.value;setDraft({...draft,category,dataAiEvidence:isDataAiCategory(category)?draft.dataAiEvidence:undefined});}}>{collegeCategories.map(([key,label])=><option value={key} key={key}>{label}</option>)}</select><label htmlFor="education-difficulty">Difficulty</label><select id="education-difficulty" value={draft.difficulty} onChange={event=>field('difficulty',event.target.value)}>{['BEGINNER','INTERMEDIATE','ADVANCED'].map(value=><option value={value} key={value}>{educationLabel(value)}</option>)}</select><p>Title, problem, outcome, language and contribution come from your existing reviewed college context. Use “Edit college context” to correct those facts.</p></>}
- {step===1&&<><EducationDataAiEditor category={draft.category} value={draft.dataAiEvidence} onChange={value=>field('dataAiEvidence',value)}/>{(educationEvidence[draft.category]||[]).map(([key,label])=><div key={key} className="form-field"><label htmlFor={'education-evidence-'+key}>{label}</label><textarea id={'education-evidence-'+key} maxLength={4000} value={draft.categoryEvidence[key]||''} onChange={event=>field('categoryEvidence',{...draft.categoryEvidence,[key]:event.target.value})}/></div>)}<label htmlFor="education-demoMode">Demonstration availability</label><select id="education-demoMode" value={draft.demoMode} onChange={event=>field('demoMode',event.target.value)}><option value="SOURCE_ONLY">Source only · run locally</option><option value="EXTERNAL">External demonstration · unverified link</option><option value="HOSTED">Existing eligible hosted deployment</option></select>{draft.demoMode!=='SOURCE_ONLY'&&<><label htmlFor="education-demoUrl">Demonstration HTTPS URL</label><input id="education-demoUrl" maxLength={1000} value={draft.demoUrl} onChange={event=>field('demoUrl',event.target.value)}/><p>{draft.demoMode==='HOSTED'?'Current deployment eligibility is checked by the server.':'External links are outside platform verification.'}</p></>}<h4>Reusable component attribution</h4><Link className="button" href="/components" target="_blank" rel="noopener noreferrer">Inspect component licenses ↗</Link>{draft.componentLinks.map((link,index)=><div key={index} className="form-field"><label htmlFor={'education-component-'+index}>Component UUID {index+1}</label><input id={'education-component-'+index} value={link.componentId} onChange={event=>field('componentLinks',draft.componentLinks.map((item,i)=>i===index?{...item,componentId:event.target.value}:item))}/><label htmlFor={'education-component-revision-'+index}>Exact component revision {index+1}</label><input id={'education-component-revision-'+index} type="number" min={1} value={link.revision} onChange={event=>field('componentLinks',draft.componentLinks.map((item,i)=>i===index?{...item,revision:Number(event.target.value)}:item))}/><label htmlFor={'education-component-license-'+index}>Exact component license {index+1}</label><input id={'education-component-license-'+index} maxLength={200} value={link.license||''} onChange={event=>field('componentLinks',draft.componentLinks.map((item,i)=>i===index?{...item,license:event.target.value}:item))}/><label htmlFor={'education-attribution-'+index}>Attribution & license notice {index+1}</label><textarea id={'education-attribution-'+index} maxLength={1000} value={link.attribution} onChange={event=>field('componentLinks',draft.componentLinks.map((item,i)=>i===index?{...item,attribution:event.target.value}:item))}/><button type="button" className="button" onClick={()=>field('componentLinks',draft.componentLinks.filter((_,i)=>i!==index))}>Remove component {index+1}</button></div>)}<button type="button" className="button" disabled={draft.componentLinks.length>=20} onClick={()=>field('componentLinks',[...draft.componentLinks,{componentId:'',revision:1,license:'',attribution:''}])}>Add component release</button></>}
- {step===2&&<><label htmlFor="education-mode">Access mode</label><select id="education-mode" value={draft.mode} onChange={event=>field('mode',event.target.value as EducationDraft['mode'])}>{educationModes.map(([key,label])=><option value={key} key={key}>{label}</option>)}</select>{educationPackageLists.map(([key,label])=><div key={key} className="form-field"><label htmlFor={'education-package-'+key}>{label} · one item per line</label><textarea id={'education-package-'+key} maxLength={60000} value={draft.package[key].join('\n')} onChange={event=>field('package',{...draft.package,[key]:event.target.value.split('\n')})}/></div>)}{([['supportTerms','Support scope & duration'],['licenseTerms','License & attribution terms']] as const).map(([key,label])=><div key={key} className="form-field"><label htmlFor={'education-package-'+key}>{label}</label><textarea id={'education-package-'+key} maxLength={key==='supportTerms'?4000:8000} value={draft.package[key]} onChange={event=>field('package',{...draft.package,[key]:event.target.value})}/></div>)}{draft.mode==='FREE'&&<><p>Save the unfinished draft first, then upload an original ZIP up to 5 MiB containing README, LICENSE and a supported build manifest.</p><p>Each builder can retain up to 100 free source packages across all projects. Replacing a draft package also uses this lifetime budget.</p><label htmlFor="education-file">Original free source ZIP</label><input id="education-file" type="file" accept=".zip,application/zip" disabled={!record||demo} onChange={event=>{const file=event.currentTarget.files?.[0];event.currentTarget.value="";void upload(file);}}/></>}{draft.mode==='PAID'&&<><p>Bind an owned approved version for this product. Its immutable license is copied into this release. Live merchant activation is required for public checkout.</p><button type="button" className="button" onClick={()=>void sources()}>Find my approved source versions</button><label htmlFor="education-versionId">Approved source version</label><select id="education-versionId" value={sourceOptions.find(option=>option.version.id===draft.versionId)?sourceOptions.find(option=>option.version.id===draft.versionId)!.template.id+':'+draft.versionId:''} onChange={event=>chooseSource(event.target.value)}><option value="">Choose an owned approved source version</option>{sourceOptions.map(({template,version})=><option key={version.id} value={template.id+':'+version.id}>{template.title} · {version.version} · {templatePrice(template.priceMinor)}</option>)}</select>{draft.versionId&&<p style={{overflowWrap:'anywhere'}}>Bound source version: {draft.versionId}</p>}{sourceHasMore&&<button type="button" className="button" onClick={()=>void sources(true)}>Load more owned source templates</button>}<Link className="button" href="/workspace/templates">Prepare a source version ↗</Link></>}<label className="kit-consent" style={{minHeight:44,alignItems:'center'}}><input type="checkbox" checked={draft.rightsConsent} onChange={event=>field('rightsConsent',event.target.checked)}/>I have source rights and accurately acknowledge existing accepted contributions and licenses.</label></>}
- {step===3&&<><p>Confirm the exact source package, category evidence and attribution. The server freezes this revision when submitted; publication requires separate operator review.</p><EducationPackage evidence={draft.dataAiEvidence} category={draft.category} pack={draft.package} binding={record?.sourceBinding||record?.snapshot.sourceBinding} showcase={draft.mode==='SHOWCASE'}/>{issues.length>0&&<><h4>Still needed before submission</h4><ul>{issues.map(value=><li key={value}>{value}</li>)}</ul></>}<label className="kit-consent" style={{minHeight:44,alignItems:'center'}}><input type="checkbox" checked={draft.rightsConsent} onChange={event=>field('rightsConsent',event.target.checked)}/>I confirm rights, contribution and the exact release license.</label><button className="button primary" type="button" disabled={!record||demo||Boolean(issues.length)} onClick={()=>void submit()}>Submit exact revision for review</button></>}
- </fieldset><div className="kit-actions">{step<3&&<button type="button" className="button" disabled={busy} onClick={()=>next(step+1)}>Next step</button>}{editable&&<button className="button" disabled={busy||!productId} type="button" onClick={()=>void save()}>{busy?'Saving…':'Save unfinished draft'}</button>}<button type="button" className="button" disabled={busy} onClick={()=>{setDraft(null);setRecord(null);setAcademic(null);setError(null);}}>Close editor</button></div><p>Saving a draft does not publish it. Source-only, external and currently eligible hosted execution are disclosed separately.</p></form>}
- {record&&academic&&<section className="kit-record"><h3>Current academic visibility</h3><p>Private by default. Withdraw sharing independently of immutable source terms.</p>{([['institution','Institution',160],['academicYear','Academic year',40],['branch','Branch / department',100]] as const).map(([key,label,max])=><div key={key} className="form-field"><label htmlFor={'education-academic-'+key}>{label}</label><input id={'education-academic-'+key} maxLength={max} disabled={busy} value={academic[key]||''} onChange={event=>setAcademic({...academic,[key]:event.target.value})}/></div>)}<label className="kit-consent" style={{minHeight:44,alignItems:'center'}}><input type="checkbox" checked={academic.shareAcademicDetails} disabled={busy} onChange={event=>setAcademic({...academic,shareAcademicDetails:event.target.checked})}/>Share my current academic details publicly</label><button className="button" disabled={busy||demo} onClick={()=>void privacy()}>Update academic visibility</button></section>}
- </section>;
+
+export default function EducationWorkspace({
+  products,
+  demo=false,
+  onAuthenticationLost,
+  accountId,
+}:{
+  products:Product[];
+  demo?:boolean;
+  accountId?:string|null;
+  onAuthenticationLost:(error:ApiError)=>void;
+}){
+
+ const [productId,setProductId]=useState(products[0]?.id||'');
+ const [releases,setReleases]=useState<EducationRelease[]>([]);
+ const [record,setRecord]=useState<EducationRelease|null>(null);
+ const [draft,setDraft]=useState<EducationDraft|null>(null);
+ const [academic,setAcademic]=useState<EducationAcademic|null>(null);
+ const [step,setStep]=useState(0);
+ const [busy,setBusy]=useState(false);
+ const [error,setError]=useState<ApiError|null>(null);
+ const [message,setMessage]=useState('');
+ const [latest,setLatest]=useState<EducationRelease|null>(null);
+ const [templates,setTemplates]=useState<SourceTemplate[]>([]);
+ const [sourcePage,setSourcePage]=useState(0);
+ const [sourceHasMore,setSourceHasMore]=useState(false);
+ const [hasMore,setHasMore]=useState(false);
+ const [page,setPage]=useState(0);
+
+ const generation=useRef(0);
+ const mounted=useRef(true);
+ const heading=useRef<HTMLHeadingElement>(null);
+ const form=useRef<HTMLFormElement>(null);
+
+ const invalidateGeneration=useCallback(()=>{
+  generation.current++;
+ },[]);
+
+ async function request(path:string,init?:RequestInit){
+  const current=generation.current;
+
+  const result=await accountApi(accountId,path,init);
+
+  if(!mounted.current||current!==generation.current){
+   throw new DOMException(
+    'Discarded education response.',
+    'AbortError'
+   );
+  }
+
+  return result;
+ }
+
+ function failed(problem:unknown){
+  if(
+   !mounted.current||
+   problem instanceof DOMException&&problem.name==='AbortError'
+  )return;
+
+  const value=problem instanceof ApiError
+   ?problem
+   :new ApiError(
+    (problem as Error).message,
+    'REQUEST_FAILED',
+    0
+   );
+
+  setError(value);
+
+  if([401,403].includes(value.status)){
+   generation.current++;
+
+   setReleases([]);
+   setRecord(null);
+   setDraft(null);
+   setAcademic(null);
+   setTemplates([]);
+   setLatest(null);
+   setMessage('');
+
+   onAuthenticationLost(value);
+  }
+ }
+
+ async function load(nextPage=0){
+  const current=++generation.current;
+
+  if(demo){
+   setReleases([]);
+   return;
+  }
+
+  try{
+   const data=await request(
+    '/me/education-releases?page='+nextPage+'&size=50'
+   );
+
+   if(current!==generation.current)return;
+
+   setReleases(old=>
+    nextPage?[...old,...data.items]:data.items
+   );
+
+   setHasMore(Boolean(data.hasMore));
+   setPage(nextPage);
+
+  }catch(problem){
+   if(current===generation.current){
+    failed(problem);
+   }
+  }
+ }
+
+ const loadEducationWorkspace=useEffectEvent(()=>{
+  void load();
+ });
+
+ useEffect(()=>{
+  let active=true;
+
+  mounted.current=true;
+
+  queueMicrotask(()=>{
+   if(active){
+    loadEducationWorkspace();
+   }
+  });
+
+  return()=>{
+   active=false;
+   mounted.current=false;
+
+   invalidateGeneration();
+  };
+ },[demo,accountId,invalidateGeneration]);
+
+ useEffect(()=>{
+  if(error){
+   form.current
+    ?.querySelector<HTMLElement>('[role="alert"]')
+    ?.focus();
+  }
+ },[error]);
+
+ function open(value:EducationRelease){
+  setRecord(value);
+  setDraft(educationDraftFrom(value));
+  setAcademic({...value.academic});
+  setProductId(value.productId);
+  setStep(0);
+  setLatest(null);
+  setError(null);
+  setMessage('');
+ }
+
+ function start(copy?:EducationRelease){
+  setRecord(null);
+
+  const value=copy
+   ?educationDraftFrom(copy)
+   :emptyEducationDraft();
+
+  delete value.revision;
+
+  setDraft(value);
+  setAcademic(null);
+  setStep(0);
+  setLatest(null);
+  setError(null);
+  setMessage('');
+
+  if(copy)setProductId(copy.productId);
+ }
+
+ function field<K extends keyof EducationDraft>(
+  key:K,
+  value:EducationDraft[K]
+ ){
+  setDraft(old=>
+   old?{...old,[key]:value}:old
+  );
+ }
+
+ function next(index:number){
+  setStep(index);
+
+  requestAnimationFrame(()=>{
+   heading.current?.focus({preventScroll:true});
+   form.current?.scrollIntoView({block:'start'});
+  });
+ }
+
+ function merge(value:EducationRelease){
+  setReleases(old=>[
+   value,
+   ...old.filter(item=>item.id!==value.id)
+  ]);
+
+  open(value);
+ }
+
+ async function save(){
+  if(!draft||!productId||busy)return;
+
+  setBusy(true);
+  setError(null);
+
+  try{
+   if(demo){
+    const snapshot={
+     productId,
+     slug:productId,
+     title:products.find(p=>p.id===productId)?.title||'Sample project',
+     summary:'Illustrative private draft.',
+     language:'',
+     contribution:'Existing sample attribution.',
+     ...educationDraftBody(draft)
+    };
+
+    const value={
+     id:record?.id||crypto.randomUUID(),
+     productId,
+     revision:(record?.revision||0)+1,
+     status:'DRAFT',
+     snapshot,
+     academic:{
+      revision:1,
+      shareAcademicDetails:false
+     }
+    } as EducationRelease;
+
+    merge(value);
+
+    setMessage(
+     'Illustrative draft saved. No upload, platform review or purchase was performed.'
+    );
+
+    return;
+   }
+
+   const body=educationDraftBody(draft);
+
+   const value=await request(
+    record
+     ?'/me/education-releases/'+record.id
+     :'/me/college-projects/'+productId+'/releases',
+    {
+     method:record?'PATCH':'POST',
+     body:JSON.stringify(body)
+    }
+   );
+
+   merge(value);
+
+   setMessage(
+    'Draft saved. Unfinished fields stay private until submission and review.'
+   );
+
+  }catch(problem){
+   failed(problem);
+
+   if(problem instanceof ApiError&&problem.status===409){
+    setMessage(
+     'Your entered fields are retained. Inspect the latest saved revision before replacing them.'
+    );
+   }
+  }finally{
+   setBusy(false);
+  }
+ }
+
+ async function compare(){
+  if(!record||demo)return;
+
+  setBusy(true);
+
+  try{
+   setLatest(
+    await request('/me/education-releases/'+record.id)
+   );
+  }catch(problem){
+   failed(problem);
+  }finally{
+   setBusy(false);
+  }
+ }
+
+ async function sources(more=false){
+  if(demo){
+   setMessage(
+    'Preview source selection is illustrative. Connect an approved source version to submit a paid release.'
+   );
+   return;
+  }
+
+  setBusy(true);
+  setError(null);
+
+  try{
+   const nextPage=more?sourcePage+1:0;
+
+   const data=await request(
+    '/me/templates?page='+nextPage+'&size=50'
+   );
+
+   setTemplates(old=>
+    more?[...old,...data.items]:data.items
+   );
+
+   setSourcePage(nextPage);
+   setSourceHasMore(data.hasMore);
+
+  }catch(problem){
+   failed(problem);
+  }finally{
+   setBusy(false);
+  }
+ }
+
+ function chooseSource(value:string){
+  if(!value){
+   field('versionId',undefined);
+   return;
+  }
+
+  const [templateId,versionId]=value.split(':');
+
+  const template=templates.find(
+   item=>item.id===templateId
+  );
+
+  const version=template?.versions?.find(
+   item=>item.id===versionId
+  );
+
+  if(!version||!draft)return;
+
+  setDraft({
+   ...draft,
+   versionId,
+   package:{
+    ...draft.package,
+    licenseTerms:version.licenseTerms||''
+   }
+  });
+ }
+
+ async function upload(file:File|undefined){
+  if(!file||!record||!draft||demo||busy)return;
+
+  if(!draft.rightsConsent){
+   setError(new ApiError(
+    'Confirm your source rights before uploading.',
+    'RIGHTS_REQUIRED',
+    400
+   ));
+   return;
+  }
+
+  if(
+   file.size===0||
+   file.size>5*1024*1024||
+   !file.name.toLowerCase().endsWith('.zip')
+  ){
+   setError(new ApiError(
+    'Choose a nonempty source ZIP no larger than 5 MiB.',
+    'SOURCE_LIMIT',
+    400
+   ));
+   return;
+  }
+
+  setBusy(true);
+  setError(null);
+  setMessage('');
+
+  try{
+   const body=new FormData();
+
+   body.set('file',file);
+   body.set('revision',String(record.revision));
+   body.set('rightsConsent','true');
+
+   const uploaded:EducationRelease=await request(
+    '/me/education-releases/'+record.id+'/source',
+    {
+     method:'POST',
+     body
+    }
+   );
+
+   setRecord(uploaded);
+
+   setReleases(old=>[
+    uploaded,
+    ...old.filter(item=>item.id!==uploaded.id)
+   ]);
+
+   setDraft({
+    ...draft,
+    revision:uploaded.revision
+   });
+
+   setMessage(
+    'Private source ZIP inspected. Its exact files and checksum are shown below; confirm rights again before submission.'
+   );
+
+  }catch(problem){
+   failed(problem);
+  }finally{
+   setBusy(false);
+  }
+ }
+
+ async function submit(){
+  if(!record||!draft||demo||busy)return;
+
+  const issues=educationSubmissionIssues(
+   draft,
+   record.sourceBinding||record.snapshot.sourceBinding
+  );
+
+  if(issues.length){
+   setError(new ApiError(
+    issues.join(' '),
+    'INCOMPLETE_RELEASE',
+    400
+   ));
+   return;
+  }
+
+  setBusy(true);
+  setError(null);
+
+  try{
+   const saved:EducationRelease=await request(
+    '/me/education-releases/'+record.id,
+    {
+     method:'PATCH',
+     body:JSON.stringify(educationDraftBody(draft))
+    }
+   );
+
+   setRecord(saved);
+
+   setDraft({
+    ...draft,
+    revision:saved.revision
+   });
+
+   setReleases(old=>[
+    saved,
+    ...old.filter(item=>item.id!==saved.id)
+   ]);
+
+   merge(await request(
+    '/me/education-releases/'+record.id+'/submit',
+    {
+     method:'POST',
+     body:JSON.stringify({
+      revision:saved.revision,
+      rightsConsent:draft.rightsConsent
+     })
+    }
+   ));
+
+   setMessage(
+    'Exact source and category evidence submitted for private operator review.'
+   );
+
+  }catch(problem){
+   failed(problem);
+  }finally{
+   setBusy(false);
+  }
+ }
+
+ async function privacy(){
+  if(!record||!academic||demo)return;
+
+  setBusy(true);
+  setError(null);
+
+  try{
+   const value=await request(
+    '/me/education-releases/'+record.id+'/academic',
+    {
+     method:'PATCH',
+     body:JSON.stringify(academic)
+    }
+   );
+
+   const updated:EducationRelease=value.snapshot
+    ?value
+    :{...record,academic:value};
+
+   merge(updated);
+
+   setMessage(
+    'Academic visibility updated. Reviewed source and license terms remain unchanged.'
+   );
+
+  }catch(problem){
+   failed(problem);
+  }finally{
+   setBusy(false);
+  }
+ }
+
+ const editable=!record||record.status==='DRAFT';
+
+ const sourceOptions=templates
+  .filter(item=>
+   item.productId===productId&&item.status==='ACTIVE'
+  )
+  .flatMap(item=>
+   (item.versions||[])
+    .filter(version=>version.status==='APPROVED')
+    .map(version=>({
+     template:item,
+     version
+    }))
+  );
+
+ const issues=draft
+  ?educationSubmissionIssues(
+   draft,
+   record?.sourceBinding||record?.snapshot.sourceBinding
+  )
+  :[];
+
+ return (
+  <section
+   style={{marginTop:32}}
+   aria-label="Education releases"
+  >
+   <header className="kit-detail-head">
+    <div>
+     <h2>Reviewed education releases</h2>
+
+     <p>
+      Start with your approved college showcase.
+      Its accepted contribution and team authority
+      carry through; a source license does not confer
+      authorship.
+     </p>
+    </div>
+
+    <button
+     className="button primary"
+     disabled={busy||!products.length}
+     onClick={()=>start()}
+    >
+     New education release
+    </button>
+   </header>
+
+   <div className="form-field">
+    <label htmlFor="education-project">
+     Existing project showcase for releases
+    </label>
+
+    <select
+     id="education-project"
+     className="button"
+     value={productId}
+     disabled={busy||Boolean(draft)}
+     onChange={event=>setProductId(event.target.value)}
+    >
+     {products.map(product=>(
+      <option
+       value={product.id}
+       key={product.id}
+      >
+       {product.title}
+      </option>
+     ))}
+    </select>
+   </div>
+
+   <FormErrors
+    error={draft?null:error}
+    prefix="education-"
+   />
+
+   {message&&(
+    <p role="status" className="kit-notice">
+     {message}
+    </p>
+   )}
+
+   <div className="kit-grid">
+    {releases
+     .filter(value=>value.productId===productId)
+     .map(value=>(
+      <article
+       className="kit-record"
+       key={value.id}
+      >
+       <div className="kit-badges">
+        <span>
+         {educationModeLabel(value.snapshot.mode)}
+        </span>
+
+        <span>
+         {educationLabel(value.status)}
+        </span>
+
+        <span>
+         Revision {value.revision}
+        </span>
+       </div>
+
+       <h3>{value.snapshot.title}</h3>
+
+       {value.reviewReason&&(
+        <p>
+         Private review feedback: {value.reviewReason}
+        </p>
+       )}
+
+       <button
+        className="button"
+        disabled={busy}
+        onClick={()=>open(value)}
+       >
+        {value.status==='DRAFT'
+         ?'Edit private draft'
+         :'Inspect frozen release'}
+       </button>
+
+       {value.status!=='DRAFT'&&(
+        <button
+         className="button"
+         disabled={busy}
+         onClick={()=>start(value)}
+        >
+         Create corrected release
+        </button>
+       )}
+      </article>
+     ))}
+   </div>
+
+   {hasMore&&(
+    <button
+     className="button"
+     disabled={busy}
+     onClick={()=>void load(page+1)}
+    >
+     Load more private releases
+    </button>
+   )}
+
+   {draft&&(
+    <form
+     ref={form}
+     className="form kit-record"
+     onSubmit={event=>{
+      event.preventDefault();
+      void save();
+     }}
+     style={{
+      marginTop:24,
+      scrollMarginTop:'var(--studio-sticky-top, 100px)'
+     }}
+    >
+     <nav
+      aria-label="Education release steps"
+      className="kit-actions"
+     >
+      {[
+       'Details',
+       'Build / Evidence',
+       'Access / License',
+       'Review'
+      ].map((label,index)=>(
+       <button
+        type="button"
+        className={'button'+(step===index?' primary':'')}
+        aria-current={step===index?'step':undefined}
+        key={label}
+        onClick={()=>next(index)}
+       >
+        {index+1}. {label}
+       </button>
+      ))}
+     </nav>
+
+     <h3 tabIndex={-1} ref={heading}>
+      {[
+       'Details',
+       'Build / Evidence',
+       'Access / License',
+       'Review'
+      ][step]}
+     </h3>
+
+     <FormErrors
+      error={error}
+      prefix="education-"
+     />
+
+     {error?.status===409&&record&&(
+      <>
+       <button
+        type="button"
+        className="button"
+        disabled={busy}
+        onClick={()=>void compare()}
+       >
+        Inspect latest saved revision
+       </button>
+
+       {latest&&(
+        <details open>
+         <summary>
+          Latest server revision {latest.revision}
+         </summary>
+
+         <pre style={{
+          whiteSpace:'pre-wrap',
+          overflowWrap:'anywhere'
+         }}>
+          {JSON.stringify(latest.snapshot,null,2)}
+         </pre>
+
+         <button
+          type="button"
+          className="button"
+          onClick={()=>open(latest)}
+         >
+          Replace my entered fields with this saved revision
+         </button>
+        </details>
+       )}
+      </>
+     )}
+
+     {!editable&&(
+      <p className="kit-notice">
+       This submitted release is immutable.
+       Create a corrected release for source changes.
+       Academic consent can be changed independently below.
+      </p>
+     )}
+
+     <fieldset
+      disabled={busy||!editable}
+      style={{
+       border:0,
+       padding:0,
+       minWidth:0
+      }}
+     >
+
+      {step===0&&(
+       <>
+        <label htmlFor="education-category">
+         Release category
+        </label>
+
+        <select
+         id="education-category"
+         value={draft.category}
+         onChange={event=>{
+          const category=event.target.value;
+
+          setDraft({
+           ...draft,
+           category,
+           dataAiEvidence:isDataAiCategory(category)
+            ?draft.dataAiEvidence
+            :undefined
+          });
+         }}
+        >
+         {collegeCategories.map(([key,label])=>(
+          <option value={key} key={key}>
+           {label}
+          </option>
+         ))}
+        </select>
+
+        <label htmlFor="education-difficulty">
+         Difficulty
+        </label>
+
+        <select
+         id="education-difficulty"
+         value={draft.difficulty}
+         onChange={event=>
+          field('difficulty',event.target.value)
+         }
+        >
+         {[
+          'BEGINNER',
+          'INTERMEDIATE',
+          'ADVANCED'
+         ].map(value=>(
+          <option value={value} key={value}>
+           {educationLabel(value)}
+          </option>
+         ))}
+        </select>
+
+        <p>
+         Title, problem, outcome, language and contribution
+         come from your existing reviewed college context.
+         Use “Edit college context” to correct those facts.
+        </p>
+       </>
+      )}
+
+      {step===1&&(
+       <>
+        <EducationDataAiEditor
+         category={draft.category}
+         value={draft.dataAiEvidence}
+         onChange={value=>field('dataAiEvidence',value)}
+        />
+
+        {(educationEvidence[draft.category]||[])
+         .map(([key,label])=>(
+          <div
+           key={key}
+           className="form-field"
+          >
+           <label htmlFor={'education-evidence-'+key}>
+            {label}
+           </label>
+
+           <textarea
+            id={'education-evidence-'+key}
+            maxLength={4000}
+            value={draft.categoryEvidence[key]||''}
+            onChange={event=>
+             field('categoryEvidence',{
+              ...draft.categoryEvidence,
+              [key]:event.target.value
+             })
+            }
+           />
+          </div>
+         ))}
+
+        <label htmlFor="education-demoMode">
+         Demonstration availability
+        </label>
+
+        <select
+         id="education-demoMode"
+         value={draft.demoMode}
+         onChange={event=>
+          field('demoMode',event.target.value)
+         }
+        >
+         <option value="SOURCE_ONLY">
+          Source only · run locally
+         </option>
+
+         <option value="EXTERNAL">
+          External demonstration · unverified link
+         </option>
+
+         <option value="HOSTED">
+          Existing eligible hosted deployment
+         </option>
+        </select>
+
+        {draft.demoMode!=='SOURCE_ONLY'&&(
+         <>
+          <label htmlFor="education-demoUrl">
+           Demonstration HTTPS URL
+          </label>
+
+          <input
+           id="education-demoUrl"
+           maxLength={1000}
+           value={draft.demoUrl}
+           onChange={event=>
+            field('demoUrl',event.target.value)
+           }
+          />
+
+          <p>
+           {draft.demoMode==='HOSTED'
+            ?'Current deployment eligibility is checked by the server.'
+            :'External links are outside platform verification.'}
+          </p>
+         </>
+        )}
+
+        <h4>Reusable component attribution</h4>
+
+        <Link
+         className="button"
+         href="/components"
+         target="_blank"
+         rel="noopener noreferrer"
+        >
+         Inspect component licenses ↗
+        </Link>
+
+        {draft.componentLinks.map((link,index)=>(
+         <div
+          key={index}
+          className="form-field"
+         >
+          <label htmlFor={'education-component-'+index}>
+           Component UUID {index+1}
+          </label>
+
+          <input
+           id={'education-component-'+index}
+           value={link.componentId}
+           onChange={event=>
+            field('componentLinks',
+             draft.componentLinks.map((item,i)=>
+              i===index
+               ?{...item,componentId:event.target.value}
+               :item
+             )
+            )
+           }
+          />
+
+          <label htmlFor={'education-component-revision-'+index}>
+           Exact component revision {index+1}
+          </label>
+
+          <input
+           id={'education-component-revision-'+index}
+           type="number"
+           min={1}
+           value={link.revision}
+           onChange={event=>
+            field('componentLinks',
+             draft.componentLinks.map((item,i)=>
+              i===index
+               ?{...item,revision:Number(event.target.value)}
+               :item
+             )
+            )
+           }
+          />
+
+          <label htmlFor={'education-component-license-'+index}>
+           Exact component license {index+1}
+          </label>
+
+          <input
+           id={'education-component-license-'+index}
+           maxLength={200}
+           value={link.license||''}
+           onChange={event=>
+            field('componentLinks',
+             draft.componentLinks.map((item,i)=>
+              i===index
+               ?{...item,license:event.target.value}
+               :item
+             )
+            )
+           }
+          />
+
+          <label htmlFor={'education-attribution-'+index}>
+           Attribution & license notice {index+1}
+          </label>
+
+          <textarea
+           id={'education-attribution-'+index}
+           maxLength={1000}
+           value={link.attribution}
+           onChange={event=>
+            field('componentLinks',
+             draft.componentLinks.map((item,i)=>
+              i===index
+               ?{...item,attribution:event.target.value}
+               :item
+             )
+            )
+           }
+          />
+
+          <button
+           type="button"
+           className="button"
+           onClick={()=>
+            field('componentLinks',
+             draft.componentLinks.filter((_,i)=>i!==index)
+            )
+           }
+          >
+           Remove component {index+1}
+          </button>
+         </div>
+        ))}
+
+        <button
+         type="button"
+         className="button"
+         disabled={draft.componentLinks.length>=20}
+         onClick={()=>
+          field('componentLinks',[
+           ...draft.componentLinks,
+           {
+            componentId:'',
+            revision:1,
+            license:'',
+            attribution:''
+           }
+          ])
+         }
+        >
+         Add component release
+        </button>
+       </>
+      )}
+
+      {step===2&&(
+       <>
+        <label htmlFor="education-mode">
+         Access mode
+        </label>
+
+        <select
+         id="education-mode"
+         value={draft.mode}
+         onChange={event=>
+          field(
+           'mode',
+           event.target.value as EducationDraft['mode']
+          )
+         }
+        >
+         {educationModes.map(([key,label])=>(
+          <option value={key} key={key}>
+           {label}
+          </option>
+         ))}
+        </select>
+
+        {educationPackageLists.map(([key,label])=>(
+         <div key={key} className="form-field">
+          <label htmlFor={'education-package-'+key}>
+           {label} · one item per line
+          </label>
+
+          <textarea
+           id={'education-package-'+key}
+           maxLength={60000}
+           value={draft.package[key].join('\n')}
+           onChange={event=>
+            field('package',{
+             ...draft.package,
+             [key]:event.target.value.split('\n')
+            })
+           }
+          />
+         </div>
+        ))}
+
+        {([
+         ['supportTerms','Support scope & duration'],
+         ['licenseTerms','License & attribution terms']
+        ] as const).map(([key,label])=>(
+         <div key={key} className="form-field">
+          <label htmlFor={'education-package-'+key}>
+           {label}
+          </label>
+
+          <textarea
+           id={'education-package-'+key}
+           maxLength={key==='supportTerms'?4000:8000}
+           value={draft.package[key]}
+           onChange={event=>
+            field('package',{
+             ...draft.package,
+             [key]:event.target.value
+            })
+           }
+          />
+         </div>
+        ))}
+
+        {draft.mode==='FREE'&&(
+         <>
+          <p>
+           Save the unfinished draft first, then upload
+           an original ZIP up to 5 MiB containing README,
+           LICENSE and a supported build manifest.
+          </p>
+
+          <p>
+           Each builder can retain up to 100 free source
+           packages across all projects. Replacing a draft
+           package also uses this lifetime budget.
+          </p>
+
+          <label htmlFor="education-file">
+           Original free source ZIP
+          </label>
+
+          <input
+           id="education-file"
+           type="file"
+           accept=".zip,application/zip"
+           disabled={!record||demo}
+           onChange={event=>{
+            const file=event.currentTarget.files?.[0];
+
+            event.currentTarget.value="";
+
+            void upload(file);
+           }}
+          />
+         </>
+        )}
+
+        {draft.mode==='PAID'&&(
+         <>
+          <p>
+           Bind an owned approved version for this product.
+           Its immutable license is copied into this release.
+           Live merchant activation is required for public
+           checkout.
+          </p>
+
+          <button
+           type="button"
+           className="button"
+           onClick={()=>void sources()}
+          >
+           Find my approved source versions
+          </button>
+
+          <label htmlFor="education-versionId">
+           Approved source version
+          </label>
+
+          <select
+           id="education-versionId"
+           value={
+            sourceOptions.find(
+             option=>option.version.id===draft.versionId
+            )
+             ?sourceOptions.find(
+              option=>option.version.id===draft.versionId
+             )!.template.id+':'+draft.versionId
+             :''
+           }
+           onChange={event=>chooseSource(event.target.value)}
+          >
+           <option value="">
+            Choose an owned approved source version
+           </option>
+
+           {sourceOptions.map(({template,version})=>(
+            <option
+             key={version.id}
+             value={template.id+':'+version.id}
+            >
+             {template.title} · {version.version}
+             {' · '}
+             {templatePrice(template.priceMinor)}
+            </option>
+           ))}
+          </select>
+
+          {draft.versionId&&(
+           <p style={{overflowWrap:'anywhere'}}>
+            Bound source version: {draft.versionId}
+           </p>
+          )}
+
+          {sourceHasMore&&(
+           <button
+            type="button"
+            className="button"
+            onClick={()=>void sources(true)}
+           >
+            Load more owned source templates
+           </button>
+          )}
+
+          <Link
+           className="button"
+           href="/workspace/templates"
+          >
+           Prepare a source version ↗
+          </Link>
+         </>
+        )}
+
+        <label
+         className="kit-consent"
+         style={{
+          minHeight:44,
+          alignItems:'center'
+         }}
+        >
+         <input
+          type="checkbox"
+          checked={draft.rightsConsent}
+          onChange={event=>
+           field('rightsConsent',event.target.checked)
+          }
+         />
+
+         I have source rights and accurately acknowledge
+         existing accepted contributions and licenses.
+        </label>
+       </>
+      )}
+
+      {step===3&&(
+       <>
+        <p>
+         Confirm the exact source package, category evidence
+         and attribution. The server freezes this revision
+         when submitted; publication requires separate
+         operator review.
+        </p>
+
+        <EducationPackage
+         evidence={draft.dataAiEvidence}
+         category={draft.category}
+         pack={draft.package}
+         binding={
+          record?.sourceBinding||
+          record?.snapshot.sourceBinding
+         }
+         showcase={draft.mode==='SHOWCASE'}
+        />
+
+        {issues.length>0&&(
+         <>
+          <h4>Still needed before submission</h4>
+
+          <ul>
+           {issues.map(value=>(
+            <li key={value}>{value}</li>
+           ))}
+          </ul>
+         </>
+        )}
+
+        <label
+         className="kit-consent"
+         style={{
+          minHeight:44,
+          alignItems:'center'
+         }}
+        >
+         <input
+          type="checkbox"
+          checked={draft.rightsConsent}
+          onChange={event=>
+           field('rightsConsent',event.target.checked)
+          }
+         />
+
+         I confirm rights, contribution and the exact release license.
+        </label>
+
+        <button
+         className="button primary"
+         type="button"
+         disabled={!record||demo||Boolean(issues.length)}
+         onClick={()=>void submit()}
+        >
+         Submit exact revision for review
+        </button>
+       </>
+      )}
+
+     </fieldset>
+
+     <div className="kit-actions">
+      {step<3&&(
+       <button
+        type="button"
+        className="button"
+        disabled={busy}
+        onClick={()=>next(step+1)}
+       >
+        Next step
+       </button>
+      )}
+
+      {editable&&(
+       <button
+        className="button"
+        disabled={busy||!productId}
+        type="button"
+        onClick={()=>void save()}
+       >
+        {busy?'Saving…':'Save unfinished draft'}
+       </button>
+      )}
+
+      <button
+       type="button"
+       className="button"
+       disabled={busy}
+       onClick={()=>{
+        setDraft(null);
+        setRecord(null);
+        setAcademic(null);
+        setError(null);
+       }}
+      >
+       Close editor
+      </button>
+     </div>
+
+     <p>
+      Saving a draft does not publish it.
+      Source-only, external and currently eligible hosted
+      execution are disclosed separately.
+     </p>
+    </form>
+   )}
+
+   {record&&academic&&(
+    <section className="kit-record">
+     <h3>Current academic visibility</h3>
+
+     <p>
+      Private by default. Withdraw sharing independently
+      of immutable source terms.
+     </p>
+
+     {([
+      ['institution','Institution',160],
+      ['academicYear','Academic year',40],
+      ['branch','Branch / department',100]
+     ] as const).map(([key,label,max])=>(
+      <div
+       key={key}
+       className="form-field"
+      >
+       <label htmlFor={'education-academic-'+key}>
+        {label}
+       </label>
+
+       <input
+        id={'education-academic-'+key}
+        maxLength={max}
+        disabled={busy}
+        value={academic[key]||''}
+        onChange={event=>
+         setAcademic({
+          ...academic,
+          [key]:event.target.value
+         })
+        }
+       />
+      </div>
+     ))}
+
+     <label
+      className="kit-consent"
+      style={{
+       minHeight:44,
+       alignItems:'center'
+      }}
+     >
+      <input
+       type="checkbox"
+       checked={academic.shareAcademicDetails}
+       disabled={busy}
+       onChange={event=>
+        setAcademic({
+         ...academic,
+         shareAcademicDetails:event.target.checked
+        })
+       }
+      />
+
+      Share my current academic details publicly
+     </label>
+
+     <button
+      className="button"
+      disabled={busy||demo}
+      onClick={()=>void privacy()}
+     >
+      Update academic visibility
+     </button>
+    </section>
+   )}
+  </section>
+ );
 }
