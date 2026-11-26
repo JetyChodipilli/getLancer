@@ -36,12 +36,29 @@ async function mount(page:Page){
   createRoot(document.getElementById('root')).render(<Workspace/>);
  `,loader:'tsx',resolveDir:process.cwd()},bundle:true,write:false,loader:{'.css':'empty'},platform:'browser',format:'iife',jsx:'automatic',define:{'process.env.NODE_ENV':'"test"'},plugins:[{name:'core-account-boundary-fixture',setup(plugin){
   plugin.onResolve({filter:/^next\/link$/},()=>({path:'link',namespace:'boundary-fixture'}));
+  // The standalone browser fixture does not provide Next's image runtime.
+  plugin.onResolve({filter:/^next\/image$/},()=>({path:'image',namespace:'boundary-image-fixture'}));
+  plugin.onLoad({filter:/^image$/,namespace:'boundary-image-fixture'},()=>({
+   contents:'export default function Image({src,alt,unoptimized,...props}){return <img src={src} alt={alt} {...props}/>}',
+   loader:'jsx',resolveDir:process.cwd()
+  }));
   plugin.onResolve({filter:/workspace-frame$/},()=>({path:'frame',namespace:'boundary-fixture'}));
   plugin.onResolve({filter:/use-taxonomy$/},()=>({path:'taxonomy',namespace:'boundary-fixture'}));
   plugin.onLoad({filter:/.*/,namespace:'boundary-fixture'},args=>({contents:args.path==='link'?'export default function Link({href,children,prefetch,...props}){return <a href={href} {...props}>{children}</a>}':args.path==='frame'?'export function WorkspaceFrame({title,children,actions}){return <main><h1>{title}</h1>{actions}{children}</main>}':'export function useTaxonomy(){return {categories:["Business"],technologies:["React"],taxonomyError:""}}',loader:'jsx',resolveDir:process.cwd()}));
  }}]})).outputFiles[0].text;
  await page.route('**/core-account-boundary-fixture',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Core account boundary</title></head><body><div id="root"></div></body></html>'}));
- await page.goto('/core-account-boundary-fixture');await page.addScriptTag({content:script});
+ await page.goto('/core-account-boundary-fixture');
+ const startupErrors:string[]=[];
+ const captureStartupError=(error:Error)=>{startupErrors.push(error.message);};
+ page.on('pageerror',captureStartupError);
+ try{
+  await page.addScriptTag({content:script});
+  const initialized=await page.evaluate(()=>{
+   const fixture=window as unknown as Harness;
+   return [fixture.calls,fixture.pending,fixture.pendingJSON,fixture.downloads,fixture.createdURLs,fixture.revokedURLs].every(Array.isArray);
+  });
+  expect(initialized,'Browser fixture initialization failed: '+(startupErrors.join('; ')||'request queues were not initialized')).toBe(true);
+ }finally{page.off('pageerror',captureStartupError);}
 }
 async function pending(page:Page,path:string,method='GET',account?:string){
  await expect.poll(()=>page.evaluate(({path,method,account})=>(window as unknown as Harness).pending.some(call=>call.path===path&&call.method===method&&(account===undefined||call.account===account)),{path,method,account})).toBe(true);
