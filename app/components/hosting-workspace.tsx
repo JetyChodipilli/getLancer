@@ -1,6 +1,6 @@
 'use client';
 
-import {useEffect,useRef,useState} from 'react';
+import {useCallback,useEffect,useEffectEvent,useRef,useState} from 'react';
 import Link from 'next/link';
 import {ArrowUpRight,CheckCircle2,FileArchive,RefreshCw,ShieldCheck,Upload} from 'lucide-react';
 import {Card,CardContent,CardHeader} from '@/components/ui/card';
@@ -41,7 +41,28 @@ export default function HostingWorkspace({demo=false}:{demo?:boolean}){
     }catch(problem){if(mounted.current&&run===generation.current){clear();setError((failureContext?failureContext+' ':'')+(problem as Error).message);}return false;}
     finally{if(mounted.current&&run===generation.current)setLoading(false);}
   }
-  useEffect(()=>{let active=true;mounted.current=true;queueMicrotask(()=>{if(!active)return;const query=new URLSearchParams(window.location.search);setSourceHint(query.get('productId')||'');void load(query.get('demoId')||'');});return()=>{active=false;mounted.current=false;generation.current++;operation.current++;uploadFile.current=null;};},[]);
+  const invalidateHostingOperations = useCallback(() => {
+    generation.current++;
+    operation.current++;
+    uploadFile.current = null;
+  }, []);
+  const loadHostingWorkspace = useEffectEvent(() => {
+    const query = new URLSearchParams(window.location.search);
+    setSourceHint(query.get('productId') || '');
+    void load(query.get('demoId') || '');
+  });
+  useEffect(() => {
+    let active = true;
+    mounted.current = true;
+    queueMicrotask(() => {
+      if (active) loadHostingWorkspace();
+    });
+    return () => {
+      active = false;
+      mounted.current = false;
+      invalidateHostingOperations();
+    };
+  }, [invalidateHostingOperations]);
   async function change(work:()=>unknown|Promise<unknown>,message:string,id=selected,page=records.page){
     const run=++generation.current,op=++operation.current;setBusy(true);setError('');setNote('');
     try{
