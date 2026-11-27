@@ -103,6 +103,7 @@ class ProductProfileTrustAuthorityIntegrationTest {
   void profilePictureUsesCurrentAccountAndPublishedBuilderAuthority() throws Exception {
     String owner = "product-authority-builder", stranger = "product-authority-admin";
     String upload = "/api/v1/me/avatar", publicProfile = "/api/v1/builders/" + owner;
+    String publicProject = "/api/v1/products/" + product;
     var png = new java.io.ByteArrayOutputStream();
     javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(720, 300,
         java.awt.image.BufferedImage.TYPE_INT_RGB), "png", png);
@@ -124,6 +125,8 @@ class ProductProfileTrustAuthorityIntegrationTest {
         .andExpect(jsonPath("$.avatarUrl").value(first)).andExpect(jsonPath("$.profile.image").doesNotExist());
     mvc.perform(get(publicProfile)).andExpect(status().isOk())
         .andExpect(jsonPath("$.avatarUrl").value(first)).andExpect(jsonPath("$.avatar_id").doesNotExist());
+    mvc.perform(get(publicProject)).andExpect(status().isOk())
+        .andExpect(jsonPath("$.builderAvatarUrl").value(first));
     var publicBytes = mvc.perform(get(first)).andExpect(status().isOk())
         .andExpect(content().contentType("image/jpeg")).andExpect(header().string("X-Content-Type-Options", "nosniff"))
         .andExpect(header().string("Cache-Control", containsString("no-store"))).andReturn().getResponse().getContentAsByteArray();
@@ -131,12 +134,14 @@ class ProductProfileTrustAuthorityIntegrationTest {
 
     db.update("UPDATE developer_profiles SET approval_status='PROFILE_PENDING' WHERE user_id=?", builder);
     mvc.perform(get(first)).andExpect(status().isNotFound());
+    mvc.perform(get(publicProject)).andExpect(status().isNotFound());
     mvc.perform(as(get(first), stranger)).andExpect(status().isNotFound());
     mvc.perform(as(get(first), owner)).andExpect(status().isOk());
     db.update("UPDATE developer_profiles SET approval_status='APPROVED' WHERE user_id=?", builder);
     db.update("DELETE FROM user_roles WHERE user_id=? AND role='DEVELOPER'", builder);
     mvc.perform(get(first)).andExpect(status().isNotFound());
     mvc.perform(get(publicProfile)).andExpect(status().isOk()).andExpect(jsonPath("$.avatarUrl").doesNotExist());
+    mvc.perform(get(publicProject)).andExpect(status().isOk()).andExpect(jsonPath("$.builderAvatarUrl").doesNotExist());
     db.update("INSERT INTO user_roles(user_id,role) VALUES(?,'DEVELOPER')", builder);
 
     var after = mvc.perform(avatarRequest(upload, owner, file)).andExpect(status().isOk()).andReturn();
@@ -144,6 +149,8 @@ class ProductProfileTrustAuthorityIntegrationTest {
     assertNotEquals(first, replacement);
     mvc.perform(get(first)).andExpect(status().isNotFound());
     mvc.perform(get(replacement)).andExpect(status().isOk());
+    mvc.perform(get(publicProject)).andExpect(status().isOk())
+        .andExpect(jsonPath("$.builderAvatarUrl").value(replacement));
     mvc.perform(as(delete(upload), stranger).header("X-GetLancer-Account", builder))
         .andExpect(status().isUnauthorized());
     mvc.perform(as(delete(upload), owner)).andExpect(status().isNoContent());
@@ -151,6 +158,7 @@ class ProductProfileTrustAuthorityIntegrationTest {
     mvc.perform(as(get("/api/v1/me"), owner)).andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(builder.toString())).andExpect(jsonPath("$.avatarUrl").doesNotExist());
     mvc.perform(get(publicProfile)).andExpect(status().isOk()).andExpect(jsonPath("$.avatarUrl").doesNotExist());
+    mvc.perform(get(publicProject)).andExpect(status().isOk()).andExpect(jsonPath("$.builderAvatarUrl").doesNotExist());
   }
 
   private MockHttpServletRequestBuilder avatarRequest(String path, String actor, MockMultipartFile file) {

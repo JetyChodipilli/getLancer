@@ -261,9 +261,13 @@ public class ProductService {
   public Map<String, Object> detail(String slug) {
     var rows = repository.findPublic(slug);
     if (rows.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Project not found.");
-    var result = dto(rows.get(0));
+    var project = rows.get(0);
+    var result = dto(project);
+    UUID builder = (UUID) project.get("owner_user_id");
     result.put("repositoryVerified", repository.matchingVerificationCount(slug) > 0);
-    result.put("reviewSummary", reviewSummary((UUID) rows.get(0).get("owner_user_id")));
+    result.put("reviewSummary", reviewSummary(builder));
+    String avatar = AvatarService.publicUrlFor(db, builder);
+    if (avatar != null) result.put("builderAvatarUrl", avatar);
     return result;
   }
 

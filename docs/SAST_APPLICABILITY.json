@@ -591,7 +591,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/products/ProductService.java",
-      "sha256": "2cdcb63345cebfc3bdcdb27bb5b2b6ace6bab66ad6e3661d796043e30d4e7826"
+      "sha256": "6c33776a9a93b73f42f8da3ecab71badc63b1ef3eb6fb3317a58b4656ac1e1b4"
     },
     {
       "path": "backend/src/main/java/com/getlancer/products/ProductsController.java",
@@ -611,7 +611,7 @@
     },
     {
       "path": "backend/src/main/java/com/getlancer/profiles/AvatarService.java",
-      "sha256": "da956dc53917f86af66cfbde1314feb3e8218f114abf415d61a5c0cd862ffc9c"
+      "sha256": "291d0dfb88c01b24af36cc5b424956e8e857d694965251a82f3d7a572b1d17ad"
     },
     {
       "path": "backend/src/main/java/com/getlancer/profiles/ProfileController.java",
@@ -1273,7 +1273,7 @@
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/ProductProfileTrustAuthorityIntegrationTest.java",
-      "sha256": "ae4416a17b1aa9e8d038b3453dc63958c1efb26a050fd7a835b6de0cf4abb33f"
+      "sha256": "91c6d3c3b89abb80e0d0728f20914c558371bfe8c4655cfd43c534ca90a68d0f"
     },
     {
       "path": "backend/src/test/java/com/getlancer/integration/PublishingAuditRegressionTest.java",

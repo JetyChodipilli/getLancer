@@ -50,6 +50,16 @@ async function workspace(page:Page,tab:'showcases'|'inquiries'|'requests'|'profi
  await page.goto('/workspace?tab='+tab);
  await expect(page.getByRole('tab',{name:{showcases:'Showcases',requests:'My requests',profile:'Profile',inquiries:/^Inquiries \(/}[tab],exact:tab!=='inquiries'})).toHaveAttribute('aria-selected','true');
 }
+async function uploadProfilePicture(page:Page){
+ const bytes=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEElEQVR4nGNQSjsDRAwQCgAilgVRqmC7UQAAAABJRU5ErkJggg==','base64');
+ await page.getByLabel('Choose a profile picture',{exact:true}).setInputFiles({name:'builder-picture.png',mimeType:'image/png',buffer:bytes});
+ const response=await mutation(page,'/me/avatar',()=>page.getByRole('button',{name:'Save picture',exact:true}).click(),200,'PUT');
+ const {avatarUrl}=await response.json();
+ assert.ok(typeof avatarUrl==='string');
+ assert.match(avatarUrl,/^\/api\/v1\/profile-avatars\/[a-f0-9-]{36}$/);
+ await expect(page.getByRole('status').filter({hasText:'Profile picture saved.'})).toBeVisible();
+ return avatarUrl;
+}
 async function choose(page:Page,scope:Locator,label:string,option:string){
  await scope.getByRole('combobox',{name:label,exact:true}).click();
  await page.getByRole('option',{name:option,exact:true}).click();
@@ -140,12 +150,7 @@ test('E2E-01 developer signs up, verifies delivered email, submits a profile and
   await page.getByLabel('Business categories',{exact:true}).fill('Inventory');
   await mutation(page,'/developer/profile',()=>page.getByRole('button',{name:'Save profile',exact:true}).click(),200,'PUT');
   await expect(page.getByRole('status').filter({hasText:'Profile saved.'})).toBeVisible();
-  const pictureBytes=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEElEQVR4nGNQSjsDRAwQCgAilgVRqmC7UQAAAABJRU5ErkJggg==','base64');
-  await page.getByLabel('Choose a profile picture',{exact:true}).setInputFiles({name:'builder-picture.png',mimeType:'image/png',buffer:pictureBytes});
-  const uploadedPicture=await mutation(page,'/me/avatar',()=>page.getByRole('button',{name:'Save picture',exact:true}).click(),200,'PUT');
-  const {avatarUrl}=await uploadedPicture.json();
-  assert.match(avatarUrl,/^\/api\/v1\/profile-avatars\/[a-f0-9-]{36}$/);
-  await expect(page.getByRole('status').filter({hasText:'Profile picture saved.'})).toBeVisible();
+  const avatarUrl=await uploadProfilePicture(page);
   await expect(page.getByLabel('Choose a replacement picture',{exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:/^Account menu for /}).locator('img')).toHaveAttribute('src',avatarUrl);
   await mutation(page,'/developer/profile/submit',()=>page.getByRole('button',{name:'Submit profile for approval',exact:true}).click());
@@ -168,7 +173,9 @@ test('E2E-02 publishes a new draft with a real screenshot, live URL, review and 
  const state=initial(info,'publication'),title=state.builder.displayName+' showcase',failures=errors(page);
  const admin=await actorPage(browser,info),visitor=await actorPage(browser,info);
  try{
-  await login(page,state.builder);await workspace(page,'showcases');
+  await login(page,state.builder);await workspace(page,'profile');
+  const avatarUrl=await uploadProfilePicture(page);
+  await workspace(page,'showcases');
   await page.getByRole('button',{name:'New draft',exact:true}).click();
   const dialog=page.getByRole('dialog');
   await dialog.getByLabel('Title',{exact:true}).fill(title);
@@ -180,8 +187,18 @@ test('E2E-02 publishes a new draft with a real screenshot, live URL, review and 
   await choose(page,dialog,'Choose category','Inventory');
   await dialog.getByRole('checkbox',{name:'I have permission to showcase this work.',exact:true}).check();
   const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEElEQVR4nGNQSjsDRAwQCgAilgVRqmC7UQAAAABJRU5ErkJggg==','base64');
-  await dialog.getByLabel('Upload preview media',{exact:true}).setInputFiles({name:'v1-stock-cover.png',mimeType:'image/png',buffer:png});
-  await expect(dialog.getByRole('img',{name:'Listing cover preview',exact:true})).toHaveJSProperty('naturalWidth',2);
+  const coverPng=Buffer.from(await page.evaluate(()=>{
+   const canvas=document.createElement('canvas');
+   canvas.width=640;canvas.height=256;
+   const context=canvas.getContext('2d');
+   if(!context)throw Error('Cannot generate the synthetic showcase cover.');
+   context.fillStyle='#233746';context.fillRect(0,0,640,256);
+   context.fillStyle='#a6c8ff';context.fillRect(16,16,608,224);
+   context.fillStyle='#233746';context.fillRect(32,36,576,24);context.fillRect(32,82,200,138);
+   return canvas.toDataURL('image/png').split(',')[1];
+  }),'base64');
+  await dialog.getByLabel('Upload preview media',{exact:true}).setInputFiles({name:'v1-stock-cover.png',mimeType:'image/png',buffer:coverPng});
+  await expect(dialog.getByRole('img',{name:'Listing cover preview',exact:true})).toHaveJSProperty('naturalWidth',640);
   const [draft,cover]=await Promise.all([
    mutation(page,'/developer/products',()=>dialog.getByRole('button',{name:'Save draft',exact:true}).click(),201),
    page.waitForResponse(response=>/\/api\/v1\/developer\/products\/[a-f0-9-]+\/cover$/.test(new URL(response.url()).pathname)&&response.request().method()==='POST'),
@@ -229,7 +246,27 @@ test('E2E-02 publishes a new draft with a real screenshot, live URL, review and 
   const detailPath=await detailLink.getAttribute('href');assert.match(detailPath||'',/^\/products\/[a-z0-9-]+$/);
   await detailLink.click();await expect(visitor.page).toHaveURL(detailPath!);
   await expect(visitor.page.getByRole('heading',{name:title,level:1,exact:true})).toBeVisible();
-  await expect(visitor.page.getByRole('img',{name:title+' project screenshot',exact:true})).toHaveJSProperty('naturalWidth',2);
+  const screenshot=visitor.page.getByRole('img',{name:title+' project screenshot',exact:true});
+  await expect(screenshot).toHaveAttribute('src','/api/v1/media/'+created.id+'?variant=cover');
+  await expect(screenshot).toHaveJSProperty('naturalWidth',640);
+  await expect(screenshot).toHaveJSProperty('naturalHeight',256);
+  const layout=await screenshot.evaluate((image:HTMLImageElement)=>{
+   const frame=image.closest('.detailpreview');
+   if(!frame)throw Error('The primary screenshot needs a dedicated media frame.');
+   const imageBox=image.getBoundingClientRect();
+   const frameBox=frame.getBoundingClientRect();
+   const {paddingTop,paddingRight,paddingBottom,paddingLeft}=getComputedStyle(frame);
+   return {ratio:imageBox.width/imageBox.height,objectFit:getComputedStyle(image).objectFit,heightDifference:frameBox.height-imageBox.height,padding:[paddingTop,paddingRight,paddingBottom,paddingLeft]};
+  });
+  expect(layout.ratio).toBeCloseTo(640/256,2);
+  expect(layout.objectFit).toBe('contain');
+  expect(layout.padding).toEqual(['6px','6px','6px','6px']);
+  expect(layout.heightDifference).toBeGreaterThanOrEqual(12);
+  expect(layout.heightDifference).toBeLessThanOrEqual(16);
+  const builderCard=visitor.page.getByRole('complementary',{name:state.builder.displayName,exact:true});
+  const builderAvatar=builderCard.locator('.profile-avatar img');
+  await expect(builderAvatar).toHaveAttribute('src',avatarUrl);
+  await expect.poll(()=>builderAvatar.evaluate((image:HTMLImageElement)=>image.naturalWidth)).toBeGreaterThan(0);
   await expect(visitor.page.getByRole('link',{name:'Open live demo',exact:true})).toHaveAttribute('href','https://example.com/getlancer-v1-demo');
   await reflow(visitor.page);await visitor.page.screenshot({path:info.outputPath('v1-publication.png'),fullPage:true});expect(failures).toEqual([]);
  }finally{await Promise.allSettled([admin.context.close(),visitor.context.close()]);}
