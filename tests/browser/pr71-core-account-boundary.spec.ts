@@ -14,9 +14,10 @@ const request=(id='request-a',status='NOT_HIRED')=>({id,projectTitle:'Private ac
 const notification=(id='notice-a')=>({id,title:'Private actor A notification',created_at:'2026-11-05T00:00:00Z'});
 const proofProduct={id:'owned-a',slug:'owned-a',title:'Private actor A showcase',summary:'Private original work',description:'Private original work with evidence.',category:'Business',technology:'React',projectType:'SAAS',builder:'Actor A',builderSlug:'actor-a',availability:'AVAILABLE_NOW',contribution:'Built the original implementation.',approvalStatus:'DRAFT',lifecycleStatus:'ACTIVE',visibility:'PUBLIC',availableForSimilarWork:true,updatedAt:'2026-11-05T00:00:00Z'};
 const proofBase='/api/v1/developer/products/owned-a';
+let workspaceFixture:Promise<string>|undefined;
 
 async function mount(page:Page){
- const script=(await build({stdin:{contents:`
+ const script=await (workspaceFixture??=build({stdin:{contents:`
   import {createRoot} from 'react-dom/client';import Workspace from './app/workspace/page';
   window.calls=[];window.pending=[];window.pendingJSON=[];window.downloads=[];window.createdURLs=[];window.revokedURLs=[];
   const createURL=URL.createObjectURL.bind(URL),revokeURL=URL.revokeObjectURL.bind(URL),schedule=window.setTimeout.bind(window),cancel=window.clearTimeout.bind(window),exportTimers=new Map();let timerId=-1;
@@ -45,7 +46,7 @@ async function mount(page:Page){
   plugin.onResolve({filter:/workspace-frame$/},()=>({path:'frame',namespace:'boundary-fixture'}));
   plugin.onResolve({filter:/use-taxonomy$/},()=>({path:'taxonomy',namespace:'boundary-fixture'}));
   plugin.onLoad({filter:/.*/,namespace:'boundary-fixture'},args=>({contents:args.path==='link'?'export default function Link({href,children,prefetch,...props}){return <a href={href} {...props}>{children}</a>}':args.path==='frame'?'export function WorkspaceFrame({title,children,actions}){return <main><h1>{title}</h1>{actions}{children}</main>}':'export function useTaxonomy(){return {categories:["Business"],technologies:["React"],taxonomyError:""}}',loader:'jsx',resolveDir:process.cwd()}));
- }}]})).outputFiles[0].text;
+ }}]}).then(result=>result.outputFiles[0].text));
  await page.route('**/core-account-boundary-fixture',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Core account boundary</title></head><body><div id="root"></div></body></html>'}));
  await page.goto('/core-account-boundary-fixture');
  const startupErrors:string[]=[];
@@ -100,6 +101,62 @@ async function finishProofConfirmation(page:Page){
 
 test('proof upload confirms its staged bytes only after a fresh actor and private bundle',async({page})=>{
  await stageProofUpload(page);await respond(page,'/api/v1/me',user(A));await records(page,A,'ACTIVE',first(),first([proofProduct]));await finishProofConfirmation(page);
+});
+
+test('a builder approval denial keeps the authenticated workspace and profile tab',async({page})=>{
+ await mount(page);
+ const owner=user(A);
+ await respond(page,'/api/v1/me',{...owner,profile:{...owner.profile,approval_status:'DRAFT'}});
+ await records(page,A,'ACTIVE',first(),first([{...proofProduct,approvalStatus:'APPROVED',draftStatus:'DRAFT'}]));
+ await page.getByRole('button',{name:'Submit update for review'}).click();
+ const message='Your builder profile needs approval before you can use this tool.';
+ await respond(page,proofBase+'/submit',{error:{code:'BUILDER_APPROVAL_REQUIRED',message}},403,'POST',A);
+ await expect(page.getByRole('alert').filter({hasText:message})).toBeVisible();
+ await expect(page.getByRole('link',{name:'Log in',exact:true})).toHaveCount(0);
+ await expect(page.getByText(/Explore and search require an approved builder profile\./)).toBeVisible();
+ await page.getByRole('button',{name:'Open builder profile',exact:true}).click();
+ await expect(page.getByRole('tab',{name:'Profile',exact:true})).toHaveAttribute('aria-selected','true');
+});
+
+test('a new uploaded showcase opens Drafts & review with submission available',async({page})=>{
+ await mount(page);
+ await respond(page,'/api/v1/me',user(A));
+ await records(page,A,'ACTIVE',first());
+ await page.getByRole('button',{name:'New draft',exact:true}).click();
+ const dialog=page.getByRole('dialog');
+ const product={...proofProduct,title:'A new uploaded showcase',lifecycleStatus:'DRAFT'};
+ await dialog.getByLabel('Title',{exact:true}).fill(product.title);
+ await dialog.getByLabel('Summary',{exact:true}).fill(product.summary);
+ await dialog.getByLabel('Description',{exact:true}).fill(product.description);
+ await dialog.getByLabel('Contribution',{exact:true}).fill(product.contribution);
+ await dialog.getByRole('combobox',{name:'Choose category',exact:true}).click();
+ await page.getByRole('option',{name:'Business',exact:true}).click();
+ await dialog.getByRole('checkbox',{name:'I have permission to showcase this work.'}).check();
+ await dialog.getByLabel('Upload preview media',{exact:true}).setInputFiles({name:'cover.png',mimeType:'image/png',buffer:Buffer.from('synthetic image bytes')});
+ await dialog.getByRole('button',{name:'Save draft',exact:true}).click();
+ await respond(page,'/api/v1/developer/products',{id:product.id},201,'POST',A);
+ await respond(page,'/api/v1/me',user(A));
+ await pending(page,'/api/v1/developer/products?lifecycleStatus=ACTIVE','GET',A);
+ expect(await page.evaluate(path=>(window as unknown as Harness).calls.some(call=>call.path===path),proofBase+'/cover')).toBe(false);
+ await records(page,A,'ACTIVE',first());
+ await respond(page,proofBase+'/cover',{imageUrl:'/cover.png'},200,'POST',A);
+ await respond(page,'/api/v1/me',user(A));
+ await records(page,A,'DRAFT',first(),first([{...product,imageUrl:'/cover.png'}]));
+ await expect(page.getByRole('tab',{name:'Drafts & review',exact:true})).toHaveAttribute('aria-selected','true');
+ const card=page.getByRole('article').filter({has:page.getByRole('heading',{name:product.title,exact:true})});
+ await expect(card.getByRole('button',{name:'Submit for review',exact:true})).toBeEnabled();
+ await expect(page.getByRole('status').filter({hasText:'Preview uploaded.'})).toBeVisible();
+});
+
+test('an approved inactive showcase explains that activation is required for discovery',async({page})=>{
+ await mount(page);
+ await load(page);
+ await startReload(page);
+ const awaitingActivation={...proofProduct,approvalStatus:'APPROVED',lifecycleStatus:'DRAFT'};
+ await records(page,A,'DRAFT',first(),first([awaitingActivation]));
+ const card=page.getByRole('article').filter({has:page.getByRole('heading',{name:awaitingActivation.title,exact:true})});
+ await expect(card.getByText('This showcase is approved. Select Activate to list it in Explore and search.')).toBeVisible();
+ await expect(card.getByRole('button',{name:'Activate',exact:true})).toBeEnabled();
 });
 
 test('proof upload retains staged bytes after a failed fresh read and retry confirmation reads again',async({page})=>{

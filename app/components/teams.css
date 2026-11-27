@@ -28,4 +28,7 @@
 .team-row .team-actions{flex-shrink:0;gap:8px}
 .team-section details[open]>summary,.team-create[open]>summary{padding-bottom:16px}
 .team-note{font-size:13px;line-height:22px;padding:14px 16px;background:#f5f7fb}
+
+body .studio-shell.teams-page .team-moderation { margin-block-end: 20px; }
+.teams-page .team-moderation > .workspace-panel-body { margin-block-start: 12px; }
 @media(max-width:640px){.team-form fieldset{gap:16px}.studio-shell .team-context{padding:20px;gap:12px}.studio-shell .team-context>.button{margin-left:0;width:100%}.team-row .team-actions{gap:10px}.team-row .team-actions>.button{flex:1}.team-card .team-actions>.button{flex:1}}

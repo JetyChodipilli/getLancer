@@ -66,10 +66,10 @@ public class AdminService {
   public PageResponse<ProjectResponses.ManagementProject> pending(HttpServletRequest r) {
     security.admin(r);
     String statusFilter = "PENDING_REVIEW".equals(r.getParameter("status"))
-        ? "p.approval_status = 'PENDING_REVIEW'" : "p.approval_status IN ('PENDING_REVIEW','SUSPENDED')";
-    var result = Pages.query(db, r, ProductRepository.SELECT + " WHERE " + statusFilter
+        ? ProductRepository.PENDING_REVIEW : ProductRepository.MODERATION_QUEUE;
+    var result = Pages.query(db, r, ProductRepository.MANAGEMENT + " WHERE " + statusFilter
         + " ORDER BY p.updated_at,p.id");
-    result.put("items", products.managementDtos(Pages.items(result)));
+    result.put("items", products.withDrafts(Pages.items(result), true));
     return PageResponse.from(result,ProjectResponses.ManagementProject::from);
   }
 
@@ -138,6 +138,15 @@ public class AdminService {
           case "suspend" -> "SUSPENDED";
           default -> throw new ApiError(400, "VALIDATION_ERROR", "Unknown moderation action.");
         };
+    String draftReviewId = r.getParameter("draftReviewId");
+    if (draftReviewId != null) {
+      products.reviewDraft(id, owner, com.getlancer.shared.Support.uuid(draftReviewId), status);
+      requireCurrentAdmin(admin, r);
+      audit(admin, "PRODUCT", id, "draft-" + action, reason);
+      mail.notify(owner, "Your project update has been reviewed: " + status + ". " + reason);
+      requireCurrentAdmin(admin, r);
+      return Map.of("ok", true);
+    }
     if (!action.equals("suspend")
         && !Set.of("PENDING_REVIEW", "SUSPENDED").contains(p.get("approval_status")))
       throw new ApiError(409, "INVALID_STATE_TRANSITION", "This project is not pending review.");

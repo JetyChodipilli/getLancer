@@ -40,7 +40,8 @@ function setters(source,state){
 function deferred(){let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no});return{promise,resolve,reject};}
 const workspaceScope=productionScope(workspace,'Workspace');
 const workspaceNames=['clearPrivate','request','closeHistory','inquiryFailure','openHistory','filterInquiries','load'];
-const workspaceDeclarations=[routine({tree:workspaceScope.tree,statements:workspaceScope.tree.statements},'uncertain'),callback(workspaceScope,'clearPrivate'),callback(workspaceScope,'request'),...workspaceNames.slice(2).map(name=>routine(workspaceScope,name))];
+const workspaceModule={tree:workspaceScope.tree,statements:workspaceScope.tree.statements};
+const workspaceDeclarations=[routine(workspaceModule,'uncertain'),routine(workspaceModule,'sessionDenied'),callback(workspaceScope,'clearPrivate'),callback(workspaceScope,'request'),...workspaceNames.slice(2).map(name=>routine(workspaceScope,name))];
 const user=id=>({id,roles:['DEVELOPER'],email:id+'@example.test',emailVerified:true,profile:{approval_status:'APPROVED'}});
 function fixture({api=()=>assert.fail('Unexpected private transport'),...extra}={}){
  const me=user('builder'),calls=[];

@@ -21,7 +21,7 @@ async function fixture(page:Page,surface:Surface){
  });
  const name={moderation:'ModerationWorkflow',privacy:'PrivacyOperations',triage:'ReportTriage',admin:'AdminTools'}[surface],file={moderation:'moderation-workflow',privacy:'privacy-operations',triage:'report-triage',admin:'admin-tools'}[surface];
  const built=await build({stdin:{contents:`import {createRoot} from 'react-dom/client';import ${name} from './app/components/${file}';createRoot(document.getElementById('root')).render(<${name} ${surface==='moderation'?'admin':''}/>);`,resolveDir:process.cwd(),loader:'tsx'},bundle:true,write:false,platform:'browser',format:'iife',jsx:'automatic',loader:{'.css':'empty'},define:{'process.env.NODE_ENV':'"test"'},plugins:[{name:'fixture-link',setup(plugin){plugin.onResolve({filter:/^next\/link$/},()=>({path:'link',namespace:'fixture'}));plugin.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:'export default function Link({href,children,...props}){return <a href={href} {...props}>{children}</a>}',loader:'jsx',resolveDir:process.cwd()}));}}]});
- await page.route('**/admin-audit-fixture',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><meta name="viewport" content="width=device-width, initial-scale=1"><style>input,textarea,select{max-width:100%;box-sizing:border-box}form{margin:12px 0}label{display:block}section,details{overflow-wrap:anywhere}</style><div id="root"></div>'}));
+ await page.route('**/admin-audit-fixture',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><meta name="viewport" content="width=device-width, initial-scale=1"><style>*{box-sizing:border-box}input,textarea,select{max-width:100%}form{margin:12px 0}label{display:block}section,details{overflow-wrap:anywhere}</style><div class="studio-shell"><aside></aside><main id="root" class="studio-body"></main></div>'}));
  return {calls,writes,failures,failMutation:(status:number)=>{mutationStatus=status;},hold:(path:string)=>{holdPath=path;},held:()=>!!held,release:async()=>{const route=held;held=undefined;holdPath='';if(route){const url=new URL(route.request().url());await route.fulfill({json:result(url.pathname.replace('/api/v1',''),Number(url.searchParams.get('page')||0))});}},mount:async()=>{await page.goto('/admin-audit-fixture');await page.addScriptTag({content:built.outputFiles[0].text});}};
 }
 
@@ -67,7 +67,74 @@ test('report first-page retry and continuation failure retain the same page and 
  f.failures.set('/admin/reports:1',503);await page.getByRole('button',{name:'Load more reports',exact:true}).click();await expect(page.getByRole('alert')).toContainText('Temporary');await expect(page.getByText('Private reported evidence 0',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Load more reports',exact:true}).click();await expect(page.getByText('Private reported evidence 2',{exact:true})).toBeVisible();expect(f.calls.filter(path=>path.startsWith('/admin/reports'))).toEqual(['/admin/reports:0','/admin/reports:0','/admin/reports:1','/admin/reports:1']);
 });
 
-test('taxonomy save owns its refresh, locks selection, and exposes refresh errors without unhandled promises or false success',async({page})=>{
- const f=await fixture(page,'admin'),errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));await f.mount();await page.getByText('Categories and technologies',{exact:true}).click();const field=page.getByRole('textbox',{name:'Name for business',exact:true});await expect(field).toHaveValue('Business');await field.fill('Reviewed business');f.failures.set('/admin/categories:0',503);await page.getByRole('button',{name:'Save',exact:true}).click();await expect(page.getByRole('alert').first()).toContainText('The change was recorded, but current records could not be refreshed.');await expect(field).toHaveValue('Reviewed business');await expect(page.getByText('Saved and current records refreshed.',{exact:true})).toHaveCount(0);expect(errors).toEqual([]);
- await expect(page.getByRole('button',{name:'Save',exact:true})).toBeDisabled();await page.getByRole('button',{name:'Refresh community controls',exact:true}).click();await expect(page.getByRole('button',{name:'Save',exact:true})).toBeEnabled();f.hold('/admin/audit');await page.getByRole('button',{name:'Save',exact:true}).click();await expect.poll(f.held).toBe(true);await expect(page.getByLabel('Manage',{exact:true})).toBeDisabled();await expect(field).toBeDisabled();await f.release();await expect(page.getByText('Saved and current records refreshed.',{exact:true})).toBeVisible();await page.getByLabel('Manage',{exact:true}).selectOption('technologies');await expect(page.getByRole('textbox',{name:'Name for typescript',exact:true})).toHaveValue('TypeScript');
+test('the taxonomy dialog preserves edits when a saved record cannot be refreshed',async({page})=>{
+ const f=await fixture(page,'admin'),errors:string[]=[];
+ page.on('pageerror',error=>errors.push(error.message));
+ await f.mount();
+ await expect(page.getByRole('tablist',{name:'Control center sections'})).toBeVisible();
+ await page.getByRole('button',{name:'Edit Business'}).click();
+ const dialog=page.getByRole('dialog',{name:'Edit Business'});
+ const field=dialog.getByRole('textbox',{name:'Display name'});
+ await expect(field).toHaveValue('Business');
+ await field.fill('Reviewed business');
+ f.failures.set('/admin/categories:0',503);
+ await dialog.getByRole('button',{name:'Save',exact:true}).click();
+ await expect(dialog.getByRole('alert')).toContainText('The change was recorded, but current records could not be refreshed.');
+ await expect(field).toHaveValue('Reviewed business');
+ await expect(page.getByText('Saved and current records refreshed.',{exact:true})).toHaveCount(0);
+ await expect(dialog.getByRole('button',{name:'Save',exact:true})).toBeDisabled();
+ await dialog.getByRole('button',{name:'Refresh community controls',exact:true}).click();
+ await expect(dialog.getByRole('button',{name:'Save',exact:true})).toBeEnabled();
+ f.hold('/admin/audit');
+ await dialog.getByRole('button',{name:'Save',exact:true}).click();
+ await expect.poll(f.held).toBe(true);
+ await expect(field).toBeDisabled();
+ await expect(dialog.getByRole('button',{name:'Cancel',exact:true})).toBeDisabled();
+ await f.release();
+ await expect(dialog).toHaveCount(0);
+ await expect(page.getByText('Saved and current records refreshed.',{exact:true})).toBeVisible();
+ await page.getByRole('tab',{name:'Technologies',exact:true}).click();
+ await page.getByRole('button',{name:'Edit TypeScript'}).click();
+ await expect(page.getByRole('dialog',{name:'Edit TypeScript'}).getByLabel('Display name')).toHaveValue('TypeScript');
+ expect(errors).toEqual([]);
+});
+
+test('control center tabs reveal tools directly and fit narrow screens',async({page})=>{
+ const f=await fixture(page,'admin');
+ await f.mount();
+ await page.addStyleTag({path:'app/components/workspace.css'});
+ const sections=page.getByRole('tablist',{name:'Control center sections'});
+ const community=sections.getByRole('tab',{name:'Community',exact:true});
+ await community.click();
+ await community.press('ArrowRight');
+ const moderation=sections.getByRole('tab',{name:'Moderation',exact:true});
+ await expect(moderation).toBeFocused();
+ await expect(moderation).toHaveAttribute('aria-selected','true');
+ await page.getByRole('tab',{name:'Report triage',exact:true}).click();
+ const triage=page.getByRole('tabpanel',{name:'Report triage',exact:true});
+ await expect(triage.getByRole('heading',{name:'Report priority and triage'})).toBeVisible();
+ await expect(triage.locator('details > summary').first()).toBeHidden();
+ await expect(triage.getByText('Private reported evidence 0',{exact:true})).toBeVisible();
+ const filter=triage.getByRole('button',{name:'Filter reports',exact:true});
+ const refresh=triage.getByRole('button',{name:'Refresh report triage',exact:true});
+ const filterBox=(await filter.boundingBox())!;
+ const refreshBox=(await refresh.boundingBox())!;
+ const horizontalGap=refreshBox.x-filterBox.x-filterBox.width;
+ const verticalGap=refreshBox.y-filterBox.y-filterBox.height;
+ expect(Math.max(horizontalGap,verticalGap)).toBeGreaterThanOrEqual(8);
+ expect(Math.min(filterBox.height,refreshBox.height)).toBeGreaterThanOrEqual(44);
+ await filter.focus();
+ await page.keyboard.press('Tab');
+ await expect(refresh).toBeFocused();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(await page.evaluate(()=>document.documentElement.clientWidth));
+
+ await community.click();
+ await page.getByRole('button',{name:'Edit Business'}).click();
+ const field=page.getByRole('dialog',{name:'Edit Business'}).getByLabel('Display name');
+ const spacing=await field.evaluate((input:HTMLInputElement)=>{
+  const labelText=new Range();
+  labelText.selectNodeContents(input.labels![0].firstChild!);
+  return input.getBoundingClientRect().top-labelText.getBoundingClientRect().bottom;
+ });
+ expect(spacing).toBeGreaterThanOrEqual(8);
 });

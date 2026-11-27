@@ -153,8 +153,7 @@ class ComponentReportingIntegrationTest {
   mvc.perform(overturn(appeal)).andExpect(status().isOk());assertEquals("OVERTURNED",db.queryForObject("SELECT status FROM moderation_appeals WHERE id=?",String.class,appeal));assertEquals(revision,db.queryForObject("SELECT revision FROM component_entries WHERE id=?",Long.class,component));assertEquals(1,db.queryForObject("SELECT count(*) FROM component_releases WHERE component_id=?",Integer.class,component));
  }
  @Test void curatedSuspensionFencesEarlierDraftsAndPendingApprovalsButPreservesIndependentSource()throws Exception{
-  var catalogue=json.readTree(mvc.perform(get("/api/v1/components")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
-  String slug=catalogue.path("items").get(0).path("slug").asText();
+  String slug="studio-navigation";
   var recipe=json.readTree(mvc.perform(get("/api/v1/components/"+slug)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
   var draftBody=Map.of("recipeSlug",slug,"title","Earlier recipe draft","summary","A draft saved before the source decision.","contribution","Original context submitted for independent publication review.","rightsConsent",true);
   UUID draft=UUID.fromString(json.readTree(mvc.perform(body(post("/api/v1/me/components"),"report-builder",draftBody)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString()).path("id").asText());
@@ -182,7 +181,8 @@ class ComponentReportingIntegrationTest {
   mvc.perform(get("/api/v1/components/report-reported")).andExpect(status().isOk()).andExpect(jsonPath("$.sha256").value(source.get("sha256")));
  }
  @Test void curatedRecipesAreReportableAndExactHashEnforcementDoesNotSuspendRemixes()throws Exception{
-  var catalog=json.readTree(mvc.perform(get("/api/v1/components")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());String slug=catalog.path("items").get(0).path("slug").asText();var detail=json.readTree(mvc.perform(get("/api/v1/components/"+slug)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+  String slug="studio-navigation";
+  var detail=json.readTree(mvc.perform(get("/api/v1/components/"+slug)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
   db.update("UPDATE component_entries SET recipe_slug=? WHERE id=?",slug,component);UUID target=UUID.fromString(detail.path("reportTargetId").asText());var input=new LinkedHashMap<>(reportBody(target));input.put("componentRevision",detail.path("reportRevision").asLong());input.put("componentSourceHash",detail.path("sha256").asText());UUID id=UUID.fromString(json.readTree(mvc.perform(body(post("/api/v1/reports"),"report-reader",input)).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("reference").asText());suspend(id);
   mvc.perform(get("/api/v1/components/"+slug)).andExpect(status().isNotFound());mvc.perform(get("/api/v1/components/"+slug+"/versions")).andExpect(status().isNotFound());mvc.perform(get("/api/v1/components/"+slug+"/source").param("sha256",detail.path("sha256").asText())).andExpect(status().isNotFound());
   String catalogue=mvc.perform(get("/api/v1/components")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();assertFalse(catalogue.contains("\"slug\":\""+slug+"\""));assertEquals("ACTIVE",db.queryForObject("SELECT status FROM component_entries WHERE id=?",String.class,component));

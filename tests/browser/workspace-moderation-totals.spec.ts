@@ -5,6 +5,7 @@ test('live moderation cards use complete account-bound queue totals', async ({ p
   const empty = { items: [], page: 0, size: 50, hasMore: false, totalItems: 0, totalPages: 0 };
   let countUnavailable = false;
   let isAdmin = true;
+  let pendingProjects = 0;
   const countRequests: string[] = [];
 
   await page.route('**/api/v1/**', async route => {
@@ -19,7 +20,7 @@ test('live moderation cards use complete account-bound queue totals', async ({ p
       countRequests.push(path);
       return countUnavailable
         ? route.fulfill({ status: 503, json: { error: { code: 'UNAVAILABLE', message: 'Moderation totals are temporarily unavailable.' } } })
-        : route.fulfill({ json: { projects: 87, profiles: 62, reviews: 71, reports: 13 } });
+        : route.fulfill({ json: { projects: pendingProjects, profiles: 62, reviews: 71, reports: 13 } });
     }
     if (path === '/admin/metrics') return route.fulfill({ json: { weekly: [], failedEmails: 0 } });
     if (path === '/admin/reports' && !url.searchParams.has('status')) return route.fulfill({ json: {
@@ -29,8 +30,8 @@ test('live moderation cards use complete account-bound queue totals', async ({ p
     } });
     if (path === '/admin/products/pending') return route.fulfill({ json: {
       ...empty,
-      items: Array.from({ length: 50 }, (_, i) => ({ id: 'project-' + i, title: 'Project ' + i, approvalStatus: 'PENDING_REVIEW' })),
-      totalItems: 87, totalPages: 2, hasMore: true,
+      items: Array.from({ length: Math.min(50, pendingProjects) }, (_, i) => ({ id: 'project-' + i, title: 'Project ' + i, approvalStatus: 'PENDING_REVIEW' })),
+      totalItems: pendingProjects, totalPages: Math.ceil(pendingProjects / 50), hasMore: pendingProjects > 50,
     } });
     if (path === '/admin/profiles/pending') return route.fulfill({ json: { ...empty, totalItems: 62, totalPages: 2, hasMore: true } });
     if (path === '/admin/reviews') return route.fulfill({ json: { ...empty, totalItems: 71, totalPages: 2, hasMore: true } });
@@ -40,21 +41,41 @@ test('live moderation cards use complete account-bound queue totals', async ({ p
   await page.goto('/workspace');
   const summary = page.getByRole('group', { name: 'Moderation summary' });
   const count = (name: RegExp) => summary.getByRole('button', { name }).locator('strong');
-  await expect(count(/^Projects to review/)).toHaveText('87');
+  await expect(count(/^Projects to review/)).toHaveText('0');
   await expect(count(/^Builder profiles/)).toHaveText('62');
   await expect(count(/^Reviews to publish/)).toHaveText('71');
   await expect(count(/^Open reports/)).toHaveText('13');
   expect(countRequests).toHaveLength(1);
 
+  pendingProjects = 87;
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  await expect(count(/^Projects to review/)).toHaveText('87');
+  await expect(page.getByRole('heading', { name: 'Project 0', exact: true })).toBeVisible();
+  expect(countRequests).toHaveLength(2);
+
+  await page.getByRole('button', { name: 'Review project', exact: true }).first().click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  pendingProjects = 88;
+  await page.evaluate(async () => {
+    document.dispatchEvent(new Event('visibilitychange'));
+    await new Promise<void>(done => requestAnimationFrame(() => requestAnimationFrame(() => done())));
+  });
+  await expect(page.getByRole('dialog')).toBeVisible();
+  expect(countRequests).toHaveLength(2);
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Refresh review queue', exact: true }).click();
+  await expect(count(/^Projects to review/)).toHaveText('88');
+  expect(countRequests).toHaveLength(3);
+
   countUnavailable = true;
   await page.reload();
   await expect(count(/^Projects to review/)).toHaveText('Unavailable');
   await expect(count(/^Open reports/)).toHaveText('Unavailable');
-  expect(countRequests).toHaveLength(2);
+  expect(countRequests).toHaveLength(4);
 
   isAdmin = false;
   await page.reload();
   await expect(page.getByRole('group', { name: 'Workspace summary' })).toBeVisible();
   await expect(summary).toHaveCount(0);
-  expect(countRequests).toHaveLength(2);
+  expect(countRequests).toHaveLength(4);
 });

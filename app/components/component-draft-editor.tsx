@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type DragEvent, type FormEvent } from 'rea
 import { componentSeeds, type ComponentEntry } from '@/lib/components';
 import { ApiError } from '@/lib/api';
 import FormErrors from './form-errors';
+import CoverImageField from './cover-image-field';
 import FormScrollButtons from './form-scroll-buttons';
 
 export default function ComponentDraftEditor({ entry, busy, error, onSave, demo = false }: { entry: ComponentEntry | null; busy: boolean; error: ApiError | null; onSave: (event: FormEvent<HTMLFormElement>) => void; demo?: boolean }) {
@@ -39,6 +40,7 @@ export default function ComponentDraftEditor({ entry, busy, error, onSave, demo 
       {demo && <p className="kit-notice">This preview saves sample recipe drafts only. Uploading your own ZIP requires a connected builder account.</p>}
       <ol className="draft-steps" aria-label="Draft steps"><li aria-current={step === 0 ? 'step' : undefined}>1 · Component details</li><li aria-current={step === 1 ? 'step' : undefined}>2 · Contribution & rights</li></ol>
       <fieldset hidden={step !== 0} disabled={busy} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+        {!demo&&<CoverImageField imageUrl={entry?.coverUrl} videoUrl={entry?.previewVideoUrl} disabled={busy}/>}
         <label htmlFor="recipeSlug">Base component</label><select id="recipeSlug" {...invalid("recipeSlug")} name="recipeSlug" value={recipe} onChange={e => setRecipe(e.target.value)} disabled={!!(entry?.published || entry?.uploaded)}>{componentSeeds.map(c => <option key={c.slug} value={c.slug}>{c.title}</option>)}</select>{fieldError("recipeSlug")}{(entry?.published || entry?.uploaded)&&<input type="hidden" name="recipeSlug" value={recipe}/>}
         {base && <p className="draft-summary"><strong>{base.title}</strong><span>{base.summary}</span><small>Free source · MIT · {base.framework}</small></p>}
         <label htmlFor="title">Component title</label><input id="title" {...invalid("title")} ref={title} name="title" defaultValue={entry?.title} required={step === 0} minLength={3} maxLength={100} />{fieldError("title")}
@@ -52,7 +54,7 @@ export default function ComponentDraftEditor({ entry, busy, error, onSave, demo 
         {upload && <div className="draft-source-fields">
           <div className="draft-source-picker" onDragOver={event => event.preventDefault()} onDrop={dropSource}>
             <label htmlFor="file">Source ZIP</label>
-            <p id="source-zip-hint" className="muted">Choose or drop one component ZIP up to 5 MiB.</p>
+            <p id="source-zip-hint" className="muted">Choose or drop one component ZIP up to 5 MiB. Uploading saves source for review. Approved source can be published as a hosted preview when hosting is enabled.</p>
             <input id="file" ref={fileInput} {...invalid('file')} aria-describedby={errors.file ? 'source-zip-hint file-error' : 'source-zip-hint'} name="file" type="file" accept=".zip,application/zip" required={step === 1} />
             {fieldError('file')}
           </div>

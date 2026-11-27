@@ -5,6 +5,7 @@ DELETE SESSION /api/v1/businesses/{id}/talent-lists/{listId}/entries/{entryId}
 DELETE DEVELOPER /api/v1/developer/products/{id}/access
 DELETE DEVELOPER /api/v1/developer/products/{product}/media/{id}
 DELETE SESSION /api/v1/me
+DELETE SESSION /api/v1/me/avatar
 DELETE SESSION /api/v1/products/{id}/save
 DELETE SESSION /api/v1/teams/{id}/members/{userId}
 DELETE SESSION /api/v1/teams/{id}/projects/{productId}
@@ -94,6 +95,7 @@ GET SESSION /api/v1/me/template-purchases
 GET SESSION /api/v1/me/templates
 GET DEVELOPER /api/v1/me/templates/{id}/versions/{version}/package
 GET PUBLIC /api/v1/media/{id}
+GET PUBLIC /api/v1/profile-avatars/{id}
 GET SESSION /api/v1/notifications
 GET PUBLIC /api/v1/payments/config
 GET PUBLIC /api/v1/policies/config
@@ -178,6 +180,7 @@ POST SIGNED_WEBHOOK /api/v1/commerce/razorpay/webhook
 POST SIGNED_WEBHOOK /api/v1/components/razorpay/webhook
 POST DEVELOPER /api/v1/developer/products
 POST DEVELOPER /api/v1/developer/products/{id}/access
+POST DEVELOPER /api/v1/developer/products/{id}/cover
 POST DEVELOPER /api/v1/developer/products/{id}/verification
 POST DEVELOPER /api/v1/developer/products/{id}/{action}
 POST DEVELOPER /api/v1/developer/products/{product}/media
@@ -254,6 +257,7 @@ PUT SESSION /api/v1/businesses/{id}
 PUT SESSION /api/v1/businesses/{id}/requests/{requestId}
 PUT DEVELOPER /api/v1/developer/availability
 PUT DEVELOPER /api/v1/developer/profile
+PUT SESSION /api/v1/me/avatar
 PUT DEVELOPER /api/v1/me/college-projects/{id}
 PUT SESSION /api/v1/teams/{id}
 GET HEALTH /actuator/health
@@ -265,6 +269,7 @@ POST SESSION /api/v1/components/{slug}/save
 DELETE SESSION /api/v1/components/{slug}/save
 GET DEVELOPER /api/v1/me/components/{id}
 POST DEVELOPER /api/v1/me/components/{id}/source
+POST DEVELOPER /api/v1/me/components/{id}/cover
 POST DEVELOPER /api/v1/me/components/{id}/preview
 GET PUBLIC /api/v1/components/{slug}/preview
 GET PUBLIC /api/v1/components/{slug}/source

@@ -6,6 +6,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type RefObject,
 } from 'react';
 
 import {
@@ -43,10 +44,12 @@ export default function HostingOperations({
   request=api,
   onDenied,
   reload,
+  fallbackFocus,
 }:{
   request?:typeof api;
   onDenied?:(problem:unknown)=>void;
   reload?:()=>Promise<boolean>;
+  fallbackFocus:RefObject<HTMLHeadingElement|null>;
 }){
 
   const [page,setPage]=useState<HostingPage<HostedDemo>|null>(null);
@@ -67,8 +70,7 @@ export default function HostingOperations({
   const mounted=useRef(true);
   const opened=useRef(false);
 
-  const opener=useRef<HTMLElement|null>(null);
-  const panelTitle=useRef<HTMLElement>(null);
+  const opener=useRef<HTMLButtonElement>(null);
   const summary=useRef<HTMLParagraphElement>(null);
 
   const objectUrls=useRef(new Set<string>());
@@ -321,6 +323,13 @@ export default function HostingOperations({
     setError('');
   }
 
+  function restoreFocus(event:Event){
+    event.preventDefault();
+    const button=opener.current;
+    const target=button?.isConnected&&!button.disabled?button:summary.current??fallbackFocus.current;
+    target?.focus();
+  }
+
   async function save(data:Record<string,string>){
     if(
       !dialog||
@@ -505,7 +514,7 @@ export default function HostingOperations({
         }
       }}
     >
-      <summary ref={panelTitle}>
+      <summary>
         Hosted frontend review & recovery
       </summary>
 
@@ -764,15 +773,7 @@ export default function HostingOperations({
               event.preventDefault();
             }
           }}
-          onCloseAutoFocus={event=>{
-            event.preventDefault();
-
-            (
-              opener.current?.isConnected
-                ?opener.current
-                :panelTitle.current
-            )?.focus();
-          }}
+          onCloseAutoFocus={restoreFocus}
         >
           <DialogHeader>
             <DialogTitle>

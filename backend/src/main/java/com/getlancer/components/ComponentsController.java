@@ -47,6 +47,11 @@ public class ComponentsController {
     return service.edit(id,TypedInputs.map(b),r);
   }
   @PostMapping(value="/me/components/{id}/source",consumes=MediaType.MULTIPART_FORM_DATA_VALUE) public Object upload(@PathVariable UUID id,@RequestPart("file") MultipartFile file,@RequestParam String version,@RequestParam String scenario,@RequestParam boolean rightsConsent,HttpServletRequest r) throws java.io.IOException {return service.upload(id,file,version,scenario,rightsConsent,r);}
+  @PostMapping(value="/me/components/{id}/cover",consumes=MediaType.MULTIPART_FORM_DATA_VALUE)
+  public Object cover(@PathVariable UUID id,@RequestParam("file") MultipartFile file,HttpServletRequest request)
+      throws java.io.IOException {
+    return service.uploadCover(id,file,request);
+  }
   @PostMapping("/me/components/{id}/{action}") public Object action(@PathVariable UUID id,@PathVariable String action,HttpServletRequest r){
     return service.action(id,action,r);
   }

@@ -134,7 +134,7 @@ export default function Explore({items, preview, totalItems, totalPages, filters
    {error&&<p role="alert" className="error">{error}</p>}
    <p role="status" className="paper-save-notice">{saveNotice}</p>
    <div className="paper-project-grid" aria-label="Project demos" aria-busy={pending}>{items.map(product=><article className="paper-project" key={product.id}>
-    <div className="paper-project-media"><Link prefetch={false} href={'/products/'+product.slug} className="paper-project-preview" tabIndex={0} data-ui="project-preview" aria-label={'Explore '+product.title}><Preview product={product}/></Link>{preview
+    <div className="paper-project-media"><Link prefetch={false} href={'/products/'+product.slug} className="paper-project-preview" tabIndex={0} data-ui="project-preview" aria-label={'Explore '+product.title}><Preview product={product} hoverVideo/></Link>{preview
      ? <Link className="paper-project-save" href={demoProjectPath('project',product.slug)} aria-label={'Save '+product.title+' in the demo'} prefetch={false} tabIndex={0}><Bookmark size={19} aria-hidden="true"/></Link>
      : <button className="paper-project-save" type="button" disabled={saving.includes(product.id)||!savedReady} aria-label={(saved.includes(product.id)?'Unsave ':'Save ')+product.title} aria-busy={saving.includes(product.id)} aria-pressed={saved.includes(product.id)} onClick={()=>save(product.id,product.title)}><Bookmark size={19} fill={saved.includes(product.id)?'currentColor':'none'} aria-hidden="true"/></button>}</div>
     <div className="paper-project-title"><h3><Link prefetch={false} href={'/products/'+product.slug}>{product.title}</Link></h3><span>{product.technology.split(',')[0]}</span></div><p>{product.summary}</p>

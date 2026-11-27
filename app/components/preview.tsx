@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 
 import type { Product } from '@/lib/catalog';
+import HoverPreviewVideo from './hover-preview-video';
 
 // Illustrations belong to the frontend sample catalog.
 // Real projects only show uploaded media.
@@ -22,10 +23,31 @@ import type { Product } from '@/lib/catalog';
 export default function Preview({
   product: p,
   naturalAspect = false,
+  playVideo = false,
+  hoverVideo = false,
 }: {
   product: Product;
   naturalAspect?: boolean;
+  playVideo?: boolean;
+  hoverVideo?: boolean;
 }) {
+  if (p.previewVideoUrl && hoverVideo && !playVideo) {
+    return <HoverPreviewVideo src={p.previewVideoUrl} poster={p.imageUrl} title={p.title} />;
+  }
+
+  if (p.previewVideoUrl) {
+    return (
+      <video
+        className="listing-preview-video"
+        src={`${p.previewVideoUrl}#t=0.1`}
+        aria-label={`${p.title} video preview`}
+        controls={playVideo}
+        muted={!playVideo}
+        playsInline
+        preload="metadata"
+      />
+    );
+  }
 
   if (p.imageUrl) {
     return (
@@ -50,7 +72,7 @@ export default function Preview({
     return (
       <div className="proof-missing">
         {p.title}
-        <span>Project screenshot unavailable</span>
+        <span>Project preview unavailable</span>
       </div>
     );
   }

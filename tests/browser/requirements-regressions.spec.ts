@@ -39,5 +39,5 @@ test('draft error links reveal the right step and focus associated invalid field
  await page.getByRole('link',{name:'title: Use the reviewed title.',exact:true}).click();const title=page.getByLabel('Component title',{exact:true});await expect(title).toBeVisible();await expect(title).toBeFocused();await expect(title).toHaveAttribute('aria-invalid','true');await expect(title).toHaveAttribute('aria-describedby','title-error');
  await page.getByRole('link',{name:'file: Choose the reviewed ZIP.',exact:true}).click();const file=page.getByLabel('Source ZIP',{exact:true});await expect(file).toBeVisible();await expect(file).toBeFocused();
  await expect(file).toHaveAttribute('aria-invalid','true');
- await expect(file).toHaveAccessibleDescription('Choose or drop one component ZIP up to 5 MiB. Choose the reviewed ZIP.');expect(errors).toEqual([]);
+ await expect(file).toHaveAccessibleDescription('Choose or drop one component ZIP up to 5 MiB. Uploading saves source for review. Approved source can be published as a hosted preview when hosting is enabled. Choose the reviewed ZIP.');expect(errors).toEqual([]);
 });

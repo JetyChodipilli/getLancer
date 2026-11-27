@@ -25,7 +25,7 @@ export async function getCatalog(filters: Filters = emptyFilters, builder = ''):
   if (!res.ok) throw Error('Marketplace is temporarily unavailable');
   return { ...(await res.json()), preview: false, filters };
 }
-export async function getProduct(slug: string): Promise<Product | undefined> {
+export async function getProduct(slug: string): Promise<(Product & { builderAvatarUrl?: string }) | undefined> {
   const origin = await backendOrigin();
   if (!origin) return examples.find(p => p.slug === slug);
   const r = await fetch(origin + '/api/v1/products/' + encodeURIComponent(slug), { cache: 'no-store', signal: AbortSignal.timeout(15000) });

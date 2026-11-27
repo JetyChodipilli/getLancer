@@ -31,9 +31,9 @@ export function readModerationTotals(value: unknown): ModerationTotals | null {
  }
  return {projects:count(totals.projects), profiles:count(totals.profiles), reports:count(totals.reports), reviews:count(totals.reviews)};
 }
-export default function WorkspaceOverview({active,capacity,inquiries,completed,onSelect,moderation,saves=0}:{active:number;capacity:number;inquiries:number;completed:number;onSelect:(tab:string)=>void;saves?:number;moderation?:{projects:number;profiles:number;reports:number;reviews?:number}}) {
+export default function WorkspaceOverview({active,capacity,inquiries,completed,onSelect,moderation,saves=0}:{active:number;capacity:number;inquiries:number;completed:number;onSelect:(tab:string)=>void;saves?:number;moderation?:boolean|ModerationTotals}) {
  const overview = useWorkspaceModerationTotals();
- const totals = overview === null ? moderation : overview.totals;
+ const totals = overview === null ? (typeof moderation === 'object' ? moderation : null) : overview.totals;
  const items = moderation ? [
   {name:'Projects to review',count:totals?.projects ?? null,note:'Inspect proof and contribution',action:'Review projects',tab:'admin'},
   {name:'Builder profiles',count:totals?.profiles ?? null,note:'Review community applications',action:'Review profiles',tab:'admin'},

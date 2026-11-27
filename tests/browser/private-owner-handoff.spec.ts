@@ -87,7 +87,19 @@ const teamIndex={items:teams,invitations:[],applications:[],requests:[],canCreat
 const teamWorkspace=(index=0)=>({team:teams[index],myRole:'OWNER',members:[],invitations:[],roles:[],applications:[],leads:[],projects:[],staffing:[],activity:[]});
 test('embedded team moderation denial invalidates a pending successful parent reload',async({page})=>{
  await mount(page,'team');await respond(page,'/api/v1/me',{id:A,roles:['ADMIN']});await respond(page,'/api/v1/me/teams',teamIndex);await respond(page,'/api/v1/teams/first/workspace',teamWorkspace());
- await page.getByText('Teams and studios',{exact:true}).click();await page.getByRole('button',{name:'Load teams',exact:true}).click();await pending(page,'/api/v1/admin/teams');
+ await page.addStyleTag({path:'app/components/teams.css'});
+ const summary=page.getByText('Teams and studios',{exact:true});
+ const detailGap=async()=>{
+  const panel=(await page.locator('.team-moderation').boundingBox())!;
+  const detail=(await page.locator('.team-context').boundingBox())!;
+  return detail.y-panel.y-panel.height;
+ };
+ expect(await detailGap()).toBeGreaterThanOrEqual(16);
+ await summary.focus();await summary.press('Enter');
+ const loadTeams=page.getByRole('button',{name:'Load teams',exact:true});
+ await expect(loadTeams).toBeVisible();expect(await detailGap()).toBeGreaterThanOrEqual(16);
+ await page.keyboard.press('Tab');await expect(loadTeams).toBeFocused();
+ await loadTeams.click();await pending(page,'/api/v1/admin/teams');
  await page.getByLabel('Your team',{exact:true}).selectOption('second');await respond(page,'/api/v1/me',{id:A,roles:['ADMIN']});await pending(page,'/api/v1/me/teams');await respond(page,'/api/v1/admin/teams',denied,401);await expect(page.getByRole('link',{name:'Log in',exact:true})).toBeVisible();
  await respond(page,'/api/v1/me/teams',teamIndex);await respond(page,'/api/v1/teams/second/workspace',teamWorkspace(1));await settle(page);
  await expect(page.getByLabel('Your team',{exact:true})).toHaveCount(0);await expect(page.getByText('Teams and studios',{exact:true})).toHaveCount(0);await expect(page.getByRole('heading',{name:/A .*private team/})).toHaveCount(0);

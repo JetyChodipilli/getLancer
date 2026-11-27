@@ -2,7 +2,7 @@ import {test,expect,type Page} from '@playwright/test';
 import {build} from 'esbuild';
 import {readFileSync} from 'node:fs';
 
-type RequestRow={path:string;method:string;body?:string;resolve:(response:Response)=>void};
+type RequestRow={path:string;method:string;body?:string;actor?:string;resolve:(response:Response)=>void};
 type HarnessWindow=Window&{requests:Omit<RequestRow,'resolve'>[];pending:RequestRow[];reloadCalls:number;reloadPending:((ok:boolean)=>void)[]};
 const profile={display_name:'First builder',headline:'A useful builder headline',bio:'A detailed description of the original work and experience.',technology:'Java',category:'Business',github_url:'',linkedin_url:'',website_url:'',country:'IN',time_zone:'Asia/Kolkata',languages:'English',availability_status:'BOOKED_UNTIL',booked_until:'2040-05-01',approval_status:'DRAFT'};
 
@@ -14,9 +14,9 @@ async function fixture(page:Page,kind:'account'|'profile'|'login'|'signup'){
  const content=(await build({stdin:{contents:`
   import React from 'react';import {createRoot} from 'react-dom/client';import AccountSettings from './app/components/account-settings';import ProfileForm from './app/components/profile-form';import {AuthForm} from './app/components/auth-form';
   window.requests=[];window.pending=[];window.reloadCalls=0;window.reloadPending=[];
-  window.fetch=(path,init={})=>{window.requests.push({path,method:init.method||'GET',body:init.body});return new Promise(resolve=>window.pending.push({path,method:init.method||'GET',body:init.body,resolve}));};
+  window.fetch=(path,init={})=>{window.requests.push({path,method:init.method||'GET',body:init.body,actor:new Headers(init.headers).get('X-GetLancer-Account')});return new Promise(resolve=>window.pending.push({path,method:init.method||'GET',body:init.body,resolve}));};
   ${component}createRoot(document.getElementById('root')).render(<Harness/>);
- `,loader:'tsx',resolveDir:process.cwd()},bundle:true,write:false,platform:'browser',format:'iife',jsx:'automatic',define:{'process.env.NODE_ENV':'"test"'},plugins:[{name:'scoped-fixture',setup(plugin){
+ `,loader:'tsx',resolveDir:process.cwd()},bundle:true,write:false,platform:'browser',format:'iife',jsx:'automatic',loader:{'.css':'empty'},define:{'process.env.NODE_ENV':'"test"'},plugins:[{name:'scoped-fixture',setup(plugin){
   plugin.onResolve({filter:/^next\/link$/},()=>({path:'link',namespace:'fixture'}));
   // AuthForm uses Next Image, which needs a browser-only stand-in in this fixture.
   plugin.onResolve({filter:/^next\/image$/},()=>({path:'image',namespace:'auth-audit-image'}));
@@ -92,6 +92,29 @@ test('profile save keeps fields on failure and retries refresh without repeating
 test('profile identity changes reset uncontrolled fields and ignore late mutation failures',async({page})=>{
  await fixture(page,'profile');await page.getByLabel('Display name',{exact:true}).fill('Unsaved first identity');await page.getByRole('button',{name:'Save profile',exact:true}).click();await page.getByRole('button',{name:'Switch identity',exact:true}).click();await expect(page.getByLabel('Display name',{exact:true})).toHaveValue('Second builder');await expect(page.getByRole('combobox',{name:'Availability',exact:true})).toHaveText('NOT ACCEPTING');await expect(page.getByLabel('Booked until',{exact:true})).toHaveCount(0);
  await respond(page,'/api/v1/developer/profile',{error:{message:'Old identity failure.',code:'UNAVAILABLE'}},503);await expect(page.getByText('Old identity failure.',{exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Save profile',exact:true})).toBeEnabled();expect(await page.evaluate(()=>(window as unknown as HarnessWindow).reloadCalls)).toBe(0);
+});
+
+test('profile picture preview and upload stay bound to the active identity',async({page})=>{
+ await fixture(page,'profile');
+ const form=page.getByRole('form',{name:'Profile picture',exact:true});
+ const input=form.getByLabel('Choose a profile picture',{exact:true});
+ const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+X2n0AAAAASUVORK5CYII=','base64');
+ await input.setInputFiles({name:'profile.png',mimeType:'image/png',buffer:png});
+ await expect(form.locator('img')).toHaveAttribute('src',/^blob:/);
+ const save=form.getByRole('button',{name:'Save picture',exact:true});
+ await save.click();
+ await respond(page,'/api/v1/me/avatar',{error:{code:'FORBIDDEN',message:'This picture could not be changed.'}},403);
+ await expect(form.getByRole('alert')).toHaveText('This picture could not be changed.');
+ await expect(save).toBeEnabled();
+ await save.click();
+ await expect.poll(()=>page.evaluate(()=>(window as unknown as HarnessWindow).requests
+   .filter(row=>row.path==='/api/v1/me/avatar').map(row=>row.actor))).toEqual(['first','first']);
+ await page.getByRole('button',{name:'Switch identity',exact:true}).click();
+ await respond(page,'/api/v1/me/avatar',{avatarUrl:'/api/v1/profile-avatars/00000000-0000-0000-0000-000000000001'});
+ await expect(page.getByLabel('Display name',{exact:true})).toHaveValue('Second builder');
+ await expect(form.locator('img')).toHaveCount(0);
+ await expect(form.getByRole('button',{name:'Remove picture',exact:true})).toHaveCount(0);
+ expect(await page.evaluate(()=>(window as unknown as HarnessWindow).reloadCalls)).toBe(0);
 });
 
 test('signup service recovery, UTF-8 password validation and failed submission retain user input',async({page})=>{

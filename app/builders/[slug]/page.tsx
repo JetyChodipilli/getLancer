@@ -10,6 +10,8 @@ import BuilderEvent from '@/app/components/builder-event';
 import PublicReviews,{type PublicReview} from '@/app/components/public-reviews';
 import {recordPage,type RecordPage} from '@/lib/record-page';
 import Preview from '@/app/components/preview';
+import ProfileAvatar from '@/app/components/profile-avatar';
+import {profileAvatarUrl} from '@/lib/profile-avatar';
 
 export async function generateMetadata({params}:{params:Promise<{slug:string}>}){const {slug}=await params;const origin=await backendOrigin();let title='Builder profile',description='Discover demonstrated software work and meet its builder.';if(origin){const res=await fetch(origin+'/api/v1/builders/'+encodeURIComponent(slug),{cache:'no-store',signal:AbortSignal.timeout(15000)});if(res.ok){const p=await res.json();title=p.displayName+' — Builder';description=p.headline||p.bio?.slice(0,160)||description;}}return {title,description,alternates:{canonical:'/builders/'+slug},openGraph:{title,description,type:'profile'},twitter:{card:'summary',title,description}};}
 
@@ -17,7 +19,7 @@ export default async function Builder({params}: {params: Promise<{slug: string}>
   const {slug} = await params;
   const origin = await backendOrigin();
   const catalog = await getCatalog(undefined, slug);
-  let profile: {id?:string;displayName: string; headline: string; bio: string; availabilityStatus: string; bookedUntil?: string; githubUrl?: string; linkedinUrl?: string; websiteUrl?:string; country?:string; timeZone?:string; languages?:string;availabilityConfirmedAt?:string;responseSample?:number;responseRate?:number;medianResponseHours?:number} | undefined;
+  let profile: {id?:string;avatarUrl?:string;displayName: string; headline: string; bio: string; availabilityStatus: string; bookedUntil?: string; githubUrl?: string; linkedinUrl?: string; websiteUrl?:string; country?:string; timeZone?:string; languages?:string;availabilityConfirmedAt?:string;responseSample?:number;responseRate?:number;medianResponseHours?:number} | undefined;
   let reviews:RecordPage<PublicReview>|null={items:[],page:0,size:50,hasMore:false};
   let reviewError='';
   if (origin) {
@@ -39,7 +41,10 @@ export default async function Builder({params}: {params: Promise<{slug: string}>
   const proofParams=new URLSearchParams({builder:slug});
   const [componentProof,collegeProof]=origin?await Promise.all([componentCatalog(proofParams),collegeCatalog(proofParams)]):[undefined,undefined];
   return <main className="wrap" id="main">{!catalog.preview&&<StructuredData data={{'@context':'https://schema.org','@type':'Person',name:profile.displayName,description:profile.headline}}/>}{!catalog.preview&&profile.id&&<BuilderEvent id={profile.id}/>}<Link href="/" className="link">← Explore projects</Link>
-    <div className="intro" style={{marginTop:30}}><div><span className="eyebrow">Builder profile</span><h1>{profile.displayName}</h1><p>{profile.headline}</p></div><p>{availabilityLabel(profile.availabilityStatus, profile.bookedUntil)}</p></div>
+    <div className="intro" style={{marginTop:30}}><div className="builder-profile-heading">
+      <ProfileAvatar className="profile-avatar-large" name={profile.displayName} src={profileAvatarUrl(profile.avatarUrl)}/>
+      <div><span className="eyebrow">Builder profile</span><h1>{profile.displayName}</h1><p>{profile.headline}</p></div>
+    </div><p>{availabilityLabel(profile.availabilityStatus, profile.bookedUntil)}</p></div>
     <p className="prose">{profile.bio}</p><p className="muted">Availability last confirmed: {profile.availabilityConfirmedAt?new Date(profile.availabilityConfirmedAt).toLocaleDateString():'Not yet confirmed'}</p>{profile.responseRate!==undefined&&<p className="panel">Responded to {Math.round(profile.responseRate)}% of {profile.responseSample} qualified inquiries{profile.medianResponseHours!=null&&<> · Typical first response: {Math.round(profile.medianResponseHours)} hours</>}. Inquiries have at least 48 hours of observation; confirmed spam is excluded.</p>}
     <p className="muted">{[profile.country,profile.timeZone,profile.languages].filter(Boolean).join(" · ")}</p><div className="policy-links">{profile.websiteUrl&&<ExternalLink className="link" href={profile.websiteUrl} target="_blank" rel="noopener noreferrer">Website ↗</ExternalLink>}{profile.githubUrl && <ExternalLink className="link" href={profile.githubUrl} target="_blank" rel="noopener noreferrer">GitHub ↗</ExternalLink>}{profile.linkedinUrl && <ExternalLink className="link" href={profile.linkedinUrl} target="_blank" rel="noopener noreferrer">LinkedIn ↗</ExternalLink>}</div>
     {catalog.preview && <div className="samplebar">Illustrative builder profile.</div>}

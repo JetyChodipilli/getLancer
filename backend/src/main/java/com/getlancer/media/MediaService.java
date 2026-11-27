@@ -9,10 +9,14 @@ import com.getlancer.security.Security;
 import com.getlancer.shared.ApiError;
 import com.getlancer.shared.Rules;
 import jakarta.servlet.http.HttpServletRequest;
+import java.awt.Color;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +26,8 @@ import java.util.UUID;
 import javax.imageio.ImageIO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpRange;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -162,6 +168,17 @@ public class MediaService {
   }
 
   public static byte[] sanitize(byte[] bytes) throws IOException {
+    BufferedImage image = readProofImage(bytes, 0);
+    ByteArrayOutputStream output = new ByteArrayOutputStream();
+    ImageIO.write(image, "png", output);
+    byte[] clean = output.toByteArray();
+    if (clean.length > 5242880)
+      throw new ApiError(
+          400, "VALIDATION_ERROR", "The decoded image is too large. Upload a smaller image.");
+    return clean;
+  }
+
+  private static BufferedImage readProofImage(byte[] bytes, int previewLimit) {
     if (bytes.length == 0 || bytes.length > 5242880)
       throw new ApiError(400, "VALIDATION_ERROR", "Choose an image smaller than 5 MB.");
     boolean png =
@@ -176,30 +193,28 @@ public class MediaService {
             && bytes[1] == (byte) 216
             && bytes[2] == (byte) 255;
     if (!png && !jpg) throw new ApiError(400, "VALIDATION_ERROR", "Use a PNG or JPEG image.");
-    BufferedImage image;
     try (var stream = ImageIO.createImageInputStream(new ByteArrayInputStream(bytes))) {
       var readers = ImageIO.getImageReaders(stream);
       if (!readers.hasNext()) throw new IOException();
       var reader = readers.next();
       try {
         reader.setInput(stream);
-        long pixels = (long) reader.getWidth(0) * reader.getHeight(0);
+        int width = reader.getWidth(0), height = reader.getHeight(0);
+        long pixels = (long) width * height;
         if (pixels > 20000000)
           throw new ApiError(400, "VALIDATION_ERROR", "Image dimensions are too large.");
-        image = reader.read(0);
+        var params = reader.getDefaultReadParam();
+        if (previewLimit > 0) {
+          int step = Math.max(1, Math.max(width, height) / previewLimit);
+          params.setSourceSubsampling(step, step, 0, 0);
+        }
+        return reader.read(0, params);
       } finally {
         reader.dispose();
       }
     } catch (IOException e) {
       throw new ApiError(400, "INVALID_IMAGE", "This image could not be decoded.");
     }
-    ByteArrayOutputStream output = new ByteArrayOutputStream();
-    ImageIO.write(image, "png", output);
-    byte[] clean = output.toByteArray();
-    if (clean.length > 5242880)
-      throw new ApiError(
-          400, "VALIDATION_ERROR", "The decoded image is too large. Upload a smaller image.");
-    return clean;
   }
 
   record WriteIntent(UUID id, UUID product, UUID upload, UUID owner) {
@@ -562,7 +577,157 @@ public class MediaService {
     });
   }
 
+  public static String coverUrl(Object id, String variant) {
+    return "/api/v1/media/" + id + "?variant=" + variant;
+  }
+
+  public record PreviewUpload(byte[] bytes, String type) {}
+
+  public static PreviewUpload previewUpload(MultipartFile file) throws IOException {
+    if (file.isEmpty() || file.getSize() > 5 * 1024 * 1024)
+      throw new ApiError(400, "VALIDATION_ERROR", "Choose a PNG, JPEG or MP4 file up to 5 MB.");
+    byte[] bytes = file.getBytes();
+    if ("video/mp4".equals(file.getContentType())) {
+      if (!validMp4(bytes))
+        throw new ApiError(400, "INVALID_VIDEO", "Choose an MP4 with video data and playback metadata.");
+      return new PreviewUpload(bytes, "video/mp4");
+    }
+    return new PreviewUpload(resizedJpeg(bytes, 960), "image/jpeg");
+  }
+
+  public static byte[] avatarUpload(MultipartFile file) throws IOException {
+    if (file.isEmpty() || file.getSize() > 5 * 1024 * 1024)
+      throw new ApiError(400, "VALIDATION_ERROR", "Choose a PNG or JPEG file up to 5 MB.");
+    return resizedJpeg(file.getBytes(), 320);
+  }
+
+  private static byte[] resizedJpeg(byte[] bytes, int limit) throws IOException {
+    var original = readProofImage(bytes, limit);
+    double scale = Math.min(1.0, (double) limit / Math.max(original.getWidth(), original.getHeight()));
+    int width = Math.max(1, (int) Math.round(original.getWidth() * scale));
+    int height = Math.max(1, (int) Math.round(original.getHeight() * scale));
+    var cover = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+    var graphics = cover.createGraphics();
+    try {
+      graphics.setColor(Color.WHITE);
+      graphics.fillRect(0, 0, width, height);
+      graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+      graphics.drawImage(original, 0, 0, width, height, null);
+    } finally {
+      graphics.dispose();
+    }
+    var output = new ByteArrayOutputStream();
+    ImageIO.write(cover, "jpeg", output);
+    return output.toByteArray();
+  }
+
+  private static boolean validMp4(byte[] bytes) {
+    var boxes = ByteBuffer.wrap(bytes);
+    boolean first = true, metadata = false, media = false;
+    while (boxes.remaining() >= 8) {
+      int start = boxes.position();
+      long size = Integer.toUnsignedLong(boxes.getInt());
+      int type = boxes.getInt();
+      if (size == 1) {
+        if (boxes.remaining() < 8) return false;
+        size = boxes.getLong();
+      } else if (size == 0) {
+        size = boxes.limit() - start;
+      }
+      int header = boxes.position() - start;
+      if (size < header || size > boxes.limit() - start) return false;
+      if (first && (type != 0x66747970 || size < header + 8)) return false; // ftyp
+      if (type == 0x6d6f6f76 && size > header) metadata = true; // moov
+      if (type == 0x6d646174 && size > header) media = true; // mdat
+      first = false;
+      boxes.position(start + (int) size);
+    }
+    return !boxes.hasRemaining() && metadata && media;
+  }
+
+  private ResponseEntity<byte[]> cover(UUID id, String variant, HttpServletRequest request) {
+    String sql = switch (variant) {
+      case "cover", "draft-cover" -> "SELECT p." + (variant.equals("cover") ? "cover_image" : "draft_cover_image")
+          + " AS image,p." + (variant.equals("cover") ? "cover_type" : "draft_cover_type")
+          + " AS media_type,p.owner_user_id AS owner,p.visibility,"
+          + "(p.approval_status='APPROVED' AND p.lifecycle_status='ACTIVE' AND u.account_status='ACTIVE'"
+          + " AND d.approval_status='APPROVED') AS active FROM products p JOIN users u ON u.id=p.owner_user_id"
+          + " JOIN developer_profiles d ON d.user_id=u.id WHERE p.id=?";
+      case "component-cover", "component-draft-cover", "component-review-cover" ->
+          "SELECT c." + switch (variant) {
+            case "component-cover" -> "published_cover_image";
+            case "component-draft-cover" -> "draft_cover_image";
+            default -> "submitted_cover_image";
+          } + " AS image,c." + switch (variant) {
+            case "component-cover" -> "published_cover_type";
+            case "component-draft-cover" -> "draft_cover_type";
+            default -> "submitted_cover_type";
+          } + " AS media_type,c.owner_id AS owner,'PUBLIC' AS visibility,"
+          + "(c.published_at IS NOT NULL AND c.withdrawn_at IS NULL AND c.status IN ('ACTIVE','ARCHIVED','DRAFT','PENDING')"
+          + " AND u.account_status='ACTIVE' AND u.email_verified_at IS NOT NULL AND d.approval_status='APPROVED'"
+          + " AND EXISTS(SELECT 1 FROM user_roles WHERE user_id=c.owner_id AND role='DEVELOPER')) AS active"
+          + " FROM component_entries c JOIN users u ON u.id=c.owner_id JOIN developer_profiles d ON d.user_id=u.id WHERE c.id=?";
+      default -> throw new IllegalArgumentException("Unknown cover variant");
+    };
+    String cover = " FROM (" + sql + ") preview WHERE image IS NOT NULL";
+    if (Set.of("cover", "component-cover").contains(variant)) {
+      var published = db.queryForList("SELECT image,media_type" + cover + " AND active AND visibility='PUBLIC'", id);
+      if (!published.isEmpty()) return coverResponse(published.get(0), request.getHeader("Range"));
+    }
+    var rows = db.queryForList("SELECT owner,visibility,active" + cover, id);
+    if (rows.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Image unavailable.");
+    var access = rows.get(0);
+    boolean allowGrant = variant.equals("cover") && Boolean.TRUE.equals(access.get("active"))
+        && !"PUBLIC".equals(access.get("visibility"));
+    requireCoverReader(id, access.get("owner"), allowGrant, request);
+    // Check that the permission context still matches when PostgreSQL reads the payload.
+    var privateCover = db.queryForList("SELECT image,media_type" + cover
+        + " AND owner=? AND visibility=? AND active IS NOT DISTINCT FROM ?",
+        id, access.get("owner"), access.get("visibility"), access.get("active"));
+    if (privateCover.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Image unavailable.");
+    requireCoverReader(id, access.get("owner"), allowGrant, request);
+    return coverResponse(privateCover.get(0), request.getHeader("Range"));
+  }
+
+  private void requireCoverReader(UUID product, Object owner, boolean allowGrant, HttpServletRequest request) {
+    var viewer = security.principal(request);
+    if (!Objects.equals(viewer.get("id"), owner)
+        && !(allowGrant && PrivateProjectService.granted(db, product, viewer))) security.admin(request);
+  }
+
+  private static ResponseEntity<byte[]> coverResponse(Map<String, Object> row, String range) {
+    byte[] image = (byte[]) row.get("image");
+    if ("video/mp4".equals(row.get("media_type"))) return video(image, range);
+    return ResponseEntity.ok().contentType(MediaType.IMAGE_JPEG)
+        .header("Cache-Control", "private, no-store").body(image);
+  }
+
+  private static ResponseEntity<byte[]> video(byte[] bytes, String range) {
+    var type = MediaType.valueOf("video/mp4");
+    if (range == null)
+      return ResponseEntity.ok().contentType(type).header("Accept-Ranges", "bytes")
+          .header("Cache-Control", "private, no-store").contentLength(bytes.length).body(bytes);
+    try {
+      var ranges = HttpRange.parseRanges(range);
+      if (ranges.size() != 1) throw new IllegalArgumentException();
+      long requestedStart = ranges.get(0).getRangeStart(bytes.length);
+      long requestedEnd = ranges.get(0).getRangeEnd(bytes.length);
+      if (requestedStart < 0 || requestedStart > requestedEnd || requestedEnd >= bytes.length)
+        throw new IllegalArgumentException("Unsatisfiable range");
+      int start = (int) requestedStart, end = (int) requestedEnd;
+      return ResponseEntity.status(HttpStatus.PARTIAL_CONTENT).contentType(type)
+          .header("Accept-Ranges", "bytes").header("Cache-Control", "private, no-store")
+          .header("Content-Range", "bytes " + start + "-" + end + "/" + bytes.length)
+          .contentLength(end - start + 1).body(Arrays.copyOfRange(bytes, start, end + 1));
+    } catch (IllegalArgumentException e) {
+      return ResponseEntity.status(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
+          .header("Content-Range", "bytes */" + bytes.length).build();
+    }
+  }
+
   public ResponseEntity<byte[]> get(UUID id, String variant, HttpServletRequest r) {
+    if (Set.of("cover", "draft-cover", "component-cover", "component-draft-cover", "component-review-cover").contains(variant))
+      return cover(id, variant, r);
     var before = readable(id, r);
     if (!Set.of("full", "thumbnail").contains(variant))
       throw new ApiError(400, "VALIDATION_ERROR", "Unknown image size.");

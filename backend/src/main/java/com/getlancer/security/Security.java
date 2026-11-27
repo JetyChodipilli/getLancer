@@ -150,10 +150,11 @@ public class Security {
     var principal = principal(request);
     UUID user = (UUID) principal.get("id");
     if (!role(user, "DEVELOPER")) throw new ApiError(403, "FORBIDDEN", "A builder profile is required.");
-    if (approved && (principal.get("email_verified_at") == null
-        || db.queryForObject("SELECT count(*) FROM developer_profiles WHERE user_id=?"
-            + " AND approval_status='APPROVED'", Integer.class, user) == 0))
-      throw new ApiError(403, "FORBIDDEN", "Your email and builder profile must be approved first.");
+    if (approved && principal.get("email_verified_at") == null)
+      throw new ApiError(403, "BUILDER_APPROVAL_REQUIRED", "Confirm your email before using approved builder tools.");
+    if (approved && db.queryForObject("SELECT count(*) FROM developer_profiles WHERE user_id=?"
+        + " AND approval_status='APPROVED'", Integer.class, user) == 0)
+      throw new ApiError(403, "BUILDER_APPROVAL_REQUIRED", "Your builder profile needs approval before you can use this tool.");
     return user;
   }
 }

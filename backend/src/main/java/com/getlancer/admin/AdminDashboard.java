@@ -1,6 +1,7 @@
 package com.getlancer.admin;
 
 import com.getlancer.payments.PaymentRepository;
+import com.getlancer.products.ProductRepository;
 import com.getlancer.responses.AdminDashboardResponse;
 import com.getlancer.security.Security;
 import com.getlancer.shared.ApiError;
@@ -76,7 +77,7 @@ public class AdminDashboard {
 
     var queues = db.query("""
         SELECT 'projects' AS key, count(*) AS count, min(updated_at) AS oldest, NULL AS severity
-        FROM products WHERE approval_status = 'PENDING_REVIEW'
+        FROM products p WHERE %s
         UNION ALL
         SELECT 'reports', count(*), min(created_at),
           CASE WHEN bool_or(severity = 'CRITICAL') THEN 'CRITICAL' WHEN bool_or(severity = 'HIGH') THEN 'HIGH' END
@@ -85,7 +86,7 @@ public class AdminDashboard {
         SELECT 'disputes', count(*), min(created_at), NULL FROM delivery_disputes WHERE status = 'OPEN'
         UNION ALL
         SELECT 'email', count(*), min(created_at), NULL FROM email_outbox WHERE sent_at IS NULL AND attempts >= 8
-        """, (rs, row) -> new AdminDashboardResponse.Queue(rs.getString("key"), rs.getLong("count"),
+        """.formatted(ProductRepository.PENDING_REVIEW), (rs, row) -> new AdminDashboardResponse.Queue(rs.getString("key"), rs.getLong("count"),
         instant(rs, "oldest"), rs.getString("severity")));
     var payment = paymentRepository.attentionSummary();
     queues.add(new AdminDashboardResponse.Queue("payments", payment.count(), payment.oldest(), null));
