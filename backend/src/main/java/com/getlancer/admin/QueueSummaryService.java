@@ -1,5 +1,6 @@
 package com.getlancer.admin;
 
+import com.getlancer.products.ProductRepository;
 import com.getlancer.security.Security;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -20,11 +21,11 @@ public class QueueSummaryService {
   public Totals totals(HttpServletRequest request) {
     security.admin(request);
     return db.queryForObject("""
-        SELECT (SELECT count(*) FROM products WHERE approval_status IN ('PENDING_REVIEW', 'SUSPENDED')) AS projects,
+        SELECT (SELECT count(*) FROM products p WHERE %s) AS projects,
           (SELECT count(*) FROM developer_profiles WHERE approval_status IN ('PROFILE_PENDING', 'SUSPENDED')) AS profiles,
           (SELECT count(*) FROM reports WHERE status <> 'RESOLVED') AS reports,
           (SELECT count(*) FROM reviews WHERE moderation_status = 'HELD_FOR_REVIEW') AS reviews
-        """, (row, index) -> new Totals(row.getLong("projects"), row.getLong("profiles"),
+        """.formatted(ProductRepository.MODERATION_QUEUE), (row, index) -> new Totals(row.getLong("projects"), row.getLong("profiles"),
         row.getLong("reports"), row.getLong("reviews")));
   }
 }

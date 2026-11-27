@@ -10,6 +10,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.getlancer.media.MediaService;
 import com.getlancer.notifications.Mail;
+import com.getlancer.profiles.AvatarService;
 import com.getlancer.responses.ProjectResponses;
 import com.getlancer.security.Security;
 import com.getlancer.shared.ApiError;
@@ -275,12 +276,17 @@ public class ProductService {
                 + " \"githubUrl\",d.linkedin_url AS \"linkedinUrl\",d.website_url AS"
                 + " \"websiteUrl\",d.country,d.time_zone AS"
                 + " \"timeZone\",d.languages,d.availability_confirmed_at AS"
-                + " \"availabilityConfirmedAt\" FROM developer_profiles d JOIN users u ON"
-                + " u.id=d.user_id WHERE d.slug=? AND d.approval_status='APPROVED' AND"
+                + " \"availabilityConfirmedAt\",CASE WHEN u.email_verified_at IS NOT NULL AND"
+                + " EXISTS(SELECT 1 FROM user_roles r WHERE r.user_id=d.user_id AND r.role='DEVELOPER')"
+                + " THEN a.id END AS avatar_id FROM developer_profiles d JOIN users u ON"
+                + " u.id=d.user_id LEFT JOIN profile_avatars a ON a.user_id=d.user_id"
+                + " WHERE d.slug=? AND d.approval_status='APPROVED' AND"
                 + " u.account_status='ACTIVE'",
             slug);
     if (rows.isEmpty()) throw new ApiError(404, "NOT_FOUND", "Builder not found.");
     var profile = new LinkedHashMap<>(rows.get(0));
+    UUID avatar = (UUID) profile.remove("avatar_id");
+    if (avatar != null) profile.put("avatarUrl", AvatarService.url(avatar));
     var metric =
         db.queryForMap(
             "SELECT count(*) AS sample,count(first_response) AS responded,percentile_cont(0.5)"

@@ -115,6 +115,17 @@ test('control center tabs reveal tools directly and fit narrow screens',async({p
  await expect(triage.getByRole('heading',{name:'Report priority and triage'})).toBeVisible();
  await expect(triage.locator('details > summary').first()).toBeHidden();
  await expect(triage.getByText('Private reported evidence 0',{exact:true})).toBeVisible();
+ const filter=triage.getByRole('button',{name:'Filter reports',exact:true});
+ const refresh=triage.getByRole('button',{name:'Refresh report triage',exact:true});
+ const filterBox=(await filter.boundingBox())!;
+ const refreshBox=(await refresh.boundingBox())!;
+ const horizontalGap=refreshBox.x-filterBox.x-filterBox.width;
+ const verticalGap=refreshBox.y-filterBox.y-filterBox.height;
+ expect(Math.max(horizontalGap,verticalGap)).toBeGreaterThanOrEqual(8);
+ expect(Math.min(filterBox.height,refreshBox.height)).toBeGreaterThanOrEqual(44);
+ await filter.focus();
+ await page.keyboard.press('Tab');
+ await expect(refresh).toBeFocused();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(await page.evaluate(()=>document.documentElement.clientWidth));
 
  await community.click();

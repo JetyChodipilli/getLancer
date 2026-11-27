@@ -592,8 +592,18 @@ public class MediaService {
         throw new ApiError(400, "INVALID_VIDEO", "Choose an MP4 with video data and playback metadata.");
       return new PreviewUpload(bytes, "video/mp4");
     }
-    var original = readProofImage(bytes, 960);
-    double scale = Math.min(1.0, 960.0 / Math.max(original.getWidth(), original.getHeight()));
+    return new PreviewUpload(resizedJpeg(bytes, 960), "image/jpeg");
+  }
+
+  public static byte[] avatarUpload(MultipartFile file) throws IOException {
+    if (file.isEmpty() || file.getSize() > 5 * 1024 * 1024)
+      throw new ApiError(400, "VALIDATION_ERROR", "Choose a PNG or JPEG file up to 5 MB.");
+    return resizedJpeg(file.getBytes(), 320);
+  }
+
+  private static byte[] resizedJpeg(byte[] bytes, int limit) throws IOException {
+    var original = readProofImage(bytes, limit);
+    double scale = Math.min(1.0, (double) limit / Math.max(original.getWidth(), original.getHeight()));
     int width = Math.max(1, (int) Math.round(original.getWidth() * scale));
     int height = Math.max(1, (int) Math.round(original.getHeight() * scale));
     var cover = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
@@ -608,7 +618,7 @@ public class MediaService {
     }
     var output = new ByteArrayOutputStream();
     ImageIO.write(cover, "jpeg", output);
-    return new PreviewUpload(output.toByteArray(), "image/jpeg");
+    return output.toByteArray();
   }
 
   private static boolean validMp4(byte[] bytes) {

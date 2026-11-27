@@ -496,6 +496,7 @@ body .studio-shell .control-center [data-slot=tabs-list] {
 .control-center [role=tab]:focus-visible { outline: 2px solid var(--paper-focus); outline-offset: -3px; }
 .control-center-tool, .control-center-review-list { display: grid; gap: 16px; min-width: 0; }
 .control-center-tool :is(h3, h4, p), .control-center-review-list :is(h2, h3, p) { margin: 0; }
+.control-center-review-actions { display: flex; flex-wrap: wrap; gap: 12px; }
 .control-center-open > details > summary { display: none; }
 .control-center-open > details[open] { display: grid; gap: 16px; }
 .control-center-form { display: grid; gap: 16px; min-width: 0; }
@@ -510,7 +511,28 @@ body .studio-shell .control-center [data-slot=tabs-list] {
 .control-center-table :is(td, th) { padding: 10px 12px; vertical-align: middle; text-align: left; }
 .control-center-table td small { display: block; margin-top: 4px; color: var(--muted); overflow-wrap: anywhere; }
 .control-center-table .button { min-height: 44px; }
+
+.workspace-panel-body { display: grid; gap: 16px; min-width: 0; }
+.workspace-panel-body > p { margin: 0; }
+.workspace-panel-body > .button { justify-self: start; }
+.studio-shell .report-triage-filter {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.report-triage-actions {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 12px;
+}
+.report-triage-actions > .button { min-height: 44px; min-width: 44px; }
+.report-triage-decision + .report-triage-decision {
+  padding-block-start: 16px;
+  border-block-start: 1px solid var(--studio-line);
+}
 @media (max-width: 640px) {
+  .studio-shell .report-triage-filter { grid-template-columns: minmax(0, 1fr); }
   .control-center-heading, .control-center-toolbar { align-items: flex-start; }
   .control-center-toolbar > .showcase-field { flex: 1 1 100%; }
   .control-center-toolbar input { width: 100%; }

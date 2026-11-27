@@ -12,6 +12,7 @@ import com.getlancer.inquiries.InquiryOutcomeService;
 import com.getlancer.inquiries.InquiryPolicy;
 import com.getlancer.notifications.Mail;
 import com.getlancer.products.ProductRepository;
+import com.getlancer.profiles.AvatarService;
 import com.getlancer.responses.AccountExportResponse;
 import com.getlancer.responses.UserResponse;
 import com.getlancer.security.Security;
@@ -348,16 +349,16 @@ public class AuthService {
     var p = security.principal(r);
     UUID u = (UUID) p.get("id");
     var profile = db.queryForMap(
-        "SELECT user_id,slug,display_name,headline,bio,technology,category,availability_status,"
+        "SELECT d.user_id,slug,display_name,headline,bio,technology,category,availability_status,"
             + "booked_until,github_url,linkedin_url,website_url,country,time_zone,languages,"
-            + "approval_status,moderation_reason,updated_at,availability_confirmed_at"
-            + " FROM developer_profiles WHERE user_id=?", u);
+            + "approval_status,moderation_reason,updated_at,availability_confirmed_at,a.id AS avatar_id"
+            + " FROM developer_profiles d LEFT JOIN profile_avatars a ON a.user_id=d.user_id WHERE d.user_id=?", u);
     return new UserResponse(u, (String) p.get("email"), (String) profile.get("display_name"),
         AccountExportResponse.Profile.from(profile),
         db.queryForList("SELECT role FROM user_roles WHERE user_id=?", String.class, u),
         p.get("email_verified_at") != null,
         db.queryForObject("SELECT active_slot_limit FROM showcase_entitlements WHERE user_id=?",
-            Integer.class, u));
+            Integer.class, u), AvatarService.url((UUID) profile.get("avatar_id")));
   }
 
   @Transactional
@@ -482,6 +483,7 @@ public class AuthService {
           throw new ApiError(409,"HOSTED_DEMOS_ACTIVE","Withdraw hosted demos and confirm removal before closing this account. Ask the operator to recover uncertain deployments.");
         db.update("INSERT INTO deletion_requests(user_id) VALUES(?) ON CONFLICT DO NOTHING", user);
         db.update("UPDATE users SET account_status='DELETED' WHERE id=?", user);
+        db.update("DELETE FROM profile_avatars WHERE user_id=?", user);
         db.update("DELETE FROM sessions WHERE user_id=?", user);
         db.update("DELETE FROM login_challenges WHERE user_id=?", user);
         db.update("UPDATE account_tokens SET used_at=now() WHERE user_id=?", user);

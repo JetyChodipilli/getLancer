@@ -2,13 +2,13 @@
 import './account-menu.css';
 import {ChevronDown,Check,LogOut,UserRound,LayoutDashboard,FlaskConical,Settings} from 'lucide-react';
 import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuLabel,DropdownMenuItem,DropdownMenuSeparator,DropdownMenuSub,DropdownMenuSubTrigger,DropdownMenuSubContent} from '@/components/ui/dropdown-menu';
+import ProfileAvatar from './profile-avatar';
 
 type Account={id:string;name:string;role:string};
-export default function AccountMenu({name,role,email,demoAccounts,selectedId,onSwitch,onWorkspace,onProfile,onSettings,onExit,exitPending=false}:{name:string;role:string;email?:string;demoAccounts?:Account[];selectedId?:string;onSwitch?:(id:string)=>void;onWorkspace:()=>void;onProfile?:()=>void;onSettings?:()=>void;onExit:()=>void;exitPending?:boolean}){
+export default function AccountMenu({name,role,email,avatarUrl,demoAccounts,selectedId,onSwitch,onWorkspace,onProfile,onSettings,onExit,exitPending=false}:{name:string;role:string;email?:string;avatarUrl?:string;demoAccounts?:Account[];selectedId?:string;onSwitch?:(id:string)=>void;onWorkspace:()=>void;onProfile?:()=>void;onSettings?:()=>void;onExit:()=>void;exitPending?:boolean}){
  const displayName=(name.includes('@')?name.split('@')[0]:name).trim()||'Member';
- const initials=displayName.split(/\s+/).slice(0,2).map(word=>word[0]).join('').toUpperCase();
- return <DropdownMenu><DropdownMenuTrigger asChild><button className="account-trigger account-trigger-centered" aria-label={`Account menu for ${name}`}><span className="account-avatar" aria-hidden="true">{initials}</span><span className="account-identity"><strong>{displayName.split(/\s+/)[0]}</strong>{demoAccounts&&<small>Demo</small>}</span><ChevronDown size={16} aria-hidden="true"/></button></DropdownMenuTrigger><DropdownMenuContent className="account-popover account-menu-centered" align="end" sideOffset={12}>
-  <DropdownMenuLabel className="account-menu-heading"><span className="account-avatar account-avatar-profile" aria-hidden="true">{initials}</span><div className="account-menu-person"><strong>{displayName}</strong>{(demoAccounts||email)&&<span>{demoAccounts?'Sample account · no real sign-in':email}</span>}<small className="account-role">{role}</small></div></DropdownMenuLabel>
+ return <DropdownMenu><DropdownMenuTrigger asChild><button className="account-trigger account-trigger-centered" aria-label={`Account menu for ${name}`}><ProfileAvatar className="account-avatar" name={displayName} src={avatarUrl}/><span className="account-identity"><strong>{displayName.split(/\s+/)[0]}</strong>{demoAccounts&&<small>Demo</small>}</span><ChevronDown size={16} aria-hidden="true"/></button></DropdownMenuTrigger><DropdownMenuContent className="account-popover account-menu-centered" align="end" sideOffset={12}>
+  <DropdownMenuLabel className="account-menu-heading"><ProfileAvatar className="account-avatar account-avatar-profile" name={displayName} src={avatarUrl}/><div className="account-menu-person"><strong>{displayName}</strong>{(demoAccounts||email)&&<span>{demoAccounts?'Sample account · no real sign-in':email}</span>}<small className="account-role">{role}</small></div></DropdownMenuLabel>
   {onProfile&&<DropdownMenuItem className="account-profile-action" onSelect={onProfile}><UserRound/>Edit profile</DropdownMenuItem>}
   <DropdownMenuItem onSelect={onWorkspace}><LayoutDashboard/>My workspace</DropdownMenuItem>
   {onSettings&&<DropdownMenuItem onSelect={onSettings}><Settings/>Account settings</DropdownMenuItem>}

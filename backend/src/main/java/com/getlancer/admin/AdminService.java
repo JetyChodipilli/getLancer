@@ -66,9 +66,9 @@ public class AdminService {
   public PageResponse<ProjectResponses.ManagementProject> pending(HttpServletRequest r) {
     security.admin(r);
     String statusFilter = "PENDING_REVIEW".equals(r.getParameter("status"))
-        ? "p.approval_status = 'PENDING_REVIEW'" : "p.approval_status IN ('PENDING_REVIEW','SUSPENDED')";
-    var result = Pages.query(db, r, ProductRepository.MANAGEMENT + " WHERE (" + statusFilter
-        + " OR (p.approval_status='APPROVED' AND p.draft_status='PENDING_REVIEW')) ORDER BY p.updated_at,p.id");
+        ? ProductRepository.PENDING_REVIEW : ProductRepository.MODERATION_QUEUE;
+    var result = Pages.query(db, r, ProductRepository.MANAGEMENT + " WHERE " + statusFilter
+        + " ORDER BY p.updated_at,p.id");
     result.put("items", products.withDrafts(Pages.items(result), true));
     return PageResponse.from(result,ProjectResponses.ManagementProject::from);
   }

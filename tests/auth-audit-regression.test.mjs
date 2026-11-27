@@ -3,9 +3,10 @@ import {readFileSync} from 'node:fs';
 import {stripTypeScriptTypes} from 'node:module';
 import test from 'node:test';
 
-const profile=readFileSync(new URL('../app/components/profile-form.tsx',import.meta.url),'utf8');
-const account=readFileSync(new URL('../app/components/account-settings.tsx',import.meta.url),'utf8');
-const auth=readFileSync(new URL('../app/components/auth-form.tsx',import.meta.url),'utf8');
+const componentSource=name=>readFileSync(new URL('../app/components/'+name+'.tsx',import.meta.url),'utf8').replace(/\r\n/g,'\n');
+const profile=componentSource('profile-form');
+const account=componentSource('account-settings');
+const auth=componentSource('auth-form');
 const apiSource=stripTypeScriptTypes(readFileSync(new URL('../lib/api.ts',import.meta.url),'utf8'),{mode:'transform'});
 const {ApiError}=await import('data:text/javascript;base64,'+Buffer.from(apiSource).toString('base64'));
 function routine(source,start,end,context){

@@ -5,6 +5,7 @@ DELETE /api/v1/components/{slug}/save
 DELETE /api/v1/developer/products/{id}/access
 DELETE /api/v1/developer/products/{product}/media/{id}
 DELETE /api/v1/me
+DELETE /api/v1/me/avatar
 DELETE /api/v1/products/{id}/save
 DELETE /api/v1/teams/{id}/members/{userId}
 DELETE /api/v1/teams/{id}/projects/{productId}
@@ -111,6 +112,7 @@ GET /api/v1/me/template-purchases
 GET /api/v1/me/templates
 GET /api/v1/me/templates/{id}/versions/{version}/package
 GET /api/v1/media/{id}
+GET /api/v1/profile-avatars/{id}
 GET /api/v1/notifications
 GET /api/v1/payments/config
 GET /api/v1/policies/config
@@ -289,6 +291,7 @@ PUT /api/v1/businesses/{id}
 PUT /api/v1/businesses/{id}/requests/{requestId}
 PUT /api/v1/developer/availability
 PUT /api/v1/developer/profile
+PUT /api/v1/me/avatar
 PUT /api/v1/me/college-projects/{id}
 PUT /api/v1/teams/{id}
 GET /api/v1/teams/{id}/leads/{leadId}/notes
