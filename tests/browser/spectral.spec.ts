@@ -17,7 +17,7 @@ async function noInfiniteMotion(surface:Locator){
 
 test('Search First discovery keeps genuine project navigation, search and legible chrome',async({page},info)=>{
  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
- await page.goto('/');await expect(page.getByRole('heading',{name:'Find software worth trying.',exact:true})).toBeVisible();
+ await page.goto('/');await expect(page.getByRole('heading',{name:'See the work. Hire the builder.',exact:true})).toBeVisible();
  const exhibition=page.getByRole('region',{name:'Featured project demos',exact:true});
  await expect(exhibition.locator('.paper-feature')).toHaveCount(3);
  await expect(page.locator('.site-header').getByRole('img',{name:'getLancer',exact:true})).toBeVisible();

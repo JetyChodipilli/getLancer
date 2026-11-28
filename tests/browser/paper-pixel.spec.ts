@@ -36,7 +36,19 @@ async function allowRoutePrefetch(page: Page) {
 
 test('@cross-browser public exhibition exposes real projects and all four discovery paths', async ({page}, info) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', {level: 1, name: 'Find software worth trying.'})).toBeVisible();
+  await expect(page.getByRole('heading', {level: 1, name: 'See the work. Hire the builder.'})).toBeVisible();
+  const heroPhoto = page.locator('.paper-home-hero img');
+  await expect(heroPhoto).toHaveAttribute('alt', '');
+  await expect.poll(() => heroPhoto.evaluate((image: HTMLImageElement) => image.naturalWidth))
+    .toBeGreaterThan(0);
+  const searchForm = page.locator('#paper-search');
+  await expect(searchForm).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await expect(searchForm.getByRole('textbox', {name: 'Search projects', exact: true}))
+    .toHaveAttribute('placeholder', 'Try inventory software');
+  const searchButton = searchForm.getByRole('button', {name: 'Search', exact: true});
+  await expect(searchButton).toBeInViewport({ratio: 1});
+  await expect(searchButton).toHaveCSS('font-size', '14px');
+  expect((await searchButton.boundingBox())?.height).toBeGreaterThanOrEqual(44);
   const paths = page.getByRole('navigation', {name: 'Explore getLancer', exact: true});
   for (const [name, href] of [['Projects', '#project-collection'], ['Components', '/components'], ['College projects', '/college-projects'], ['Learning', '/labs']]) {
     await expect(paths.getByRole('link', {name, exact: true})).toHaveAttribute('href', href);
@@ -77,7 +89,7 @@ test('@cross-browser discovery waits for navigation intent before requesting ano
     if (url.searchParams.has('_rsc')) routeRequests.push(url.pathname);
   });
   await page.goto('/');
-  await expect(page.getByRole('heading', {level: 1, name: 'Find software worth trying.'})).toBeVisible();
+  await expect(page.getByRole('heading', {level: 1, name: 'See the work. Hire the builder.'})).toBeVisible();
   await expect(page.locator('.scroll-discovery')).toBeAttached();
   await allowRoutePrefetch(page);
   expect(routeRequests, 'Discovery must not start speculative route requests before a navigation choice').toEqual([]);
@@ -110,6 +122,7 @@ test('project search, filter removal and browser back retain confirmed URL state
   await search.fill('Stockroom');
   await page.locator('.paper-home-search').getByRole('button', {name: 'Search', exact: true}).click();
   await expect(page).toHaveURL(/q=Stockroom/);
+  await expect(page.locator('.paper-home-hero img')).toHaveCount(0);
   await expect(page.locator('.paper-project-grid .paper-project')).toHaveCount(1);
   await expect(page.locator('.paper-project-grid').getByRole('link', {name: 'Stockroom', exact: true})).toBeVisible();
   await page.getByRole('button', {name: /^Filters/}).click();

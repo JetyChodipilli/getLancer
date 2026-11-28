@@ -98,11 +98,11 @@ export default function Explore({items, preview, totalItems, totalPages, filters
  }
 
  const discovery = <div className="paper-home-story">
-    <div className="paper-home-intro"><h1 id="paper-home-title">Find software worth trying.</h1><p>Search working projects, reusable components, and the people who built them.</p></div>
+    <div className="paper-home-intro"><h1 id="paper-home-title">See the work. Hire the builder.</h1><p>Search by business need, technology, or builder. Explore demos and case studies before you reach out.</p></div>
     <div className="paper-discovery-row">
      <form id="paper-search" className="paper-home-search" ref={heroSearch} role="search" tabIndex={-1} onSubmit={event=>{event.preventDefault();if(!pending)update({q});}}>
       <label className="sr-only" htmlFor="paper-project-search">Search projects</label><Search size={21} aria-hidden="true"/>
-      <input id="paper-project-search" name="q" aria-label="Search projects" maxLength={200} value={q} onChange={event=>setQ(event.target.value)} placeholder="Search projects, tech stacks, or use cases"/>
+      <input id="paper-project-search" name="q" aria-label="Search projects" maxLength={200} value={q} onChange={event=>setQ(event.target.value)} placeholder="Try inventory software"/>
       {q&&<button type="button" className="paper-search-clear" aria-label="Clear search" onClick={()=>{setQ('');if(filters.q)update({q:''});}}><X size={18} aria-hidden="true"/></button>}
       <button type="submit" className="paper-search-submit" disabled={pending}>{pending?'Searching…':'Search'}<ArrowRight size={17} aria-hidden="true"/></button>
      </form>
@@ -113,11 +113,26 @@ export default function Explore({items, preview, totalItems, totalPages, filters
  return <main id="main" className={'paper-marketplace'+(refined?' paper-marketplace-refined':'')}>
   <DiscoveryDock anchor={heroSearch} q={q} setQ={setQ} filters={filters} pending={pending} update={update} reset={reset} categories={categories} technologies={technologies}/>
   <section className="paper-exhibition" aria-labelledby="paper-home-title">
-   <div className="paper-home-frame">
-    {discovery}
-    {!refined&&featured.length>0&&<ProjectStack products={featured}/>}
-    {!refined&&preview&&<p className="paper-sample-note">Illustrative projects and creators. <Link prefetch={false} href="/preview/workspace">Explore the workspace preview <ArrowUpRight size={14} aria-hidden="true"/></Link></p>}
+   <div className={refined ? undefined : 'paper-home-hero'}>
+    {!refined && (
+      // eslint-disable-next-line @next/next/no-img-element -- The responsive WebP variants are pre-optimized static assets.
+      <img
+        className="paper-home-hero-photo"
+        src="/brand/project-discovery-1440.webp"
+        srcSet="/brand/project-discovery-640.webp 640w, /brand/project-discovery-960.webp 960w, /brand/project-discovery-1440.webp 1440w"
+        sizes="(max-width: 800px) 100vw, 68vw"
+        width={1440}
+        height={960}
+        alt=""
+        fetchPriority="high"
+      />
+    )}
+    <div className="paper-home-frame">{discovery}</div>
    </div>
+   {!refined && (featured.length > 0 || preview) && <div className="paper-home-frame">
+    {featured.length > 0 && <ProjectStack products={featured}/>}
+    {preview && <p className="paper-sample-note">Illustrative projects and creators. <Link prefetch={false} href="/preview/workspace">Explore the workspace preview <ArrowUpRight size={14} aria-hidden="true"/></Link></p>}
+   </div>}
   </section>
 
   {!refined&&<div className="paper-chapters paper-home-frame">
