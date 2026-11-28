@@ -5,10 +5,9 @@
   --home-inverse: var(--home-ink);
   --home-inverse-muted: var(--home-muted);
   --home-dark-surface: var(--paper-soft);
-  background: radial-gradient(ellipse at 50% 22%, #fafbff, #edf1ff 66%, transparent 90%),
-    linear-gradient(180deg, #f7f8ff, #dbe3f7);
+  background: var(--home-paper);
   color: var(--home-ink);
-  padding-block: clamp(24px, 4vw, 58px) 28px;
+  padding-bottom: 28px;
 }
 .paper-home-story { max-width: 1050px; margin: 0 auto 34px; text-align: center }
 .paper-marketplace .paper-home-intro h1 {
@@ -72,6 +71,78 @@
 .paper-discovery-paths { display: flex; justify-content: center; flex-wrap: wrap; gap: 0 18px; margin-top: 6px }
 .paper-discovery-paths a { display: inline-flex; align-items: center; gap: 5px; min-height: 44px; color: var(--paper-action); text-decoration: none; font-size: 14px }
 .paper-discovery-paths a:hover { text-decoration: underline; text-underline-offset: 4px }
+
+.paper-home-hero {
+  --hero-shade: 16 28 49;
+  --hero-copy: #dce5f5;
+  position: relative;
+  isolation: isolate;
+  background: rgb(var(--hero-shade));
+  color: var(--home-surface);
+  margin-bottom: clamp(24px, 3vw, 44px);
+}
+.paper-home-hero-photo {
+  position: absolute;
+  z-index: -2;
+  inset: 0 auto 0 0;
+  width: 68%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 35% 44%;
+}
+.paper-home-hero::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: linear-gradient(270deg, rgb(var(--hero-shade)) 33%, rgb(var(--hero-shade) / .97) 42%, rgb(var(--hero-shade) / .60) 53%, rgb(var(--hero-shade) / .13) 75%);
+  pointer-events: none;
+}
+.paper-home-hero .paper-home-frame {
+  display: grid;
+  grid-template-columns: 46% minmax(0, 1fr);
+  align-items: center;
+  min-height: clamp(420px, 35vw, 520px);
+  padding-block: clamp(40px, 5vw, 72px);
+}
+.paper-home-hero .paper-home-story { grid-column: 2; width: min(100%, 560px); margin: 0; text-align: left }
+.paper-home-hero .paper-home-intro h1 {
+  font-size: clamp(2.6rem, 5.1vw, 4.5rem);
+  letter-spacing: -.045em;
+  line-height: 1.05;
+  margin-bottom: 16px;
+  text-wrap: balance;
+}
+.paper-home-hero .paper-home-intro > p { color: var(--hero-copy); margin: 0 0 24px; max-width: 46ch }
+body .paper-home-hero form.paper-home-search {
+  background: var(--home-surface);
+  border-color: var(--home-surface);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  margin: 0;
+  max-width: none;
+}
+.paper-home-hero .paper-home-search:focus-within { outline-color: var(--paper-focus-on-dark) }
+body .paper-home-hero .paper-home-search button:focus-visible { outline-color: var(--paper-focus) }
+.paper-home-hero .paper-discovery-paths { justify-content: flex-start }
+.paper-home-hero .paper-discovery-paths a { color: var(--hero-copy) }
+.paper-home-hero .paper-discovery-paths a:hover { color: var(--home-surface) }
+
+@media (max-width: 800px) {
+  .paper-home-hero-photo { inset: 0 0 auto; width: 100%; height: clamp(220px, 53vw, 315px); object-position: 33% 39% }
+  .paper-home-hero::before { background: linear-gradient(180deg, rgb(var(--hero-shade) / .05) 9%, rgb(var(--hero-shade) / .5) 24%, rgb(var(--hero-shade)) 47%) }
+  .paper-home-hero .paper-home-frame { display: block; min-height: 0; padding-block: clamp(178px, 45vw, 260px) 20px }
+  .paper-home-hero .paper-home-story { margin-inline: auto }
+  .paper-home-hero .paper-home-intro h1 { margin-bottom: 12px }
+  .paper-home-hero .paper-home-intro > p { margin-bottom: 16px }
+  .paper-home-hero .paper-discovery-paths { column-gap: 14px }
+}
+
+@media (forced-colors: active) {
+  .paper-home-hero::before, .paper-home-hero-photo { display: none }
+  .paper-home-hero .paper-home-frame { min-height: 0; padding-block: 32px }
+}
+
 .paper-featured-label { margin: 0 0 12px; color: var(--home-muted); font-size: 14px; letter-spacing: .035em; font-weight: 650 }
 .paper-featured-projects { display: grid; grid-template-columns: 1.25fr 1fr 1fr; gap: 14px }
 .paper-feature { min-width: 0; padding: 8px; border-radius: var(--paper-radius-surface) }
@@ -193,7 +264,11 @@
 .paper-no-results h3{font-size:26px;font-weight:500;letter-spacing:-.035em;margin:20px 0 12px}
 .paper-no-results p{max-width:470px;margin:0 auto 24px;color:var(--home-muted);font-size:16px;line-height:1.6}
 .paper-no-results .button{margin-inline:auto}
-.paper-marketplace-refined .paper-exhibition{padding-bottom:40px}
+.paper-marketplace-refined .paper-exhibition {
+  background: radial-gradient(ellipse at 50% 22%, #fafbff, #edf1ff 66%, transparent 90%),
+    linear-gradient(180deg, #f7f8ff, #dbe3f7);
+  padding-block: clamp(24px, 4vw, 58px) 40px;
+}
 .paper-marketplace-refined .paper-home-story{margin-bottom:0}
 /* Keep the preview focus indicator inside the clipping media, above its image. */
 .paper-project-media:has(>.paper-project-preview:focus-visible)::after{content:'';position:absolute;inset:4px;z-index:1;border:3px solid var(--paper-focus,#2d5d85);border-radius:calc(var(--paper-radius-preview,8px) - 3px);box-shadow:0 0 0 2px #fff,inset 0 0 0 2px #fff;pointer-events:none}

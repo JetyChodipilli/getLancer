@@ -1,0 +1,9 @@
+getLancer homepage photograph
+
+Two colleagues collaborating on a laptop in office
+Photograph by Kristina Spremo
+https://unsplash.com/photos/two-colleagues-collaborating-on-a-laptop-in-office-gbzcMKTGHqc
+
+Unsplash License: https://unsplash.com/license
+
+The homepage uses resized WebP copies at 640, 960, and 1440 pixels wide.

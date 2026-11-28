@@ -113,11 +113,26 @@ export default function Explore({items, preview, totalItems, totalPages, filters
  return <main id="main" className={'paper-marketplace'+(refined?' paper-marketplace-refined':'')}>
   <DiscoveryDock anchor={heroSearch} q={q} setQ={setQ} filters={filters} pending={pending} update={update} reset={reset} categories={categories} technologies={technologies}/>
   <section className="paper-exhibition" aria-labelledby="paper-home-title">
-   <div className="paper-home-frame">
-    {discovery}
-    {!refined&&featured.length>0&&<ProjectStack products={featured}/>}
-    {!refined&&preview&&<p className="paper-sample-note">Illustrative projects and creators. <Link prefetch={false} href="/preview/workspace">Explore the workspace preview <ArrowUpRight size={14} aria-hidden="true"/></Link></p>}
+   <div className={refined ? undefined : 'paper-home-hero'}>
+    {!refined && (
+      // eslint-disable-next-line @next/next/no-img-element -- The responsive WebP variants are pre-optimized static assets.
+      <img
+        className="paper-home-hero-photo"
+        src="/brand/project-discovery-1440.webp"
+        srcSet="/brand/project-discovery-640.webp 640w, /brand/project-discovery-960.webp 960w, /brand/project-discovery-1440.webp 1440w"
+        sizes="(max-width: 800px) 100vw, 68vw"
+        width={1440}
+        height={960}
+        alt=""
+        fetchPriority="high"
+      />
+    )}
+    <div className="paper-home-frame">{discovery}</div>
    </div>
+   {!refined && (featured.length > 0 || preview) && <div className="paper-home-frame">
+    {featured.length > 0 && <ProjectStack products={featured}/>}
+    {preview && <p className="paper-sample-note">Illustrative projects and creators. <Link prefetch={false} href="/preview/workspace">Explore the workspace preview <ArrowUpRight size={14} aria-hidden="true"/></Link></p>}
+   </div>}
   </section>
 
   {!refined&&<div className="paper-chapters paper-home-frame">
