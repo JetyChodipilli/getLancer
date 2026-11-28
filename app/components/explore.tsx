@@ -98,11 +98,11 @@ export default function Explore({items, preview, totalItems, totalPages, filters
  }
 
  const discovery = <div className="paper-home-story">
-    <div className="paper-home-intro"><h1 id="paper-home-title">Find software worth trying.</h1><p>Search working projects, reusable components, and the people who built them.</p></div>
+    <div className="paper-home-intro"><h1 id="paper-home-title">See the work. Hire the builder.</h1><p>Search by business need, technology, or builder. Explore demos and case studies before you reach out.</p></div>
     <div className="paper-discovery-row">
      <form id="paper-search" className="paper-home-search" ref={heroSearch} role="search" tabIndex={-1} onSubmit={event=>{event.preventDefault();if(!pending)update({q});}}>
       <label className="sr-only" htmlFor="paper-project-search">Search projects</label><Search size={21} aria-hidden="true"/>
-      <input id="paper-project-search" name="q" aria-label="Search projects" maxLength={200} value={q} onChange={event=>setQ(event.target.value)} placeholder="Search projects, tech stacks, or use cases"/>
+      <input id="paper-project-search" name="q" aria-label="Search projects" maxLength={200} value={q} onChange={event=>setQ(event.target.value)} placeholder="Try inventory software"/>
       {q&&<button type="button" className="paper-search-clear" aria-label="Clear search" onClick={()=>{setQ('');if(filters.q)update({q:''});}}><X size={18} aria-hidden="true"/></button>}
       <button type="submit" className="paper-search-submit" disabled={pending}>{pending?'Searching…':'Search'}<ArrowRight size={17} aria-hidden="true"/></button>
      </form>

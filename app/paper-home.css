@@ -231,7 +231,8 @@
   .paper-home-story { margin-bottom: 24px }
   .paper-home-search { padding-inline-start: 11px; gap: 4px }
   .paper-home-search > svg { width: 18px }
-  .paper-search-submit { font-size: 0; gap: 0; padding: 0 }
+  .paper-search-submit { padding-inline: 12px }
+  .paper-search-submit > svg { display: none }
   .paper-discovery-paths { gap: 0 12px }
   .paper-discovery-paths a { font-size: 13px }
   .paper-featured-projects { grid-template-columns: minmax(0, 1fr) }
